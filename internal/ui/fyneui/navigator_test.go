@@ -2,7 +2,6 @@ package fyneui
 
 import (
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -44,9 +43,9 @@ func openViews(t *testing.T, f *fakeEngine) []string {
 }
 
 // The tree's root is the cluster (captured): its badge as the hotbar draws it, its name and
-// kubeconfig, a connection dot and a ›, and a ‹ that goes up to the section level, Local
-// Kubeconfigs (ui.setNavigatorScope; navigator_sections.go). Without a cluster the navigator shows
-// the section; a connecting cluster's root says so.
+// kubeconfig, a connection dot and a ›; the header's ‹ All Clusters goes up to the section level
+// (ui.setNavigatorScope; navigator_sections.go), the root has no ‹ of its own (D-57). Without a
+// cluster the navigator shows the section; a connecting cluster's root says so.
 func TestNavigatorRootIsTheCluster(t *testing.T) {
 	sh, _, q, f := navScene(t, ThemeDark)
 	fakeNavScope(t, f)
@@ -64,14 +63,14 @@ func TestNavigatorRootIsTheCluster(t *testing.T) {
 		"Network", "Namespaces", "Events", "Custom Resources"}) {
 		t.Errorf("tree %v", got)
 	}
-	if s.head.scope.text.text != "kind-cogpit" {
-		t.Errorf("scope %q", s.head.scope.text.text)
+	if !s.head.back.Visible() || s.head.title.Visible() {
+		t.Errorf("header: back %v, title %v", s.head.back.Visible(), s.head.title.Visible())
 	}
 
-	test.Tap(s.rootRow.back)
+	test.Tap(s.head.back)
 	q.until(t, "the section", func() bool { return s.sec.Visible() && !s.tree.Visible() })
-	if got := scopeCalls(t, f); !slices.Equal(got, []string{engine.NavScopeLocal}) || sh.picker.visible() {
-		t.Errorf("the ‹: scopes %q, picker %v", got, sh.picker.visible())
+	if got := scopeCalls(t, f); !slices.Equal(got, []string{engine.NavScopeLocal}) || s.head.searching() {
+		t.Errorf("‹ All Clusters: scopes %q, search open %v", got, s.head.searching())
 	}
 
 	f.update(func(u *engine.UIState) {
@@ -79,12 +78,12 @@ func TestNavigatorRootIsTheCluster(t *testing.T) {
 	})
 	q.until(t, "the disconnect", func() bool { return s.name.text == "Not connected" })
 	if s.badge.text != "–" || !s.badge.muted || len(s.tree.visible) != 1 || s.emptyHint.text != "Connect a cluster to browse it." ||
-		s.head.scope.text.text != "Local Kubeconfigs" || s.rootRow.tipText() != "" || !s.sec.Visible() || s.tree.Visible() {
-		t.Errorf("without a cluster: badge %q, %d rows, hint %q, scope %q, section %v", s.badge.text, len(s.tree.visible),
-			s.emptyHint.text, s.head.scope.text.text, s.sec.Visible())
+		!s.head.title.Visible() || s.head.back.Visible() || s.rootRow.tipText() != "" || !s.sec.Visible() || s.tree.Visible() {
+		t.Errorf("without a cluster: badge %q, %d rows, hint %q, title %v, section %v", s.badge.text, len(s.tree.visible),
+			s.emptyHint.text, s.head.title.Visible(), s.sec.Visible())
 	}
-	if s.dot.Visible() || s.rootRow.next.Visible() || s.subtitle.Visible() || !s.rootRow.back.Visible() {
-		t.Error("without a cluster the root shows a dot, a › or a subtitle, or no ‹")
+	if s.dot.Visible() || s.rootRow.next.Visible() || s.subtitle.Visible() {
+		t.Error("without a cluster the root shows a dot, a › or a subtitle")
 	}
 	f.update(func(u *engine.UIState) {
 		u.Context, u.Connection = "kind-cogpit", engine.Connection{State: engine.Connecting}
@@ -119,32 +118,6 @@ func TestNavigatorRootMenu(t *testing.T) {
 	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.addCluster")[0]); p.Context != "kind-cogpit" || p.Bank != 1 {
 		t.Errorf("hotbar.addCluster %+v", p)
 	}
-}
-
-// The scope dropdown offers the section, Local Kubeconfigs, below it the hotbar's clusters and the
-// connected one, the cluster the tree shows checked, and All Clusters… for every other one (A52;
-// navigator_sections_test.go tests the hotbar's and choosing them).
-func TestNavigatorScopeDropdown(t *testing.T) {
-	sh, _, q, f := navScene(t, ThemeDark)
-	fakeNavScope(t, f)
-	q.until(t, "the clusters", func() bool { return sh.side.sec.loaded })
-	h := sh.side.head
-	test.Tap(h.scope)
-	var labels []string
-	for _, it := range h.menuModel.Items {
-		labels = append(labels, it.Label)
-	}
-	if strings.Join(labels, ",") != "Local Kubeconfigs,,kind-cogpit,,All Clusters…" ||
-		h.menuModel.Items[0].Checked || !h.menuModel.Items[2].Checked {
-		t.Fatalf("scope menu %v", labels)
-	}
-	h.menuModel.Items[4].Action()
-	if !sh.picker.visible() {
-		t.Error("All Clusters… did not open the context picker")
-	}
-	sh.picker.hide()
-	h.menuModel.Items[0].Action()
-	q.until(t, "the section", func() bool { return sh.side.sec.Visible() })
 }
 
 // Hovering an item shows "<item> - <context>" (captured), the context by its name without its
@@ -383,19 +356,23 @@ func TestNavigatorClick(t *testing.T) {
 	}
 }
 
-func TestRenderNavigatorScopeDark(t *testing.T) {
-	renderNavigatorScope(t, ThemeDark, "navigator_scope_dark.png")
+func TestRenderNavigatorBackDark(t *testing.T) {
+	renderNavigatorBack(t, ThemeDark, "navigator_back_dark.png")
 }
-func TestRenderNavigatorScopeLight(t *testing.T) {
-	renderNavigatorScope(t, ThemeLight, "navigator_scope_light.png")
+func TestRenderNavigatorBackLight(t *testing.T) {
+	renderNavigatorBack(t, ThemeLight, "navigator_back_light.png")
 }
 
-// renderNavigatorScope: the scope dropdown open, the tree's root below it.
-func renderNavigatorScope(t *testing.T, mode ThemeMode, name string) {
+// renderNavigatorBack: at a cluster the header's ‹ All Clusters with the pointer on it and its
+// tooltip, the tree's root below it without a ‹ (D-57).
+func renderNavigatorBack(t *testing.T, mode ThemeMode, name string) {
 	sh, w, q, _ := navScene(t, mode)
 	q.until(t, "diagnostics", func() bool { return sh.diag.total > 0 })
 	settle(w)
-	test.Tap(sh.side.head.scope)
+	sh.tip.delay = time.Millisecond
+	b := sh.side.head.back
+	test.MoveMouse(w.Canvas(), fyne.CurrentApp().Driver().AbsolutePositionForObject(b).AddXY(b.Size().Width/2, b.Size().Height/2))
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() == navBackTip })
 	savePNG(t, w, name)
 }
 

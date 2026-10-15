@@ -143,7 +143,7 @@ func newTableView(sh *shell) *tableView {
 	tv.table = newResourceTable(tv)
 
 	tv.placeholderText = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
-	tv.connectButton = widget.NewButtonWithIcon("Connect to a cluster…", theme.LoginIcon(), func() { sh.picker.show() })
+	tv.connectButton = widget.NewButtonWithIcon(connectLabel+"…", theme.LoginIcon(), func() { sh.findCluster() }) // D-57
 	tv.connectButton.Importance = widget.HighImportance
 	tv.placeholder = container.NewCenter(container.NewVBox(
 		container.NewCenter(tv.placeholderText), container.NewCenter(tv.connectButton)))

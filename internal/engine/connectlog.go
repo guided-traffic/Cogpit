@@ -11,7 +11,7 @@ import (
 // The connect log (G2): what happened when the user last connected to a context, line by line,
 // as Lens shows it behind a warning icon beside the context ("Connection Updates", INFO and ERROR
 // lines, captured 2026-10-12). Cogpit keeps the last attempt of each context in memory, for the
-// session; the picker marks a context whose last attempt failed (ContextInfo.ConnectProblem) and
+// session; the window marks a context whose last attempt failed (ContextInfo.ConnectProblem) and
 // cluster.connectLog returns the lines.
 //
 // A line carries only what the connect errors already carry, which never contain a credential

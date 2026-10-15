@@ -222,12 +222,12 @@ func TestRemoveFromCogpitAsksFirst(t *testing.T) {
 		t.Fatalf("an added file's context: %v", menuLabels(fyne.NewMenu("", items...)))
 	}
 
-	// The picker's row menu has it too.
-	sh.picker.show()
-	q.until(t, "the picker", func() bool { return len(sh.picker.contexts) == 6 })
-	sh.picker.menu("team-a [team.yaml]", fyne.NewPos(300, 300))
-	if labels := menuLabels(sh.picker.menuModel); !slices.Contains(labels, "Remove from Cogpit…") {
-		t.Fatalf("picker menu %v", labels)
+	// The navigator's section row menu has it too.
+	n := sh.side.sec
+	q.until(t, "the section", func() bool { return n.loaded && len(n.contexts) == 6 })
+	n.rowMenu("team-a [team.yaml]", fyne.NewPos(300, 300))
+	if labels := menuLabels(n.menuModel); !slices.Contains(labels, "Remove from Cogpit…") {
+		t.Fatalf("the section's row menu %v", labels)
 	}
 	item := removeOf("team-a [team.yaml]")
 	item.Action()
@@ -237,9 +237,6 @@ func TestRemoveFromCogpitAsksFirst(t *testing.T) {
 		if !strings.Contains(texts, want) {
 			t.Errorf("the confirmation lacks %q: %s", want, texts)
 		}
-	}
-	if sh.picker.visible() {
-		t.Error("the picker lies over the confirmation")
 	}
 	ctxs, _ := s.Contexts()
 	if len(ctxs) != 6 {

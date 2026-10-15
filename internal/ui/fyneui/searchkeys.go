@@ -7,9 +7,8 @@ import (
 
 // F1–F12 and ⇧F1–⇧F12 open the hotbar's clusters and banks in the plain search fields too (the
 // owner's A64, 2026-10-14 evening): the view's search, the navigator's, the logs tab's, the Argo CD
-// dashboard's activity filter, the editor's Find field, the context picker's and the command
-// palette's filters. A text field takes every key while it has the focus, so the window's key handler
-// never sees them there; these fields hand them to the hotbar first. The terminal and the YAML
+// dashboard's activity filter, the editor's Find field and the command palette's filter. A text
+// field takes every key while it has the focus, so the window's key handler never sees them there; these fields hand them to the hotbar first. The terminal and the YAML
 // editor keep their F-keys: a shell or a program in it may use them, and the editor is a text area,
 // not a search field. A field that is no search (a name, a path, a value in a dialog) keeps them too.
 

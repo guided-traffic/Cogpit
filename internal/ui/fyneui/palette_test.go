@@ -96,6 +96,7 @@ func paletteFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
 		}
 	}
 	f.handlers[engine.PaletteOpenCommand], f.handlers[engine.PaletteCloseCommand] = open(true), open(false)
+	f.handlers["ui.setNavigatorScope"] = f.setNavScope // Connect to Cluster: the section (D-57)
 	tiles := func(ids ...string) []engine.HotbarTile {
 		out := make([]engine.HotbarTile, 0, len(ids))
 		for _, id := range ids {
@@ -164,7 +165,8 @@ func shownLabels(p *cmdPalette) []string {
 
 // ⌘⇧P opens the palette through the engine (ui.palette.open: UI state, so agents see it) with its
 // filter focused; the list starts with the drawer object's actions and has Switch to, the hotbar's
-// clusters and banks, and the commands with their shortcuts; ⌘P is the picker's (cluster.connect).
+// clusters and banks, and the commands with their shortcuts; ⌘P is the Cluster menu's Connect to
+// Cluster… (cluster.connect's label and shortcut, D-57).
 func TestCommandPaletteOpensWithTheShortcut(t *testing.T) {
 	sh, w, q, f, pod := paletteShell(t, ThemeDark)
 	openPalette(t, sh, q)
@@ -190,8 +192,8 @@ func TestCommandPaletteOpensWithTheShortcut(t *testing.T) {
 	if slices.Contains(got, "Switch to Pods") || slices.Contains(got, "Command Palette") {
 		t.Errorf("the open view or the palette itself listed: %q", got)
 	}
-	if item := menuItemWith(sh.mainMenu(), &desktop.CustomShortcut{KeyName: fyne.KeyP, Modifier: fyne.KeyModifierShortcutDefault}); item == nil || item.Label != "Switch Context…" {
-		t.Errorf("⌘P on %+v, want Switch Context…", item)
+	if item := menuItemWith(sh.mainMenu(), &desktop.CustomShortcut{KeyName: fyne.KeyP, Modifier: fyne.KeyModifierShortcutDefault}); item == nil || item.Label != "Connect to Cluster…" {
+		t.Errorf("⌘P on %+v, want Connect to Cluster…", item)
 	}
 }
 
@@ -318,21 +320,22 @@ func TestCommandPaletteRunsLikeTheMenus(t *testing.T) {
 	q.until(t, "the dialog gone", func() bool { return sh.confirmer.current == nil })
 }
 
-// A command whose parameters the window asks for runs its dialog: Connect to Cluster opens the
-// picker (⌘P's), Search focuses the search field.
+// A command whose parameters the window asks for runs its dialog: Connect to Cluster shows the
+// navigator's section with its search focused (⌘P's, D-57), Search focuses the search field.
 func TestCommandPaletteOpensTheWindowsDialogs(t *testing.T) {
 	sh, w, q, f, _ := paletteShell(t, ThemeDark)
 	openPalette(t, sh, q)
 	typeInPalette(t, sh, q, "connect to")
 	pressInPalette(sh, q, fyne.KeyReturn)
-	q.until(t, "the picker", func() bool { return sh.picker.visible() && !sh.palette.visible() })
+	h := sh.side.head
+	q.until(t, "the section's search", func() bool {
+		return !sh.palette.visible() && sh.side.sec.Visible() && h.searching() && w.Canvas().Focused() == h.entry
+	})
 	if len(f.callsOf("cluster.connect")) != 0 {
 		t.Error("cluster.connect ran without a context")
 	}
-	sh.picker.filter.TypedKey(&fyne.KeyEvent{Name: fyne.KeyEscape}) // the focused filter takes Escape
-	if sh.picker.visible() {
-		t.Error("Escape in the picker's filter left it open")
-	}
+	h.entry.TypedKey(&fyne.KeyEvent{Name: fyne.KeyEscape}) // the focused search takes Escape: back to the cluster
+	q.until(t, "the cluster's tree again", func() bool { return sh.side.tree.Visible() && !h.searching() })
 
 	openPalette(t, sh, q)
 	typeInPalette(t, sh, q, "search")

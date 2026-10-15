@@ -276,7 +276,7 @@ func TestDeepLinkRefusals(t *testing.T) {
 		says       string
 		connects   []string
 	}{
-		{name: "plugin not approved", link: "cogpit://open?context=eks", want: engine.ErrDeepLinkNeedsApproval, says: "context picker"},
+		{name: "plugin not approved", link: "cogpit://open?context=eks", want: engine.ErrDeepLinkNeedsApproval, says: "navigator's clusters (⌘P)"},
 		{name: "token file changed", link: "cogpit://open?context=tok+%5Btok.yaml%5D&view=pods", want: engine.ErrDeepLinkNeedsApproval, says: "token file"},
 		// A28: a context that skips the certificate check is asked once in the window, never by a link.
 		{name: "unchecked certificate not allowed", link: "cogpit://open?context=lab", want: engine.ErrDeepLinkNeedsApproval, says: "connection without the certificate check"},

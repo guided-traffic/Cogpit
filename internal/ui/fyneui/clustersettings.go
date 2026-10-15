@@ -40,8 +40,8 @@ var clusterSectionLabels = map[string]string{engine.SectionGeneral: "General", e
 // contextParam is the context parameter of the cluster settings commands.
 const contextParam = "context"
 
-// settingsItem is "Settings…" in a cluster's menus (the picker's rows, the hotbar's tiles, the
-// navigator's root): its Settings page. Nil when the build has no cluster settings or no context.
+// settingsItem is "Settings…" in a cluster's menus (the navigator's section rows and root, the
+// hotbar's tiles, the welcome page's rows): its Settings page. Nil when the build has no cluster settings or no context.
 func (sh *shell) settingsItem(context string) *fyne.MenuItem {
 	if _, ok := sh.eng.Registry().Get("cluster.settings.open"); !ok || context == "" {
 		return nil
@@ -49,11 +49,8 @@ func (sh *shell) settingsItem(context string) *fyne.MenuItem {
 	return fyne.NewMenuItem("Settings…", func() { sh.openClusterSettings(context) })
 }
 
-// openClusterSettings opens a context's Settings page; the picker closes, as for a connect.
+// openClusterSettings opens a context's Settings page.
 func (sh *shell) openClusterSettings(context string) {
-	if sh.picker.visible() {
-		sh.picker.hide()
-	}
 	sh.dispatch("cluster.settings.open", clusterSettingsOpenParams{Context: context}, nil)
 }
 
@@ -212,7 +209,7 @@ func (p *settingsPage) clusterGeneralSection() fyne.CanvasObject {
 		path.Refresh()
 	}
 	return container.NewVBox(
-		p.setting("name", "Cluster name", "Shown in the hotbar, the context picker and the navigator; the kubeconfig is not changed.", name),
+		p.setting("name", "Cluster name", "Shown in the hotbar, the navigator and the welcome page; the kubeconfig is not changed.", name),
 		p.setting("icon", "Icon", "Upload an image (.png, .jpeg, .svg) or pick a colour; Cogpit keeps a copy in its own folder.", icon),
 		p.setting("kubeconfig", "Kubeconfig", "The file this context comes from.", kc),
 	)

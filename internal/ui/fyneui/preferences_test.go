@@ -61,7 +61,7 @@ func settingsEngine(t *testing.T) (*engine.Session, string) {
 }
 
 // newEngineShell starts a shell on the real engine in a 1440×900 offscreen window, as newTestShell
-// does on the fake; without a connection it starts on the welcome page, the picker closed (D-42).
+// does on the fake; without a connection it starts on the welcome page (D-42).
 func newEngineShell(t *testing.T, s *engine.Session, opts Options) (*shell, fyne.Window, *mainQueue) {
 	t.Helper()
 	a := test.NewTempApp(t)
@@ -249,33 +249,34 @@ func tileRenderer(tl *hotbarTile) *hotbarTileRenderer {
 	return test.WidgetRenderer(tl).(*hotbarTileRenderer)
 }
 
-// A cluster's Settings page from its menu in the picker: its name and colour show at once on its
-// hotbar tile and in the picker; an uploaded image replaces the initials; the terminal's working
-// directory is what the cluster's next local terminal starts in; nothing of it is in the kubeconfig.
-func TestClusterSettingsFromThePickerSetIdentityAndTerminal(t *testing.T) {
+// A cluster's Settings page from its menu in the navigator's section: its name and colour show at
+// once on its hotbar tile and in the section; an uploaded image replaces the initials; the
+// terminal's working directory is what the cluster's next local terminal starts in; nothing of it
+// is in the kubeconfig.
+func TestClusterSettingsFromTheSectionSetIdentityAndTerminal(t *testing.T) {
 	s, cfg := settingsEngine(t)
 	sh, _, q := newEngineShell(t, s, Options{})
 	mustDispatch(t, s, "hotbar.addCluster", map[string]any{"context": "kind-dev"})
 	q.until(t, "the tile", func() bool { return tileFor(sh, "kind-dev") != nil })
 
-	sh.picker.show()
-	q.until(t, "the rows", func() bool { return len(sh.picker.list.Objects) == 3 })
-	sh.picker.menu("kind-dev", fyne.NewPos(10, 10))
+	n := sh.side.sec
+	q.until(t, "the rows", func() bool { return n.loaded && len(n.rows) == 3 })
+	n.rowMenu("kind-dev", fyne.NewPos(10, 10))
 	var settings *fyne.MenuItem
-	for _, it := range sh.picker.menuModel.Items {
+	for _, it := range n.menuModel.Items {
 		if it.Label == "Settings…" {
 			settings = it
 		}
 	}
 	if settings == nil {
-		t.Fatalf("picker menu %+v", sh.picker.menuModel.Items)
+		t.Fatalf("the section's row menu %+v", n.menuModel.Items)
 	}
 	settings.Action()
 	q.until(t, "the cluster's page", func() bool {
 		return sh.settings.visible() && sh.settings.view != nil && sh.settings.view.Context == "kind-dev"
 	})
-	if sh.picker.visible() || sh.settings.title.text != "Settings - kind-dev" || !sh.settings.badge.Visible() {
-		t.Errorf("picker %v, title %q", sh.picker.visible(), sh.settings.title.text)
+	if sh.settings.title.text != "Settings - kind-dev" || !sh.settings.badge.Visible() {
+		t.Errorf("title %q", sh.settings.title.text)
 	}
 
 	name := sh.settings.controls["name"].(*widget.Entry)
@@ -298,16 +299,10 @@ func TestClusterSettingsFromThePickerSetIdentityAndTerminal(t *testing.T) {
 	if cs, _ := s.ClusterSettingsOf("kind-dev"); cs.Name != "Dev cluster" || cs.IconColor != "violet" {
 		t.Errorf("kept %+v", cs)
 	}
-	sh.picker.show()
-	q.until(t, "the picker's row", func() bool {
-		for _, o := range sh.picker.list.Objects {
-			if r, ok := o.(*pickerRow); ok && r.title.text == "Dev cluster" && r.badge.ink == identityColorName("violet") {
-				return true
-			}
-		}
-		return false
+	q.until(t, "the section's row", func() bool {
+		r := n.rows["kind-dev"]
+		return r != nil && r.title.text == "Dev cluster" && r.badge.ink == identityColorName("violet")
 	})
-	sh.picker.hide()
 
 	// Upload Icon… in the icon's menu: the image takes the initials' place.
 	icon := pngFile(t)

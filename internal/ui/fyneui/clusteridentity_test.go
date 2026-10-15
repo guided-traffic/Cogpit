@@ -12,7 +12,8 @@ import (
 
 // Every icon colour the engine offers has a token in both variants, and a cluster's initials in it
 // read at 3:1 where they are drawn: the hotbar (the header's surface), the navigator (the
-// sidebar's), the picker's list (the input background) and the settings page (the background).
+// sidebar's), the input background (the context picker's list until D-57; dialogs' fields) and the
+// settings page (the background).
 func TestIdentityColorsContrast(t *testing.T) {
 	for name, p := range map[string]*palette{"dark": &darkPalette, "light": &lightPalette} {
 		for _, c := range engine.IconColors {

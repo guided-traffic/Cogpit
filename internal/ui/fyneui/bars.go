@@ -47,18 +47,17 @@ func connectionText(c engine.Connection) string {
 }
 
 // topBar is the window's top bar: the Cogpit wordmark, the history arrows, the active context with
-// its connection state, the context picker button and at the right end the Update button while an
-// update is available, the layout toggles (layoutbar.go, F7) and the notifications' bell (the MCP
-// details are the status bar's, F6). On macOS
-// it is also the window's title bar (titlebar.go): room for the window buttons before the logo,
-// and a drag area under its contents.
+// its connection state (a display: the navigator's section chooses a cluster, D-57) and at the
+// right end the Update button while an update is available, the layout toggles (layoutbar.go, F7)
+// and the notifications' bell (the MCP details are the status bar's, F6). On macOS it is also the
+// window's title bar (titlebar.go): room for the window buttons before the logo, and a drag area
+// under its contents.
 type topBar struct {
 	sh          *shell
 	dot         *dot
 	context     *textLine
 	file        *textLine // the kubeconfig the context comes from, muted
 	state       *textLine
-	switchB     *widget.Button
 	lead        *canvas.Rectangle // the window buttons' room; hidden unless Cogpit draws the title bar
 	history     *titleHistory     // the history arrows and the bar's context menu (titlehistory.go)
 	notes       *notificationsUI  // the bell and its panel (notifications.go)
@@ -78,9 +77,6 @@ func newTopBar(sh *shell) *topBar {
 	t.file = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	t.file.Hide()
 	t.state = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
-	t.switchB = widget.NewButtonWithIcon("Switch context", theme.MenuDropDownIcon(), func() { sh.picker.show() })
-	t.switchB.IconPlacement = widget.ButtonIconTrailingText
-	t.switchB.Importance = widget.LowImportance
 
 	wordmark := newTextLine("Cogpit", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	t.lead = canvas.NewRectangle(color.Transparent)
@@ -88,7 +84,7 @@ func newTopBar(sh *shell) *topBar {
 	t.history = newTitleHistory(sh)
 	t.notes = newNotificationsUI(sh)
 	t.left = container.NewHBox(t.lead, newLogo(), wordmark, t.history.root, newHGap(theme.SizeNameInnerPadding), newDivider(true),
-		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state, t.switchB)
+		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state)
 	t.layout = newLayoutBar(sh)
 	right := container.NewHBox(t.layout.root, t.notes.bell)
 	drag := newBarDragArea(func() { sh.titlebar.mouseDown() })

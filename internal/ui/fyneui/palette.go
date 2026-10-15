@@ -17,7 +17,7 @@ import (
 )
 
 // The command palette (G13; engine/palette.go): ⌘⇧P (Ctrl+Shift+P elsewhere) opens it over the
-// window, as the context picker's overlay: a filter field and the commands the window's menus
+// window, on a shade a click outside closes: a filter field and the commands the window's menus
 // offer in the current state (Registry.Palette), searchable by label and category. ↑↓ move, ↵
 // runs, Escape or a click outside closes it. Running an entry dispatches its command as the menu
 // item would (an object's action through the row menu's own path, runAction), so the confirmation
@@ -38,7 +38,7 @@ import (
 // <resource>" and the hotbar's bank commands): a command that cannot run now stays in the list,
 // greyed, with the reason after its label, as the menus show it; the list starts with the drawer
 // object's actions; the filter matches every term, fuzzy as a last resort; the overlay has the
-// context picker's size.
+// size the context picker had (D-57 removed the picker).
 type cmdPalette struct {
 	sh *shell
 
@@ -215,12 +215,9 @@ func paletteChanges(d engine.Danger) bool {
 
 func (p *cmdPalette) visible() bool { return p.popup != nil && p.popup.Visible() }
 
-// show opens the overlay with an empty filter and lists the entries; the picker gives way. The
-// filter takes the focus only when the user asked (requested); otherwise a click into it does.
+// show opens the overlay with an empty filter and lists the entries. The filter takes the focus
+// only when the user asked (requested); otherwise a click into it does.
 func (p *cmdPalette) show() {
-	if p.sh.picker.visible() {
-		p.sh.picker.hide()
-	}
 	if p.popup == nil {
 		p.popup = newDismissOverlay(p.sh.win.Canvas(), p.content)
 		p.popup.onDismiss = func() { p.dismissThen(nil) }
@@ -416,11 +413,11 @@ func (sh *shell) runPaletteAction(e engine.PaletteEntry) {
 
 // paletteRunners run the commands whose parameters the window asks for in a dialog of its own,
 // or whose result it presents (engine/palette.go, rules 3 and 7), as the menus and buttons that
-// have them do: the picker for a context, the kubeconfig dialogs, a bank's name, the search field,
-// the namespace and column menus, the CSV download. hotbar.openCluster goes through the hotbar,
-// which asks for a login program's approval first.
+// have them do: the navigator's section for a context (findcluster.go), the kubeconfig dialogs, a
+// bank's name, the search field, the namespace and column menus, the CSV download.
+// hotbar.openCluster goes through the hotbar, which asks for a login program's approval first.
 var paletteRunners = map[string]func(sh *shell, e engine.PaletteEntry){
-	"cluster.connect":       func(sh *shell, _ engine.PaletteEntry) { sh.picker.show() },
+	connectCommand:          func(sh *shell, _ engine.PaletteEntry) { sh.findCluster() },
 	"cluster.refreshAccess": func(sh *shell, _ engine.PaletteEntry) { sh.refreshAccessItem().Action() },
 	"kubeconfig.addFile":    func(sh *shell, _ engine.PaletteEntry) { sh.kc.addKubeconfigs() },
 	"kubeconfig.addFolder":  func(sh *shell, _ engine.PaletteEntry) { sh.kc.addKubeconfigs() },
@@ -492,8 +489,7 @@ func (s *sidebar) paletteViews() []engine.PaletteView {
 }
 
 // keyEntry is a text field that lets its owner take keys before it: the palette's ↑↓, ↵ and
-// Escape, the picker's Escape (a focused field gets every key, so the window's own handler never
-// sees them).
+// Escape (a focused field gets every key, so the window's own handler never sees them).
 type keyEntry struct {
 	widget.Entry
 	onKey func(*fyne.KeyEvent) bool // true: taken

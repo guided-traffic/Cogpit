@@ -1,6 +1,6 @@
 // Package fyneui is Cogpit's desktop shell on Fyne: the window layout after Lens (sidebar, view
 // header with namespace filter and search, table, detail drawer, dock, status bar), Cogpit's theme
-// with its status tokens, the context picker and the confirmation dialog.
+// with its status tokens, the navigator and the confirmation dialog.
 //
 // Layer L4, and the only package tree that imports Fyne. The shell renders engine state and
 // changes it only by dispatching ui.* commands; engine events reach widgets through fyne.Do.
@@ -36,7 +36,7 @@ type Options struct {
 	// command. Empty hides them. With MCP set the command comes from the control's Start.
 	MCPCommand string
 	// AutoConnect connects this context at start (--context, --demo); without it the window starts
-	// on the welcome page, the picker closed (D-42).
+	// on the welcome page (D-42).
 	AutoConnect string
 	// StartWarning, when set, is shown as a warning once the window is up: a crash report the
 	// last run left (cmd/cogpit/crash.go).

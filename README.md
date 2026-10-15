@@ -224,8 +224,9 @@ dark theme too.
 
 **Download** the latest [release](https://github.com/guided-traffic/cogpit/releases):
 `Cogpit-<version>-macos-arm64.dmg`, Cogpit for Apple silicon, signed and notarized by Apple. Open it
-and drag Cogpit into Applications. No cluster at hand? Pick the **demo** cluster in the cluster
-picker (⌘P): a synthetic cluster of 10,000 pods that lives inside Cogpit.
+and drag Cogpit into Applications. No cluster at hand? Pick the **demo** cluster on the welcome page
+or in the navigator's list of clusters (⌘P): a synthetic cluster of 10,000 pods that lives inside
+Cogpit.
 
 **`cogpit-cli` comes inside the app**, at `/Applications/Cogpit.app/Contents/MacOS/cogpit-cli`: it
 lists your contexts, prints any kind's objects as Cogpit's views show them, and connects agents to

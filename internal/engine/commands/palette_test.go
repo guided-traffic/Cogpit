@@ -143,7 +143,7 @@ func TestPaletteListsWhatTheMenusOffer(t *testing.T) {
 			t.Errorf("%s with the window's dialog: %+v", id, e)
 		}
 	}
-	if c, _ := entryOf(entries, "cluster.connect"); c.Shortcut != "Cmd+P" || c.Category != "File" {
+	if c, _ := entryOf(entries, "cluster.connect"); c.Shortcut != "Cmd+P" || c.Category != "Cluster" || c.Label != "Connect to Cluster" {
 		t.Errorf("cluster.connect %+v", c)
 	}
 

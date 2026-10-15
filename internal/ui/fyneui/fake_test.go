@@ -288,9 +288,24 @@ func syncFakeNavigator(u *engine.UIState, old engine.UIState) {
 }
 
 // fakeNavigatorHandlers answer the navigator's and the palette's state commands as the engine does
-// (engine/navigator.go, palettetext.go), so that the window's reports change the fake's state.
+// (engine/navigator.go, layout.go, palettetext.go), so that the window's reports and ⌘P
+// (findcluster.go) change the fake's state; ui.setNavigatorScope is fakeNavScope's.
 func (f *fakeEngine) fakeNavigatorHandlers() {
 	decode := func(inv engine.Invocation, p any) error { return json.Unmarshal(normalize(inv.Params), p) }
+	f.handlers["ui.toggleNavigator"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p layoutToggleParams
+		if err := decode(inv, &p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			shown := u.NavigatorHidden // turned the other way round without open
+			if p.Open != nil {
+				shown = *p.Open
+			}
+			u.NavigatorHidden = !shown
+		})
+		return nil, nil
+	}
 	f.handlers["ui.setNavigatorSearch"] = func(_ context.Context, inv engine.Invocation) (any, error) {
 		var p navSearchParams
 		if err := decode(inv, &p); err != nil {
@@ -347,6 +362,28 @@ func (f *fakeEngine) fakeNavigatorHandlers() {
 		})
 		return nil, nil
 	}
+}
+
+// setNavScope answers ui.setNavigatorScope as the engine does in the cases the tests use
+// (engine/navscope_test.go tests the engine's own): into another cluster it connects at once.
+// fakeNavScope installs it; without it the fake does not know the command, and ← on a tree's root
+// stays where it is.
+func (f *fakeEngine) setNavScope(_ context.Context, inv engine.Invocation) (any, error) {
+	var p navScopeParams
+	if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
+		return nil, err
+	}
+	id, err := engine.ParseNavScope(p.Scope)
+	if err != nil {
+		return nil, err
+	}
+	f.update(func(u *engine.UIState) {
+		if id != "" && id != u.Context { // another cluster: connected, as the engine connects it
+			u.Context, u.Connection, u.View = id, engine.Connection{State: engine.Connected}, kindPods
+		}
+		u.NavigatorScope = p.Scope
+	})
+	return nil, nil
 }
 
 // setTable replaces a view's snapshot and emits EventTable.
@@ -457,6 +494,12 @@ func (f *fakeEngine) Dispatch(ctx context.Context, inv engine.Invocation) (any, 
 	case "ui.closeDrawer":
 		f.update(func(u *engine.UIState) { u.Drawer = nil })
 	case "cluster.connect":
+		f.mu.Lock()
+		h := f.handlers[inv.ID] // a test's own answer, a refusal
+		f.mu.Unlock()
+		if h != nil {
+			return h(ctx, inv)
+		}
 		var p contextParams
 		if err := params(&p); err != nil {
 			return nil, err

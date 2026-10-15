@@ -151,7 +151,8 @@ credential into its own files.
   synced folders and added files, A63): names of contexts, kubeconfig files and namespaces, no credential, no
   object's value, no selection and no drawer object
   ([`persist.go`](../../internal/engine/persist.go), `TestWorkspaceRoundTrip`). A context read back
-  from it connects only when the user shows its tab, through the same path as the picker (its
+  from it connects only when the user shows its tab, through the same path as a connect from the
+  navigator (its
   credential plugin still needs the approval), and only a context a kubeconfig source still offers
   keeps its tab.
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.

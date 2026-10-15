@@ -11,46 +11,63 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
-	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 )
 
-// navHeader is the navigator's header (navigator.go): the scope dropdown and the search button,
-// and below them the search field while it is open.
+// The navigator's header (navigator.go; D-57, the owner's interview of 2026-10-15 evening): at the
+// section the title "All Clusters", a "+" that adds kubeconfigs and the search button; at a cluster
+// the button "‹ All Clusters", the one way up to the section (← on the tree's root is the
+// keyboard's), and the search button. Below them the search field while it is open. Lens's header
+// has a dropdown of the scope instead; Cogpit's went with the context picker, so that one list
+// chooses a cluster (D-57).
+
+// navAllClusters is the header's name of the section level; its root row keeps Lens's "Local
+// Kubeconfigs" (navSectionTitle), the name the cloud sections will need beside it (G18).
+const navAllClusters = "All Clusters"
+
+// navHeader is the navigator's header.
 type navHeader struct {
 	s       *sidebar
-	scope   *navScopeButton
+	title   *textLine      // "All Clusters", at the section
+	back    *navBackButton // "‹ All Clusters", at a cluster
+	addB    *tipButton     // "+": Add Kubeconfigs…, at the section
 	searchB *tipButton
 	entry   *navSearchEntry
 	field   *fyne.Container // the search field's row, hidden until the search button is pressed
 	root    *fyne.Container
-
-	menuModel *fyne.Menu // the open scope menu, for tests
 }
 
 func newNavHeader(s *sidebar) *navHeader {
 	h := &navHeader{s: s}
-	h.scope = newNavScopeButton(h)
+	h.title = newTextLine(navAllClusters, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	h.title.truncate = true
+	h.back = newNavBackButton(h)
+	h.back.Hide()
+	h.addB = newTipButton(s.sh, theme.ContentAddIcon(), "Add Kubeconfigs…", func() { s.sh.kc.addKubeconfigs() })
 	h.searchB = newTipButton(s.sh, theme.SearchIcon(), "Search the navigator", h.toggleSearch)
 	h.entry = newNavSearchEntry(h)
 	h.field = inset(theme.SizeNamePadding, "", container.NewVBox(h.entry, newSpace(theme.SizeNamePadding)))
 	h.field.Hide()
-	top := inset(theme.SizeNamePadding, theme.SizeNamePadding,
-		container.NewBorder(nil, nil, nil, container.NewCenter(h.searchB), h.scope))
+	// The title sits where the scope dropdown's text sat; the back button's ‹ takes that place.
+	title := inset(theme.SizeNameInnerPadding, "", h.title)
+	top := inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil, nil,
+		container.NewHBox(container.NewCenter(h.addB), container.NewCenter(h.searchB)),
+		container.NewStack(title, container.NewHBox(h.back))))
 	h.root = container.NewVBox(top, h.field, newDivider(false))
 	return h
 }
 
-// update follows the navigator's scope: the dropdown names the section, or the cluster the tree
-// shows.
+// update follows the navigator's scope: the section's title and "+", or a cluster's way up.
 func (h *navHeader) update() {
-	ui := h.s.sh.ui
-	if ui.ScopeCluster() == "" {
-		h.scope.setText(navSectionTitle)
+	if h.s.sh.ui.ScopeCluster() == "" {
+		h.back.Hide()
+		h.title.Show()
+		h.addB.Show()
 		h.setPlaceHolder("Search clusters…")
 		return
 	}
-	name, _ := splitContextID(ui.Context)
-	h.scope.setText(name)
+	h.title.Hide()
+	h.addB.Hide()
+	h.back.Show()
 	h.setPlaceHolder("Search items…")
 }
 
@@ -59,75 +76,6 @@ func (h *navHeader) setPlaceHolder(text string) {
 	if h.entry.PlaceHolder != text {
 		h.entry.SetPlaceHolder(text)
 	}
-}
-
-// showScopeMenu opens the scope dropdown below its button: the section, Local Kubeconfigs, below it
-// the hotbar's clusters and the connected one (scopeClusters), the scope shown checked, and All
-// Clusters… (the context picker, ⌘P) for every other one (the owner's A52, 2026-10-14 evening: so
-// the list needs no cap). Choosing a cluster sets the scope (ui.setNavigatorScope), one not
-// connected through the section's drill, which shows its login program for approval first.
-func (h *navHeader) showScopeMenu() {
-	sh := h.s.sh
-	cluster := sh.ui.ScopeCluster()
-	local := fyne.NewMenuItem(navSectionTitle, h.s.goUp)
-	local.Checked = cluster == ""
-	items := []*fyne.MenuItem{local, fyne.NewMenuItemSeparator()}
-	ctxs := h.scopeClusters()
-	titles := map[string]int{}
-	for _, c := range ctxs {
-		titles[h.s.sec.rowTitle(c)]++
-	}
-	for _, c := range ctxs {
-		id, label := c.Name, h.s.sec.rowTitle(c)
-		if titles[label] > 1 && c.Source != "" { // a name two files share: say which file
-			label += " (" + kubeconfig.DisplayText(c.Source, maxShownArg) + ")"
-		}
-		item := fyne.NewMenuItem(label, func() { h.s.sec.drill(id) })
-		item.Checked = id == cluster
-		items = append(items, item)
-	}
-	if len(ctxs) > 0 {
-		items = append(items, fyne.NewMenuItemSeparator())
-	}
-	items = append(items, sh.withShortcut(fyne.NewMenuItem("All Clusters…", sh.picker.show), "cluster.connect"))
-	h.menuModel = fyne.NewMenu("", items...)
-	sh.tip.hide()
-	pos := fyne.CurrentApp().Driver().AbsolutePositionForObject(h.scope).AddXY(0, h.scope.Size().Height)
-	widget.NewPopUpMenu(h.menuModel, sh.win.Canvas()).ShowAtPosition(pos)
-}
-
-// scopeClusters are the clusters the scope dropdown lists (A52): the tiles of the hotbar's shown bank
-// in their order, then the connected (or connecting) cluster when no tile holds it. A tile whose
-// context no kubeconfig source offers any more is left out once the section has read them. Which
-// bank: the shown one, as the hotbar beside the dropdown shows it (the lead's night decision,
-// 2026-10-14, for the owner to confirm; D-51).
-func (h *navHeader) scopeClusters() []engine.ContextInfo {
-	sh, sec := h.s.sh, h.s.sec
-	var out []engine.ContextInfo
-	seen := map[string]bool{}
-	add := func(id string, always bool) {
-		if id == "" || seen[id] {
-			return
-		}
-		c, ok := sec.context(id)
-		if !ok && sec.loaded && !always {
-			return
-		}
-		if !ok {
-			c = engine.ContextInfo{Name: id}
-		}
-		seen[id] = true
-		out = append(out, c)
-	}
-	if hb := sh.ui.Hotbar; hb != nil && hb.Current >= 1 && hb.Current <= len(hb.Banks) {
-		for _, t := range hb.Banks[hb.Current-1].Clusters {
-			add(t.Context, false)
-		}
-	}
-	if st := sh.ui.Connection.State; st == engine.Connected || st == engine.Connecting {
-		add(sh.ui.Context, true)
-	}
-	return out
 }
 
 // searching reports whether the search field is open.
@@ -156,8 +104,9 @@ func (h *navHeader) openSearch(text string) {
 }
 
 // closeSearch clears the search and hides its field; the keyboard goes back to the tree if the
-// field had it.
+// field had it. A search ⌘P opened ends with it (findCluster).
 func (h *navHeader) closeSearch() {
+	h.s.findFrom = ""
 	c := h.s.sh.win.Canvas()
 	hadFocus := c.Focused() == h.entry
 	h.entry.SetText("")
@@ -168,8 +117,30 @@ func (h *navHeader) closeSearch() {
 	}
 }
 
+// escape is Escape on the open search, in its field or in the section's list. A search ⌘P opened
+// over a cluster's tree (findCluster, D-57) clears its text first and keeps the field; on the empty
+// search it goes back to that cluster's tree while the cluster is still the connected one. Any
+// other search clears and closes.
+func (h *navHeader) escape() {
+	s := h.s
+	from := s.findFrom
+	if from == "" {
+		h.closeSearch()
+		return
+	}
+	if h.entry.Text != "" {
+		h.entry.SetText("")
+		return
+	}
+	ui := s.sh.ui
+	h.closeSearch()
+	if s.section && ui.Context == from && (ui.Connection.State == engine.Connected || ui.Connection.State == engine.Connecting) {
+		s.setScope(engine.NavScopeCluster(from))
+	}
+}
+
 // navSearchEntry is the navigator's search field: typing filters the tree, Escape clears and
-// closes it, ↓ moves into the tree, ↵ opens the first match.
+// closes it (escape), ↓ moves into the tree, ↵ opens the first match.
 type navSearchEntry struct {
 	widget.Entry
 	h *navHeader
@@ -191,7 +162,7 @@ func (e *navSearchEntry) TypedKey(ev *fyne.KeyEvent) {
 	}
 	switch ev.Name {
 	case fyne.KeyEscape:
-		e.h.closeSearch()
+		e.h.escape()
 		return
 	case fyne.KeyDown:
 		if e.h.s.section {
@@ -204,9 +175,10 @@ func (e *navSearchEntry) TypedKey(ev *fyne.KeyEvent) {
 	e.Entry.TypedKey(ev)
 }
 
-// navScopeButton is the scope dropdown's button: the scope's name, cut to the navigator's width,
-// and a ▾.
-type navScopeButton struct {
+// navBackButton is the header's "‹ All Clusters" at a cluster: the section level
+// (ui.setNavigatorScope), the cluster staying connected. It takes no keyboard focus, as the
+// navigator's other small buttons.
+type navBackButton struct {
 	widget.BaseWidget
 	h       *navHeader
 	text    *textLine
@@ -214,89 +186,92 @@ type navScopeButton struct {
 }
 
 var (
-	_ fyne.Tappable     = (*navScopeButton)(nil)
-	_ desktop.Hoverable = (*navScopeButton)(nil)
+	_ fyne.Tappable     = (*navBackButton)(nil)
+	_ desktop.Hoverable = (*navBackButton)(nil)
 )
 
-func newNavScopeButton(h *navHeader) *navScopeButton {
-	b := &navScopeButton{h: h, text: newTextLine("No cluster", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})}
-	b.text.truncate = true
+func newNavBackButton(h *navHeader) *navBackButton {
+	b := &navBackButton{h: h, text: newTextLine(navAllClusters, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})}
 	b.ExtendBaseWidget(b)
 	return b
 }
 
-func (b *navScopeButton) setText(s string) { b.text.SetText(s) }
+// navBackTip is the back button's tooltip.
+const navBackTip = "Back to every cluster; the cluster stays connected"
 
-// Tapped implements fyne.Tappable: the scope menu.
-func (b *navScopeButton) Tapped(*fyne.PointEvent) {
+// Tapped implements fyne.Tappable: the section level.
+func (b *navBackButton) Tapped(*fyne.PointEvent) {
 	b.h.s.sh.tip.hideFor(b)
-	b.h.showScopeMenu()
+	b.h.s.goUp()
 }
 
 // MouseIn implements desktop.Hoverable.
-func (b *navScopeButton) MouseIn(ev *desktop.MouseEvent) {
+func (b *navBackButton) MouseIn(ev *desktop.MouseEvent) {
 	b.hovered = true
 	b.Refresh()
-	b.h.s.sh.tip.hover(b, "The scope the navigator shows", ev.AbsolutePosition)
+	b.h.s.sh.tip.hover(b, navBackTip, ev.AbsolutePosition)
 }
 
 // MouseMoved implements desktop.Hoverable.
-func (b *navScopeButton) MouseMoved(ev *desktop.MouseEvent) {
+func (b *navBackButton) MouseMoved(ev *desktop.MouseEvent) {
 	b.h.s.sh.tip.moved(b, ev.AbsolutePosition)
 }
 
 // MouseOut implements desktop.Hoverable.
-func (b *navScopeButton) MouseOut() {
+func (b *navBackButton) MouseOut() {
 	b.hovered = false
 	b.Refresh()
 	b.h.s.sh.tip.hideFor(b)
 }
 
 // CreateRenderer implements fyne.Widget.
-func (b *navScopeButton) CreateRenderer() fyne.WidgetRenderer {
-	r := &navScopeRenderer{b: b, bg: canvas.NewRectangle(color.Transparent), arrow: newIconImage()}
+func (b *navBackButton) CreateRenderer() fyne.WidgetRenderer {
+	r := &navBackRenderer{b: b, bg: canvas.NewRectangle(color.Transparent), arrow: newIconImage()}
 	r.Refresh()
 	return r
 }
 
-type navScopeRenderer struct {
-	b     *navScopeButton
+// navBackRenderer draws the ‹ and the text after it on a hover background.
+type navBackRenderer struct {
+	b     *navBackButton
 	bg    *canvas.Rectangle
 	arrow *iconImage
 }
 
-func (r *navScopeRenderer) MinSize() fyne.Size {
-	th := r.b.Theme()
-	inner, is := th.Size(theme.SizeNameInnerPadding), th.Size(theme.SizeNameInlineIcon)
-	return fyne.NewSize(2*inner+is, fyne.Max(r.b.text.MinSize().Height, is)+2*inner)
-}
-
-func (r *navScopeRenderer) Layout(size fyne.Size) {
+func (r *navBackRenderer) MinSize() fyne.Size {
 	th := r.b.Theme()
 	inner, pad, is := th.Size(theme.SizeNameInnerPadding), th.Size(theme.SizeNamePadding), th.Size(theme.SizeNameInlineIcon)
-	r.bg.Move(fyne.NewPos(0, 0))
-	r.bg.Resize(size)
-	r.arrow.img.Move(fyne.NewPos(size.Width-inner-is, (size.Height-is)/2))
-	r.arrow.img.Resize(fyne.NewSize(is, is))
-	r.b.text.Move(fyne.NewPos(inner, 0))
-	r.b.text.Resize(fyne.NewSize(fyne.Max(0, size.Width-2*inner-is-pad), size.Height))
+	ts := r.b.text.MinSize()
+	return fyne.NewSize(pad+is+pad+ts.Width+inner, fyne.Max(ts.Height, is)+2*inner)
 }
 
-func (r *navScopeRenderer) Refresh() {
+func (r *navBackRenderer) Layout(size fyne.Size) {
+	th := r.b.Theme()
+	pad, is := th.Size(theme.SizeNamePadding), th.Size(theme.SizeNameInlineIcon)
+	r.bg.Move(fyne.NewPos(0, 0))
+	r.bg.Resize(size)
+	r.arrow.img.Move(fyne.NewPos(pad, (size.Height-is)/2))
+	r.arrow.img.Resize(fyne.NewSize(is, is))
+	x := pad + is + pad
+	r.b.text.Move(fyne.NewPos(x, 0))
+	r.b.text.Resize(fyne.NewSize(fyne.Max(0, size.Width-x), size.Height))
+}
+
+func (r *navBackRenderer) Refresh() {
 	th := r.b.Theme()
 	r.bg.CornerRadius = th.Size(theme.SizeNameSelectionRadius)
 	r.bg.FillColor = color.Transparent
 	if r.b.hovered {
 		r.bg.FillColor = themeColor(th, theme.ColorNameHover)
 	}
-	r.arrow.set(th, theme.MenuDropDownIcon(), theme.ColorNameForeground)
+	r.arrow.set(th, iconChevronLeft, theme.ColorNameForeground)
 	r.Layout(r.b.Size())
 	r.bg.Refresh()
 	r.b.text.Refresh()
 }
 
-func (r *navScopeRenderer) Objects() []fyne.CanvasObject {
+func (r *navBackRenderer) Objects() []fyne.CanvasObject {
 	return []fyne.CanvasObject{r.bg, r.b.text, r.arrow.img}
 }
 
-func (r *navScopeRenderer) Destroy() {}
+func (r *navBackRenderer) Destroy() {}

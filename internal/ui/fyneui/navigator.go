@@ -23,11 +23,13 @@ import (
 // Lens's documentation: ↑↓ move, → opens, ← closes, Tab and ⇧Tab, ↵ a preview tab, ⇧↵ a fixed tab.
 //
 // The level above the tree is the section, Local Kubeconfigs (navigator_sections.go); which one
-// shows is the navigator's scope, engine state (UIState.NavigatorScope). The rest is Cogpit's
+// shows is the navigator's scope, engine state (UIState.NavigatorScope). Cogpit's header has no
+// dropdown (D-57, the owner's interview of 2026-10-15 evening): at a cluster it shows "‹ All
+// Clusters", the one way up, and the root has no ‹ (navigator_header.go). The rest is Cogpit's
 // (inferred):
-//   - the dropdown offers the section and its clusters (navigator_header.go); the root's ‹ and ← on
-//     the root go up to the section (ui.setNavigatorScope), the context picker stays on ⌘P; the ›
-//     is drawn as captured and does nothing, the tree being drilled into its cluster already;
+//   - ‹ All Clusters and ← on the root go up to the section (ui.setNavigatorScope), the cluster
+//     staying connected; ⌘P shows the section with its search focused (findcluster.go); the root's
+//     › is drawn as captured and does nothing, the tree being drilled into its cluster already;
 //   - the search filters the items by name, case-insensitively: a matching item shows with the
 //     groups above it, a matching group with everything in it, and groups show open while a search
 //     is on (their own open state comes back after it); Escape clears and closes the field, ↓ moves
@@ -536,15 +538,15 @@ func paintRow(th fyne.Theme, bg, ring *canvas.Rectangle, selected, hovered, focu
 	}
 }
 
-// navRootRow is the tree's root: the connected cluster with a ‹ up to the section, its badge,
-// name and kubeconfig, a connection dot and a ›. Its menu (right-click) has the hotbar's item for
-// the cluster, Add to Hotbar or Remove from Hotbar, as the picker's rows have (inferred: Lens's
-// cluster menu has "Add to Hotbar", its other items are not captured).
+// navRootRow is the tree's root: the connected cluster's badge, name and kubeconfig, a connection
+// dot and a ›; the way up is the header's ‹ All Clusters (D-57: the root's ‹ went). Its menu
+// (right-click) has the hotbar's item for the cluster, Add to Hotbar or Remove from Hotbar, as the
+// section's rows have (inferred: Lens's cluster menu has "Add to Hotbar", its other items are not
+// captured).
 type navRootRow struct {
 	widget.BaseWidget
 	s         *sidebar
 	hovered   bool
-	back      *navIconButton
 	next      *widget.Icon // the ›
 	body      fyne.CanvasObject
 	bg, ring  *canvas.Rectangle
@@ -589,10 +591,9 @@ func (r *navRootRow) TappedSecondary(ev *fyne.PointEvent) {
 
 func newNavRootRow(s *sidebar) *navRootRow {
 	r := &navRootRow{s: s, bg: canvas.NewRectangle(color.Transparent), ring: canvas.NewRectangle(color.Transparent)}
-	r.back = newNavIconButton(s.sh, iconChevronLeft, "Back to "+navSectionTitle, s.goUp)
 	r.next = widget.NewIcon(themedIcon(iconChevronRight, colorMuted))
 	r.body = inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil,
-		container.NewHBox(container.NewCenter(r.back), container.NewCenter(s.badge)),
+		container.NewHBox(container.NewCenter(s.badge), newSpace(theme.SizeNamePadding)), // as the section's rows
 		container.NewHBox(container.NewCenter(s.dot), container.NewCenter(r.next)),
 		container.NewVBox(layout.NewSpacer(), s.name, s.subtitle, layout.NewSpacer())))
 	r.ExtendBaseWidget(r)
@@ -665,8 +666,8 @@ func (rr *navRootRenderer) Destroy() {}
 
 // clusterBadge, the cluster's identity at the root, is drawn in clusteridentity.go.
 
-// navIconButton is a small icon with a tooltip and a hover background: the root's ‹. It takes no
-// keyboard focus, so Tab leaves the tree at once (the top bar's "Switch context" does what it does).
+// navIconButton is a small icon with a tooltip and a hover background: a section row's ›. It takes
+// no keyboard focus, so Tab leaves the list at once (the row does what it does).
 type navIconButton struct {
 	widget.BaseWidget
 	sh      *shell

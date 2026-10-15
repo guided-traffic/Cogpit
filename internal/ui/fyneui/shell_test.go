@@ -321,39 +321,50 @@ func TestDockOpensAndClosesStreams(t *testing.T) {
 	}
 }
 
-func TestPickerConnects(t *testing.T) {
+// Without a connection the navigator shows its section; a click on a cluster's row connects it
+// (ui.setNavigatorScope) and the cluster's pods show.
+func TestSectionConnects(t *testing.T) {
 	f := newFakeEngine(t)
 	f.contexts = fixtureContexts()
 	f.kinds = fixtureKinds()
 	f.tables["pods"] = fixturePods(50, 1)
+	fakeNavScope(t, f)
 	sh, _, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
-	if sh.picker.selected != "kind-cogpit" {
-		t.Fatalf("preselected %q, want the kubeconfig's current context", sh.picker.selected)
-	}
-	rows := findAll[*pickerRow](sh.picker.list)
-	test.Tap(rows[0]) // the demo cluster
-	q.drain()
-	if sh.picker.selected != "demo" {
-		t.Fatalf("selected %q after tapping the demo row", sh.picker.selected)
-	}
-	test.Tap(sh.picker.connectB)
-	q.until(t, "the connection", func() bool { return sh.ui.Connection.State == engine.Connected && !sh.picker.visible() })
-	if p := decodeParams[contextParams](t, f.callsOf("cluster.connect")[0]); p.Context != "demo" {
-		t.Fatalf("connected %q", p.Context)
+	n := sh.side.sec
+	q.until(t, "the section", func() bool { return n.Visible() && n.loaded && len(n.rows) == len(f.contexts) })
+	test.Tap(n.rows["demo"])
+	q.until(t, "the connection", func() bool { return sh.ui.Connection.State == engine.Connected && sh.side.tree.Visible() })
+	if got := scopeCalls(t, f); len(got) != 1 || got[0] != engine.NavScopeCluster("demo") {
+		t.Fatalf("scopes %q", got)
 	}
 	q.until(t, "the pods table", func() bool { return sh.view.snap != nil && len(sh.kinds) > 0 })
 }
 
-func TestAutoConnectSkipsPicker(t *testing.T) {
+// A --context that connects leaves the navigator's search closed.
+func TestAutoConnectLeavesTheSearchClosed(t *testing.T) {
 	f := newFakeEngine(t)
 	f.contexts = fixtureContexts()
 	f.kinds = fixtureKinds()
 	sh, _, q := newTestShell(t, f, Options{AutoConnect: "demo"})
 	q.until(t, "the connection", func() bool { return sh.ui.Connection.State == engine.Connected })
-	if sh.picker.visible() {
-		t.Fatal("picker shown although AutoConnect is set")
+	if sh.side.head.searching() {
+		t.Fatal("the navigator's search opened although the --context connected")
+	}
+}
+
+// A --context the engine refuses says why in a toast and shows the navigator's section with its
+// search focused, as ⌘P does (D-57).
+func TestAutoConnectRefusedShowsTheSection(t *testing.T) {
+	f := newFakeEngine(t)
+	f.contexts = fixtureContexts()
+	f.handlers["cluster.connect"] = func(context.Context, engine.Invocation) (any, error) {
+		return nil, errors.New(`no context "nope" in the kubeconfig sources`)
+	}
+	sh, w, q := newTestShell(t, f, Options{AutoConnect: "nope"})
+	h := sh.side.head
+	q.until(t, "the section's search", func() bool { return sh.side.sec.Visible() && h.searching() && w.Canvas().Focused() == h.entry })
+	if shown := walkToastTexts(sh); !hasText(shown, `Could not connect to nope: no context "nope" in the kubeconfig sources`) {
+		t.Errorf("toasts %q", shown)
 	}
 }
 

@@ -15,7 +15,7 @@ import (
 // A cluster's identity (Lens: Cluster settings › General, the name and the icon, "Upload Icon",
 // "Pick Icon Color", "Reset Icon"; captured 2026-10-11): the name it shows and its icon, the
 // initials on a tinted square in a colour of the theme's accent palette, or an image the user
-// uploaded. The hotbar's tiles, the context picker's rows and the navigator's root show the same
+// uploaded. The hotbar's tiles, the navigator's rows and root and the welcome page show the same
 // identity, read from UIState.ClusterSettings (engine state, so an agent's change shows at once);
 // the image's bytes come from the engine's kept copy (Session.ClusterIcon), loaded off the main
 // goroutine once per image.
@@ -87,20 +87,17 @@ func (sh *shell) icon(context, file string) fyne.Resource {
 }
 
 // identitiesChanged shows the clusters' identities again wherever they appear: the navigator's
-// root, the hotbar's tiles, the picker's rows, the settings page's title.
+// root and section, the hotbar's tiles, the settings page's title, the tabs and the welcome page.
 func (sh *shell) identitiesChanged() {
 	sh.side.updateHeader()
 	sh.hot.tiles.Refresh()
-	if sh.picker.visible() {
-		sh.picker.render()
-	}
 	sh.settings.identityChanged()
 	sh.tabs.sync()
 }
 
 // clusterBadge is a cluster's icon: its initials on a tinted square in its icon colour (the
 // accent by default), or its uploaded image; "–" in the muted colour without a cluster. The
-// navigator's root, the picker's rows and the settings page show it; the hotbar's tiles draw the
+// navigator's root and rows, the welcome page and the settings page show it; the hotbar's tiles draw the
 // same in their own renderer.
 type clusterBadge struct {
 	widget.BaseWidget

@@ -108,7 +108,7 @@ type UIState struct {
 	// results are RFC 3339.
 	TimeFormat model.TimeLayout `json:"timeFormat"`
 	// ClusterSettings are the settings of every context that has some, by context id
-	// (clustersettings.go): display names and icons the hotbar, the picker and the navigator show.
+	// (clustersettings.go): display names and icons the hotbar, the navigator and the welcome page show.
 	ClusterSettings map[string]ClusterSettings `json:"clusterSettings,omitempty"`
 	// Settings is the open settings page, Preferences (⌘,) or a context's Cluster settings (⌘⇧,);
 	// nil while none is open.

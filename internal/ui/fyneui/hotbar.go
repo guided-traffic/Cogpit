@@ -188,7 +188,7 @@ func (h *hotbar) switchBank(n int) {
 }
 
 // open opens the tile in a slot of the shown bank: a missing context is explained, a credential
-// plugin waiting for the user's approval is shown first (as the picker does), and the connected
+// plugin waiting for the user's approval is shown first (as the navigator's section does), and the connected
 // cluster's tile does nothing.
 func (h *hotbar) open(slot int) {
 	b, ok := h.bank()
@@ -400,7 +400,7 @@ func removeBankText(n int, b engine.HotbarBank) (title, msg string) {
 		"their kubeconfigs and an open connection stay as they are.", b.Name, len(b.Clusters), nounFor(len(b.Clusters), "tile", "tiles"))
 }
 
-// contextItem is the hotbar's item in a context's menu (the picker's rows, the Cluster menu):
+// contextItem is the hotbar's item in a context's menu (the navigator's and the welcome page's rows, the Cluster menu):
 // "Add to Hotbar", or "Remove from Hotbar" when the shown bank holds it; nil without a hotbar.
 func (h *hotbar) contextItem(id string) *fyne.MenuItem {
 	b, ok := h.bank()

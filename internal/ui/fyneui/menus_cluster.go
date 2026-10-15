@@ -15,8 +15,8 @@ import (
 )
 
 // A cluster's Disconnect and Remove from Cogpit (ui-parity › Clusters, "Cluster menu: connect,
-// disconnect, settings, add to hotbar, remove"; G13): in the window's Cluster menu, the context
-// picker's row menu, a hotbar tile's menu, the navigator root's menu and the welcome page's rows.
+// disconnect, settings, add to hotbar, remove"; G13): in the window's Cluster menu, the navigator's
+// section rows and root, a hotbar tile's menu and the welcome page's rows.
 // Disconnect (cluster.disconnect) closes Cogpit's connection; Remove from Cogpit (cluster.remove)
 // removes Cogpit's link to the kubeconfig file the user added for the cluster, after a confirmation
 // that names the path and every context that goes with it, and never edits or deletes the file. A
@@ -180,9 +180,6 @@ func (sh *shell) removeItem(contextID string) *fyne.MenuItem {
 // naming the file's path and every context that leaves with it; only then does cluster.remove run.
 func (sh *shell) confirmRemoveCluster(contextID string) {
 	links := sh.tabs.welcome.links
-	if sh.picker.visible() {
-		sh.picker.hide() // the confirmation is the window's dialog; the picker lies over it
-	}
 	raw, _ := json.Marshal(clusterRemoveParams{Context: contextID})
 	go func() {
 		defer sh.recoverTo("cluster.links")

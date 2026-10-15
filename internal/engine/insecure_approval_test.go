@@ -108,7 +108,7 @@ func TestInsecureContextAsksOnceBeforeItsFirstConnect(t *testing.T) {
 
 	err = s.Connect(t.Context(), lab)
 	if !errors.Is(err, ErrExecNotApproved) || !strings.Contains(err.Error(), "insecure-skip-tls-verify") ||
-		!strings.Contains(err.Error(), "context picker in Cogpit's window") {
+		!strings.Contains(err.Error(), "navigator's clusters in Cogpit's window (⌘P)") {
 		t.Fatalf("first connect: %v", err)
 	}
 	if n := requestsSeen(srv); n != 0 {

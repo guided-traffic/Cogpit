@@ -13,10 +13,11 @@ import (
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 )
 
-// The log of a connect (G2): the picker marks a context whose last connect failed, or whose
-// connection Cogpit closed because its kubeconfig file went away, with a warning icon; the icon
-// opens "Connection Updates: <context>", INFO and ERROR lines as Lens shows them (captured
-// 2026-10-12). The engine keeps the lines (cluster.connectLog); what a credential plugin writes to
+// The log of a connect (G2): a context whose last connect failed, or whose connection Cogpit closed
+// because its kubeconfig file went away, has a warning icon on the welcome page and Show Connection
+// Updates… in the menu of its row in the navigator's section (a red dot there; the context picker
+// had the icon until D-57); either opens "Connection Updates: <context>", INFO and ERROR lines as
+// Lens shows them (captured 2026-10-12). The engine keeps the lines (cluster.connectLog); what a credential plugin writes to
 // its standard error is not among them (gap G2). A line's time is its time of day in the user's
 // zone and format (D-31).
 

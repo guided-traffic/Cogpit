@@ -51,7 +51,7 @@ contexts:
 		var res commands.ConnectResult
 		h.must(t, origin, "cluster.connect", map[string]string{"context": id}, &res)
 		if res.State != engine.ConnectError || !strings.Contains(res.Error, "insecure-skip-tls-verify") ||
-			!strings.Contains(res.Error, "context picker in Cogpit's window") || strings.Contains(res.Error, "tok-SECRET") {
+			!strings.Contains(res.Error, "navigator's clusters in Cogpit's window (⌘P)") || strings.Contains(res.Error, "tok-SECRET") {
 			t.Errorf("%s: %+v", origin, res)
 		}
 	}

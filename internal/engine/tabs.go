@@ -29,10 +29,10 @@ import (
 //   - closing the active tab shows the nearest tab of the same cluster, right first, else nothing:
 //     the workspace stays empty until a view is opened (closing the last tab too);
 //   - Cogpit holds one cluster connection at a time (architecture §6), so the tabs of other
-//     clusters stay in the bar and activating one connects to its cluster as the picker does, then
-//     shows the tab's view again; while a connect runs no tab is active; a cluster connected from
-//     the picker or the hotbar shows its most recently used tab, else its default view in the
-//     preview tab;
+//     clusters stay in the bar and activating one connects to its cluster as the navigator does,
+//     then shows the tab's view again; while a connect runs no tab is active; a cluster connected
+//     from the navigator or the hotbar shows its most recently used tab, else its default view in
+//     the preview tab;
 //   - a tab's history holds view keys, at most maxTabHistory each way; back and forward open the
 //     view as ui.openView does (selection, drawer and search cleared, the namespace filter kept);
 //   - ⌘9 is the last tab, as browsers have it; next and previous wrap around;

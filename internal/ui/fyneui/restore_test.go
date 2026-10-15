@@ -76,7 +76,7 @@ func tabTitles(sh *shell) []string {
 }
 
 // A start with the tabs of the last run (D-41) shows the tab bar at once, the tab shown last
-// marked, and the welcome page, without the context picker (D-42) and without a request to any
+// marked, and the welcome page, the navigator's search closed (D-42, D-57) and without a request to any
 // cluster; the tabs of a context that is gone are not restored and a toast says so once the window
 // is up. Showing a tab is what connects its cluster.
 func TestStartShowsRestoredTabsWithoutConnecting(t *testing.T) {
@@ -91,8 +91,8 @@ func TestStartShowsRestoredTabsWithoutConnecting(t *testing.T) {
 	if !sh.tabs.shown[0].active || sh.tabs.shown[1].active || sh.ui.Connection.State != engine.Disconnected {
 		t.Errorf("the tab shown last is not the marked one, or connected: %+v", sh.ui.Connection)
 	}
-	if sh.picker.visible() {
-		t.Error("the context picker opened by itself at start")
+	if sh.side.head.searching() {
+		t.Error("the navigator's search opened by itself at start")
 	}
 
 	sh.showStartNotices() // what Run does once the window is up
@@ -124,7 +124,7 @@ func renderStartRestored(t *testing.T, mode ThemeMode) {
 	q.until(t, "the restored tabs", func() bool { return len(sh.tabs.shown) == 3 })
 	q.drain()
 	savePNG(t, w, "start_restored_"+string(mode)+".png")
-	if s.Backend() != nil || sh.picker.visible() {
-		t.Error("connected, or the picker opened, while rendering the start")
+	if s.Backend() != nil || sh.side.head.searching() {
+		t.Error("connected, or the navigator's search opened, while rendering the start")
 	}
 }

@@ -81,8 +81,8 @@ const (
 	sizeFilterWidth    fyne.ThemeSizeName = "cogpit.filterWidth"    // the namespace filter button
 	sizeSearchWidth    fyne.ThemeSizeName = "cogpit.searchWidth"    // the search entry
 	sizeFindCountWidth fyne.ThemeSizeName = "cogpit.findCountWidth" // the find widget's "1 of 1"
-	sizePickerWidth    fyne.ThemeSizeName = "cogpit.pickerWidth"    // the context picker
-	sizePickerHeight   fyne.ThemeSizeName = "cogpit.pickerHeight"   // the context picker
+	sizePickerWidth    fyne.ThemeSizeName = "cogpit.pickerWidth"    // the palette's and dialogs' width (the context picker's until D-57)
+	sizePickerHeight   fyne.ThemeSizeName = "cogpit.pickerHeight"   // the palette's and dialogs' height
 	sizeConfirmWidth   fyne.ThemeSizeName = "cogpit.confirmWidth"   // the confirmation dialog
 	sizePopupMaxList   fyne.ThemeSizeName = "cogpit.popupMaxList"   // the tallest list in a popup
 	sizeDockTabMaxLen  fyne.ThemeSizeName = "cogpit.dockTabMaxLen"  // the widest dock tab title
@@ -256,7 +256,7 @@ func identityColorName(color string) fyne.ThemeColorName {
 
 // identityColors are the icon colours per variant: Solarized's eight accents in the shades the
 // status tokens use, so that a cluster's initials read at 3:1 on the hotbar, the navigator and the
-// picker (TestIdentityColorsContrast); cyan is each variant's accent.
+// welcome page's list (TestIdentityColorsContrast); cyan is each variant's accent.
 var identityColors = map[fyne.ThemeVariant]map[string]uint32{
 	theme.VariantDark: {"cyan": solCyan, "blue": 0x4099d7, "violet": 0x898dd0, "magenta": 0xe0619c,
 		"red": 0xe66d6b, "orange": 0xd97a53, "yellow": 0xb78d08, "green": 0x899c08},

@@ -21,7 +21,7 @@ import (
 // directory and default namespace of that cluster's terminals. They are kept per context id in
 // ClusterSettingsFile under Cogpit's configuration directory, the images in ClusterIconsDir beside
 // it, never in a kubeconfig and never in the cluster (D-2: no implicit kubeconfig writes). They
-// are engine state (UIState.ClusterSettings) so that the hotbar, the context picker and the
+// are engine state (UIState.ClusterSettings) so that the hotbar, the welcome page and the
 // navigator show the same identity, and agents see and change it. The Prometheus a cluster's
 // metrics come from is a cluster setting too, kept apart in metrics.json (metricssettings.go).
 

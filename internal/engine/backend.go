@@ -158,7 +158,7 @@ func (b *Backend) AllProfiles() []*model.KindProfile {
 	return append(out, custom...)
 }
 
-// ContextInfo is one entry of the context picker.
+// ContextInfo is one context Cogpit offers: a row of the navigator's section (cluster.contexts).
 type ContextInfo struct {
 	Name      string `json:"name"`
 	Cluster   string `json:"cluster,omitempty"`
@@ -186,7 +186,7 @@ type ContextInfo struct {
 	Exec     string `json:"exec,omitempty"`
 	ExecKind string `json:"execKind,omitempty"`
 	// Insecure is set when the context's cluster skips the check of the server's certificate
-	// (insecure-skip-tls-verify): the picker warns, a source context asks once before its first
+	// (insecure-skip-tls-verify): the window warns, a source context asks once before its first
 	// connect (Exec), and connecting writes a warning into the connect log and marks the
 	// connection (Connection.TLSUnchecked; tlswarning.go).
 	Insecure bool `json:"insecure,omitempty"`

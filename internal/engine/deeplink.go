@@ -25,7 +25,7 @@ import (
 // not a UI or read command (checkDeepLinkCommand, checkDeepLinkDanger): a write is unreachable by
 // construction, whatever a later change adds to OpenDeepLink. It connects only a context of the
 // user's kubeconfig sources (or the demo cluster), never one whose credential plugin or token file
-// the user has not allowed yet (that approval stays the user's, from the picker), and never names
+// the user has not allowed yet (that approval stays the user's, in the window), and never names
 // a file or a program. Every link is audited with origin deeplink, and what it opened, or why it
 // stopped, is a toast.
 //
@@ -418,7 +418,7 @@ func (s *Session) deepLinkContext(name string) (ContextInfo, error) {
 			what = "connection without the certificate check"
 		}
 		return ContextInfo{}, fmt.Errorf("%s: %w (a %s you have not allowed yet, or that changed); a link never asks for it: "+
-			"connect from the context picker (⌘P) to review it", kubeconfig.DisplayText(c.Name, 200), ErrDeepLinkNeedsApproval, what)
+			"connect from the navigator's clusters (⌘P) to review it", kubeconfig.DisplayText(c.Name, 200), ErrDeepLinkNeedsApproval, what)
 	}
 	return c, nil
 }

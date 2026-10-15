@@ -117,8 +117,8 @@ func centre(o fyne.CanvasObject) fyne.Position {
 }
 
 // TestBarClicksReachTheButtons: on macOS a mouse-down that reaches the bar's drag area drags the
-// window, so every button on the bar must take the click itself: the arrows (enabled or not), the
-// bell and Switch context; the bar's text and its empty stretch reach the drag
+// window, so every button on the bar must take the click itself: the arrows (enabled or not) and
+// the bell (Switch context went, D-57); the bar's text and its empty stretch reach the drag
 // area, whose right-click opens the bar's context menu: Preferences…, which opens the
 // Preferences page.
 func TestBarClicksReachTheButtons(t *testing.T) {
@@ -135,7 +135,6 @@ func TestBarClicksReachTheButtons(t *testing.T) {
 	}
 	for name, o := range map[string]fyne.CanvasObject{
 		"back": top.history.back, "forward (disabled)": top.history.forward, "bell": top.notes.bell,
-		"switch context": top.switchB,
 	} {
 		if got := clickTarget(root, centre(o)); got != o {
 			t.Errorf("a click on %s reaches %T", name, got)

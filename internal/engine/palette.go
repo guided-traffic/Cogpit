@@ -37,7 +37,7 @@ import (
 //     offers but the open one ("Switch to Pods"), hotbar.switchBank one per bank but the shown
 //     one, hotbar.openCluster one per tile of the shown bank, with its F-key.
 //  7. Other parameters: a command with parameters is offered when the caller asks for them in a
-//     dialog of its own (PaletteInput.Runs: the context picker for cluster.connect, a bank's
+//     dialog of its own (PaletteInput.Runs: the navigator's section for cluster.connect, a bank's
 //     name, the create dialogs, the search field for ui.setFilter); else only when none is
 //     required, and it runs with the defaults its schema describes (hotbar.addCluster pins the
 //     connected cluster to the shown bank). One with a required parameter and no dialog is left

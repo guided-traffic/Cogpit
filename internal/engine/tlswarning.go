@@ -5,7 +5,7 @@ package engine
 // connects without checking, as kubectl does, and sends the context's credential to whoever answers
 // at the server's address. Lens's documentation says nothing about such contexts.
 //
-//   - The picker marks the context (ContextInfo.Insecure, from the kubeconfig; Cogpit's default of
+//   - The window marks the context (ContextInfo.Insecure, from the kubeconfig; Cogpit's default of
 //     2026-10-13).
 //   - A source context connects only once the user allowed it in the window, asked once per
 //     context before its first connect and kept like a credential plugin's approval, in the same

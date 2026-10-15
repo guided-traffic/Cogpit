@@ -30,9 +30,12 @@ import (
 //     this session (the connected or last one, the tabs' ones; the heading "Recent" since the
 //     owner's A67, 2026-10-14 evening, was "This session"), then up to eight other clusters the
 //     kubeconfig sources offer (the kubeconfig's current one first), so that a failed connect
-//     always leaves another to try; each row is the context picker's, with its right-click menu;
-//   - "All Clusters…" (the context picker, ⌘P) and "Add Kubeconfigs…" (the Sync Files and Folders
-//     dialog), the documentation and the shortcuts to remember. The documentation is two links to
+//     always leaves another to try; each row as the context picker had it (clusterrow.go), with
+//     its right-click menu;
+//   - "Connect to Cluster…" (⌘P: the navigator's section with its search focused, D-57; it read
+//     "All Clusters…" and opened the context picker until then; the name is the lead's default for
+//     the owner to confirm) and "Add Kubeconfigs…" (the Sync Files and Folders dialog), the
+//     documentation and the shortcuts to remember. The documentation is two links to
 //     the repository on GitHub, opened in the browser (the owner's A113, 2026-10-14 evening): the
 //     README for what Cogpit does (the showcase), and docs/developer/commands.md for the commands.
 //
@@ -68,7 +71,7 @@ type welcomePage struct {
 	cmds      *widget.Hyperlink // docs/developer/commands.md: every command
 	shown     bool
 	built     string        // the signature the list was built for
-	rows      []*pickerRow  // the clusters' rows in the order shown, for tests
+	rows      []*clusterRow // the clusters' rows in the order shown, for tests
 	links     *clusterLinks // the clusters' links, for Remove from Cogpit (menus_cluster.go)
 	menuModel *fyne.Menu    // a row's open menu, for tests
 
@@ -91,7 +94,7 @@ func newWelcomePage(sh *shell) *welcomePage {
 	w.status = newParagraph("", colorMuted, welcomeColumn)
 	w.status.Hide()
 	w.list = container.NewVBox()
-	w.allB = widget.NewButtonWithIcon("All Clusters…", theme.SearchIcon(), func() { sh.picker.show() })
+	w.allB = widget.NewButtonWithIcon(connectLabel+"…", theme.SearchIcon(), func() { sh.findCluster() })
 	w.addB = widget.NewButtonWithIcon("Add Kubeconfigs…", theme.ContentAddIcon(), sh.kc.addKubeconfigs)
 	u, _ := url.Parse(readmeURL)
 	w.docs = widget.NewHyperlink("What Cogpit does: the README on GitHub", u)
@@ -206,7 +209,7 @@ func (w *welcomePage) load() {
 	seq := w.loadSeq
 	go func() {
 		defer w.sh.recoverTo("the welcome page")
-		ctxs, _ := w.sh.eng.Contexts() // a partial list is shown; the picker says what failed
+		ctxs, _ := w.sh.eng.Contexts() // a partial list is shown; the navigator's section says what failed
 		links := w.links.read()
 		w.sh.do(func() {
 			if seq != w.loadSeq {
@@ -340,8 +343,8 @@ func (w *welcomePage) render() {
 	w.list.Refresh()
 }
 
-// row is one cluster: the context picker's row, connecting with one click.
-func (w *welcomePage) row(c engine.ContextInfo) *pickerRow {
+// row is one cluster, connecting with one click.
+func (w *welcomePage) row(c engine.ContextInfo) *clusterRow {
 	sh := w.sh
 	title, sub := contextLabels(c)
 	if cs := sh.ui.ClusterSettings[c.Name]; cs.Name != "" { // the display name, the context below it
@@ -350,7 +353,7 @@ func (w *welcomePage) row(c engine.ContextInfo) *pickerRow {
 	}
 	name := c.Name
 	connect := func() { w.connect(name) }
-	r := newPickerRow(c, title, sub, false, connect, connect, func() { sh.kc.showConnectLog(name) })
+	r := newClusterRow(c, title, sub, connect, connect, func() { sh.kc.showConnectLog(name) })
 	r.badge.setIdentity(sh.identity(name))
 	if sh.ui.Context == name && sh.ui.Connection.State == engine.Connected {
 		r.badges.Add(newPill("connected", connectionColor(sh.ui.Connection), true))
@@ -360,8 +363,8 @@ func (w *welcomePage) row(c engine.ContextInfo) *pickerRow {
 	return r
 }
 
-// connect connects a cluster as the context picker does: a login program the user has not allowed
-// yet is shown first; the connection's outcome shows on the page (or the cluster's tab replaces it).
+// connect connects a cluster as the navigator's section does: a login program the user has not
+// allowed yet is shown first; the connection's outcome shows on the page (or the cluster's tab replaces it).
 func (w *welcomePage) connect(name string) {
 	sh := w.sh
 	if sh.ui.Context == name && sh.ui.Connection.State == engine.Connected {
@@ -390,7 +393,7 @@ func (w *welcomePage) connect(name string) {
 }
 
 // menu is a cluster row's right-click menu: Connect, Settings, the hotbar's item, Disconnect and
-// Remove from Cogpit, as the picker's rows have them.
+// Remove from Cogpit, as the navigator's section rows have them.
 func (w *welcomePage) menu(name string, pos fyne.Position) {
 	sh := w.sh
 	items := []*fyne.MenuItem{fyne.NewMenuItem("Connect", func() { w.connect(name) })}

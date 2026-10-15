@@ -29,20 +29,32 @@ import (
 // back. The scope is engine state (UIState.NavigatorScope, engine/navscope.go): this level shows
 // while it is the section, the tree (navigator.go) while it is a cluster.
 //
+// The section is the one list that chooses a cluster (D-57, the owner's interview of 2026-10-15
+// evening): ⌘P, the Cluster menu's and the palette's Connect to Cluster, the welcome page's button
+// and a --context that fails show it with its search focused (findcluster.go); the context picker,
+// the top bar's "Switch context" and the header's scope dropdown went. The header reads "All
+// Clusters" here, with a "+" that adds kubeconfigs (navigator_header.go).
+//
 // Cogpit's defaults (inferred, not the owner's decision, 2026-10-13):
 //   - one section, "Local Kubeconfigs" under "Kubernetes Clusters", as the level's root; the cloud
 //     sections (after the beta, G18), Teamwork (D-9) and Extensions (D-5) are not built, so the
 //     root has no ‹ and nothing above it;
-//   - every context the kubeconfig sources offer, the context picker's list, grouped under a
-//     heading naming the folder or file they come from (".kube/", "dev.yaml"), the demo cluster
-//     first without one; each row the cluster's badge (its identity), its display name, a
-//     connection dot (the connected one's state; red after a failed connect; grey otherwise) and a
-//     ›; the source as the tooltip, "<name> - <source>"; the active cluster's row marked;
+//   - every context the kubeconfig sources offer, grouped under a heading naming the folder or
+//     file they come from (".kube/", "dev.yaml"), the demo cluster first without one; each row the
+//     cluster's badge (its identity), its display name, a connection dot (the connected one's
+//     state; red after a failed connect; grey otherwise) and a ›; the active cluster's row marked;
+//   - the row's tooltip, "<name> - <source>", and below it what the context picker's row said
+//     beside the context (the lead's night decision, 2026-10-15, for the owner to confirm; D-57):
+//     why the connect failed (the connection's error for the cluster that just failed, else that
+//     its log says why), a login program or an unchecked connection waiting for the user's
+//     approval, and a certificate the kubeconfig does not check, with the server the credential
+//     goes to; a row whose last connect failed has Show Connection Updates… in its menu, the log
+//     the picker's warning icon opened (G2);
 //   - a click on a row or its ›, → or ↵ drills into the cluster (ui.setNavigatorScope): a cluster
-//     not connected is connected through the engine as the picker connects it, its login program
-//     shown for approval first; ↑↓, Home and End move, ← goes to the cluster's heading (or the
-//     root), Escape clears the search or closes the drawer, a letter starts the search, F1–F12
-//     reach the hotbar;
+//     not connected is connected through the engine, its login program shown for approval first;
+//     ↑↓, Home and End move, ← goes to the cluster's heading (or the root), Escape clears the
+//     search (on ⌘P's empty search goes back to the cluster it came from, navHeader.escape) or
+//     closes the drawer, a letter starts the search, F1–F12 reach the hotbar;
 //   - a source group's heading collapses and opens its group (the owner's A63, 2026-10-14 evening):
 //     a click, ↵ or Space toggle it, ← collapses an open one (else goes to the root), → opens a
 //     collapsed one (else moves into it); a collapsed heading says how many clusters it hides. Which
@@ -54,7 +66,8 @@ import (
 //   - the header's search filters the clusters by name, context and source, ↵ drills into the
 //     first match;
 //   - a row's right-click menu is the cluster's (Connect, Settings…, the hotbar's item,
-//     Disconnect, Remove from Cogpit), the root's has Add Kubeconfigs….
+//     Disconnect, Remove from Cogpit, Show Connection Updates…), the root's has Add Kubeconfigs…, as
+//     the header's "+" does.
 
 // The section's names (Lens's, from its documentation and captures).
 const (
@@ -364,7 +377,7 @@ func (n *navSections) hintText(shown int) string {
 	case n.s.filter != "":
 		return "No clusters match “" + n.s.filter + "”."
 	}
-	return "No clusters yet: right-click Local Kubeconfigs to add a kubeconfig."
+	return "No clusters yet: add a kubeconfig with the + above."
 }
 
 // marked reports whether a context is the active cluster: connected or connecting.
@@ -387,8 +400,8 @@ func (n *navSections) dotColor(c engine.ContextInfo) fyne.ThemeColorName {
 }
 
 // drill shows a cluster's tree (ui.setNavigatorScope). A cluster not connected is connected through
-// the engine as the picker connects it: a login program the user has not allowed yet, or that
-// changed, is shown for approval first (kubeconfigs.go), and nothing runs without it.
+// the engine: a login program the user has not allowed yet, or that changed, is shown for approval
+// first (kubeconfigs.go), and nothing runs without it.
 func (n *navSections) drill(id string) {
 	sh := n.s.sh
 	if !n.marked(id) {
@@ -570,7 +583,7 @@ func (n *navSections) TypedKey(ev *fyne.KeyEvent) {
 		}
 	case fyne.KeyEscape:
 		if n.s.head.searching() {
-			n.s.head.closeSearch()
+			n.s.head.escape() // ⌘P's empty search goes back to its cluster (D-57)
 			return
 		}
 		n.s.sh.closeDrawer()
@@ -627,7 +640,8 @@ func (n *navSections) FocusLost() {
 func (n *navSections) keyboardOn(id string) bool { return n.focused && n.keys && n.focus == id }
 
 // rowMenu is a cluster's menu (right-click on its row): Connect while it is not the active one,
-// Settings…, the hotbar's item, Disconnect, Remove from Cogpit, as its menus elsewhere have them.
+// Settings…, the hotbar's item, Disconnect, Remove from Cogpit, as its menus elsewhere have them,
+// and after a failed connect Show Connection Updates…, its log (G2).
 func (n *navSections) rowMenu(id string, pos fyne.Position) {
 	sh := n.s.sh
 	var items []*fyne.MenuItem
@@ -638,6 +652,9 @@ func (n *navSections) rowMenu(id string, pos fyne.Position) {
 		if item != nil {
 			items = append(items, item)
 		}
+	}
+	if c, ok := n.context(id); ok && c.ConnectProblem {
+		items = append(items, fyne.NewMenuItemSeparator(), fyne.NewMenuItem(connectLogItem, func() { sh.kc.showConnectLog(id) }))
 	}
 	if len(items) == 0 {
 		return
@@ -788,16 +805,35 @@ func (r *navContextRow) set(c engine.ContextInfo) {
 	r.Refresh()
 }
 
-// tipText is the row's tooltip: its name and the kubeconfig source it comes from.
+// connectLogItem is the row menu's item that opens the log of the last connect (connectlog.go).
+const connectLogItem = "Show Connection Updates…"
+
+// tipText is the row's tooltip: its name and the kubeconfig source it comes from, then a line for
+// each thing to know before connecting (D-57): why the last connect failed, a login waiting for the
+// user's approval, a certificate the kubeconfig does not check.
 func (r *navContextRow) tipText() string {
-	title := r.n.rowTitle(r.info)
+	c, ui := r.info, r.n.s.sh.ui
+	title := r.n.rowTitle(c)
+	lines := []string{title}
 	switch {
-	case r.info.Source != "":
-		return title + " - " + kubeconfig.DisplayText(r.info.Source, maxShownPath)
-	case r.info.Demo:
-		return demoLabel
+	case c.Source != "":
+		lines[0] += " - " + kubeconfig.DisplayText(c.Source, maxShownPath)
+	case c.Demo:
+		lines[0] = demoLabel
 	}
-	return title
+	switch {
+	case c.Name == ui.Context && ui.Connection.State == engine.ConnectError && ui.Connection.Error != "":
+		lines = append(lines, "Could not connect: "+kubeconfig.DisplayText(ui.Connection.Error, maxShownPath))
+	case c.ConnectProblem:
+		lines = append(lines, "The last connect failed: "+connectLogItem+" in its menu says why")
+	}
+	if state := loginState(c); state != "" {
+		lines = append(lines, strings.ToUpper(state[:1])+state[1:]+": Cogpit shows it before it connects")
+	}
+	if c.Insecure {
+		lines = append(lines, insecureNote(c))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Tapped implements fyne.Tappable: the cluster's tree.

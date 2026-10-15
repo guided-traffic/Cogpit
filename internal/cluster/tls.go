@@ -17,7 +17,7 @@ import (
 // Insecure reports whether the connection skips the check of the API server's certificate: the
 // kubeconfig's cluster sets insecure-skip-tls-verify. Its credential then goes to whoever answers
 // at the server's address (docs/security/trust-boundaries.md, H-37); the engine writes a warning
-// into the connection log and the picker marks such a context. A zero Conn (tests' fakes) and a
+// into the connection log and the window marks such a context. A zero Conn (tests' fakes) and a
 // nil one report false.
 func (c *Conn) Insecure() bool { return c != nil && c.config != nil && c.config.Insecure }
 

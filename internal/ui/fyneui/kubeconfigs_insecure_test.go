@@ -30,8 +30,8 @@ var labContext = engine.ContextInfo{
 	Server: "https://192.168.49.2:8443", Exec: engine.ExecRequired, ExecKind: "insecure", Insecure: true,
 }
 
-// openLabApproval connects labContext from the picker of a fake engine whose pending approval is
-// that context alone, kind insecure, in state, and waits for the dialog.
+// openLabApproval connects labContext from the navigator's section of a fake engine whose pending
+// approval is that context alone, kind insecure, in state, and waits for the dialog.
 func openLabApproval(t *testing.T, state string, mode ThemeMode) (*fakeEngine, *recorder, *shell, fyne.Window, *mainQueue) {
 	t.Helper()
 	f, rec := kubeconfigFake(t, state)
@@ -55,7 +55,7 @@ func openLabApproval(t *testing.T, state string, mode ThemeMode) (*fakeEngine, *
 }
 
 // TestApprovalDialogAsksForAnUncheckedConnection (A28, H-37): connecting such a context from the
-// picker says what is reviewed and opens the dialog before anything connects; the dialog asks
+// section (its row's tooltip says it waits) opens the dialog before anything connects; the dialog asks
 // whether to connect without the certificate check, says what that hands to whoever answers and
 // that it asks once, names the server and the kubeconfig, shows no program, and its button allows
 // exactly that one context's fingerprint, then connects.
@@ -64,11 +64,8 @@ func TestApprovalDialogAsksForAnUncheckedConnection(t *testing.T) {
 	if got := f.connects(); len(got) != 0 {
 		t.Fatalf("connected before the user allowed it: %v", got)
 	}
-	if s := sh.picker.status.text; !strings.Contains(s, "whose certificate is not checked") {
-		t.Errorf("picker status %q", s)
-	}
-	if !hasPill(pickerRowOf(t, sh, "lab"), "unchecked connection not allowed yet") {
-		t.Error("the picker row does not say the unchecked connection waits")
+	if tip := sh.side.sec.rows[labContext.Name].tipText(); !strings.Contains(tip, "Unchecked connection not allowed yet") {
+		t.Errorf("the section's tooltip %q does not say the unchecked connection waits", tip)
 	}
 	texts := overlayTexts(w)
 	for _, want := range []string{
@@ -97,27 +94,6 @@ func TestApprovalDialogAsksForAnUncheckedConnection(t *testing.T) {
 	}
 	if got := f.connects(); got[0] != labContext.Name {
 		t.Errorf("connected %v", got)
-	}
-}
-
-// The picker's row of such a context, beside a checked one, light and dark: the "certificate not
-// checked" pill and line, and the pill saying the unchecked connection waits for the user.
-func TestRenderPickerInsecureWaiting(t *testing.T) {
-	for _, tc := range []struct {
-		mode ThemeMode
-		name string
-	}{{ThemeDark, "picker_insecure_waiting_dark.png"}, {ThemeLight, "picker_insecure_waiting_light.png"}} {
-		t.Run(tc.name, func(t *testing.T) {
-			f, _ := kubeconfigFake(t, engine.ExecRequired)
-			f.contexts = append([]engine.ContextInfo{labContext}, f.contexts...) // at the top, in view
-			sh, w, q := newTestShell(t, f, Options{Theme: tc.mode})
-			sh.picker.show()
-			q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
-			if !hasPill(pickerRowOf(t, sh, "lab"), "certificate not checked") {
-				t.Error("no certificate pill")
-			}
-			savePNG(t, w, tc.name)
-		})
 	}
 }
 

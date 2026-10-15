@@ -15,10 +15,11 @@ import (
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 )
 
-// The kubeconfig sources in the GUI (G2): the Cluster menu's and the picker's "Add Kubeconfigs"
-// entry (one dialog for files and folders, syncpicker.go), the sources dialog with its Remove
-// confirmation, the log of a connect behind the picker's warning icon, and the dialog that shows a
-// credential plugin before its first run (trust-boundaries H-1). Every change goes through the
+// The kubeconfig sources in the GUI (G2): the Cluster menu's, the welcome page's, the navigator
+// header's "+" and the section root's "Add Kubeconfigs" (one dialog for files and folders,
+// syncpicker.go), the sources dialog with its Remove confirmation, the log of a connect (the
+// welcome page's warning icon, a section row's Show Connection Updates…), and the dialog that shows
+// a credential plugin before its first run (trust-boundaries H-1). Every change goes through the
 // engine's kubeconfig commands, which only the GUI may run; the dialogs here are where the user
 // does it. Lens's own dialogs are captured only from the outside (the system file dialog, the
 // "Connection Updates" log): the layout is Cogpit's, the labels follow the captures.
@@ -173,11 +174,9 @@ func (k *kubeconfigUI) noClusters(a sourceAdded) {
 	d.Show()
 }
 
-// contextsChanged refreshes the picker and the sources dialog if they are open.
+// contextsChanged refreshes the sources dialog if it is open; the navigator's section and the
+// welcome page follow the contexts themselves.
 func (k *kubeconfigUI) contextsChanged() {
-	if k.sh.picker.visible() {
-		k.sh.picker.load()
-	}
 	if k.sources != nil {
 		k.sources.load()
 	}

@@ -8,8 +8,8 @@ import (
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 )
 
-const contextsAbout = `Lists the contexts Cogpit offers, as the app's context picker and the MCP tool cluster_contexts
-list them: every context of ~/.kube, of the files --kubeconfig (else $KUBECONFIG) names, and of the
+const contextsAbout = `Lists the contexts Cogpit offers, as the app's navigator and the MCP tool cluster_contexts list
+them: every context of ~/.kube, of the files --kubeconfig (else $KUBECONFIG) names, and of the
 files and sync folders added in Cogpit, each file read on its own and named "<context> [<file>]",
 and the synthetic demo cluster "demo". LOGIN says whether a context logs in through a credential
 plugin or a token file outside its folder, and whether the user allowed it in Cogpit's window:
@@ -84,7 +84,7 @@ func login(c engine.ContextInfo) string {
 }
 
 // certificate is "not checked" for a context whose cluster skips the check of the server's
-// certificate (insecure-skip-tls-verify), as the app's picker marks it ("certificate not checked",
+// certificate (insecure-skip-tls-verify), as the app's welcome page marks it ("certificate not checked",
 // H-37), followed for a kubeconfig source's context by whether the user allowed connecting to it so
 // ("not checked, required"; A28: approved, required or changed, the context's approval, a plugin's
 // included); empty otherwise. The last column, so that the columns before keep their places

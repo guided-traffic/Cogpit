@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-
 	"fyne.io/fyne/v2/test"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // syncTree is a folder the sync picker browses: two kubeconfigs (one hidden), a note and a
@@ -150,7 +150,7 @@ func TestSyncPickerDoubleTapOnAFileSyncsIt(t *testing.T) {
 	}
 }
 
-// TestSyncPickerNeverStartsInTheHomeInTests: the shell the tests build opens the picker in a
+// TestSyncPickerNeverStartsInTheHomeInTests: the shell the tests build opens the sync picker in a
 // temporary directory, so no test lists the developer's home or ~/.kube.
 func TestSyncPickerNeverStartsInTheHomeInTests(t *testing.T) {
 	sh, _, _ := newTestShell(t, newFakeEngine(t), Options{})
@@ -189,8 +189,6 @@ func TestRemoveConfirmationNamesThePathAndSaysOnlyTheLinkGoes(t *testing.T) {
 
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	sd := sh.kc.sources
 	q.until(t, "the sources", func() bool { return len(sd.rows) == 5 })
@@ -206,10 +204,11 @@ func TestRemoveConfirmationNamesThePathAndSaysOnlyTheLinkGoes(t *testing.T) {
 	}
 }
 
-// TestPickerMarksAFailedConnectAndOpensItsLog: a context whose last connect failed carries a
-// warning icon; it opens "Connection Updates: <context>" with the engine's lines; contexts without
-// a problem have no icon.
-func TestPickerMarksAFailedConnectAndOpensItsLog(t *testing.T) {
+// TestSectionMarksAFailedConnectAndOpensItsLog: a context whose last connect failed has a red dot
+// in the navigator's section, its tooltip says so, and its menu's Show Connection Updates… opens
+// "Connection Updates: <context>" with the engine's lines; contexts without a problem have none of
+// it (the context picker's warning icon went, D-57; the welcome page's stays).
+func TestSectionMarksAFailedConnectAndOpensItsLog(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	at := time.Date(2026, 10, 12, 14, 3, 9, 0, time.UTC)
 	f.handlers["cluster.connectLog"] = func(_ context.Context, inv engine.Invocation) (any, error) {
@@ -220,21 +219,29 @@ func TestPickerMarksAFailedConnectAndOpensItsLog(t *testing.T) {
 		}}, nil
 	}
 	sh, _, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
+	n := sh.side.sec
+	q.until(t, "the section's rows", func() bool { return n.loaded && len(n.rows) == len(f.contexts) })
 	var warned []string
-	for _, o := range sh.picker.list.Objects {
-		if r, ok := o.(*pickerRow); ok && r.warn != nil {
-			warned = append(warned, r.title.text)
+	for _, c := range f.contexts {
+		r := n.rows[c.Name]
+		red := r.dot.color == statusColorName(model.StatusError)
+		says := strings.Contains(r.tipText(), "The last connect failed")
+		if red != says {
+			t.Errorf("%s: red dot %v, tooltip %q", c.Name, red, r.tipText())
+		}
+		if red {
+			warned = append(warned, c.Name)
 		}
 	}
-	if !slices.Equal(warned, []string{"team"}) {
-		t.Fatalf("rows with a warning: %v", warned)
+	if !slices.Equal(warned, []string{"team [kubeconfigs/team.yaml]"}) {
+		t.Fatalf("rows with a failed connect: %v", warned)
 	}
-	for _, o := range sh.picker.list.Objects {
-		if r, ok := o.(*pickerRow); ok && r.warn != nil {
-			test.Tap(r.warn)
-		}
+	n.rowMenu("team [kubeconfigs/team.yaml]", fyne.NewPos(10, 10))
+	items := n.menuModel.Items
+	if last := items[len(items)-1]; last.Label != connectLogItem {
+		t.Fatalf("team's menu ends with %q", last.Label)
+	} else {
+		last.Action()
 	}
 	q.until(t, "the log dialog", func() bool { return sh.kc.connectLog != nil })
 	if p := rec.params("cluster.connectLog"); p["context"] != "team [kubeconfigs/team.yaml]" {
@@ -254,8 +261,6 @@ func TestPickerMarksAFailedConnectAndOpensItsLog(t *testing.T) {
 func TestDisconnectedByAGoneFileSaysWhy(t *testing.T) {
 	f, _ := kubeconfigFake(t, engine.ExecRequired)
 	sh, _, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker", sh.picker.visible)
 	reason := "Disconnected from kind-cogpit [kind.yaml]: its kubeconfig file /Users/me/kind.yaml is gone."
 	f.update(func(u *engine.UIState) {
 		u.Context = "kind-cogpit [kind.yaml]"
@@ -281,8 +286,6 @@ func TestRenderSyncPicker(t *testing.T) {
 func TestRenderRemoveConfirmation(t *testing.T) {
 	f, _ := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	sd := sh.kc.sources
 	q.until(t, "the sources", func() bool { return len(sd.rows) == 5 })
@@ -301,9 +304,7 @@ func TestRenderConnectionUpdates(t *testing.T) {
 		}}, nil
 	}
 	sh, w, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker rows", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
-	savePNG(t, w, "picker_connect_problem_dark.png")
+	q.until(t, "the section's rows", func() bool { return sh.side.sec.loaded && len(sh.side.sec.rows) == len(f.contexts) })
 	sh.kc.showConnectLog("team [kubeconfigs/team.yaml]")
 	q.until(t, "the log dialog", func() bool { return sh.kc.connectLog != nil })
 	savePNG(t, w, "connection_updates_dark.png")

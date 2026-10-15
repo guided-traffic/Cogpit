@@ -126,8 +126,8 @@ func runGet(ctx context.Context, args []string, e *env) int {
 	return exitOK
 }
 
-// connect connects the session to a context with cluster.connect, as the context picker and
-// agents do, and returns the command's result.
+// connect connects the session to a context with cluster.connect, as the window and agents do,
+// and returns the command's result.
 func connect(ctx context.Context, s *engine.Session, contextName string) (commands.ConnectResult, error) {
 	var res commands.ConnectResult
 	if _, err := dispatchInto(ctx, s, "cluster.connect", map[string]string{"context": contextName}, &res); err != nil {

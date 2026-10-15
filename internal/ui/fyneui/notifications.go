@@ -24,7 +24,7 @@ import (
 // notifications.list, opening the panel marks what it shows read (notifications.markRead), "Clear
 // all" empties it (notifications.clear), and closing a toast by its × marks that one read, so the
 // badge counts what went by unseen. Whether the panel is open is the window's, as the context
-// picker's is: agents read the list itself (Cogpit's default, 2026-10-13).
+// picker's was: agents read the list itself (Cogpit's default, 2026-10-13).
 
 // iconBell is the bell, drawn for Cogpit: a dome on a rim, and the clapper below it.
 var iconBell = theme.NewThemedResource(fyne.NewStaticResource("cogpit-bell.svg", []byte(

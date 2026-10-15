@@ -2,7 +2,6 @@ package fyneui
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -29,8 +28,7 @@ const (
 )
 
 // fakeNavScope gives the fake engine ui.setNavigatorScope: the real command's metadata in its
-// registry and a handler that changes its UI state as the engine does in the cases the tests use
-// (engine/navscope_test.go tests the engine's own): into another cluster it connects at once.
+// registry and fakeEngine.setNavScope, which changes its UI state as the engine does.
 func fakeNavScope(t testing.TB, f *fakeEngine) {
 	t.Helper()
 	c, ok := realCommands(t).Get("ui.setNavigatorScope")
@@ -38,25 +36,7 @@ func fakeNavScope(t testing.TB, f *fakeEngine) {
 		t.Fatal("the registry has no ui.setNavigatorScope")
 	}
 	probe[navScopeParams](t, f, c)
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.handlers["ui.setNavigatorScope"] = func(_ context.Context, inv engine.Invocation) (any, error) {
-		var p navScopeParams
-		if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
-			return nil, err
-		}
-		id, err := engine.ParseNavScope(p.Scope)
-		if err != nil {
-			return nil, err
-		}
-		f.update(func(u *engine.UIState) {
-			if id != "" && id != u.Context { // another cluster: connected, as the engine connects it
-				u.Context, u.Connection, u.View = id, engine.Connection{State: engine.Connected}, kindPods
-			}
-			u.NavigatorScope = p.Scope
-		})
-		return nil, nil
-	}
+	setHandler(f, "ui.setNavigatorScope", f.setNavScope)
 }
 
 // setHandler replaces a command's handler while the shell runs.
@@ -121,17 +101,23 @@ func scopeCalls(t *testing.T, f *fakeEngine) []string {
 
 // The section level lists every cluster under Local Kubeconfigs (Kubernetes Clusters), grouped by
 // the folder or file it comes from, the demo cluster first: each with its identity's badge, its
-// display name, a connection dot and a ›, the source as the tooltip; the connected one marked. The
-// header names the section, and the tab bar shows every tab.
+// display name, a connection dot and a ›, the source as the tooltip with what the context picker
+// said beside the context (a failed connect, a login waiting for the user; D-57); the connected one
+// marked. The header reads All Clusters with its "+" and search, and the tab bar shows every tab.
 func TestNavigatorSectionLevel(t *testing.T) {
 	sh, w, q, _ := sectionScene(t, ThemeDark)
 	s, n := sh.side, sh.side.sec
 	if !n.Visible() || s.tree.Visible() {
 		t.Fatalf("section shown %v, tree shown %v", n.Visible(), s.tree.Visible())
 	}
-	if s.head.scope.text.text != "Local Kubeconfigs" || n.root.title.text != "Local Kubeconfigs" ||
-		n.root.sub.text != "Kubernetes Clusters · 4 clusters" {
-		t.Errorf("header %q, root %q / %q", s.head.scope.text.text, n.root.title.text, n.root.sub.text)
+	h := s.head
+	if h.title.text != "All Clusters" || !h.title.Visible() || h.back.Visible() || !h.addB.Visible() || !h.searchB.Visible() ||
+		n.root.title.text != "Local Kubeconfigs" || n.root.sub.text != "Kubernetes Clusters · 4 clusters" {
+		t.Errorf("header %q (shown %v, back %v, + %v), root %q / %q", h.title.text, h.title.Visible(), h.back.Visible(),
+			h.addB.Visible(), n.root.title.text, n.root.sub.text)
+	}
+	if h.addB.tip != "Add Kubeconfigs…" || h.entry.PlaceHolder != "Search clusters…" {
+		t.Errorf("+ %q, search %q", h.addB.tip, h.entry.PlaceHolder)
 	}
 	if got := n.visible[1:]; !slices.Equal(got, []string{"demo", headKube, secKind, secProd, headEKS, secEKS}) {
 		t.Errorf("rows %q", got)
@@ -160,8 +146,11 @@ func TestNavigatorSectionLevel(t *testing.T) {
 	if prod.badge.text != "PP" || prod.badge.ink != identityColorName("magenta") || kind.badge.text != "KC" {
 		t.Errorf("badges %q (%q), %q", prod.badge.text, prod.badge.ink, kind.badge.text)
 	}
-	if got := prod.tipText(); got != "Payments prod - .kube/prod.yaml" {
+	if got := prod.tipText(); got != "Payments prod - .kube/prod.yaml\nThe last connect failed: Show Connection Updates… in its menu says why" {
 		t.Errorf("tooltip %q", got)
+	}
+	if got := kind.tipText(); got != "kind-cogpit - .kube/config" {
+		t.Errorf("the connected one's tooltip %q", got)
 	}
 	if got := n.rows["demo"].tipText(); got != demoLabel {
 		t.Errorf("the demo's tooltip %q", got)
@@ -173,26 +162,54 @@ func TestNavigatorSectionLevel(t *testing.T) {
 	sh.tip.delay = time.Millisecond
 	settle(w)
 	test.MoveMouse(w.Canvas(), fyne.CurrentApp().Driver().AbsolutePositionForObject(eks).AddXY(60, eks.Size().Height/2))
-	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() == "eks-payments - eks.yaml" })
+	q.until(t, "the tooltip", func() bool {
+		return sh.tip.visibleText() == "eks-payments - eks.yaml\nLogin program not allowed yet: Cogpit shows it before it connects"
+	})
+}
+
+// The row's tooltip says what the context picker's row said beside a context (D-57): the error of
+// the connect that just failed, a changed token file, and a certificate the kubeconfig does not
+// check with the server the credential goes to.
+func TestNavigatorSectionTooltipLines(t *testing.T) {
+	f := sectionFake(t)
+	f.contexts = append(f.contexts, engine.ContextInfo{Name: "lab [lab.yaml]", Source: "lab.yaml", KubeContext: "lab",
+		Server: "https://192.168.49.2:8443", Exec: engine.ExecChanged, ExecKind: "tokenFile", Insecure: true})
+	f.ui.Context, f.ui.Connection = secProd, engine.Connection{State: engine.ConnectError, Error: "dial tcp 10.0.0.7:6443: i/o timeout"}
+	sh, _, q := newTestShell(t, f, Options{})
+	n := sh.side.sec
+	q.until(t, "the clusters", func() bool { return n.loaded && n.rows["lab [lab.yaml]"] != nil })
+	if got := n.rows[secProd].tipText(); got != "Payments prod - .kube/prod.yaml\nCould not connect: dial tcp 10.0.0.7:6443: i/o timeout" {
+		t.Errorf("the failed one %q", got)
+	}
+	if n.rows[secProd].dot.color != statusColorName(model.StatusError) {
+		t.Errorf("the failed one's dot %q", n.rows[secProd].dot.color)
+	}
+	want := "lab - lab.yaml\nToken file changed: Cogpit shows it before it connects\n" +
+		"insecure-skip-tls-verify: the credential goes to whoever answers at https://192.168.49.2:8443"
+	if got := n.rows["lab [lab.yaml]"].tipText(); got != want {
+		t.Errorf("lab %q, want %q", got, want)
+	}
 }
 
 // A cluster's › (or a click on its row) drills into it: ui.setNavigatorScope, which connects a
-// cluster that is not connected; the tree shows its root and the tab bar its tabs only. The root's ‹
-// goes back up to the section, where every tab shows again; a click on the connected cluster's row
-// drills in without a connect.
+// cluster that is not connected; the tree shows its root and the tab bar its tabs only. The header's
+// ‹ All Clusters goes back up to the section, where every tab shows again; a click on the connected
+// cluster's row drills in without a connect.
 func TestNavigatorSectionDrillsInAndBack(t *testing.T) {
 	sh, _, q, f := sectionScene(t, ThemeDark)
 	s, n := sh.side, sh.side.sec
 	test.Tap(n.rows[secProd].next)
 	q.until(t, "prod's tree", func() bool { return sh.ui.Context == secProd && s.tree.Visible() && !n.Visible() })
-	if s.head.scope.text.text != "prod-eu-central" || s.name.text != "Payments prod" {
-		t.Errorf("header %q, root %q", s.head.scope.text.text, s.name.text)
+	if h := s.head; !h.back.Visible() || h.back.text.text != "All Clusters" || h.title.Visible() || h.addB.Visible() ||
+		!h.searchB.Visible() || s.name.text != "Payments prod" {
+		t.Errorf("header: back %v %q, title %v, + %v; root %q", h.back.Visible(), h.back.text.text, h.title.Visible(),
+			h.addB.Visible(), s.name.text)
 	}
 	if len(sh.tabs.shown) != 1 || sh.tabs.shown[0].tab.ID != "tab-3" {
 		t.Errorf("the tab bar at prod: %d tabs", len(sh.tabs.shown))
 	}
 
-	test.Tap(s.rootRow.back)
+	test.Tap(s.head.back)
 	q.until(t, "the section", func() bool { return n.Visible() && !s.tree.Visible() && len(sh.tabs.shown) == 3 })
 	if sh.ui.Context != secProd {
 		t.Errorf("going up changed the connection: %q", sh.ui.Context)
@@ -208,8 +225,8 @@ func TestNavigatorSectionDrillsInAndBack(t *testing.T) {
 	}
 }
 
-// A cluster whose login program the user has not allowed shows it first, as the picker does: nothing
-// connects, and the scope stays, before the user allowed it.
+// A cluster whose login program the user has not allowed shows it first: nothing connects, and the
+// scope stays, before the user allowed it.
 func TestNavigatorSectionAsksForTheLoginProgramFirst(t *testing.T) {
 	sh, _, q, f := sectionScene(t, ThemeDark)
 	n := sh.side.sec
@@ -306,48 +323,21 @@ func TestNavigatorSectionKeyboard(t *testing.T) {
 	}
 }
 
-// The scope dropdown lists the section, the hotbar's shown bank's clusters in their order and the
-// connected one (A52), the scope shown checked, and All Clusters… (the picker, ⌘P) for the rest; a tile whose
-// context no source offers any more is left out. Choosing one sets the scope.
-func TestNavigatorSectionDropdown(t *testing.T) {
-	f := sectionFake(t)
-	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank, Clusters: []engine.HotbarTile{
-		{Context: secProd}, {Context: "gone [old.yaml]"}, {Context: secEKS}, {Context: "demo"}}},
-		engine.HotbarBank{Name: "Other", Clusters: []engine.HotbarTile{{Context: secKind}}})
-	sh, _, q := newTestShell(t, f, Options{})
-	q.until(t, "the section's clusters", func() bool { return sh.side.sec.loaded && len(sh.side.sec.visible) == 7 })
+// The header's "+" at the section adds kubeconfigs (the Sync Files and Folders dialog), as the
+// root's right-click does; at a cluster it is gone (D-57, I8).
+func TestNavigatorHeaderAddsKubeconfigs(t *testing.T) {
+	sh, _, q, _ := sectionScene(t, ThemeDark)
 	h := sh.side.head
-	labels := func() []string {
-		var out []string
-		for _, it := range h.menuModel.Items {
-			l := it.Label
-			if it.Checked {
-				l += " ✓"
-			}
-			out = append(out, l)
-		}
-		return out
+	asked := 0
+	sh.kc.pick = func(func(string, bool)) { asked++ }
+	test.Tap(h.addB)
+	if asked != 1 {
+		t.Fatalf("the + asked %d times for a kubeconfig", asked)
 	}
-	test.Tap(h.scope)
-	want := []string{"Local Kubeconfigs ✓", "", "Payments prod", "eks-payments", "Demo cluster", "kind-cogpit", "", "All Clusters…"}
-	if got := labels(); !slices.Equal(got, want) {
-		t.Fatalf("at the section: %q, want %q", got, want)
-	}
-	h.menuModel.Items[5].Action() // kind-cogpit, the connected one
+	test.Tap(sh.side.sec.rows[secKind])
 	q.until(t, "kind-cogpit's tree", func() bool { return sh.side.tree.Visible() })
-	test.Tap(h.scope)
-	want = []string{"Local Kubeconfigs", "", "Payments prod", "eks-payments", "Demo cluster", "kind-cogpit ✓", "", "All Clusters…"}
-	if got := labels(); !slices.Equal(got, want) {
-		t.Fatalf("at kind-cogpit: %q, want %q", got, want)
-	}
-	h.menuModel.Items[0].Action()
-	q.until(t, "the section", func() bool { return sh.side.sec.Visible() })
-	if got := scopeCalls(t, f); !slices.Equal(got, []string{"cluster:" + secKind, engine.NavScopeLocal}) {
-		t.Errorf("scopes %q", got)
-	}
-	h.menuModel.Items[7].Action()
-	if !sh.picker.visible() {
-		t.Error("All Clusters… did not open the context picker")
+	if h.addB.Visible() || !h.back.Visible() {
+		t.Errorf("at a cluster: + %v, back %v", h.addB.Visible(), h.back.Visible())
 	}
 }
 
@@ -383,10 +373,16 @@ func TestNavigatorSectionSearch(t *testing.T) {
 }
 
 // A cluster's row has the cluster's menu: Connect while it is not the active one, Settings… and the
-// hotbar's item where they exist; the connected one's has Disconnect and no Connect.
+// hotbar's item where they exist, and after a failed connect Show Connection Updates…, its log; the
+// connected one's has Disconnect and no Connect.
 func TestNavigatorSectionRowMenu(t *testing.T) {
 	f := sectionFake(t)
 	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank})
+	f.handlers["cluster.connectLog"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		return map[string]any{"context": secProd, "lines": []map[string]any{
+			{"time": fixedNow, "level": "ERROR", "text": "cannot connect to https://api.prod-eu-central.example.com:6443: i/o timeout"},
+		}}, nil
+	}
 	sh, _, q := newTestShell(t, f, Options{})
 	q.until(t, "the clusters", func() bool { return sh.side.sec.loaded && len(sh.side.sec.visible) == 7 })
 	n := sh.side.sec
@@ -397,10 +393,21 @@ func TestNavigatorSectionRowMenu(t *testing.T) {
 		}
 		return out
 	}
+	n.rows[secKind].TappedSecondary(&fyne.PointEvent{})
+	if got := labels(); slices.Contains(got, connectLogItem) {
+		t.Errorf("a cluster without a failed connect offers its log: %q", got)
+	}
 	n.rows[secProd].TappedSecondary(&fyne.PointEvent{})
-	if got := labels(); len(got) < 2 || got[0] != "Connect" || !slices.Contains(got, "Add to Hotbar") {
+	if got := labels(); len(got) < 2 || got[0] != "Connect" || !slices.Contains(got, "Add to Hotbar") || got[len(got)-1] != connectLogItem {
 		t.Fatalf("prod's menu %q", got)
 	}
+	n.menuModel.Items[len(n.menuModel.Items)-1].Action()
+	q.until(t, "the connect's log", func() bool { return sh.kc.connectLog != nil })
+	if p := decodeParams[map[string]string](t, f.callsOf("cluster.connectLog")[0]); p["context"] != secProd {
+		t.Errorf("cluster.connectLog %v", p)
+	}
+	test.Tap(sh.kc.connectLog.close)
+	n.rows[secProd].TappedSecondary(&fyne.PointEvent{})
 	n.menuModel.Items[0].Action()
 	q.until(t, "prod's tree", func() bool { return sh.side.tree.Visible() && sh.ui.Context == secProd })
 	sh.side.goUp()
@@ -430,7 +437,8 @@ func TestNavScopeParamsMatchTheRegistry(t *testing.T) {
 
 // Over the real engine and a small demo cluster, not connected at start: the navigator shows the
 // section with the demo cluster; its › connects through the engine and drills in, the tree and the
-// preview tab showing; the root's ‹ goes back up and keeps the connection and the tab.
+// preview tab showing; the header's ‹ All Clusters goes back up and keeps the connection and the
+// tab.
 func TestNavigatorSectionOverTheEngine(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds a demo cluster")
@@ -474,7 +482,6 @@ func TestNavigatorSectionOverTheEngine(t *testing.T) {
 	}
 	n := sh.side.sec
 	until("the section", func() bool { return n.Visible() && n.rows[engine.DemoContext] != nil })
-	sh.picker.hide()
 	if sh.ui.NavigatorScope != engine.NavScopeLocal || len(sh.tabs.shown) != 0 {
 		t.Errorf("at start: scope %q, %d tabs", sh.ui.NavigatorScope, len(sh.tabs.shown))
 	}
@@ -486,7 +493,7 @@ func TestNavigatorSectionOverTheEngine(t *testing.T) {
 	if got := s.UIState().NavigatorScope; got != engine.NavScopeCluster(engine.DemoContext) {
 		t.Errorf("scope %q", got)
 	}
-	test.Tap(sh.side.rootRow.back)
+	test.Tap(sh.side.head.back)
 	until("the section again", func() bool { return n.Visible() && sh.ui.NavigatorScope == engine.NavScopeLocal })
 	if sh.ui.Connection.State != engine.Connected || len(sh.tabs.shown) != 1 || !n.marked(engine.DemoContext) {
 		t.Errorf("up: %s, %d tabs, demo marked %v", sh.ui.Connection.State, len(sh.tabs.shown), n.marked(engine.DemoContext))
@@ -517,20 +524,18 @@ func renderNavigatorSection(t *testing.T, mode ThemeMode, name string) {
 	savePNG(t, w, name)
 }
 
-func TestRenderNavigatorScopeMenuDark(t *testing.T) {
-	renderNavigatorScopeMenu(t, ThemeDark, "navigator_section_menu_dark.png")
+func TestRenderNavigatorFindDark(t *testing.T) {
+	renderNavigatorFind(t, ThemeDark, "navigator_find_dark.png")
 }
-func TestRenderNavigatorScopeMenuLight(t *testing.T) {
-	renderNavigatorScopeMenu(t, ThemeLight, "navigator_section_menu_light.png")
+func TestRenderNavigatorFindLight(t *testing.T) {
+	renderNavigatorFind(t, ThemeLight, "navigator_find_light.png")
 }
 
-// renderNavigatorScopeMenu: drilled into kind-cogpit (its tabs only in the bar), the scope dropdown
-// open on the section, the hotbar's clusters and the connected one, and All Clusters… with ⌘P (A52).
-func renderNavigatorScopeMenu(t *testing.T, mode ThemeMode, name string) {
+// renderNavigatorFind: drilled into kind-cogpit, then ⌘P (Connect to Cluster…, D-57): the section
+// with its search open and focused, "pro" typed, the header's All Clusters with its "+".
+func renderNavigatorFind(t *testing.T, mode ThemeMode, name string) {
 	f := sectionFake(t)
-	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank, Clusters: []engine.HotbarTile{
-		{Context: secProd}, {Context: secEKS}, {Context: "demo"}}})
-	if c, ok := realCommands(t).Get("cluster.connect"); ok { // its ⌘P beside All Clusters…
+	if c, ok := realCommands(t).Get(connectCommand); ok { // ⌘P on the Cluster menu's item
 		probe[probeContext](t, f, c)
 	}
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
@@ -539,7 +544,11 @@ func renderNavigatorScopeMenu(t *testing.T, mode ThemeMode, name string) {
 	})
 	test.Tap(sh.side.sec.rows[secKind])
 	q.until(t, "the tree", func() bool { return sh.side.tree.Visible() && sh.side.tree.rows["deployments"] != nil })
+	sh.connectMenuItem().Action()
+	h := sh.side.head
+	q.until(t, "the section's search", func() bool { return sh.side.sec.Visible() && w.Canvas().Focused() == h.entry })
+	test.Type(h.entry, "pro")
+	q.until(t, "the search reported", func() bool { return sh.ui.Navigator.Search == "pro" })
 	settle(w)
-	test.Tap(sh.side.head.scope)
 	savePNG(t, w, name)
 }

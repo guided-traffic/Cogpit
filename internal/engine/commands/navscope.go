@@ -18,7 +18,7 @@ type navScopeParams struct {
 func registerNavScope(g *registrar) {
 	add(g, engine.Spec[navScopeParams]{
 		ID: "ui.setNavigatorScope", Label: "Show in Navigator", Danger: engine.DangerUI, Verbs: cacheReads,
-		Description: "Sets what the navigator shows, as its scope dropdown, the ‹ on a cluster's root and the › on a " +
+		Description: "Sets what the navigator shows, as its header's ‹ All Clusters, ⌘P (Connect to Cluster) and the › on a " +
 			"cluster's row do: section:local, the Local Kubeconfigs section listing every cluster Cogpit offers, or " +
 			"cluster:<context id>, that cluster's resource tree. The tab bar shows the tabs of the scope: every tab at the " +
 			"section, the cluster's tabs at a cluster (ui_tab_select's index, next and previous count those). Going up to " +

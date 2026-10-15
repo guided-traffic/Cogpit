@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 )
 
-// Context is one kubeconfig context as the context picker shows it. It carries names only, never
+// Context is one kubeconfig context as the navigator's section lists it. It carries names only, never
 // a credential.
 type Context struct {
 	Name      string `json:"name"`

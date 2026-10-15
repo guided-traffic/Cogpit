@@ -358,7 +358,7 @@ func TestApprovalDialogRefusedAsAWhole(t *testing.T) {
 	toasts := len(sh.toasts.Objects)
 	test.Tap(sh.kc.approval.allow)
 	q.until(t, "the dialog to close", func() bool { return sh.kc.approval == nil && len(sh.toasts.Objects) > toasts })
-	q.until(t, "the picker's answer", func() bool { return sh.picker.connecting == "" })
+	q.drain()
 	if len(f.connects()) != 0 {
 		t.Errorf("connected: %v", f.connects())
 	}

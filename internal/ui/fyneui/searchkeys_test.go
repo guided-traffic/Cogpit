@@ -9,7 +9,7 @@ import (
 )
 
 // F1–F12 open the hotbar's clusters from the plain search fields too (A64): the view's search, the
-// navigator's, the picker's and the palette's filters (the palette closes first); other keys still
+// navigator's (⌘P's too) and the palette's filter (the palette closes first); other keys still
 // type. The scene's bank: demo, kind-cogpit (connected), prod-eu-central.
 func TestSearchFieldsHandFKeysToTheHotbar(t *testing.T) {
 	sh, w, q, f, _ := paletteShell(t, ThemeDark)
@@ -37,15 +37,10 @@ func TestSearchFieldsHandFKeysToTheHotbar(t *testing.T) {
 	sh.side.head.entry.TypedKey(&fyne.KeyEvent{Name: fyne.KeyF1})
 	q.until(t, "F1 from the navigator's search", opened(3, 1))
 
-	sh.picker.show()
-	sh.picker.filter.TypedKey(&fyne.KeyEvent{Name: fyne.KeyF2})
-	q.until(t, "F2 from the picker's filter", opened(3, 1, 2))
-	sh.picker.hide()
-
 	openPalette(t, sh, q)
 	pressInPalette(sh, q, fyne.KeyF3)
-	q.until(t, "F3 from the palette, closed first", func() bool { return len(slots()) >= 4 && !sh.palette.visible() })
-	if got := slots(); !slices.Equal(got, []int{3, 1, 2, 3}) {
-		t.Errorf("hotbar.openCluster's slots %v, want 3, 1, 2, 3", got)
+	q.until(t, "F3 from the palette, closed first", func() bool { return len(slots()) >= 3 && !sh.palette.visible() })
+	if got := slots(); !slices.Equal(got, []int{3, 1, 3}) {
+		t.Errorf("hotbar.openCluster's slots %v, want 3, 1, 3", got)
 	}
 }

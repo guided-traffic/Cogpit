@@ -244,7 +244,7 @@ func TestHotbarTileClickOpensTheCluster(t *testing.T) {
 	}
 }
 
-// A tile whose login program waits for the user's approval shows it first, as the picker does:
+// A tile whose login program waits for the user's approval shows it first, as the section does:
 // nothing connects before the user allowed it.
 func TestHotbarTileAsksForTheLoginProgramFirst(t *testing.T) {
 	f := connectedFake(t, 10)
@@ -379,8 +379,8 @@ func TestHotbarBankSwitcher(t *testing.T) {
 	}
 }
 
-// "Add to Hotbar" is in a context's menu: the picker's rows (right-click or ⋮) and the Cluster
-// menu, as "Remove from Hotbar" when the shown bank holds the context.
+// "Add to Hotbar" is in a context's menu: the navigator's section rows (right-click) and the
+// Cluster menu, as "Remove from Hotbar" when the shown bank holds the context.
 func TestHotbarAddFromTheContextMenus(t *testing.T) {
 	sh, _, q, f, _ := hotbarScene(t, ThemeDark)
 	cluster := sh.mainMenu().Items[0]
@@ -388,26 +388,16 @@ func TestHotbarAddFromTheContextMenus(t *testing.T) {
 		t.Errorf("Cluster menu: %q %q", cluster.Label, cluster.Items[1].Label)
 	}
 
-	sh.picker.show()
-	q.until(t, "the picker", func() bool { return len(findAll[*pickerRow](sh.picker.list)) == 5 })
-	rows := findAll[*pickerRow](sh.picker.list)
-	if rows[0].more == nil {
-		t.Fatal("no ⋮ on the picker's rows")
-	}
-	rows[0].more.OnTapped() // demo: in the bank already
-	if got := sh.picker.menuModel.Items[1].Label; got != "Remove from Hotbar" {
+	n := sh.side.sec
+	q.until(t, "the section's rows", func() bool { return n.loaded && len(n.rows) == 5 })
+	n.rows["demo"].TappedSecondary(&fyne.PointEvent{AbsolutePosition: fyne.NewPos(400, 300)}) // in the bank already
+	if got := n.menuModel.Items[1].Label; got != "Remove from Hotbar" {
 		t.Errorf("demo's menu: %q", got)
-	}
-	var row *pickerRow
-	for _, r := range rows {
-		if r.title.text == "staging-us-east" {
-			row = r
-		}
 	}
 	f.update(func(u *engine.UIState) { h := u.Hotbar.Clone(); h.Current = 2; u.Hotbar = &h })
 	q.until(t, "bank 2", func() bool { return sh.hot.number.text == "2" })
-	row.TappedSecondary(&fyne.PointEvent{AbsolutePosition: fyne.NewPos(400, 300)})
-	items := sh.picker.menuModel.Items
+	n.rows["staging-us-east"].TappedSecondary(&fyne.PointEvent{AbsolutePosition: fyne.NewPos(400, 300)})
+	items := n.menuModel.Items
 	if items[0].Label != "Connect" || items[1].Label != "Add to Hotbar" {
 		t.Fatalf("staging's menu: %q %q", items[0].Label, items[1].Label)
 	}

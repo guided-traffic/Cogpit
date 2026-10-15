@@ -82,8 +82,7 @@ type shell struct {
 	dock      *dock
 	status    *statusBar
 	toasts    *fyne.Container
-	tip       *tooltip // the one tooltip: cut-off cells, warning icons, drawer actions
-	picker    *picker
+	tip       *tooltip      // the one tooltip: cut-off cells, warning icons, drawer actions
 	palette   *cmdPalette   // the command palette, ⌘⇧P (palette.go)
 	hot       *hotbar       // the pinned clusters at the window's left edge (hotbar.go)
 	tabs      *tabBar       // the tabs of cluster views above the workspace (tabbar.go)
@@ -182,7 +181,6 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.dock = newDock(sh)
 	sh.status = newStatusBar(sh)
 	sh.kc = newKubeconfigUI(sh)
-	sh.picker = newPicker(sh)
 	sh.palette = newCmdPalette(sh)
 	sh.settings = newSettingsPage(sh)
 	sh.confirmer = newGUIConfirmer(sh)
@@ -237,8 +235,8 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 }
 
 // start subscribes to the engine, shows the current state and connects the --context cluster, if
-// any. Without one the workspace shows the welcome page and the picker stays closed until the user
-// opens it (⌘P, All Clusters…; D-42): nothing connects by itself, a restored tab included (D-41).
+// any. Without one the workspace shows the welcome page and the navigator its section, and nothing
+// connects by itself (D-42), a restored tab included (D-41).
 func (sh *shell) start() {
 	sh.early = sh.earlyNotices() // before subscribing: what comes after arrives as events
 	sh.unsubscribe = sh.eng.Subscribe(sh.onEvent)
@@ -248,12 +246,14 @@ func (sh *shell) start() {
 	go sh.tick()
 
 	if name := sh.opts.AutoConnect; name != "" {
-		// A --context that fails opens the picker with the error beside the context, where a login
-		// program not allowed yet can be allowed (Cogpit's default).
+		// A --context the engine refuses (no such context, a login not allowed yet) says why in a
+		// toast and shows the navigator's section with its search focused, as ⌘P does (D-57): there
+		// the cluster can be connected, its login program allowed first. A connect that fails says
+		// why on the welcome page.
 		sh.dispatch("cluster.connect", contextParams{Context: name}, func(_ any, err error) {
 			if err != nil {
-				sh.picker.show()
-				sh.picker.setError(name, err)
+				sh.toast("error", "Could not connect to "+name+": "+err.Error())
+				sh.findCluster()
 			}
 		})
 	}
@@ -535,7 +535,6 @@ func (sh *shell) connectionChanged(st, old engine.UIState) {
 	if st.Connection.State == engine.Connected && (sh.kindsFor != st.Context) {
 		sh.loadKinds()
 		sh.loadNamespaces()
-		sh.picker.connected(st.Context)
 	}
 	if st.Connection.State != engine.Connected && old.Connection.State == engine.Connected {
 		sh.kinds, sh.kindsFor, sh.namespaces = nil, "", nil
@@ -879,9 +878,7 @@ func (toastLayout) Layout(objs []fyne.CanvasObject, size fyne.Size) {
 // mainMenu builds the window menu: Cluster, View (one item per kind), Helm, on Windows and Linux
 // Window, and Help (menus.go).
 func (sh *shell) mainMenu() *fyne.MainMenu {
-	// ⌘P (search a cluster by name) is cluster.connect's shortcut in the registry: the picker asks
-	// for the context.
-	cluster := fyne.NewMenu("Cluster", sh.withShortcut(fyne.NewMenuItem("Switch Context…", sh.picker.show), "cluster.connect"))
+	cluster := fyne.NewMenu("Cluster", sh.connectMenuItem())
 	if item := sh.hot.contextItem(sh.ui.Context); item != nil { // Lens's cluster menu: "Add to Hotbar"
 		cluster.Items = append(cluster.Items, item)
 	}
@@ -924,7 +921,7 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 // installShortcuts adds Lens's keyboard shortcuts that Cogpit supports, as the registry declares
 // them: ⌘F (ui.setFilter: the search) and ⌘⇧T (terminal.open), the window's own (windowKeys: a
 // focused widget that takes shortcuts keeps them; the View menu shows them, A55), Escape (close the
-// palette or the picker, else the drawer), "/" (the logs tab's search), and F1–F12 and ⇧F1–⇧F12 for
+// palette, the notifications or a settings page, else the drawer), "/" (the logs tab's search), and F1–F12 and ⇧F1–⇧F12 for
 // the hotbar while no text field has the focus (the table and the search fields pass them on, A64).
 // ⌘⇧P and ⌘P are the main menu's (mainMenu), which take them from any focus.
 func (sh *shell) installShortcuts() {
@@ -946,10 +943,6 @@ func (sh *shell) installShortcuts() {
 			}
 			if sh.top.notes.visible() { // the notifications' panel (notifications.go)
 				sh.top.notes.close()
-				return
-			}
-			if sh.picker.visible() { // the picker first: it lies over the drawer
-				sh.picker.popup.dismiss()
 				return
 			}
 			if sh.settings.visible() { // a settings page lies over the views

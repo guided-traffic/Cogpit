@@ -22,7 +22,7 @@ type clusterSettingsParams struct {
 
 type clusterSettingsSetParams struct {
 	Context              string   `json:"context,omitempty" jsonschema:"context id as cluster_contexts lists it (a bare context name works when one file only defines it); empty or omitted: the connected context"`
-	Name                 *string  `json:"name,omitempty" jsonschema:"the cluster's display name in the hotbar, the context picker and the navigator, one line of at most 128 characters; empty: the context's name"`
+	Name                 *string  `json:"name,omitempty" jsonschema:"the cluster's display name in the hotbar, the navigator and the welcome page, one line of at most 128 characters; empty: the context's name"`
 	IconColor            *string  `json:"iconColor,omitempty" jsonschema:"the icon's colour, one of cyan, blue, violet, magenta, red, orange, yellow, green (the theme's accents) or any colour as #rrggbb (drawn in a shade of its hue legible on each theme); it replaces an uploaded image; empty: the accent"`
 	TerminalDir          *string  `json:"terminalDir,omitempty" jsonschema:"the working directory of the cluster's local terminals: an absolute path, or one starting with $HOME or ~; empty: $HOME"`
 	TerminalNamespace    *string  `json:"terminalNamespace,omitempty" jsonschema:"kubectl's namespace in the cluster's local terminals; empty: the namespace filter's single namespace, else the context's own"`
@@ -103,7 +103,7 @@ func registerClusterSettings(g *registrar) {
 		ID: "cluster.settings.set", Label: "Set Cluster Settings", Danger: engine.DangerUI,
 		Description: "Changes some of a context's settings in Cogpit, as its Settings page does; the fields left out stay as " +
 			"they are, an empty value restores the default. The display name and the icon colour show at once in the " +
-			"hotbar, the context picker and the navigator; the terminal's working directory and namespace apply to the " +
+			"hotbar, the navigator and the welcome page; the terminal's working directory and namespace apply to the " +
 			"cluster's local terminals opened afterwards; hidden metrics leave the lists' columns, the drawers' charts " +
 			"and the Overview at once, and nothing is polled for them; the metrics source turns a provider or both off " +
 			"for the cluster at once; a proxy applies at the next connect; accessible " +

@@ -17,12 +17,13 @@ import (
 //
 // Cogpit's defaults (inferred, not the owner's decision, 2026-10-13):
 //   - one section, Local Kubeconfigs under Kubernetes Clusters: every context the kubeconfig
-//     sources offer, the context picker's list. The cloud sections (G18, after the beta), Teamwork
-//     (D-9) and Extensions (D-5) are not built, so the section level has nothing above it;
+//     sources offer, the one list that chooses a cluster (D-57). The cloud sections (G18, after the
+//     beta), Teamwork (D-9) and Extensions (D-5) are not built, so the section level has nothing
+//     above it;
 //   - the scope is NavScopeLocal or NavScopeCluster(<context id>): at start, and whenever no
 //     cluster is connected or connecting (after a disconnect, a failed connect, a connection Cogpit
 //     closed), the section;
-//   - every connect drills into its cluster as it starts, whoever started it (the picker, the
+//   - every connect drills into its cluster as it starts, whoever started it (the section, the
 //     hotbar, the welcome page, a tab of another cluster, an agent), a connect again to the
 //     connected cluster too: the navigator's tree is the connected cluster's, since Cogpit holds
 //     one connection (architecture §6);

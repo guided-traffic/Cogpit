@@ -172,8 +172,8 @@ func navIcon(id string) fyne.Resource {
 	return nil
 }
 
-// sidebar is the navigator (navigator.go): the header with the scope dropdown and the search, and
-// below it the scope it shows (UIState.NavigatorScope): the tree whose root is the connected
+// sidebar is the navigator (navigator.go): the header (navigator_header.go) with the way up to the
+// section or the section's title, and the search, and below it the scope it shows (UIState.NavigatorScope): the tree whose root is the connected
 // cluster with its views below, or the section level listing the clusters (navigator_sections.go).
 // Opening a view dispatches ui.openView; the open view's row follows UIState.View.
 type sidebar struct {
@@ -194,6 +194,10 @@ type sidebar struct {
 	// The search text and the keyboard's row reported to the engine (D-51; navigatorstate.go).
 	searchRep, rowRep *navReport
 	applying          bool // the engine's search is being shown: not a change to report
+
+	// findFrom is the cluster whose tree ⌘P left for the section while the search it opened stays
+	// open: Escape on the empty search goes back to it (findcluster.go, D-57); "" otherwise.
+	findFrom string
 
 	rootRow   *navRootRow
 	badge     *clusterBadge
@@ -231,13 +235,13 @@ func newSidebar(sh *shell) *sidebar {
 	return s
 }
 
-// setScope dispatches ui.setNavigatorScope: the ‹ and ← go up to the section, a cluster's row or the
-// scope dropdown drill into a cluster.
+// setScope dispatches ui.setNavigatorScope: the header's ‹ All Clusters and ← on the tree's root go
+// up to the section, a cluster's row drills into a cluster, Escape on ⌘P's empty search goes back.
 func (s *sidebar) setScope(scope string) {
 	s.sh.dispatch("ui.setNavigatorScope", navScopeParams{Scope: scope}, nil)
 }
 
-// goUp shows the section level (the root's ‹, ← on the root, the dropdown's Local Kubeconfigs).
+// goUp shows the section level (the header's ‹ All Clusters, ← on the tree's root).
 func (s *sidebar) goUp() { s.setScope(engine.NavScopeLocal) }
 
 // scopeChanged shows the level the navigator's scope names: the section's clusters, or the
@@ -247,7 +251,7 @@ func (s *sidebar) goUp() { s.setScope(engine.NavScopeLocal) }
 func (s *sidebar) scopeChanged() {
 	s.head.update()
 	if s.sec.loadSeq == 0 {
-		s.sec.load() // the scope dropdown lists the section's clusters at either level
+		s.sec.load() // at either level: the clusters are read before ⌘P or ‹ All Clusters shows them
 	}
 	section := s.sh.ui.ScopeCluster() == ""
 	if section == s.section && s.sec.Visible() == section {
@@ -290,8 +294,8 @@ func (s *sidebar) list() fyne.Focusable {
 	return s.tree
 }
 
-// updateHeader shows the active context at the tree's root and in the scope dropdown: an initials
-// badge, its name and what it is, and the connection's dot.
+// updateHeader shows the active context at the tree's root: an initials badge, its name and what
+// it is, and the connection's dot; the header follows the scope.
 func (s *sidebar) updateHeader() {
 	ui := s.sh.ui
 	s.head.update()

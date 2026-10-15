@@ -62,7 +62,7 @@ func TestGetRefusesAnUncheckedContextUntilAllowed(t *testing.T) {
 		t.Fatalf("exit code %d, want %d; stdout %s", code, exitError, te.out)
 	}
 	errOut := te.errOut.String()
-	if !strings.Contains(errOut, "insecure-skip-tls-verify") || !strings.Contains(errOut, "context picker in Cogpit's window") ||
+	if !strings.Contains(errOut, "insecure-skip-tls-verify") || !strings.Contains(errOut, "navigator's clusters in Cogpit's window (⌘P)") ||
 		strings.Contains(errOut, "tok-SECRET") {
 		t.Errorf("stderr: %s", errOut)
 	}

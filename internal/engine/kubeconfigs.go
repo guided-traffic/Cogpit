@@ -115,29 +115,29 @@ func (e *ExecApprovalError) Error() string {
 		if e.State == ExecChanged {
 			return fmt.Sprintf("the server %s that %s names for this context, or how it is reached (its proxy), changed since you "+
 				"allowed connecting to it without checking its certificate (insecure-skip-tls-verify); Cogpit connects only after "+
-				"you review and allow it again: connect from the context picker in Cogpit's window", server, file)
+				"you review and allow it again: connect from the navigator's clusters in Cogpit's window (⌘P)", server, file)
 		}
 		return fmt.Sprintf("the kubeconfig %s switches the check of the server %s's certificate off for this context "+
 			"(insecure-skip-tls-verify), so whoever answers at that address gets its credential; Cogpit connects only after "+
-			"you review and allow that once: connect from the context picker in Cogpit's window", file, server)
+			"you review and allow that once: connect from the navigator's clusters in Cogpit's window (⌘P)", file, server)
 	}
 	if e.Plugin.Kind() == kubeconfig.LoginTokenFile {
 		tok := kubeconfig.DisplayText(e.Plugin.TokenFile, 400)
 		server := kubeconfig.DisplayText(e.Plugin.Server, 200)
 		if e.State == ExecChanged {
 			return fmt.Sprintf("the token file %s that %s names (or the server %s it goes to) changed since you allowed it; Cogpit "+
-				"reads it only after you review and allow it again: connect from the context picker in Cogpit's window", tok, file, server)
+				"reads it only after you review and allow it again: connect from the navigator's clusters in Cogpit's window (⌘P)", tok, file, server)
 		}
 		return fmt.Sprintf("the kubeconfig %s names the file %s, outside its own folder, as the token it sends to %s, which you "+
-			"have not allowed yet; Cogpit reads it only after you review and allow it: connect from the context picker in "+
-			"Cogpit's window", file, tok, server)
+			"have not allowed yet; Cogpit reads it only after you review and allow it: connect from the navigator's clusters in "+
+			"Cogpit's window (⌘P)", file, tok, server)
 	}
 	if e.State == ExecChanged {
 		return fmt.Sprintf("the credential plugin %s of %s changed since you allowed it; Cogpit runs it only after "+
-			"you review and allow it again: connect from the context picker in Cogpit's window", cmd, file)
+			"you review and allow it again: connect from the navigator's clusters in Cogpit's window (⌘P)", cmd, file)
 	}
 	return fmt.Sprintf("the kubeconfig %s runs the program %s to log in, which you have not allowed yet; Cogpit runs it "+
-		"only after you review and allow it: connect from the context picker in Cogpit's window", file, cmd)
+		"only after you review and allow it: connect from the navigator's clusters in Cogpit's window (⌘P)", file, cmd)
 }
 
 // Is makes errors.Is(err, ErrExecNotApproved) true.

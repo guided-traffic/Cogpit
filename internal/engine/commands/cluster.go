@@ -73,7 +73,7 @@ func registerCluster(g *registrar) {
 	})
 
 	add(g, engine.Spec[connectParams]{
-		ID: "cluster.connect", Label: "Connect to Cluster", MenuPath: "File/Connect to Cluster", Shortcut: "Cmd+P", Danger: engine.DangerUI,
+		ID: "cluster.connect", Label: "Connect to Cluster", MenuPath: "Cluster/Connect to Cluster", Shortcut: "Cmd+P", Danger: engine.DangerUI,
 		Description: "Connects to a kubeconfig context (or the demo cluster), replacing the current connection, and shows its most " +
 			"recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay. Connecting only reads from the cluster. " +
 			"A context whose credential plugin, or whose connection without the certificate check (insecure-skip-tls-verify), " +

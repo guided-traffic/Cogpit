@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
-// sourceContexts are the picker's contexts with kubeconfig sources: a file that needs no program, a file
+// sourceContexts are the section's contexts with kubeconfig sources: a file that needs no program, a file
 // whose login program is not allowed yet, and a synced one whose program changed since.
 func sourceContexts() []engine.ContextInfo {
 	return append(fixtureContexts()[1:3],
@@ -107,10 +106,11 @@ func (r *recorder) approvals() []approvalItem {
 }
 
 // kubeconfigFake is a fake engine with the source contexts and handlers for the kubeconfig
-// commands; cluster.connect is recorded too.
+// commands; cluster.connect and ui.setNavigatorScope, the section's connect, are recorded too.
 func kubeconfigFake(t *testing.T, state string) (*fakeEngine, *recorder) {
 	f := newFakeEngine(t)
 	f.contexts = sourceContexts()
+	f.handlers["ui.setNavigatorScope"] = f.setNavScope
 	rec := &recorder{}
 	handle := func(id string, res func(engine.Invocation) (any, error)) {
 		f.handlers[id] = func(_ context.Context, inv engine.Invocation) (any, error) { rec.add(inv); return res(inv) }
@@ -133,15 +133,24 @@ func kubeconfigFake(t *testing.T, state string) (*fakeEngine, *recorder) {
 	return f, rec
 }
 
+// connects are the contexts the window connected, in order: cluster.connect's (the welcome page, the
+// hotbar, a --context) and ui.setNavigatorScope's into a cluster (the navigator's section, D-57).
 func (f *fakeEngine) connects() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	var out []string
 	for _, c := range f.calls {
-		if c.ID == "cluster.connect" {
+		switch c.ID {
+		case "cluster.connect":
 			var p contextParams
 			_ = json.Unmarshal(c.Params, &p)
 			out = append(out, p.Context)
+		case "ui.setNavigatorScope":
+			var p navScopeParams
+			_ = json.Unmarshal(c.Params, &p)
+			if id, err := engine.ParseNavScope(p.Scope); err == nil && id != "" {
+				out = append(out, id)
+			}
 		}
 	}
 	return out
@@ -179,21 +188,19 @@ func findButton(w fyne.Window, label string) *widget.Button {
 	return found
 }
 
+// selectAndConnect connects a context from the navigator's section, as a click on its row does (the
+// context picker went, D-57): a login waiting for the user's approval is shown first.
 func selectAndConnect(t *testing.T, sh *shell, q *mainQueue, name string) {
 	t.Helper()
-	if !sh.picker.visible() {
-		sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	}
-	q.until(t, "the picker's contexts", func() bool { return sh.picker.visible() && len(sh.picker.contexts) > 0 })
-	sh.picker.selected = name
-	sh.picker.render()
-	test.Tap(sh.picker.connectB)
+	n := sh.side.sec
+	q.until(t, "the section's "+name, func() bool { return n.Visible() && n.loaded && n.rows[name] != nil })
+	test.Tap(n.rows[name])
 }
 
-// TestPickerShowsTheLoginProgramBeforeItRuns: connecting to a context whose login program the user
+// TestSectionShowsTheLoginProgramBeforeItRuns: connecting to a context whose login program the user
 // has not allowed opens the approval dialog first; nothing connects until the user allows it, and
 // allowing sends the fingerprint the dialog showed, then connects.
-func TestPickerShowsTheLoginProgramBeforeItRuns(t *testing.T) {
+func TestSectionShowsTheLoginProgramBeforeItRuns(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	sh, _, q := newTestShell(t, f, Options{})
 	selectAndConnect(t, sh, q, "prod-eks [eks.yaml]")
@@ -211,26 +218,23 @@ func TestPickerShowsTheLoginProgramBeforeItRuns(t *testing.T) {
 	}
 }
 
-// TestPickerCancelledApprovalDoesNotConnect: cancelling leaves the picker open, says why, and
-// connects nothing.
-func TestPickerCancelledApprovalDoesNotConnect(t *testing.T) {
+// TestCancelledApprovalDoesNotConnect: cancelling connects nothing and leaves the section shown.
+func TestCancelledApprovalDoesNotConnect(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecChanged)
 	sh, _, q := newTestShell(t, f, Options{})
 	selectAndConnect(t, sh, q, "prod-eks [eks.yaml]")
 	q.until(t, "the approval dialog", func() bool { return sh.kc.approval != nil })
 	test.Tap(sh.kc.approval.cancel)
-	q.until(t, "the picker's answer", func() bool { return sh.picker.connecting == "" })
-	if !strings.Contains(sh.picker.status.text, "was not allowed") || !sh.picker.visible() {
-		t.Errorf("status %q", sh.picker.status.text)
-	}
-	if slices.Contains(rec.ids(), "kubeconfig.approveExec") || len(f.connects()) != 0 {
-		t.Errorf("calls %v, connects %v", rec.ids(), f.connects())
+	q.until(t, "the dialog closed", func() bool { return sh.kc.approval == nil })
+	q.drain()
+	if slices.Contains(rec.ids(), "kubeconfig.approveExec") || len(f.connects()) != 0 || !sh.side.sec.Visible() {
+		t.Errorf("calls %v, connects %v, section %v", rec.ids(), f.connects(), sh.side.sec.Visible())
 	}
 }
 
-// TestPickerConnectsContextsWithoutAProgramDirectly: no dialog for a context without a program to
+// TestSectionConnectsContextsWithoutAProgramDirectly: no dialog for a context without a program to
 // allow.
-func TestPickerConnectsContextsWithoutAProgramDirectly(t *testing.T) {
+func TestSectionConnectsContextsWithoutAProgramDirectly(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	sh, _, q := newTestShell(t, f, Options{})
 	selectAndConnect(t, sh, q, "kind-cogpit [kind.yaml]")
@@ -244,8 +248,6 @@ func TestPickerConnectsContextsWithoutAProgramDirectly(t *testing.T) {
 func TestSourcesDialogRemovesAfterConfirming(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	sd := sh.kc.sources
 	q.until(t, "the sources", func() bool { return len(sd.rows) == 5 })
@@ -264,18 +266,18 @@ func TestSourcesDialogRemovesAfterConfirming(t *testing.T) {
 	}
 }
 
-// TestSyncFromTheMenuAndEventsReloadThePicker: the Cluster menu offers one entry for files and
+// TestSyncFromTheMenuAndEventsReloadTheSection: the Cluster menu offers one entry for files and
 // folders (the old two are gone); a path the dialog hands back goes to kubeconfig.addFile or
-// kubeconfig.addFolder by what it is; EventContexts makes the open picker list again.
-func TestSyncFromTheMenuAndEventsReloadThePicker(t *testing.T) {
+// kubeconfig.addFolder by what it is; EventContexts makes the navigator's section list again.
+func TestSyncFromTheMenuAndEventsReloadTheSection(t *testing.T) {
 	f, rec := kubeconfigFake(t, engine.ExecRequired)
 	f.handlers["kubeconfig.addFolder"] = func(_ context.Context, inv engine.Invocation) (any, error) {
 		rec.add(inv)
 		return map[string]any{"source": map[string]any{"id": "team/", "kind": "folder"}, "contexts": []string{}}, nil
 	}
 	sh, _, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker", func() bool { return sh.picker.visible() && len(sh.picker.contexts) == len(f.contexts) })
+	n := sh.side.sec
+	q.until(t, "the section", func() bool { return n.loaded && len(n.contexts) == len(f.contexts) })
 	var labels []string
 	for _, it := range sh.mainMenu().Items[0].Items {
 		labels = append(labels, it.Label)
@@ -314,15 +316,9 @@ func TestSyncFromTheMenuAndEventsReloadThePicker(t *testing.T) {
 	f.contexts = append(f.contexts, engine.ContextInfo{Name: "dev [dev.yaml]", KubeContext: "dev", Source: "dev.yaml"})
 	f.mu.Unlock()
 	f.emit(engine.Event{Type: engine.EventContexts})
-	q.until(t, "the picker to list the new context", func() bool { return len(sh.picker.contexts) == len(sourceContexts())+1 })
-}
-
-func TestRenderPickerWithSources(t *testing.T) {
-	f, _ := kubeconfigFake(t, engine.ExecRequired)
-	sh, w, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker", func() bool { return sh.picker.visible() && len(sh.picker.list.Objects) == len(f.contexts) })
-	savePNG(t, w, "picker_sources_dark.png")
+	q.until(t, "the section to list the new context", func() bool {
+		return len(n.contexts) == len(sourceContexts())+1 && n.rows["dev [dev.yaml]"] != nil
+	})
 }
 
 func renderApproval(t *testing.T, mode ThemeMode, state, name string) {
@@ -344,8 +340,6 @@ func TestRenderExecApprovalLight(t *testing.T) {
 func TestRenderKubeconfigSources(t *testing.T) {
 	f, _ := kubeconfigFake(t, engine.ExecRequired)
 	sh, w, q := newTestShell(t, f, Options{})
-	sh.picker.show() // ⌘P: the picker no longer opens by itself at start (D-42)
-	q.until(t, "the picker", sh.picker.visible)
 	sh.kc.showSources()
 	q.until(t, "the sources", func() bool { return sh.kc.sources != nil && len(sh.kc.sources.rows) == 5 })
 	savePNG(t, w, "kubeconfig_sources_dark.png")

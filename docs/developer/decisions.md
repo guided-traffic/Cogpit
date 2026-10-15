@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-57 built: choosing a cluster in the navigator's section only, the context picker, "Switch context" and the scope dropdown gone; D-42, D-47 and D-51 follow); minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -50,7 +50,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-39](#d-39-pod-metrics-for-a-user-who-may-list-pods-in-some-namespaces-only) | Pod metrics for a user who may list pods in some namespaces only | decided (owner, 2026-10-14): one list per namespace the Pods view reads (option b); a namespace's refusal affects that namespace only; built 2026-10-13 and 2026-10-14; the Overview's Pods history and a refused namespace's drawer history confirmed as built, 2026-10-14 evening |
 | [D-40](#d-40-a-pods-table-in-the-workloads-drawers) | A Pods table in the workloads' drawers | decided (owner, 2026-10-14): the node drawer's table in the drawers of the six workload kinds (option b), without its Namespace column; built 2026-10-13 and 2026-10-14 |
 | [D-41](#d-41-what-survives-a-restart) | What survives a restart: the tabs and the tables' layout | decided (owner, 2026-10-14): Cogpit's own `workspace.json`, restored without connecting anything; built 2026-10-13; 2026-10-14 evening: the navigator's collapsed source groups kept too, built 2026-10-15 (the night run, A63) |
-| [D-42](#d-42-the-start-screen) | The start screen: the welcome page, no context picker by itself | decided (owner, 2026-10-14): no picker at start (option b); built 2026-10-13 |
+| [D-42](#d-42-the-start-screen) | The start screen: the welcome page, no context picker by itself | decided (owner, 2026-10-14): no picker at start (option b); built 2026-10-13; the picker gone since D-57 |
 | [D-43](#d-43-where-the-nodes-disk-comes-from) | Where the nodes' disk comes from | decided (owner, 2026-10-14): node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy (option b), built 2026-10-14; 2026-10-14 evening: the nodes' CPU and memory history from node-exporter where present (A43), built 2026-10-14 night with the lead's choices for the owner to confirm |
 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs) | What agents read of the dock's logs and terminal tabs | decided (owner, 2026-10-14): logs freely, a terminal tab only once the user turned on its switch (option b), built 2026-10-13; 2026-10-14 evening: the switch ends 1 hour after it was turned on at the latest, the filter's minimum 10 bytes, a chart's README framed as third-party text, built 2026-10-14 night (A3, A5, A31) |
 | [D-46](#d-46-chart-icons-from-the-hosts-that-serve-them) | Chart icons from the hosts that serve them | decided (owner, 2026-10-14): fetched when shown, https only, no credentials, bounded and checked, with Preferences › Load chart icons on by default (option b); built 2026-10-14 |
@@ -58,12 +58,13 @@ projects' repositories; re-check them before relying on a version number.
 | [D-48](#d-48-start-at-login) | Start at login | decided (owner, 2026-10-14 evening, as built): the macOS app's own login item (SMAppService), read from macOS, off by default, only the user turns it on (option a); built 2026-10-14 |
 | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp) | The external MCP server's switch, honoured by `cogpit-cli mcp` | decided (owner, 2026-10-14 evening): persisted, and with MCP off the bridge refuses to serve, headless too; built 2026-10-14 |
 | [D-50](#d-50-kubectls-signature-check) | kubectl's signature check | decided (owner, 2026-10-14 evening): sigstore-go with Rekor's transparency-log proof instead of the standard library; built 2026-10-15 (night run), the lead's decisions for the owner to confirm listed |
-| [D-51](#d-51-the-navigators-and-the-command-palettes-state) | The navigator's and the command palette's state | decided (owner, 2026-10-14 evening): the navigator's search text and keyboard selection and the palette's typed text are engine state; built 2026-10-15, with the lead's night decisions: an agent's palette text never running a change on ↵ confirmed (owner, 2026-10-15 evening, as built); the fields, the row's form and the bounds not asked, standing as built; one per window and what `workspace.json` keeps for the owner to confirm; the dropdown's bank moot (owner, 2026-10-15 evening: the scope dropdown goes, not built) |
+| [D-51](#d-51-the-navigators-and-the-command-palettes-state) | The navigator's and the command palette's state | decided (owner, 2026-10-14 evening): the navigator's search text and keyboard selection and the palette's typed text are engine state; built 2026-10-15, with the lead's night decisions: an agent's palette text never running a change on ↵ confirmed (owner, 2026-10-15 evening, as built); the fields, the row's form and the bounds not asked, standing as built; one per window and what `workspace.json` keeps for the owner to confirm; the dropdown's bank moot (owner, 2026-10-15 evening: the scope dropdown goes; gone since D-57) |
 | [D-52](#d-52-several-windows) | Several windows | postponed (owner, 2026-10-15): designed 2026-10-15; the owner chose the model (a) as the direction and answers the rest in a separate, larger interview once the rest is done (the owner's requirement, 2026-10-14 evening: a hotbar tile dragged out of the window opens another window with that cluster; the lead's proposal: one session, a window's state and a connection per window, seven questions in order); not built |
 | [D-53](#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it) | The MCP details, and a token kept until the user regenerates it | decided (owner, 2026-10-15, F6): the top bar's MCP button gone, a gear in the status bar's MCP item for the details and Regenerate token (with a warning first), the token and the port kept across starts; built 2026-10-15, the lead's decisions for the owner to confirm listed |
 | [D-54](#d-54-the-layout-toggles-and-the-update-button) | The layout toggles and the Update button | decided (owner, 2026-10-15, F7): three toggles at the top bar's right end for the navigator (⌘B), the dock (⌘J) and the chat column (⌘I) as engine state, kept in `workspace.json`; an Update button while Sparkle holds an update; built 2026-10-15, the lead's decisions for the owner to confirm listed |
 | [D-55](#d-55-a-config-maps-values-edited-in-the-drawer) | A Config Map's values edited in the drawer | decided (owner, 2026-10-15, his finding F3): the key above its value, a Config Map's in an editor, names without spaces wrap at - . _ /, values saved in the drawer through the existing write path, a Secret's layout too; built 2026-10-15 with the lead's decisions for the owner to confirm; a Secret's values in the drawer open |
 | [D-56](#d-56-the-terminals-scrollback) | The terminal's scrollback | decided (owner, 2026-10-15): no line limit, a compact scrollback bounded at 256 MiB, the view and a draggable bar, reflow, the wheel to full-screen programs, agents by stable line numbers; built 2026-10-15 with the lead's decisions for the owner to confirm; fixes and this model to be offered to #147 |
+| [D-57](#d-57-choosing-a-cluster) | Choosing a cluster | decided (owner, 2026-10-15 evening): one list, the navigator's section; the context picker, the top bar's "Switch context" and the header's scope dropdown gone, ⌘P and Connect to Cluster… show the section with its search focused, Escape on its empty search goes back, a "+" adds kubeconfigs; built 2026-10-15 (night run) with the lead's decisions for the owner to confirm |
 
 ## Decision round 2026-10-14 evening
 
@@ -139,8 +140,8 @@ end by the owner's own answer. Each line says its state.
 | A50 | #12 | A file that leaves a sync folder closes its tabs, with a notice; as built | [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A51 | #27 | The navigator's search text and keyboard selection engine state, visible and settable for agents; built 2026-10-15 (`UIState.Navigator`, `ui.setNavigatorSearch`, `ui.setNavigatorRow`; the fields' form a night decision) | [D-51](#d-51-the-navigators-and-the-command-palettes-state), [architecture §4.3](architecture.md#43-ui-state) |
 | – | FLAKE | Noted from reading only: a reopened log stream names pod and container, not the UID, so a StatefulSet pod recreated under its name while the cache lags more than 500 ms may show lines twice; not reproduced, to check in a later run | this table |
-| A52 | #29 | The navigator's scope dropdown lists the hotbar's and the connected clusters only, every other context through the picker (⌘P); built 2026-10-15 (the shown bank's tiles, a night decision; All Clusters… ⌘P at its end); the bank moot since the owner decided on 2026-10-15 evening that the scope dropdown goes (not built) | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
-| – | #86 | Capping the scope dropdown: moot by A52 | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
+| A52 | #29 | The navigator's scope dropdown lists the hotbar's and the connected clusters only, every other context through the picker (⌘P); built 2026-10-15 (the shown bank's tiles, a night decision; All Clusters… ⌘P at its end); the bank moot since the owner decided on 2026-10-15 evening that the scope dropdown goes, gone since (D-57) | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
+| – | #86 | Capping the scope dropdown: moot by A52, the dropdown gone since D-57 | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
 | A53 | #30 | The navigator's focus ring on keyboard navigation only, not after a mouse click; built 2026-10-15 | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
 | A54 | #34 | The command palette's typed text engine state, as A51; built 2026-10-15 (`UIState.PaletteText`, `ui.palette.setText`; on an agent's text ↵ runs no change until the user picked the entry, a night decision, confirmed by the owner on 2026-10-15 evening) | [D-51](#d-51-the-navigators-and-the-command-palettes-state), [architecture §4.3](architecture.md#43-ui-state) |
 | A55 | #35 | ⌘F and ⌘⇧T as main-menu items with their shortcuts shown; the keys stay window shortcuts (the editor keeps its ⌘F); built 2026-10-15 (View › Search, View › New Terminal) | [architecture §4.2](architecture.md#42-the-command-registry), [parity](../parity/README.md) |
@@ -1059,7 +1060,8 @@ built):
   for agents (the command's description says show or hide), and an agent cannot steal the focus.
 - **⌘. and Escape:** ⌘. is View › Stop Agent and stops the shown conversation's turn from any focus,
   the column hidden or not; Escape stops it only while the input has the focus (otherwise Escape
-  leaves the input, and the window's Escape keeps closing the palette, the picker and the drawer).
+  leaves the input, and the window's Escape keeps closing the palette and the drawer; the picker it
+  closed too went with D-57).
   Options: ⌘. only while the chat has the focus. Why: a kill switch has to work when the user is
   looking elsewhere, which is when a looping model does damage.
 - **The pinned message:** built: the user's message whose top has scrolled out stays at the column's
@@ -3310,7 +3312,7 @@ tables' hidden columns and column order ([ui-parity › Layout](../parity/ui-par
   `UIState.Context`, disconnected, the state `cluster.disconnect` leaves (the welcome page shows, the
   tab is marked, showing it connects); (c) marked and connected; chosen (b), because it shows where
   the user left without a request ((c) is (c) above), and it is a state the engine and the window
-  handle already. A cluster connected from the picker, the hotbar or the welcome page shows its most
+  handle already. A cluster connected from the navigator, the hotbar or the welcome page shows its most
   recently used tab, as within a run.
 - **Decided (owner, 2026-10-14, as built; the night decision of 2026-10-13): tabs of contexts that are
   gone.** Options (a) restored, failing when shown; (b) dropped with a notice; chosen (b), and only on
@@ -3376,8 +3378,9 @@ captured). Since D-41 the start can also show the tabs of the last run. **Built 
   already offers every cluster to connect with one click and the picker over it hid exactly that,
   because it is what the welcome row names as the difference from Lens, and because (c) would make
   the first screen depend on a file the user does not see. `--context` and `--demo` connect at start
-  as before; a `--context` that fails opens the picker with the error beside the context, where a
-  login program not allowed yet can be allowed (Cogpit's default).
+  as before; a `--context` that fails opened the picker with the error beside the context (Cogpit's
+  default); since [D-57](#d-57-choosing-a-cluster) a refused one says why in a toast and shows the
+  navigator's section with its search focused, where a login program not allowed yet can be allowed.
 - With it (Cogpit's default): a notice the engine gave before the window was up (the tabs of the
   last run not restored, an unreadable `workspace.json`) is shown as a toast once the window is up,
   with the crash notice, rather than only in the notification log.
@@ -3770,7 +3773,8 @@ chose, Cogpit's defaults (the build's choices, not the owner's, until the owner 
   (it would run the kubeconfig's credential plugins unasked), never a file path.
 - **A login that waits for the user's approval stops the link:** a context whose credential plugin
   or token file the user has not allowed, or that changed since, is not connected, and the toast
-  says to connect from the context picker, where the user reviews it. Weighed: showing the approval
+  says to connect from the navigator's clusters (⌘P; the context picker until D-57), where the user
+  reviews it. Weighed: showing the approval
   dialog from the link (the brief allowed either); not chosen, because a dialog that a web page
   raises at a moment of its choosing invites allowing a program the user did not ask for. An
   approved plugin runs, as when the user connects.
@@ -4123,7 +4127,8 @@ The navigator's other answers of the same round, details of the window
   ([`navigator_header.go`](../../internal/ui/fyneui/navigator_header.go) `scopeClusters`;
   `TestNavigatorSectionDropdown`). **The bank moot (owner, 2026-10-15 evening):** in an interview
   that evening the owner decided that the scope dropdown goes (one list of clusters, the navigator's
-  section); not built yet, its decision record comes with the build.
+  section); built 2026-10-15 ([D-57](#d-57-choosing-a-cluster)): the dropdown, its bank and its All
+  Clusters… are gone, `scopeClusters` and that test with them.
 - **Decided (A53), built 2026-10-15:** the focus ring shows on keyboard navigation only, not after a
   mouse click: a click moves the keyboard's row without the ring, the next key (or Tab into the
   navigator) shows it (`TestNavigatorRingFollowsTheKeyboardOnly`).
@@ -4868,10 +4873,158 @@ stops while the window is resized with the mouse on macOS, as in every Fyne app 
 runs queued functions only between its event polls, and the poll stays in Cocoa's resize loop;
 read in Fyne 2.8.1's `loop.go`, not patched).
 
+## D-57: Choosing a cluster
+
+**Decided (owner, 2026-10-15 evening, an interview):** "We have far too many ways to choose a
+cluster." The ways counted that day: the top bar's "Switch context ▾"; Cluster › Switch Context…
+and ⌘P; the palette's Connect to Cluster; the navigator's scope dropdown (the section, the shown
+hotbar bank's tiles, All Clusters…); the cluster root's ‹; the hotbar's tiles and F1–F12; the
+welcome page's rows; another cluster's tab (A62); a `--context` that fails at start. Four of them
+opened the context picker, a modal that listed every context a second time beside the navigator's
+section (Local Kubeconfigs), the list the owner likes. The section already had the picker's list,
+its connect with the login approval, its row menu and Add Kubeconfigs… (on the root's
+right-click); only the picker had a visible Add button and the error text beside a context (the
+section: a red dot). The owner decided:
+
+1. **I1, the context picker goes.** Every way that opened it shows the navigator's section
+   instead: the Cluster menu's item, ⌘P, the palette's `cluster.connect` entry, a `--context` that
+   fails at start; the navigator is shown first if ⌘B hid it (`ui.toggleNavigator`,
+   [D-54](#d-54-the-layout-toggles-and-the-update-button)).
+2. **I2, the top bar's "Switch context ▾" goes;** the dot, the context's name, its file and the
+   state stay, a display of the connected cluster.
+3. **I3, the navigator's scope dropdown goes.** At a cluster the header shows a button "‹ All
+   Clusters" in its place (the search button as before), and the cluster's root row loses its ‹
+   (one way up); at the section the header shows the title "All Clusters" alone. The dropdown's
+   listing of the hotbar's bank (A52, [D-51](#d-51-the-navigators-and-the-command-palettes-state)'s
+   bank question) and its All Clusters… go with it.
+4. **I4, ⌘P** shows the section with its search open and focused; ↵ drills into the first match (as
+   before); **Escape on an empty search returns to the tree of the cluster it came from**.
+5. **I5, the palette's Connect to Cluster** (`cluster.connect`) stays and does what ⌘P does. The MCP
+   tool `cluster_connect`, with which agents connect by name, is unchanged.
+6. **I6, one name in menu and palette: Connect to Cluster** (the registry's label): the Cluster
+   menu's "Switch Context…" reads "Connect to Cluster…"; the navigator's button stays "‹ All
+   Clusters".
+7. **I7, the welcome page keeps its cluster groups** (the hotbar's shown bank, Recent up to 6, up to
+   8 others); only its All Clusters… now shows the section, as ⌘P does.
+8. **I8, a visible Add Kubeconfigs in the section:** a "+" in the navigator's header beside the
+   search (tooltip "Add Kubeconfigs…"), at the section only; it replaces the picker's visible
+   button. The Cluster menu's, the welcome page's and the root's right-click stay.
+9. **I9, names:** the header at the section reads "All Clusters"; the root row below it keeps
+   "Local Kubeconfigs".
+
+Not asked, since a home exists: the error text after a failed connect, which only the picker showed
+beside the context; the welcome page and an open view say "Could not connect to <name>: …", the
+hotbar toasts it, and the section keeps its red dot. Unchanged: the hotbar and F1–F12, another
+cluster's tab (A62), `--context`, deep links, agents' `cluster.connect` and `ui.setNavigatorScope`.
+
+**Options weighed in the interview:**
+
+| | Chosen | Weighed |
+|---|---|---|
+| I1 | the picker goes, every way leads to the section | a ⌘P-only quick switcher built like the section (two lists to keep in step); the picker kept, only the top bar's button gone |
+| I2 | the button goes, the display stays | the name clickable into the section (a hidden way); the button kept, leading to the section (two buttons, one target) |
+| I3 | ‹ All Clusters at a cluster, the title at the section, the root without its ‹ | a button "All Clusters" on both levels with the root's ‹ kept (two ways); the cluster's name as the button (does not say where it leads) |
+| I4 | the search focused, Escape on the empty search goes back | Escape only clearing (one key more after a slip); the section without the search (a key more to search) |
+| I5 | the palette's entry does what ⌘P does | removed from the palette (a gap in "every command is in the palette"); the palette listing every cluster (a second list) |
+| I6 | Connect to Cluster in menu and palette, chosen over the lead's recommendation | "All Clusters" everywhere (the lead's recommendation); "Switch Context…" kept |
+| I7 | the welcome page keeps its groups, chosen over the lead's recommendation | Recent only and a button (the lead's recommendation); no clusters on the page |
+| I8 | a "+" beside the search, at the section | a row at the list's end (scrolls away); nothing new |
+| I9 | "All Clusters" in the header, "Local Kubeconfigs" on the root | "All Clusters" everywhere (a name needed again once cloud sections come, G18); "Local Kubeconfigs" everywhere (would relabel I3's button) |
+
+**Why:** one list instead of two copies of it. The picker and the section listed the same contexts
+from the same sources, with the same connect and the same menu; every change had to be made twice,
+and the user had to learn which of eight ways led where. The section stays the one place that
+chooses a cluster, and every way to it is a way to that list.
+
+**Built 2026-10-15 (night run).** [`fyneui/findcluster.go`](../../internal/ui/fyneui/findcluster.go)
+(`findCluster`: an open settings page closed through `settings.close`, the navigator shown through
+`ui.toggleNavigator`, the section through `ui.setNavigatorScope`, then the search focused once the
+window shows the engine's answer;
+`connectMenuItem`), [`navigator_header.go`](../../internal/ui/fyneui/navigator_header.go) (the
+title, "‹ All Clusters", the "+", Escape), [`navigator_sections.go`](../../internal/ui/fyneui/navigator_sections.go)
+(the row's tooltip lines, Show Connection Updates…), [`navigator.go`](../../internal/ui/fyneui/navigator.go)
+(the root without its ‹), [`bars.go`](../../internal/ui/fyneui/bars.go) (the top bar without the
+button), [`shell.go`](../../internal/ui/fyneui/shell.go), [`palette.go`](../../internal/ui/fyneui/palette.go),
+[`welcome.go`](../../internal/ui/fyneui/welcome.go) and [`tableview.go`](../../internal/ui/fyneui/tableview.go)
+(Connect to Cluster…), [`clusterrow.go`](../../internal/ui/fyneui/clusterrow.go) (the welcome page's
+rows, the picker's rows until then); `picker.go` removed. The registry's `cluster.connect` has the
+menu path `Cluster/Connect to Cluster`; the engine's refusals of a login not allowed yet say
+"connect from the navigator's clusters in Cogpit's window (⌘P)". Tests:
+`TestConnectToClusterShowsTheSection`, `TestConnectToClusterShowsAHiddenNavigator`,
+`TestConnectToClusterOverThePalette`, `TestConnectToClusterClosesASettingsPage`,
+`TestConnectToClusterOverTheEngine`,
+`TestWelcomeConnectToClusterButton`, `TestAutoConnectRefusedShowsTheSection`,
+`TestCommandPaletteOpensTheWindowsDialogs`, `TestNavigatorHeaderAddsKubeconfigs`,
+`TestNavigatorSectionTooltipLines`, `TestNavigatorSectionRowMenu`,
+`TestSectionMarksAFailedConnectAndOpensItsLog`, `TestClusterRowsMarkAnInsecureContext`; renders
+`navigator_find_*.png`, `navigator_back_*.png`, `welcome_insecure_*.png`, the picker's removed.
+
+**The lead's decisions for the owner to confirm** (night run, 2026-10-15; ★ built):
+
+- *What is engine state (golden rule 2):* ★ the navigator shown, the section and the search's text
+  are engine state through `ui.toggleNavigator`, `ui.setNavigatorScope` and `ui.setNavigatorSearch`,
+  as before; the search field's keyboard focus and the cluster ⌘P came from stay the window's, as
+  the palette's focus does. Options: a field such as `navigator.from` and commands for ⌘P and for
+  Escape's way back. Why: both belong to a keystroke; an agent shows the user the clusters with the
+  three commands, and the cluster to go back to is always the connected one (Cogpit holds one
+  connection), which `ui_state` names.
+- *Escape on a text in ⌘P's search:* ★ clears the text and keeps the search; the next Escape, on the
+  empty search, goes back. Any other search: Escape clears and closes it, as before. Options: clear
+  and close (the next Escape would land in the list, no longer "on an empty search"). Why: a slip in
+  the text costs one Escape more, never the way back.
+- *⌘P pressed at the section:* ★ Escape on its empty search closes the search, the section stays.
+  Options: the connected cluster's tree (a surprise: the user was at the section).
+- *⌘P over a settings page:* ★ closes the page first (`settings.close`, as Escape does), since the
+  page takes the navigator's place; the context picker, an overlay, showed over it. Options: the
+  section behind the page, its search focused only once the user closed the page (⌘P would seem to
+  do nothing).
+- *Back only to the cluster still connected:* ★ disconnected meanwhile, Escape only closes the
+  search; another cluster connected drills into it and ends the search anyway.
+- *← on the tree's root:* ★ still goes up to the section, the keyboard's way; I3's "one way up" read
+  as the one visible way, the header's button, which takes no keyboard focus. Options: ← on the root
+  doing nothing (a keyboard user would have no way up).
+- *The palette's label:* ★ "Connect to Cluster", the registry's label as the palette shows every
+  label; the Cluster menu adds "…" to a label whose item opens something, as for Remove from
+  Cogpit…. Options: "Connect to Cluster…" in the palette too.
+- *The registry's menu path:* ★ `Cluster/Connect to Cluster` (the lead's default: the item stays in
+  the Cluster menu; the window did not use `File/Connect to Cluster`); the palette's category reads
+  Cluster. The other cluster commands' paths still say `File/` (`cluster.disconnect`,
+  `cluster.remove`, the `kubeconfig.*` commands), not touched.
+- *The welcome page's button:* ★ "Connect to Cluster…" (the lead's default) with the search icon,
+  its hint line keeping "⌘P finds a cluster by name"; the workspace's button while no cluster is
+  connected ("Connect to a cluster…", which opened the picker) reads the same and does the same.
+- *A `--context` refused at start:* ★ a toast "Could not connect to <name>: <error>" and the section
+  with its search focused, as ⌘P. Only a refusal before connecting (no such context) gets here; a
+  connect that fails ends in the state error, which the welcome page shows, as before. Options: the
+  section alone (the refusal's text, which only the picker showed, would be lost).
+- *What the picker's row said that the section's row did not:* ★ a line each in the row's tooltip:
+  "Could not connect: <error>" for the cluster that just failed (the lead's default),
+  "The last connect failed: Show Connection Updates… in its menu says why" for an earlier failure,
+  "Login program not allowed yet: Cogpit shows it before it connects" (or the token file or the
+  unchecked connection, not allowed yet or changed), and the line naming the server the credential
+  of an `insecure-skip-tls-verify` context goes to; and Show Connection Updates… in the menu of a row
+  whose last connect failed, the connect's log ([G2](../parity/gaps.md)) that the picker's warning
+  icon opened. Options: the picker's pills and icon on the section's rows (the owner likes the
+  section as it is); nothing (the log reachable only from the welcome page's rows, which list a
+  part of the clusters). The welcome page's rows keep the pills, the warning line and the icon.
+- *The empty section's hint:* ★ "No clusters yet: add a kubeconfig with the + above." (was:
+  right-click Local Kubeconfigs).
+- *The renders:* ★ every render made again (the top bar without Switch context, the navigator's
+  header; they also pick up the logo of [D-24](#d-24-logo) that older renders still showed).
+  The README's pictures (`docs/images`) still show the old top bar and dropdown until
+  `make showcase` runs.
+
+**What it does not cover:** a context whose kubeconfig skips the certificate check is marked in the
+section only in its row's tooltip, where the picker showed a pill and a line
+([trust boundaries](../security/trust-boundaries.md)); the approval before its first connect and the
+status bar's "TLS not checked" while connected are unchanged. Not verified: the section, ⌘P and
+Escape in a real window (Fyne's test driver only).
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | D-57 (the owner's interview of 2026-10-15 evening) built in the night run: the context picker, the top bar's "Switch context ▾" and the navigator's scope dropdown gone; ⌘P, the Cluster menu's Connect to Cluster… (was Switch Context…), the palette's Connect to Cluster, the welcome page's and the workspace's button and a refused `--context` show the navigator's section with its search focused, the navigator shown first if ⌘B hid it; Escape on that empty search goes back to the cluster's tree; at a cluster the header's "‹ All Clusters", the root without its ‹; at the section the title "All Clusters" with a "+" (Add Kubeconfigs…); the section's row tooltip and menu take over what the picker's row said (the error, a login waiting, an unchecked certificate, Show Connection Updates…); `cluster.connect`'s menu path `Cluster/Connect to Cluster`; the lead's decisions for the owner to confirm listed. D-42 (a refused `--context`), D-47 (the link's refusal names the navigator) and D-51 (the dropdown's bank gone with it) follow |
 | 2026-10-15 | minor | Decided by the owner and recorded in D-9, the entry that holds Cogpit's scope against Lens (the alpha gate itself lives in the roadmap, which no D-entry decides): verifying the credential plugins against EKS, GKE and AKS is out of scope until long after parity, no longer an alpha-gate step or part of M1's definition of done; index row D-9. The docs brought to the code (the owner's rule 10): the index row of D-10 said "being built (M12)" for what the code shows built (the engine side, the chat column, Preferences › Agent, the private connection, the key file); the index lacked D-14 to D-32, now one row each, its status from the entry and checked against the code; D-1: S7's re-check since CI (the macOS app packaged, Windows compiled and linked, no Windows or Linux package); D-2: "the rest is not built yet" over answers each marked built 2026-10-14, and the token's place (`<user config dir>/Cogpit/mcp-token`, kept since D-53); D-4: Sparkle said not built (built 2026-10-14, key 2026-10-15); D-44: the built-in agent said not built; D-48: "the release's app is ad-hoc signed today" (Developer ID since v0.6.0, the login item still not tried with it); D-16: "not verified until the first signed release" (signed releases with the bundled `cogpit-cli` since v0.7.0, checked by download on 2026-10-14; a run from a quarantined copy not tried); the decision round's intro: the night run built every answer that asked for a build but R3 and A10 |
 | 2026-10-15 | minor | D-4: Sparkle's update key set up by the owner (the environment `sparkle` with its rules and Pages by the lead with the owner's go-ahead; the secret and the variable by the owner), in v0.11.0 to v0.13.0, no signed appcast yet (`appcast.xml` 404: v0.9.0 to v0.12.0 got no files, v0.13.0 notarizing; checked with `gh` ~19:00 UTC); v0.6.0 to v0.8.0 carry the signed disk image; the notarization's 330-minute job noted at A9. A10 decided further by the owner: the semantic-release App the tag ruleset's only bypass, nobody tags by hand, an emergency tag by an admin switching the ruleset off; the settings not made (no ruleset, `release`'s admin bypass on). Confirmed by the owner: D-47 as a whole (navigation only with the build's defaults; the A7 ask verified built); D-10 item 12's repaired key file (a log warning, no bell notification, against the lead's recommendation) and no keychain migration, its third choice not asked; D-51's ↵ on an agent's palette text (b); D-51's dropdown bank moot (the scope dropdown to go, not built). The index rows of D-2, D-33, D-34, D-36, D-41 and D-44 said "not built" for answers of 2026-10-14 evening that the code shows built in the night run (A1, A2, A16, A18, A20, A65; A34 and A91; A80; A33; A63; A3, A5, A31): corrected |
 | 2026-10-15 | minor | D-24 revised (owner): the glowing C helm of the second icon lab as the app icon and the logo everywhere (the header, the welcome page, About, the README's banner, the social preview), the same in both themes; every version of the logo kept and drawable (`logo.Versions`, `hack/icon -version`, `assets/logo/`), D-24's own drawing matching its shipped icon pixel for pixel |
