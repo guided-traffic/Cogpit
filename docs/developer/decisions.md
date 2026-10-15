@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -12,13 +12,13 @@ projects' repositories; re-check them before relying on a version number.
 | [D-1](#d-1-ui-toolkit) | UI toolkit | decided: Fyne, after the spike gate; re-checks of S7 (CI, M0) and S5 (Windows and Linux, M11) can reopen it per platform |
 | [D-2](#d-2-agent-interface-scope) | What agents may do over MCP | decided: everything, the UI included; destructive actions confirmed by the user; 2026-10-14 evening (owner): more agents' calls always wait for the user (every RBAC kind, Helm install and upgrade, removing a bank with tiles) or become confirmed writes (`cluster.setPrometheus`, a proxy), notifications' read state GUI-only; not built |
 | [D-3](#d-3-helm-and-kubectl-binaries) | Where `helm` and `kubectl` come from | decided: Helm in-process; `kubectl` from `PATH`, a verified matching download on one click; 2026-10-14 evening (owner): the `PATH` hand-over for bash and fish, a setting that enforces Cogpit's kubectl (both built 2026-10-14), the signature with Rekor ([D-50](#d-50-kubectls-signature-check), built 2026-10-15) |
-| [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11. Built: since 2026-10-14 the app for Apple silicon in a signed, notarized DMG with `cogpit-cli` inside it, the only download besides `SHA256SUMS` ([D-16](#d-16-the-first-real-release) revised; no tag run yet; before, the unsigned app zip and `cogpit-cli` archives for six platforms); since 2026-10-14 Sparkle 2 in the app and the signed appcast's jobs, waiting for the owner's update key; 2026-10-14 evening (owner): the failure rule, the 20-day failsafe and who may change the automatic checks confirmed, a tag ruleset to set up |
+| [D-4](#d-4-packaging-and-updates) | Packaging, signing and updates | decided for macOS: the app in a DMG, Homebrew cask, Sparkle updates; Windows and Linux with M11. Built: since 2026-10-14 the app for Apple silicon in a signed, notarized DMG with `cogpit-cli` inside it, the only download besides `SHA256SUMS` ([D-16](#d-16-the-first-real-release) revised; v0.6.0 to v0.8.0 carry it, v0.5.0 and v0.9.0 to v0.12.0 got no files; before, the unsigned app zip and `cogpit-cli` archives for six platforms); since 2026-10-14 Sparkle 2 in the app and the signed appcast's jobs; the update key set up by the owner on 2026-10-15 and in the builds since v0.11.0, no signed appcast yet (no release with the key has passed notarization); 2026-10-14 evening (owner): the failure rule, the 20-day failsafe and who may change the automatic checks confirmed, a tag ruleset to set up (2026-10-15, owner: the semantic-release App its only bypass; not set up) |
 | [D-5](#d-5-extensions) | Extensions | decided: built into Cogpit's own code; no external extensions for now |
 | [D-6](#d-6-kubernetes-libraries) | Kubernetes libraries | decided: client-go, kubectl libraries, Helm SDK |
 | [D-7](#d-7-language-and-platforms) | Language and platforms | decided: Go; a macOS app first, Windows and Linux later |
 | [D-8](#d-8-licence) | Licence | decided: Apache-2.0 |
 | [D-9](#d-9-scope-against-lenss-paid-and-vendor-features) | Scope against Lens's paid and vendor features | decided: Flux CD and Argo CD in the beta, other paid features after it, vendor features never |
-| [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: a chat column at the window's right edge, OpenAI-compatible endpoints, several connections, a private-connection mark, kept scrubbed conversations, limits per turn (owner, 2026-10-14 late evening); the API keys in an owner-only file, no keychain (owner, 2026-10-15); being built (M12) |
+| [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: a chat column at the window's right edge, OpenAI-compatible endpoints, several connections, a private-connection mark, kept scrubbed conversations, limits per turn (owner, 2026-10-14 late evening); the API keys in an owner-only file, no keychain (owner, 2026-10-15); a key file others could access repaired with a log warning, no migration of keychain keys (confirmed, owner, 2026-10-15); being built (M12) |
 | [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations; Helm install (owner, 2026-10-14 evening): nothing offered after an interrupted install, built 2026-10-14 (the journal still records installs and the banner offers Show release: the lead's decisions for the owner to confirm) |
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
@@ -35,11 +35,11 @@ projects' repositories; re-check them before relying on a version number.
 | [D-43](#d-43-where-the-nodes-disk-comes-from) | Where the nodes' disk comes from | decided (owner, 2026-10-14): node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy (option b), built 2026-10-14; 2026-10-14 evening: the nodes' CPU and memory history from node-exporter where present (A43), built 2026-10-14 night with the lead's choices for the owner to confirm |
 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs) | What agents read of the dock's logs and terminal tabs | decided (owner, 2026-10-14): logs freely, a terminal tab only once the user turned on its switch (option b), built 2026-10-13; 2026-10-14 evening: the switch ends 1 hour after it was turned on at the latest, the filter's minimum 10 bytes, a chart's README framed as third-party text, not built |
 | [D-46](#d-46-chart-icons-from-the-hosts-that-serve-them) | Chart icons from the hosts that serve them | decided (owner, 2026-10-14): fetched when shown, https only, no credentials, bounded and checked, with Preferences › Load chart icons on by default (option b); built 2026-10-14 |
-| [D-47](#d-47-deep-links-cogpit) | Deep links (`cogpit://`) | decided in part (owner, 2026-10-14 evening): a link that names another cluster than the connected one asks once before switching, not built; the rest the lead's decision of 2026-10-14, for the owner to confirm: navigation only, through the `ui.*` commands with origin `deeplink`; a write unreachable by construction; never a context whose login waits for approval (option a); built 2026-10-14 |
+| [D-47](#d-47-deep-links-cogpit) | Deep links (`cogpit://`) | decided (owner): a link that names another cluster than the connected one asks once before switching (2026-10-14 evening, built 2026-10-14); the rest the lead's decision of 2026-10-14, confirmed (owner, 2026-10-15): navigation only, through the `ui.*` commands with origin `deeplink`; a write unreachable by construction; never a context whose login waits for approval (option a); the window raised, a toast and an audit line per link; an ask before every connect; built 2026-10-14 |
 | [D-48](#d-48-start-at-login) | Start at login | decided (owner, 2026-10-14 evening, as built): the macOS app's own login item (SMAppService), read from macOS, off by default, only the user turns it on (option a); built 2026-10-14 |
 | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp) | The external MCP server's switch, honoured by `cogpit-cli mcp` | decided (owner, 2026-10-14 evening): persisted, and with MCP off the bridge refuses to serve, headless too; built 2026-10-14 |
 | [D-50](#d-50-kubectls-signature-check) | kubectl's signature check | decided (owner, 2026-10-14 evening): sigstore-go with Rekor's transparency-log proof instead of the standard library; built 2026-10-15 (night run), the lead's decisions for the owner to confirm listed |
-| [D-51](#d-51-the-navigators-and-the-command-palettes-state) | The navigator's and the command palette's state | decided (owner, 2026-10-14 evening): the navigator's search text and keyboard selection and the palette's typed text are engine state; built 2026-10-15, with the lead's night decisions for the owner to confirm (the fields, one per window, an agent's palette text never running a change on ↵, the dropdown's bank) |
+| [D-51](#d-51-the-navigators-and-the-command-palettes-state) | The navigator's and the command palette's state | decided (owner, 2026-10-14 evening): the navigator's search text and keyboard selection and the palette's typed text are engine state; built 2026-10-15, with the lead's night decisions: an agent's palette text never running a change on ↵ confirmed (owner, 2026-10-15 evening, as built); the fields, the row's form and the bounds not asked, standing as built; one per window and what `workspace.json` keeps for the owner to confirm; the dropdown's bank moot (owner, 2026-10-15 evening: the scope dropdown goes, not built) |
 | [D-52](#d-52-several-windows) | Several windows | postponed (owner, 2026-10-15): designed 2026-10-15; the owner chose the model (a) as the direction and answers the rest in a separate, larger interview once the rest is done (the owner's requirement, 2026-10-14 evening: a hotbar tile dragged out of the window opens another window with that cluster; the lead's proposal: one session, a window's state and a connection per window, seven questions in order); not built |
 | [D-53](#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it) | The MCP details, and a token kept until the user regenerates it | decided (owner, 2026-10-15, F6): the top bar's MCP button gone, a gear in the status bar's MCP item for the details and Regenerate token (with a warning first), the token and the port kept across starts; built 2026-10-15, the lead's decisions for the owner to confirm listed |
 | [D-54](#d-54-the-layout-toggles-and-the-update-button) | The layout toggles and the Update button | decided (owner, 2026-10-15, F7): three toggles at the top bar's right end for the navigator (⌘B), the dock (⌘J) and the chat column (⌘I) as engine state, kept in `workspace.json`; an Update button while Sparkle holds an update; built 2026-10-15, the lead's decisions for the owner to confirm listed |
@@ -71,7 +71,7 @@ window. Nothing of it was built in the round.
 | A8 | D-48 | Start at login off by default, only the user turns it on; as built | [D-48](#d-48-start-at-login) |
 | – | D-4 | Agent REL's "the disk image replaces the zip" and "`cogpit-cli` signed and notarized, not stapled": moot, only the disk image ships, the CLI inside `Cogpit.app` | [D-4](#d-4-packaging-and-updates), [D-16](#d-16-the-first-real-release) |
 | A9 | D-4 | A failed signature or notarization fails the job; no files until it is re-run; Apple gets 45 minutes; as built | [D-4](#d-4-packaging-and-updates) |
-| A10 | D-4 | A repository ruleset: only the semantic-release GitHub App (bypass) and the owner create `v*` tags; the environment `release`'s admin bypass off; GitHub settings, to set with the owner's OK | [D-4](#d-4-packaging-and-updates) |
+| A10 | D-4 | A repository ruleset: only the semantic-release GitHub App (bypass) and the owner create `v*` tags; the environment `release`'s admin bypass off; GitHub settings, to set with the owner's OK. Decided further (owner, 2026-10-15 afternoon): the App the ruleset's only bypass, nobody tags `v*` by hand, an emergency tag by an admin switching the ruleset off for the moment; not set up (verified 2026-10-15: no ruleset, `release`'s admin bypass on) | [D-4](#d-4-packaging-and-updates) |
 | A11 | H-91 | Sparkle's 20-day failsafe kept (setting it to 0 declined); as built | [D-4](#d-4-packaging-and-updates), [H-91](../security/updates.md#h-91-after-20-days-of-unverifiable-feeds-sparkle-presents-items-again) |
 | A12 | D-4 | Agents and the CLI may turn the automatic update checks on, never off; the user both ways; as built. SPARKLE's technical defaults not asked: they stand as built | [D-4](#d-4-packaging-and-updates), [D-2](#d-2-agent-interface-scope) |
 | A13 | #3, H-42 | A repository that appears in Helm's file while Cogpit runs is downloaded at once; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-42](../security/trust-boundaries.md#h-42-a-repository-another-program-writes-into-helms-file-is-used-without-asking) |
@@ -117,10 +117,10 @@ window. Nothing of it was built in the round.
 | A50 | #12 | A file that leaves a sync folder closes its tabs, with a notice; as built | [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A51 | #27 | The navigator's search text and keyboard selection engine state, visible and settable for agents; built 2026-10-15 (`UIState.Navigator`, `ui.setNavigatorSearch`, `ui.setNavigatorRow`; the fields' form a night decision) | [D-51](#d-51-the-navigators-and-the-command-palettes-state), [architecture §4.3](architecture.md#43-ui-state) |
 | – | FLAKE | Noted from reading only: a reopened log stream names pod and container, not the UID, so a StatefulSet pod recreated under its name while the cache lags more than 500 ms may show lines twice; not reproduced, to check in a later run | this table |
-| A52 | #29 | The navigator's scope dropdown lists the hotbar's and the connected clusters only, every other context through the picker (⌘P); built 2026-10-15 (the shown bank's tiles, a night decision; All Clusters… ⌘P at its end) | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
+| A52 | #29 | The navigator's scope dropdown lists the hotbar's and the connected clusters only, every other context through the picker (⌘P); built 2026-10-15 (the shown bank's tiles, a night decision; All Clusters… ⌘P at its end); the bank moot since the owner decided on 2026-10-15 evening that the scope dropdown goes (not built) | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
 | – | #86 | Capping the scope dropdown: moot by A52 | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
 | A53 | #30 | The navigator's focus ring on keyboard navigation only, not after a mouse click; built 2026-10-15 | [D-51](#d-51-the-navigators-and-the-command-palettes-state) |
-| A54 | #34 | The command palette's typed text engine state, as A51; built 2026-10-15 (`UIState.PaletteText`, `ui.palette.setText`; on an agent's text ↵ runs no change until the user picked the entry, a night decision) | [D-51](#d-51-the-navigators-and-the-command-palettes-state), [architecture §4.3](architecture.md#43-ui-state) |
+| A54 | #34 | The command palette's typed text engine state, as A51; built 2026-10-15 (`UIState.PaletteText`, `ui.palette.setText`; on an agent's text ↵ runs no change until the user picked the entry, a night decision, confirmed by the owner on 2026-10-15 evening) | [D-51](#d-51-the-navigators-and-the-command-palettes-state), [architecture §4.3](architecture.md#43-ui-state) |
 | A55 | #35 | ⌘F and ⌘⇧T as main-menu items with their shortcuts shown; the keys stay window shortcuts (the editor keeps its ⌘F); built 2026-10-15 (View › Search, View › New Terminal) | [architecture §4.2](architecture.md#42-the-command-registry), [parity](../parity/README.md) |
 | A56 | #36 | GLFW's Window menu is there (verified by the owner in a real window); resolved | [parity](../parity/README.md) |
 | A57 | #37 | "New Bank…" and "New Hotbar Bank"; as built | [parity](../parity/README.md) |
@@ -502,7 +502,8 @@ entitlements), puts it into `Cogpit-<v>-macos-arm64.dmg` (a folder with the app 
 Applications; the universal image stays a later step), signs the disk image, has it notarized and
 staples its ticket; `cogpit-cli` for macOS is signed and notarized too. The release page says so
 and names the certificate. No tag run has done it yet: the first release after v0.4.0 is the
-proof. Not built yet: the universal binary, the Homebrew cask and Sparkle; the cask and Sparkle's
+proof (since then, verified 2026-10-15: v0.6.0, v0.7.0 and v0.8.0 carry the signed, notarized
+disk image; v0.5.0 and v0.9.0 to v0.12.0 have no files). Not built yet: the universal binary, the Homebrew cask and Sparkle; the cask and Sparkle's
 EdDSA key come after the disk image. The decisions in this step:
 
 - **A failure fails the release's macOS job (the lead, 2026-10-14; confirmed by the owner the same
@@ -510,7 +511,9 @@ EdDSA key come after the disk image. The decisions in this step:
   With the secrets present, a failed signature, notarization or check fails the job "Sign and
   notarize (macOS)", and the release gets no files until the failed jobs are re-run; Apple gets 45
   minutes, then the job names the submission and the owner re-runs it once Apple has answered
-  ([when it fails](releasing.md#when-signing-or-notarization-fails)). Without any of the secrets
+  ([when it fails](releasing.md#when-signing-or-notarization-fails)). Since 2026-10-15 (after
+  Apple kept each submission of v0.9.0 to v0.12.0 in progress beyond the 45 minutes) the wait is a job of its own, "Notarize and staple (macOS)", up to 330 minutes for the
+  one submission "Sign and submit (macOS)" made, and a re-run waits for the same one. Without any of the secrets
   (a fork), the unsigned zip as before; with some of them, a failure. Options weighed: the
   unsigned zip when signing fails (a release whose files are not what a signed release promises),
   the CLI archives attached without the macOS downloads (a release that looks finished without
@@ -554,8 +557,19 @@ reviewer, so CI signs a release's update feed only after the owner approved the 
 weighed: the key offline with the owner, signing by hand per release; deciding later).
 **Decided (owner, 2026-10-14 evening, A10):** a repository ruleset lets only the semantic-release
 GitHub App (as a bypass) and the owner create `v*` tags, and the environment `release`'s admin
-bypass is off. Not done yet: these are GitHub settings, an outward change, made with the owner's
-OK.
+bypass is off. **Decided further (owner, 2026-10-15 afternoon):** the ruleset's only bypass is the
+semantic-release GitHub App (`guided-traffic-automation`, app id 5070048, the releases' author);
+nobody tags `v*` by hand, and an emergency tag means an admin switches the ruleset off for the
+moment (the organisation's audit log records it). The environment `sparkle` already has no admin
+bypass; `github-pages` keeps its bypass (the feed is signed). Options weighed: the App plus a team
+holding only the owner (a team to keep, a path nobody uses); the App plus the Repository admin
+role (the bot's token alone could start a signed release). Not verified: whether rulesets accept a
+single user as a bypass actor (why "the owner" of the earlier wording is not expressible
+directly). Not done yet (verified 2026-10-15 ~19:00 UTC with `gh`: no ruleset exists, and the
+environment `release` still has admin bypass on): these are GitHub settings, an outward change,
+made only with the owner's explicit OK. For whoever makes them: a PUT on the environment `release`
+must carry its `deployment_branch_policy` `{protected_branches: false, custom_branch_policies:
+true}`, or the tag policy `v*` is lost.
 **Decided (owner, 2026-10-14): Sparkle's feed on GitHub Pages**,
 `https://guided-traffic.github.io/cogpit/appcast.xml`, the `SUFeedURL` every installed copy keeps.
 Options: (a) GitHub Pages, one appcast with the releases' history and Sparkle's channels, so a
@@ -598,12 +612,24 @@ release built on the signed feed, a tampered feed, an environment without its ru
 prerelease (channel beta) behaved as below. **Not checked, and only a signed release can show it:**
 an installed copy finding, downloading, verifying and installing an update, its relaunch through
 GLFW's terminate handling, Apple's acceptance of Sparkle's parts signed with the Developer ID,
-Pages serving the feed. **What remains (human):** the owner's steps in
+Pages serving the feed. **What remained (human; done 2026-10-15, below):** the owner's steps in
 [releasing › setting up Sparkle](releasing.md#setting-up-sparkle), in order (the environment
 `sparkle` with its reviewer and tag rule, Pages and the `github-pages` tag rule, the key, the
 secret, the variable); then the first release built with the variable is the first that can
 update, and the release after it is the first update. Copies installed before (v0.4.0's zip, and
 the first disk images, built without the key) never update themselves: one manual download.
+**Set up (2026-10-15; verified with `gh` ~19:00 UTC):** the environment `sparkle` (the owner as
+required reviewer, the tag rule `v*` only, admin bypass off) and Pages from GitHub Actions, steps 1
+and 2 by the lead with the owner's go-ahead; the key generated by the owner, the secret
+`SPARKLE_ED_PRIVATE_KEY` in `sparkle` (created 07:00 UTC), the repository variable
+`SPARKLE_PUBLIC_ED_KEY` set. v0.11.0, v0.12.0 and v0.13.0 (18:05 UTC) are built with the key (the
+app job's log: "Sparkle bundled with the update key"). No signed appcast is deployed yet
+(`https://guided-traffic.github.io/cogpit/appcast.xml` answers 404): v0.9.0 to v0.12.0 have no
+files, since Apple kept each notarization in progress beyond the old job's 45 minutes, and
+v0.13.0's notarization was in progress, its three appcast jobs to run after "Attach to the release"
+and wait for the owner's approval in `sparkle`. So the first release that passes notarization with
+the key starts the signed feed, and the release after it is the first real update; until then no
+installed copy updates itself, and copies of v0.8.0 and earlier have no key and never will.
 The decisions of this step, each the lead's or agent SPARKLE's for the owner to confirm:
 
 - **The appcast itself is signed (agent SPARKLE).** Sparkle 2.9 and later signs the feed
@@ -665,11 +691,14 @@ engine keeps it as `UIState.Update`, and the top bar shows an Update button whos
 `app.checkForUpdates`, which brings Sparkle's window with that update up. A check the user starts
 shows Sparkle's window as before. Without the framework or the key there is no updater, so no
 button. Checked with the real Sparkle 2.10.0 in a harness against a local feed
-(`TestSparkleReportsAScheduledUpdate`); not checked until a keyed release: an installed copy
-finding one.
+(`TestSparkleReportsAScheduledUpdate`); not checked until a keyed release is in the signed feed:
+an installed copy finding one.
 
-**Human:** Windows code-signing material (the Apple Developer ID exists since 2026-10-14); Sparkle's
-update key and the environments' rules ([releasing › setting up Sparkle](releasing.md#setting-up-sparkle)).
+**Human:** Windows code-signing material (the Apple Developer ID exists since 2026-10-14); the
+owner's approval of the first keyed release's appcast jobs in `sparkle`; the tag ruleset and
+`release`'s admin bypass (A10, with the owner's explicit OK). Sparkle's update key and the
+environment `sparkle`'s rules are set up since 2026-10-15
+([releasing › setting up Sparkle](releasing.md#setting-up-sparkle)).
 
 ## D-5: Extensions
 
@@ -933,8 +962,9 @@ the options weighed):
     keys too; the keychain code (cgo, the Security framework) removed
     ([`agent/keystore.go`](../../internal/agent/keystore.go)). What it costs: the key is plain text
     protected by the file's mode, as kubeconfig tokens and proxy passwords are
-    ([credentials › H-99](../security/credentials.md#h-99-llm-api-keys-are-plaintext-in-cogpits-settings-folder)). The lead's decisions for the owner
-    to confirm, each with the options weighed:
+    ([credentials › H-99](../security/credentials.md#h-99-llm-api-keys-are-plaintext-in-cogpits-settings-folder)). The lead's decisions, each with the
+    options weighed (the first two confirmed by the owner on 2026-10-15 afternoon, the third not
+    asked):
     - **A key file other users could access** (group or other bits set, a copy restored without
       its mode): made owner-only again before its keys are used, the log naming the file and its
       mode, never a key, and advising to replace keys that others may have read (chosen); or
@@ -942,7 +972,11 @@ the options weighed):
       makes a new token itself, while an API key entered again is the same key, so refusing adds
       friction and revokes nothing); or used as it is. Why: only a new key at the provider undoes
       a leak, which the user alone can make; and while Cogpit's writer kept the directory 0700,
-      no other user could reach the file through it.
+      no other user could reach the file through it. **Confirmed (owner, 2026-10-15 afternoon):**
+      repaired to 0600 and its keys used, with a Warn line in `cogpit.log` and on stderr advising
+      to replace the keys, no notice in the window; chosen over the lead's recommendation in the
+      question, the repair plus a bell notification so that the advice to rotate reaches the user.
+      Dormant: Cogpit always writes 0600.
     - **A key the keychain kept: no migration.** Never read, not even once to move it: reading it
       is the prompt the owner wants gone. Such a connection, whose file still says a key was
       given, shows "no API key", and a turn ends with "the connection's API key is missing: enter
@@ -950,8 +984,12 @@ the options weighed):
       saves with the key kept) leaves it so; the settings form saved with the key field empty
       gives it up ("Empty: no key", as the form's hint says). The item stays in the login keychain
       for the user to delete in Keychain Access ([usage](usage.md)); Cogpit leaves it alone.
+      **Confirmed (owner, 2026-10-15 afternoon):** such a key is entered once again, the old item
+      left in the keychain. Options weighed: migrating once at the first start (one keychain prompt
+      per connection, the cgo Security code kept for macOS only); an "Import from Keychain" button.
     - **A key file that does not decode:** a read fails without quoting the file (a JSON error can
-      quote its bytes, which hold keys); the next key saved replaces it.
+      quote its bytes, which hold keys); the next key saved replaces it. Not asked in the owner's
+      round of 2026-10-15: it stands as the lead's decision.
 
     Tests: `TestKeyFileKeepsTheKey`, `TestKeyFromTheKeychainIsAskedForAgain`,
     `TestKeyFileAccessibleByOthersIsRepaired`, `TestFileKeyStoreRefuses`, `TestNoKeychainCode`,
@@ -3637,13 +3675,19 @@ a link that names another cluster than the connected one asks once, naming the c
 switches; navigation within the connected cluster stays immediate. Built 2026-10-14
 (`askLinkConnect`, `TestDeepLinkAsksBeforeItConnects`, `TestDeepLinksOpenInTheWindow`); it replaces
 the default "A link may switch the connected cluster without asking" below. **The lead's night
-decision for the owner to confirm:** a link asks before every connect it would start, also while
+decision, confirmed (owner, 2026-10-15):** a link asks before every connect it would start, also while
 no cluster is connected (options: only when another cluster is connected), so that a page opening
 links in a loop raises questions rather than connections (H-89's cost of a connect). The round
-answered the switch only; the rest of the record stays the lead's decision for the owner to
-confirm.
+answered the switch only; the rest of the record stayed the lead's decision for the owner to
+confirm until 2026-10-15.
 
-**Open apart from the switch above: the lead's decision of 2026-10-14, for the owner to confirm;
+**Confirmed (owner, 2026-10-15 afternoon), as a whole:** (a) navigation only, as built, with the
+build's defaults: a login waiting for approval stops the link (no approval dialog from a link); the
+window raised and a toast for every link; one audit line per link; the ask before every connect
+above. Options weighed: (b) plus commands with a confirmation (consent phishing); (c) no deep links
+(loses Lens's `lens://` parity).
+
+**Apart from the switch above: the lead's decision of 2026-10-14, confirmed (owner, 2026-10-15);
 built 2026-10-14.** Lens Desktop opens `lens://` links (the row in [ui-parity](../parity/ui-parity.md#appearance-and-application)
 since 2026-10-11, from Lens's documentation; not captured, so what a Lens link can name is not
 verified). Cogpit's app bundle registers the scheme `cogpit` (`CFBundleURLTypes`, the
@@ -3665,7 +3709,8 @@ consent-phishing pattern; (c) loses Lens's links. Built ([`engine/deeplink.go`](
 [`fyneui/deeplink.go`](../../internal/ui/fyneui/deeplink.go); the grammar in
 [usage](usage.md#deep-links-cogpit); the boundary in
 [trust boundaries](../security/trust-boundaries.md#boundaries-and-required-checks)). What the build
-chose, Cogpit's defaults (not the owner's decisions):
+chose, Cogpit's defaults (the build's choices, not the owner's, until the owner confirmed them on
+2026-10-15 with D-47 as a whole):
 
 - **The grammar:** `cogpit://open?context=<context id>&view=<view key>&namespace=<namespace>&name=<name>`,
   every parameter optional but one; read strictly (the scheme, the action `open`, no user, port,
@@ -3683,7 +3728,7 @@ chose, Cogpit's defaults (not the owner's decisions):
   raises at a moment of its choosing invites allowing a program the user did not ask for. An
   approved plugin runs, as when the user connects.
 - **A link may switch the connected cluster without asking** (replaced by the owner's answer of
-  2026-10-14 evening above, not built yet), as the hotbar does; Cogpit holds one
+  2026-10-14 evening above, built 2026-10-14), as the hotbar does; Cogpit holds one
   connection, the other cluster's tabs stay, and a write the user confirmed for the other cluster
   refuses to run (`CheckConfirmedContext`). A settings page that is open closes, or it would hide
   what the link opened ([H-89](../security/trust-boundaries.md#h-89-a-link-switches-the-cluster-and-the-view-under-the-user)).
@@ -3982,7 +4027,9 @@ row and the collapsed source groups (A63); `UIState.PaletteText` the palette's t
 shows an agent's value unless a report of its own is still on its way, so the user's typing is
 never overwritten by an older echo; an agent's value never takes the keyboard focus.
 
-**What the build settled (the lead's night decisions, 2026-10-14, for the owner to confirm):**
+**What the build settled (the lead's night decisions, 2026-10-14, for the owner to confirm; on
+2026-10-15 evening the owner confirmed the palette's ↵ below, and the fields, the row's form and the
+bounds were not asked, being technical, so they stand as built):**
 
 - **The fields:** `navigator` (`search`, `row`, `collapsed`), `paletteText`, `paletteTextOrigin`.
 - **The keyboard's row held as a row of the level shown, not as a view key alone.** Options (a) a
@@ -4014,7 +4061,8 @@ never overwritten by an older echo; an agent's value never takes the keyboard fo
   agent's "Switch to Pods" a two-step chore. The hint line under the list says so, in the warning
   colour after a ↵ it refused; typing makes the text the user's; the window's own report never
   opens a palette the user closed meanwhile. A palette an agent opens does not take the keyboard
-  focus either (since 2026-10-13).
+  focus either (since 2026-10-13). **Confirmed (owner, 2026-10-15 evening, A54):** (b) as built;
+  weighed: (c) ↵ runs nothing on an agent's text; (a) agents set no text.
 
 The navigator's other answers of the same round, details of the window
 ([parity](../parity/README.md)):
@@ -4026,7 +4074,9 @@ The navigator's other answers of the same round, details of the window
   (a), because the dropdown then lists what the hotbar beside it shows, and every other cluster is
   one ⌘P away. A tile whose context no kubeconfig source offers any more is left out
   ([`navigator_header.go`](../../internal/ui/fyneui/navigator_header.go) `scopeClusters`;
-  `TestNavigatorSectionDropdown`).
+  `TestNavigatorSectionDropdown`). **The bank moot (owner, 2026-10-15 evening):** in an interview
+  that evening the owner decided that the scope dropdown goes (one list of clusters, the navigator's
+  section); not built yet, its decision record comes with the build.
 - **Decided (A53), built 2026-10-15:** the focus ring shows on keyboard navigation only, not after a
   mouse click: a click moves the keyboard's row without the ring, the next key (or Tab into the
   navigator) shows it (`TestNavigatorRingFollowsTheKeyboardOnly`).
@@ -4571,8 +4621,8 @@ window, and the delegate reports the update with its version. The engine and the
 with a fake updater. **Not verified:** the report at the end of an update session (it needs a click
 in Sparkle's window); a click on the button bringing Sparkle's window with the held update up in the
 running app (Sparkle's documentation says `checkForUpdates:` does); a check by Sparkle's own
-scheduler a day after the last; an installed copy with the update key, which no release carries yet
-([D-4](#d-4-packaging-and-updates)); the toggles and the button in a real window.
+scheduler a day after the last; an installed copy with the update key, which no release with files
+carried on 2026-10-15 (v0.11.0 to v0.13.0 are built with it; [D-4](#d-4-packaging-and-updates)); the toggles and the button in a real window.
 
 ## D-55: A Config Map's values edited in the drawer
 
@@ -4775,6 +4825,7 @@ read in Fyne 2.8.1's `loop.go`, not patched).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | D-4: Sparkle's update key set up by the owner (the environment `sparkle` with its rules and Pages by the lead with the owner's go-ahead; the secret and the variable by the owner), in v0.11.0 to v0.13.0, no signed appcast yet (`appcast.xml` 404: v0.9.0 to v0.12.0 got no files, v0.13.0 notarizing; checked with `gh` ~19:00 UTC); v0.6.0 to v0.8.0 carry the signed disk image; the notarization's 330-minute job noted at A9. A10 decided further by the owner: the semantic-release App the tag ruleset's only bypass, nobody tags by hand, an emergency tag by an admin switching the ruleset off; the settings not made (no ruleset, `release`'s admin bypass on). Confirmed by the owner: D-47 as a whole (navigation only with the build's defaults; the A7 ask verified built); D-10 item 12's repaired key file (a log warning, no bell notification, against the lead's recommendation) and no keychain migration, its third choice not asked; D-51's ↵ on an agent's palette text (b); D-51's dropdown bank moot (the scope dropdown to go, not built) |
 | 2026-10-15 | minor | D-24 revised (owner): the glowing C helm of the second icon lab as the app icon and the logo everywhere (the header, the welcome page, About, the README's banner, the social preview), the same in both themes; every version of the logo kept and drawable (`logo.Versions`, `hack/icon -version`, `assets/logo/`), D-24's own drawing matching its shipped icon pixel for pixel |
 | 2026-10-15 | minor | D-56 (the owner's decisions of 2026-10-15) built: the terminal's scrollback in the fork, a compact store (205 bytes for a line of 80 cells against 9,267 in the grid) without a line limit, bounded at 256 MiB, the view drawing only the rows in view (#147's model measured at 56× the refresh cost with 1,000 rows), a draggable bar, the view kept while scrolled back, reflow of the scrollback and the main screen, the wheel to full-screen programs, a selection over the scrollback, `dock_read` by stable line numbers (D-44 follows); the lead's decisions for the owner to confirm listed |
 | 2026-10-15 | minor | D-10 item 12 replaced by the owner (2026-10-15, "übertrieben, erzeugt Reibung": each self-built binary made macOS ask for the login password): no keychain, the API keys in the owner-only `llm-keys.json` on every platform; built the same day, the keychain code removed; the lead's decisions for the owner to confirm (a key file others could access repaired, no migration of a keychain key, a file that does not decode replaced); H-99 opened in credentials |

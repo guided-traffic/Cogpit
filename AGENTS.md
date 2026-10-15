@@ -19,7 +19,8 @@ ConfigMaps drivers), kubeconfig sources with approved credential plugins, metric
 Server and Prometheus together, logs, a terminal with a verified kubectl download, pod shells,
 `cogpit-cli` with an MCP stdio bridge, Flux CD and Argo CD sections, a node shell, a built-in agent chat
 on OpenAI-compatible endpoints (local models first), CI on every push, releases
-with a signed, notarized disk image and Sparkle 2 (not live until the owner's update key), and MCP
+with a signed, notarized disk image and Sparkle 2 (the owner's update key in the releases since v0.11.0; no
+signed appcast until the first of them passes notarization), and MCP
 control of all of it; it doubled
 as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
 What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-15). The documentation method, and parts of

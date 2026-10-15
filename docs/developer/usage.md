@@ -366,7 +366,7 @@ preferences.
 
 Security note: an agent or `cogpit-cli` may turn `checkForUpdates` on, never off; only you can, in
 Cogpit's window ([agents and MCP](../security/agents-and-mcp.md)). A build without the update key
-(every local build, and every release until the owner has made the key), an app still on its disk
+(every local build, and every release up to v0.10.0; the releases carry the key since v0.11.0), an app still on its disk
 image and other systems than macOS do not update themselves, and the row says why. `cogpit-cli`
 has no updater of its own: the one inside the app is replaced with the app, one built from source
 is not.

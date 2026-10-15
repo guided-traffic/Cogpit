@@ -4,8 +4,10 @@ The update channel: how Cogpit learns about a new version and replaces itself, o
 places where Cogpit downloads code that then runs. Since 2026-10-14 the macOS app carries Sparkle 2
 and the release pipeline signs and publishes its appcast
 ([D-4](../developer/decisions.md#d-4-packaging-and-updates),
-[releasing › the appcast](../developer/releasing.md#the-appcast)); the update key does not exist
-yet, so no release can be offered and no copy updates itself until the owner has made it
+[releasing › the appcast](../developer/releasing.md#the-appcast)); the owner set up the update
+key on 2026-10-15 and v0.11.0 to v0.13.0 are built with it, but no signed feed is on Pages yet
+(2026-10-15 ~19:00 UTC: `appcast.xml` answers 404), so no copy updates itself until a release
+built with the key passes notarization
 ([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). `cogpit-cli` has no
 updater of its own: since 2026-10-14 it is part of the app bundle
 ([D-16](../developer/decisions.md#d-16-the-first-real-release)), so Sparkle's update replaces it
@@ -18,8 +20,9 @@ sigstore's transparency log, not Cogpit's update key
 
 The owner's decision round of 2026-10-14 evening confirms the failed-signing behaviour and the
 20-day failsafe ([H-91](#h-91-after-20-days-of-unverifiable-feeds-sparkle-presents-items-again))
-and decides two GitHub settings for the release environment ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)),
-which the owner makes and which are not made yet. The rest of the Sparkle set-up was not put to the
+and decides two GitHub settings for the release environment ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released);
+decided further on 2026-10-15), which are made only with the owner's explicit OK and are not made
+yet (checked 2026-10-15). The rest of the Sparkle set-up was not put to the
 owner and stands as built: the signed feed, the preference driving Sparkle, checks from any origin,
 Beta refused until prereleases exist, Sparkle's XPC services removed, no entitlements on Sparkle's
 parts, the three appcast jobs, the history from the signed feed.
@@ -72,11 +75,11 @@ that releases up to v0.6.0 carry (unsigned for Linux and Windows) are not built 
 
 | Artifact | Built by | What vouches for it today |
 |---|---|---|
-| `Cogpit-<v>-macos-arm64.dmg`, the app bundle in a disk image (from the first release after v0.4.0 on; no release has it yet) | `make dist-app` on GitHub's `macos-latest`, signed and imaged by `make dist-macos-sign` ([`hack/macos/release.sh`](../../hack/macos/release.sh)) in the job "Sign and submit (macOS)", notarized and stapled by `make dist-macos-notarize` in "Notarize and staple (macOS)" | the app and the disk image signed with the Developer ID "Developer ID Application: Hans Fischer (6L57P2HXN6)", the hardened runtime and Apple's timestamp; the disk image notarized by Apple, its ticket stapled, so Gatekeeper accepts it offline as `Notarized Developer ID`; its SHA-256 in `SHA256SUMS`. When a signature, the notarization or a check fails, the job fails and the release gets no files until the failed jobs are re-run, never unsigned files under a signed note; the notarization job waits 330 minutes at most for Apple's verdict on the one submission the signing job made, and a re-run waits for the same one; it staples only the disk image whose SHA-256 the signing job recorded with the submission ([`build.yml`](../../.github/workflows/build.yml), [`release.sh`](../../hack/macos/release.sh); the lead's default, confirmed by the owner on 2026-10-14 evening) |
+| `Cogpit-<v>-macos-arm64.dmg`, the app bundle in a disk image (from the first release after v0.4.0 on: v0.6.0, v0.7.0 and v0.8.0 carry it, v0.5.0 and v0.9.0 to v0.12.0 have no files; checked 2026-10-15) | `make dist-app` on GitHub's `macos-latest`, signed and imaged by `make dist-macos-sign` ([`hack/macos/release.sh`](../../hack/macos/release.sh)) in the job "Sign and submit (macOS)", notarized and stapled by `make dist-macos-notarize` in "Notarize and staple (macOS)" | the app and the disk image signed with the Developer ID "Developer ID Application: Hans Fischer (6L57P2HXN6)", the hardened runtime and Apple's timestamp; the disk image notarized by Apple, its ticket stapled, so Gatekeeper accepts it offline as `Notarized Developer ID`; its SHA-256 in `SHA256SUMS`. When a signature, the notarization or a check fails, the job fails and the release gets no files until the failed jobs are re-run, never unsigned files under a signed note; the notarization job waits 330 minutes at most for Apple's verdict on the one submission the signing job made, and a re-run waits for the same one; it staples only the disk image whose SHA-256 the signing job recorded with the submission ([`build.yml`](../../.github/workflows/build.yml), [`release.sh`](../../hack/macos/release.sh); the lead's default, confirmed by the owner on 2026-10-14 evening) |
 | `cogpit-cli` in the app, `Cogpit.app/Contents/MacOS/cogpit-cli` (from the first release after v0.6.0 on) | `make app` from `make build`'s binary, in the same job | the same as the app: signed with the same Developer ID before the bundle (identifier `io.guided-traffic.cogpit.cli`, the hardened runtime, the timestamp), sealed into the app's signature, so changing it breaks the app's; notarized with the disk image, whose stapled ticket covers it; replaced by Sparkle's update with the bundle. Not verified until the first signed release: that it runs from a terminal in a quarantined copy before the app was ever opened without a prompt |
 | `Cogpit_<v>_darwin_arm64.zip`, the app bundle (v0.4.0 and earlier, and any build without the signing secrets) | `make dist-app` on GitHub's `macos-latest` | its SHA-256 in `SHA256SUMS`; an ad-hoc signature (`codesign --sign -`), which seals the bundle but names nobody: **no Developer ID, not notarized**, so Gatekeeper blocks the first start until the user allows it |
 | `SHA256SUMS` | the release pipeline's last job | nothing: it is not signed, so it shows that a download matches what CI attached to the release, not who attached it |
-| The release's item in `https://guided-traffic.github.io/cogpit/appcast.xml` (from the first release built with the update key; none yet) | the three appcast jobs after "Attach to the release" ([releasing › the appcast](../developer/releasing.md#the-appcast)) | the update key's EdDSA signature over the feed and over the disk image it names, made after the owner approved the run; checked with the public key before Pages gets it |
+| The release's item in `https://guided-traffic.github.io/cogpit/appcast.xml` (from the first release built with the update key that passes notarization; none yet on 2026-10-15: v0.11.0 to v0.13.0 are built with the key, v0.11.0 and v0.12.0 have no files, v0.13.0's notarization was in progress) | the three appcast jobs after "Attach to the release" ([releasing › the appcast](../developer/releasing.md#the-appcast)) | the update key's EdDSA signature over the feed and over the disk image it names, made after the owner approved the run; checked with the public key before Pages gets it |
 
 **What the Developer ID signature and the notarization vouch for:** that the code was signed with
 the key of team 6L57P2HXN6's certificate and has not changed since, and that Apple's automated

@@ -63,71 +63,115 @@ M11 and M12 do not depend on each other; their order is the owner's call.
 
 ## Current focus
 
-Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you.
+Ranked; each item links to its gap. Pick from the top unless an issue is assigned to you. Items 1
+to 8 are **the path to alpha**: the gate above, and what the owner's use of Cogpit in a real
+window found on 2026-10-15; the items after them run beside it. Updated 2026-10-15 evening, after
+the owner's audit of the night run's decisions (done that morning) and two interviews with the owner that
+evening.
 
-1. **The owner's audit of the night run's decisions (2026-10-14/15), first:** every choice the
-   owner had not made was weighed and recorded where it lives as "the lead's decision for the owner
-   to confirm" (`grep -rn "for the owner to confirm" docs/` after 2026-10-14): D-10 (the agent),
-   D-14 (the fork's races), D-22 (a free colour's legible shade), D-25 (the copy icons), D-28
-   (Remove from Cogpit bound to the contexts named), D-29 and D-11 (Helm), D-33 (Reconcile with
-   Source), D-50 (no fallback when Rekor cannot be asked), D-51 (the navigator's state), the
-   README's pictures, and the security pages.
-2. **The owner's findings from the real window (2026-10-14 evening), both built, to check in a real window:** the node history
-   from Prometheus where it is available (no past data shows for a node; built 2026-10-14 night:
-   node-exporter where the Prometheus has it, A43, [G12](gaps.md#g12-metrics-and-cluster-overview));
-   the About dialog, which shows version 0.0.1 and is laid out confusingly (where the version comes
-   from, a development build saying so; [G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences);
-   fixed 2026-10-14, with decision A60, About in the application menu: not tried in a real window yet).
-3. **The owner walks the night runs', the day run's and the night build's features in a real window** (2026-10-15: the chat column with his LM Studio and the night run's changes first; 2026-10-14;
-   every one was verified offscreen and in tests only; the night build's: the Flux CD and Argo CD sections
-   on a cluster that runs them, Create Secret, the node shell, the workloads' drawers' Pods, tabs restored
-   after a restart, a namespace-limited user's views; then its night decisions D-33 to D-44): the hotbar, the navigator's sections, the
-   tab bar, the command palette, Preferences and Cluster settings, the welcome page, the create
-   dialogs, Helm install and upgrade from the repositories of Helm's own `repositories.yaml`
-   (built the same day, [D-29](../developer/decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml):
-   a `helm repo add` while Cogpit runs, an authenticated repository), the copy icons in the lists
-   ([D-25](../developer/decisions.md#d-25-copying-values)), the cluster Overview and the metrics
-   status line, kubectl for terminals, row selection and Delete of a selection; record what
-   differs in the parity rows. The open questions (each marked "Cogpit's default, not
-   the owner's decision" in its row or gap; D-29's in its notes and
-   [H-40](../security/credentials.md#h-40-credentials-over-plain-http), H-41 and H-42 in [trust boundaries](../security/trust-boundaries.md))
-   were answered in the owner's decision round of 2026-10-14 evening (item 8; the rows and gaps say
-   "confirmed" or "decided … not built").
-   Since the afternoon of 2026-10-14 also: the http repository question and its banner (H-40), a
-   terminal tab's agent marker and its 15-minute end (H-83), Preferences › App's Start at login and
-   update rows, Help › Check for Updates…, a `cogpit://` link (D-47), the signed disk image of
-   v0.5.0 on a Mac that has never run Cogpit.
-4. **Walk the alpha-gate workflows in the GUI** on kind and a real cluster (owner): change a
-   workload, maintain a node, reach a service, Helm releases, adding and syncing kubeconfigs,
-   Cogpit's own title bar.
-5. **The terminal widget's upstream pull requests** ([#155–#158](https://github.com/fyne-io/terminal/pull/158),
-   G8; #157 approved 2026-10-12) and the two new widget patches of the night run (right-click
-   copy and paste, Ctrl/Shift+Insert: to be offered upstream later, at the end; the app first,
-   owner, 2026-10-14 evening).
-6. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication), human).
-   The node shell as built was confirmed by the owner on 2026-10-14 ([D-37](../developer/decisions.md#d-37-the-node-shell);
-   [H-7](../security/privilege-footprint.md#h-7-node-shell-is-root-on-the-node) stays: it is root on the node).
-7. **M0 and M10:** the generated parity pages and the scorecard ([G1](gaps.md#g1-workspace-ci-and-progress-generators)),
-   captures of the rows marked inferred, packaging and updates for macOS ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
-   Built 2026-10-14: the signed, notarized disk image (first tag run v0.5.0) and Sparkle 2, which
-   updates nothing until the owner has made the update key and the environments `sparkle` and
-   `github-pages` ([releasing › Setting up Sparkle](../developer/releasing.md#setting-up-sparkle)).
-8. **The built-in agent chat** ([G21](gaps.md#g21-built-in-agent), [D-10](../developer/decisions.md#d-10-built-in-agent)):
-   built in the night run of 2026-10-14/15 (the engine side, the chat column at the right edge,
-   Preferences › Agent, the private connection's reads; checked against the owner's LM Studio);
-   a private connection's conversations no longer kept (decided by the owner 2026-10-15 and built
-   the same day,
-   [H-96](../security/agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them));
-   the API keys in an owner-only file on every platform instead of the keychain (decided by the
-   owner 2026-10-15 and built the same day, [D-10](../developer/decisions.md#d-10-built-in-agent));
-   open: a LiteLLM run in CI once the key is a GitHub secret, Open WebUI and LiteLLM live.
-9. **The rest of the owner's decisions of 2026-10-14 evening** (the decision index in
-   [decisions](../developer/decisions.md#decision-round-2026-10-14-evening)): built in the night
-   run of 2026-10-14/15 (hotbar tiles reordered by drag too, R2, a paid row,
-   [ui parity › Hotbar](ui-parity.md#hotbar)) but two: a tile dragged out of the window opening
-   another window (R3), designed in [D-52](../developer/decisions.md#d-52-several-windows) and postponed by the
-   owner until the rest is done (model (a) as the direction, the rest in a separate interview); and the ruleset for `v*` tags (A10), a GitHub setting, only with the owner's
-   go-ahead ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
+1. **A release with files, and the first signed appcast** ([G14](gaps.md#g14-packaging-signing-and-updates-macos)).
+   The owner set up Sparkle's update key and the environments `sparkle` and `github-pages` on
+   2026-10-15, and the releases carry the key since v0.11.0; but v0.9.0 to v0.12.0 have no files,
+   because Apple kept each notarization submission beyond the job's 45 minutes. Since 163664f2 a
+   job of its own waits up to 330 minutes for the one submission; v0.13.0's was still running on
+   2026-10-15 evening. When it passes, the owner approves its appcast jobs in `sparkle` and the
+   lead checks the feed against [releasing › Setting up Sparkle](../developer/releasing.md#setting-up-sparkle)
+   ("What the first signed appcast must show"); the release after it is the first real update. If
+   Apple holds it again: re-run the failed job, never the signing job
+   ([when it fails](../developer/releasing.md#when-signing-or-notarization-fails)). The gate's
+   download row is met by v0.8.0; this item matters because the walks below should run on an
+   installed release that has the features of 2026-10-15.
+2. **Standby and lost connections** ([G2](gaps.md#g2-cluster-connection-and-authentication),
+   [G16](gaps.md#g16-stability-and-the-user-bug-backlog)): the owner's finding of 2026-10-15
+   evening, decided in an interview the same evening, not built (its D-entry comes with the
+   build). Closing the MacBook drops every connection, and on waking the window hangs; nothing
+   detects it today (the state stays connected), nothing reconnects, and requests other than
+   watches have no timeout. Decided: reproduce the hang on kind (the control plane frozen with
+   `docker pause`, a goroutine dump) and fix its cause; detect an interruption through macOS's wake
+   notification, a heartbeat (`GET /version` every 15 s, two failures) and a broken watch; show it
+   (an amber dot, "Reconnecting…", a banner with Reconnect now) while the views keep the cache's
+   last state and every mutating command is disabled with the reason "Connection interrupted", for
+   every origin; reconnect by itself with a backoff up to 30 s; on a lasting 401 run an approved
+   credential plugin once, then "Login expired" with Log in again; logs resume with a marker line,
+   port forwards dial again, shells end with a Reconnect button; a drain or a Helm operation caught
+   by the break is handled as after a crash. Also in the owner's log, cause not known: `services`
+   alone answering 401 every 5 minutes for two hours while other kinds worked. It blocks "Connect"
+   on a real cluster.
+3. **Choosing a cluster: one list** ([G13](gaps.md#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences)):
+   the owner's interview of 2026-10-15 evening, not built (its D-entry comes with the build). The
+   context picker, the top bar's "Switch context ▾" and the navigator's scope dropdown go; the
+   navigator's section (every cluster, grouped by kubeconfig file or folder) is the one list. ⌘P,
+   the Cluster menu's item (renamed "Connect to Cluster…"), the palette's Connect to Cluster and a
+   failing `--context` open it with its search focused, Escape on an empty search returns to the
+   cluster it came from; at a cluster the header shows "‹ All Clusters"; a "+" in its header adds
+   kubeconfigs; the welcome page keeps its cluster groups. Before the owner walks "Connect".
+4. **The owner's audit answers of 2026-10-15, to build** ([G5](gaps.md#g5-app-shell-navigation-tables-and-drawer),
+   [G9](gaps.md#g9-yaml-editor-and-create-resource), [G21](gaps.md#g21-built-in-agent)): a
+   Secret's values edited in the drawer like a Config Map's, in the window only (no engine path an
+   agent reaches), with a masked diff and a dry run; Save rebases by itself when none of the
+   edited keys changed underneath, otherwise the conflict as built, never a silent overwrite; a
+   Config Map's unsaved drawer edits kept as disk drafts (0600), a Secret's values never on disk;
+   the selection bar from one checked row; `ui.navigate` opens view and drawer and leaves the
+   checked rows alone (selection only through `ui.select`). The chat: "send all tools" per
+   connection (off by default); a warning for an `http://` connection to another machine and a CA
+   file per connection; a message edited and sent again with everything after it dropped (F9; its
+   gap to document with it: the cut part's writes leave the model's view).
+5. **The owner walks Cogpit in a real window** (human): what the runs of 2026-10-13 to 2026-10-15
+   built and checked offscreen and in tests only. The hotbar (tiles dragged into order), the
+   navigator's sections, the tab bar, the palette, Preferences and Cluster settings, the welcome
+   page, the create dialogs, Helm install and upgrade from Helm's `repositories.yaml`, the copy
+   icons, a TLS Secret's certificates and their chain's anchor, the cluster Overview with the
+   metrics status line and the node history from Prometheus, the kubectl download, selection and
+   Delete of a selection, Flux CD and Argo CD on a cluster that runs them, Create Secret, the node
+   shell, About, the chat column (LM Studio; LiteLLM and Open WebUI live), the layout toggles and
+   the Update button, the MCP gear, a Config Map's values in the drawer, the terminal's scrollback.
+   What differs goes into the parity rows.
+6. **Walk the alpha-gate workflows** on kind and on a real cluster (human): the seven workflows of
+   the gate end to end in the GUI, sleep and wake included once item 2 is built; every partial in
+   the gate becomes yes or a finding.
+7. **Credential plugins verified on EKS, GKE and AKS** ([G2](gaps.md#g2-cluster-connection-and-authentication),
+   human): the exec plugins of "Connect", with item 2's one plugin run on a lasting 401.
+8. **What the walks find, and the depth the gate needs** ([G16](gaps.md#g16-stability-and-the-user-bug-backlog)
+   and the gaps marked *blocks alpha*, G1–G11 and part of G13): the bulk of the ~110–320 h. Alpha
+   also needs ready for real work in the ~40–75% band ([stages](README.md#stages)); it is ~30%
+   (ROADMAP, estimated 2026-10-13), and the two discounts of ×0.7 in
+   [mainstream practitioner](target-app-parity.md#mainstream-practitioner), stability on real
+   clusters and the cloud credential plugins, are what items 2 and 5 to 7 address. Re-estimate
+   after them.
+
+Beside the path to alpha:
+
+9. **Questions for a later round with the owner**, one at a time: the lead's decisions of
+   2026-10-14 not presented yet (`grep -rn "for the owner to confirm" docs/`: the signed feed and
+   the appcast jobs, the signing job and its entitlements, `cogpit-cli` in the bundle, the node
+   shell's journal, the scrubbed base64 forms, the rests of D-33, D-36 and D-44), and the questions
+   kept for when a feature is taken up: OCI registries and `helm registry login`
+   ([H-29](../security/credentials.md#h-29-authenticated-helm-repositories)), an offline preview of
+   an agent's Helm upgrade ([H-30](../security/trust-boundaries.md#h-30-chart-provenance-is-not-verified),
+   [H-31](../security/privilege-footprint.md#h-31-an-agents-helm-values-can-copy-what-lookup-reads)),
+   zoom, a preference allowing untrusted certificate authorities for traffic outside the cluster,
+   the terminal's kubectl through the cluster's proxy, kubectl mirror presets, Sparkle's Beta
+   channel.
+10. **GitHub settings, only with the owner's OK** ([G14](gaps.md#g14-packaging-signing-and-updates-macos)):
+    A10, the `v*` tag ruleset with the semantic-release GitHub App as its only bypass and the
+    environment `release`'s admin bypass off (decided 2026-10-15; checked the same day: no ruleset
+    exists); a LiteLLM key as a GitHub secret for an opt-in CI test of the chat.
+11. **Postponed by the owner:** several windows (R3, [D-52](../developer/decisions.md#d-52-several-windows):
+    model (a) as the direction, the rest in a separate interview once the rest is done); the
+    chat's text selectable and copyable (F8: waits for the terminal patch being built).
+12. **The terminal widget upstream** ([G8](gaps.md#g8-logs-terminal-and-shells),
+    [D-14](../developer/decisions.md#d-14-terminal-widget)): fyne-io/terminal #155 and #157 merged
+    (2026-10-15, 2026-10-14); #156 waits for review; #158 is rebased once #156 is in; a pull
+    request to #147 (scroll support) and Cogpit's scrollback model offered there, waiting for the
+    maintainer; then Cogpit's fork moves to upstream's master. The two newer patches (right-click
+    copy and paste, Ctrl/Shift+Insert) are offered at the end, the app first.
+13. **Foundation and beta work:** the generated parity pages and the scorecard
+    ([G1](gaps.md#g1-workspace-ci-and-progress-generators)); captures of the rows marked inferred,
+    nine of them asked for explicitly (the create dialogs, the navigator's root, the Helm Upgrade
+    tab with a known repository, where Lens sets `HELM_DRIVER`, the hotbar's slots and bank arrows,
+    a workload drawer's pods, the Argo CD and Flux CD views; human); the window measurements of
+    [G15](gaps.md#g15-performance-and-api-load-at-scale) (P3, P5–P8) with the owner's OK to open a
+    window; the universal app and the Homebrew cask (G14).
 
 ## What's next, with estimates
 

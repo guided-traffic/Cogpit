@@ -1,6 +1,6 @@
 # Cogpit vs Lens Desktop: target-app parity
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (Resource actions 41 / 41: the Config Maps row names the drawer's Save, `configMap.saveData`, the owner's F3; breadth not moved); minor (Sparkle 2 and the signed appcast built, no update key yet, D-4: interface 114 of 120, platforms and packages 6 of 13, weighted 84.2%, breadth ~84%); minor (paid features 3 of 11 with the Flux CD and Argo CD sections, partial: weighted 82.4%, breadth ~82%; the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%; beyond Lens re-estimated at ~20–42 h after the built-in agent's engine side) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (Feature breadth's opening sentence brought to the table's 84.6% (it still said ~57% of 2026-10-12); beyond Lens ~3–12 h as G21's entry and ROADMAP say; no number re-measured); minor (Resource actions 41 / 41: the Config Maps row names the drawer's Save, `configMap.saveData`, the owner's F3; breadth not moved); minor (Sparkle 2 and the signed appcast built, no update key yet, D-4: interface 114 of 120, platforms and packages 6 of 13, weighted 84.2%, breadth ~84%); minor (paid features 3 of 11 with the Flux CD and Argo CD sections, partial: weighted 82.4%, breadth ~82%; the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%; beyond Lens re-estimated at ~20–42 h after the built-in agent's engine side) · **Target:** Lens Desktop 2026.10.51501
 
 The authoritative answer to "how close is Cogpit to Lens, and how much work is left". The
 one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
@@ -22,7 +22,7 @@ Cogpit adds beyond Lens is in [`beyond-lens.md`](beyond-lens.md). Method and voc
 | Remaining to **beta** on macOS (~75% ready, GitOps views, notarized, updates, budgets met) | **~425–995 agent-hours** | estimated (was ~440–1,020) |
 | Remaining to **full parity** with Lens's free features on macOS | **~420–1,040 agent-hours** | estimated (was ~430–1,060), the sum of G1–G16 |
 | Remaining to the **full Lens target** (paid features, Windows and Linux) | **~620–1,450 agent-hours** | estimated (was ~640–1,480); several parts need owner decisions |
-| Cogpit's targets **beyond Lens** (MCP control, built-in agent) | **~20–42 agent-hours** | estimated (2026-10-14 late evening: the built-in agent's engine side built, G21 20–40 h; was ~50–110); not part of the parity numbers |
+| Cogpit's targets **beyond Lens** (MCP control, built-in agent) | **~3–12 agent-hours** | estimated (2026-10-14 night: the built-in agent's chat column built, G21 3–10 h; was ~20–42, before that ~50–110); not part of the parity numbers |
 
 The fourth measurement, the first counted by `make parity` rather than by hand. Breadth moved
 little (one action, three interface rows, one authentication row): the run built depth the
@@ -76,7 +76,7 @@ Each tier is a subset of the one above.
 
 ## Feature breadth
 
-**~57% (weighted, measured 2026-10-12 by `make parity`, after the fourth implementation run and the G12 Prometheus setting; was ~56%).**
+**~85% (weighted 84.6%, measured by `make parity`, last moved 2026-10-15; ~57% on 2026-10-12 after the fourth implementation run).**
 Denominators count Lens Desktop's free features; paid features have their own component. A row
 counts when it exists in some form; nine counted rows are done, the rest partial.
 
@@ -185,7 +185,7 @@ make the cache and the editor more expensive. Replace the calibration with Cogpi
 | **Beta (macOS)** | Alpha plus metrics, most of the interface, MCP control, the Flux CD and Argo CD views, ~75% of views and actions, a notarized app with one-click updates, performance budgets, the first bug backlog | **~440–1,020** (was ~580–1,360; lowered by what the free-parity total lost) |
 | **Full parity (free features, macOS)** | G1–G16 | **~430–1,060** (was ~570–1,400) |
 | **Full Lens target** | plus G18, G22, G23 | **~640–1,480** (was ~780–1,820) |
-| **Beyond Lens** | G17, G21 | **~20–42** (was ~50–110; G21 re-estimated 2026-10-14) |
+| **Beyond Lens** | G17, G21 | **~3–12** (was ~20–42, before that ~50–110; G21 re-estimated 2026-10-14 night) |
 
 **Cogpit's first data point (2026-10-11), not yet a calibration.** The MVP was built in one session:
 a serial skeleton by the lead, then eight agents in parallel for 18 to 45 minutes each (about
@@ -241,6 +241,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | Feature breadth's opening sentence said ~57% (2026-10-12) under a table that adds up to 84.6%: brought to the table; beyond Lens ~3–12 h in the headline and the effort table, as G21's entry (3–10 h since the night run) and ROADMAP say. Nothing re-measured; the readiness figures here (~26%) and in ROADMAP (~30%) and the remaining hours (alpha ~135–370 h here, of 2026-10-12; ~110–320 h in ROADMAP, the lead's rough re-estimate of 2026-10-13, which this page did not take up) still differ, left for the next re-estimate with its evidence per dimension |
 | 2026-10-15 | minor | Resource actions 41 / 41 (was 40 / 40): the Config Maps row names the drawer's Save, `configMap.saveData` (the owner's F3, D-55); breadth not moved |
 | 2026-10-15 | minor | Resource actions 40 / 40 (was 39 / 39): the Applications row names its own command, `application.logs` (A81); breadth not moved |
 | 2026-10-14 | minor | Sparkle 2 and the signed appcast built, no update key yet (D-4): interface 114 of 120 (the update channel), platforms and packages 6 of 13 (the update notice, one-click update, channels, signed manifest), weighted 84.2%, breadth ~84% |
