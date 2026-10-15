@@ -44,21 +44,25 @@ func (sh *shell) connectMenuItem() *fyne.MenuItem {
 
 // findCluster shows the navigator's section with its search open and focused.
 func (sh *shell) findCluster() {
-	if sh.palette.visible() { // ⌘P over the palette: the section takes its place
-		sh.palette.dismissThen(nil)
-	}
 	s := sh.side
 	from := sh.ui.ScopeCluster()
 	if from == "" && s.head.searching() {
 		from = s.findFrom // ⌘P again on its own search: Escape still goes back where the first came from
 	}
-	sh.showSection(func() {
-		if !s.section || sh.ui.NavigatorHidden || sh.ui.Settings != nil {
-			return // the engine refused, or another change came between
-		}
-		s.head.openSearch(s.filter)
-		s.findFrom = from
-	})
+	show := func() {
+		sh.showSection(func() {
+			if !s.section || sh.ui.NavigatorHidden || sh.ui.Settings != nil {
+				return // the engine refused, or another change came between
+			}
+			s.head.openSearch(s.filter)
+			s.findFrom = from
+		})
+	}
+	if sh.palette.visible() { // ⌘P over the palette: the section takes its place once it closed,
+		sh.palette.dismissThen(show) // so that its closing does not take the search's focus
+		return
+	}
+	show()
 }
 
 // showSection shows the navigator's section and runs then once the window shows the engine's
