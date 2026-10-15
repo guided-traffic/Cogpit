@@ -61,3 +61,17 @@ func start(automaticChecks bool) { C.cogpitSparkleStart(C.bool(automaticChecks),
 func check() { C.cogpitSparkleCheck() }
 
 func setAutomaticChecks(on bool) { C.cogpitSparkleSetAutomaticChecks(C.bool(on)) }
+
+// cogpitSparkleUpdateChanged is the user driver delegate's report (sparkle_darwin.m): an update is
+// held for the user, with length bytes of its version (at most COGPIT_SPARKLE_VERSION_MAX), or the
+// update session ended. It runs on the main thread inside AppKit's event dispatch, so it only keeps
+// the report: the listeners run on goroutines of their own.
+//
+//export cogpitSparkleUpdateChanged
+func cogpitSparkleUpdateChanged(available C.bool, version *C.char, length C.int) {
+	v := ""
+	if version != nil && length > 0 && length <= C.COGPIT_SPARKLE_VERSION_MAX {
+		v = C.GoStringN(version, length)
+	}
+	notice.set(bool(available), v)
+}

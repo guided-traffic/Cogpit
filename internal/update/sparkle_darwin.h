@@ -21,9 +21,13 @@ enum {
 	COGPIT_SPARKLE_CREATED = 4, // the controller made but not started (the test harness)
 };
 
+// The most of an update's version the delegate hands to cogpitSparkleUpdateChanged.
+enum { COGPIT_SPARKLE_VERSION_MAX = 64 };
+
 int cogpitSparkleLoad(char *detail, size_t detailSize);
 void cogpitSparkleStart(bool automaticChecks, bool startUpdater);
 void cogpitSparkleCheck(void);
 void cogpitSparkleSetAutomaticChecks(bool on);
 int cogpitSparkleState(char *detail, size_t detailSize);
 int cogpitSparkleAutomaticChecks(void);
+void cogpitSparkleCheckInBackground(void);

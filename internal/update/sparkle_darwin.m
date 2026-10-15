@@ -1,7 +1,8 @@
 // Sparkle 2 loaded at run time: the AppKit side of sparkle_darwin.go. Cogpit's binary does not
-// link Sparkle, so its headers are not used either: the two protocols below declare the few
-// methods of SPUStandardUpdaterController and SPUUpdater that Cogpit calls, as Sparkle 2.10's
-// headers declare them, so that the compiler knows their argument and return types. Compiled
+// link Sparkle, so its headers are not used either: the protocols below declare the few methods of
+// SPUStandardUpdaterController, SPUUpdater and SUAppcastItem that Cogpit calls, and the delegate
+// implements those of SPUStandardUserDriverDelegate it needs, as Sparkle 2.10's headers declare
+// them, so that the compiler knows their argument and return types. Compiled
 // without ARC, like Fyne's Objective-C: the controller is made once and kept for the process's
 // life.
 
@@ -15,6 +16,55 @@
 @property (nonatomic) BOOL automaticallyChecksForUpdates;
 @property (nonatomic, readonly) BOOL canCheckForUpdates;
 - (BOOL)startUpdater:(NSError **)error;
+- (void)checkForUpdatesInBackground;
+@end
+
+// SUAppcastItem, the update the user driver delegate is told about: only its version is read.
+@protocol CogpitSUAppcastItem <NSObject>
+@property (nonatomic, copy, readonly) NSString *displayVersionString;
+@end
+
+// The Go side's report of an update held for the user, or of the update session's end
+// (sparkle_darwin.go's export; the test harness defines its own).
+extern void cogpitSparkleUpdateChanged(bool available, char *version, int length);
+
+static void reportUpdate(bool available, id item) {
+	char version[COGPIT_SPARKLE_VERSION_MAX + 1] = {0};
+	if (available && [item respondsToSelector:@selector(displayVersionString)]) {
+		NSString *v = [(id<CogpitSUAppcastItem>)item displayVersionString];
+		if ([v isKindOfClass:[NSString class]] && v.UTF8String != NULL) {
+			strlcpy(version, v.UTF8String, sizeof version);
+		}
+	}
+	cogpitSparkleUpdateChanged(available, version, (int)strlen(version));
+}
+
+// CogpitSparkleDriverDelegate is the standard user driver's delegate, as SPUStandardUserDriverDelegate
+// in Sparkle 2.10's headers declares its methods: Cogpit takes over showing the updates scheduled
+// checks find (Sparkle's gentle reminders): Sparkle shows no window by itself, the window shows its
+// Update button while Sparkle holds the update, and the button's click (checkForUpdates:) brings
+// Sparkle's window with it up. A check the user started is Sparkle's to show, as always; it is
+// reported too, so the button shows while that window holds an update. Sparkle calls these on the
+// main thread.
+@interface CogpitSparkleDriverDelegate : NSObject
+@end
+
+@implementation CogpitSparkleDriverDelegate
+- (BOOL)supportsGentleScheduledUpdateReminders {
+	return YES;
+}
+
+- (BOOL)standardUserDriverShouldHandleShowingScheduledUpdate:(id)update andInImmediateFocus:(BOOL)immediateFocus {
+	return NO; // never a window by itself, not even at launch: the Update button (F7)
+}
+
+- (void)standardUserDriverWillHandleShowingUpdate:(BOOL)handleShowingUpdate forUpdate:(id)update state:(id)state {
+	reportUpdate(true, update);
+}
+
+- (void)standardUserDriverWillFinishUpdateSession {
+	reportUpdate(false, nil);
+}
 @end
 
 @protocol CogpitSPUStandardUpdaterController <NSObject>
@@ -25,6 +75,7 @@
 
 static Class controllerClass;                                // set once by cogpitSparkleLoad
 static id<CogpitSPUStandardUpdaterController> controller;    // main thread only
+static CogpitSparkleDriverDelegate *driverDelegate;          // kept: Sparkle holds its delegates weakly
 static _Atomic int state = COGPIT_SPARKLE_IDLE;
 static char failure[512];                                    // written before state is FAILED
 
@@ -102,8 +153,11 @@ static void startOnMain(bool automaticChecks, bool startUpdater) {
 		if (controllerClass == Nil || controller != nil) {
 			return;
 		}
+		if (driverDelegate == nil) {
+			driverDelegate = [[CogpitSparkleDriverDelegate alloc] init]; // made with alloc: kept
+		}
 		id<CogpitSPUStandardUpdaterController> c =
-			[(id<CogpitSPUStandardUpdaterController>)[controllerClass alloc] initWithStartingUpdater:NO updaterDelegate:nil userDriverDelegate:nil];
+			[(id<CogpitSPUStandardUpdaterController>)[controllerClass alloc] initWithStartingUpdater:NO updaterDelegate:nil userDriverDelegate:driverDelegate];
 		if (c == nil) {
 			fail(@"SPUStandardUpdaterController could not be made");
 			return;
@@ -164,6 +218,17 @@ int cogpitSparkleState(char *detail, size_t detailSize) {
 		strlcpy(detail, failure, detailSize);
 	}
 	return s;
+}
+
+// cogpitSparkleCheckInBackground runs the check Sparkle's scheduler runs, at once: what it finds
+// goes to the user driver's delegate. Any thread (the test harness; the app leaves the schedule to
+// Sparkle).
+void cogpitSparkleCheckInBackground(void) {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (controller != nil && atomic_load(&state) == COGPIT_SPARKLE_RUNNING) {
+			[controller.updater checkForUpdatesInBackground];
+		}
+	});
 }
 
 // cogpitSparkleAutomaticChecks returns Sparkle's automaticallyChecksForUpdates, -1 without a

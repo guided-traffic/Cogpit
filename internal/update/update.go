@@ -16,11 +16,18 @@
 // the main thread: every call is queued onto the main dispatch queue, which the app's event loop
 // drains, so no method blocks and any goroutine may call them.
 //
+// The Update button (F7): Sparkle's standard user driver gets a delegate that takes over showing
+// the updates scheduled checks find (Sparkle's gentle reminders): Sparkle shows no window by
+// itself, it reports the update, and AvailableUpdate says so until the update session ends, so
+// that the window shows its Update button, whose click brings Sparkle's window with that update up
+// (CheckForUpdates). OnUpdateChange tells the engine.
+//
 // Layer L4: it imports nothing of Cogpit's; cmd/cogpit wires it into the engine.
 package update
 
 import (
 	"errors"
+	"slices"
 	"sync"
 )
 
@@ -108,5 +115,69 @@ func (u *Updater) SetAutomaticChecks(on bool) {
 	defer u.mu.Unlock()
 	if u.started {
 		setAutomaticChecks(on)
+	}
+}
+
+// AvailableUpdate returns the version of the newer release Sparkle holds for the user, ok while
+// it holds one: from a scheduled check's find, which Sparkle leaves to Cogpit's Update button
+// instead of showing its window (its gentle reminders, F7), or from a check the user started,
+// until the update session ends (the user installed, skipped or dismissed it, or it failed). Never
+// without an updater.
+func (u *Updater) AvailableUpdate() (version string, ok bool) {
+	if u.Unavailable() != nil {
+		return "", false
+	}
+	return notice.get()
+}
+
+// OnUpdateChange registers fn, called on a goroutine of its own after AvailableUpdate changed; fn
+// reads AvailableUpdate itself. Nothing is registered without an updater.
+func (u *Updater) OnUpdateChange(fn func()) {
+	if u.Unavailable() != nil || fn == nil {
+		return
+	}
+	notice.listen(fn)
+}
+
+// notice is what Sparkle's user driver delegate reported last (sparkle_darwin.m): one per
+// process, as Sparkle's controller is.
+var notice updateNotice
+
+// updateNotice holds the update Sparkle reports and the functions that follow it.
+type updateNotice struct {
+	mu        sync.Mutex
+	available bool
+	version   string
+	listeners []func()
+}
+
+func (n *updateNotice) get() (string, bool) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.version, n.available
+}
+
+func (n *updateNotice) listen(fn func()) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.listeners = append(n.listeners, fn)
+}
+
+// set keeps what Sparkle reported and tells the listeners when it changed, each on a goroutine of
+// its own: Sparkle reports on the main thread inside AppKit's event dispatch, which must not wait.
+func (n *updateNotice) set(available bool, version string) {
+	if !available {
+		version = ""
+	}
+	n.mu.Lock()
+	changed := n.available != available || n.version != version
+	n.available, n.version = available, version
+	fns := slices.Clone(n.listeners)
+	n.mu.Unlock()
+	if !changed {
+		return
+	}
+	for _, fn := range fns {
+		go fn()
 	}
 }

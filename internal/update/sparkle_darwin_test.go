@@ -3,12 +3,16 @@
 package update
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -46,9 +50,18 @@ func buildHarness(t *testing.T) string {
 	return bin
 }
 
+// harnessID is the test bundles' identifier: what Sparkle writes into user defaults is under it.
+const harnessID = "io.guided-traffic.cogpit.test-sparkle-harness"
+
 // makeApp lays out <dir>/Cogpit.app around the harness: its Info.plist with the given SU keys,
 // and Sparkle.framework in Contents/Frameworks when framework is set. It returns the executable.
 func makeApp(t *testing.T, dir, harness, framework string, keys map[string]string) string {
+	t.Helper()
+	return makeAppWith(t, dir, harness, framework, keys, harnessID, "")
+}
+
+// makeAppWith is makeApp with the bundle's identifier and more of its Info.plist (raw XML).
+func makeAppWith(t *testing.T, dir, harness, framework string, keys map[string]string, id, raw string) string {
 	t.Helper()
 	app := filepath.Join(dir, "Cogpit.app")
 	exe := filepath.Join(app, "Contents", "MacOS", "harness")
@@ -73,14 +86,14 @@ func makeApp(t *testing.T, dir, harness, framework string, keys map[string]strin
 	<key>CFBundleExecutable</key>
 	<string>harness</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.guided-traffic.cogpit.test-sparkle-harness</string>
+	<string>` + id + `</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleVersion</key>
 	<string>0.0.1</string>
 	<key>SUEnableAutomaticChecks</key>
 	<false/>
-` + extra.String() + `</dict>
+` + extra.String() + raw + `</dict>
 </plist>
 `
 	if err := os.WriteFile(filepath.Join(app, "Contents", "Info.plist"), []byte(plist), 0o600); err != nil {
@@ -172,5 +185,81 @@ func TestNewOutsideABundle(t *testing.T) {
 	u.SetAutomaticChecks(false)
 	if err := u.CheckForUpdates(); !errors.Is(err, ErrNoBundle) {
 		t.Errorf("CheckForUpdates() = %v, want ErrNoBundle", err)
+	}
+}
+
+// probeID is the bundle identifier of the probe's app, whose user defaults and caches the test
+// removes again: unlike "create", the probe starts the updater, and Sparkle keeps its state there.
+const probeID = "io.guided-traffic.cogpit.test-sparkle-probe"
+
+// The Update button's signal from the real Sparkle (F7): an installed app with the framework, the
+// key and a feed on a local server whose item is newer runs the check Sparkle's scheduler runs;
+// Sparkle leaves the update to the user driver's delegate (gentle reminders: no window) and the
+// delegate reports it with its version, which the app's Go side keeps (cogpitSparkleUpdateChanged;
+// the harness prints it). Skipped without clang or make sparkle's framework. Not checked here:
+// the report when the session ends (that needs a click in Sparkle's window).
+func TestSparkleReportsAScheduledUpdate(t *testing.T) {
+	framework := sparkleFramework(t)
+	harness := buildHarness(t)
+	var feedHits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/appcast.xml" {
+			http.NotFound(w, r)
+			return
+		}
+		feedHits.Add(1)
+		w.Header().Set("Content-Type", "application/rss+xml")
+		fmt.Fprintf(w, `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Cogpit</title>
+    <item>
+      <title>Cogpit 99.1.0</title>
+      <sparkle:version>99.1.0</sparkle:version>
+      <sparkle:shortVersionString>99.1.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 15 Oct 2026 08:00:00 +0000</pubDate>
+      <enclosure url="http://%s/Cogpit-99.1.0-macos-arm64.dmg" length="1024" type="application/octet-stream" sparkle:edSignature="%s"/>
+    </item>
+  </channel>
+</rss>
+`, r.Host, base64.StdEncoding.EncodeToString(make([]byte, 64)))
+	}))
+	t.Cleanup(srv.Close)
+	t.Cleanup(func() { forgetBundle(t, probeID) })
+	forgetBundle(t, probeID) // a run before that did not get to its cleanup
+
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const key = "pfIShU4dEXqPd5ObYNfDBiQWcXozk7estwzTnF9BamQ=" // Sparkle's documentation's example key
+	ats := "\t<key>NSAppTransportSecurity</key>\n\t<dict>\n\t\t<key>NSAllowsLocalNetworking</key>\n\t\t<true/>\n\t</dict>\n"
+	exe := makeAppWith(t, dir, harness, framework,
+		map[string]string{"SUFeedURL": srv.URL + "/appcast.xml", "SUPublicEDKey": key}, probeID, ats)
+	out, err := exec.Command(exe, "probe").Output()
+	if err != nil {
+		t.Fatalf("the harness: %v\n%s", err, out)
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	want := []string{"load 0", "state 2", "update 1 99.1.0"}
+	if len(lines) != len(want) {
+		t.Fatalf("output %q (the feed asked %d times), want %q", out, feedHits.Load(), want)
+	}
+	for i, w := range want {
+		if got := strings.TrimSpace(lines[i]); got != w && !strings.HasPrefix(got, w+" ") {
+			t.Errorf("line %d: %q, want %q", i, got, w)
+		}
+	}
+}
+
+// forgetBundle removes what Sparkle and Foundation kept for a test bundle: its user defaults and
+// its caches.
+func forgetBundle(t *testing.T, id string) {
+	t.Helper()
+	_ = exec.Command("defaults", "delete", id).Run() // absent the first time
+	if home, err := os.UserHomeDir(); err == nil {
+		_ = os.RemoveAll(filepath.Join(home, "Library", "Caches", id))
+		_ = os.RemoveAll(filepath.Join(home, "Library", "HTTPStorages", id))
 	}
 }
