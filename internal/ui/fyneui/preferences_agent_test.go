@@ -112,6 +112,49 @@ func TestAgentPreferencesKeySemantics(t *testing.T) {
 	}
 }
 
+// TestAgentPreferencesKeyHint: the API key's hints say where a key is kept, Cogpit's settings
+// folder readable only by the user, never the keychain (the owner's decision of 2026-10-15), each
+// whole at the form's width; a saved connection without a key saves "" for an empty field, as its
+// hint says ("Empty: no key"), which gives up a key kept in the keychain before.
+func TestAgentPreferencesKeyHint(t *testing.T) {
+	sh, w, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	whole := func(l *textLine, want string) {
+		t.Helper()
+		settle(w)
+		if l.text != want || strings.Contains(strings.ToLower(l.text), "keychain") {
+			t.Errorf("hint %q, want %q", l.text, want)
+		}
+		if shown := test.WidgetRenderer(l).Objects()[0].(*canvas.Text).Text; shown != want {
+			t.Errorf("the hint is shortened to %q", shown)
+		}
+	}
+	var help *textLine
+	for _, l := range findAll[*textLine](w.Content()) {
+		if strings.HasPrefix(l.text, "Each conversation uses one") {
+			help = l
+		}
+	}
+	if help == nil {
+		t.Fatal("no help under LLM connections")
+	}
+	whole(help, "Each conversation uses one; a new conversation the default. API keys stay in Cogpit's settings folder.")
+
+	a.edit(litellm())
+	whole(a.form.keyHelp, "The key is kept in Cogpit's settings folder, readable only by you. Empty keeps it.")
+	test.Type(a.form.key, "sk-FAKE")
+	whole(a.form.keyHelp, "Saving keeps this key in Cogpit's settings folder, readable only by you.")
+	a.closeForm()
+
+	a.edit(lmStudio())
+	whole(a.form.keyHelp, "Kept in Cogpit's settings folder, readable only by you. Empty: no key (LM Studio needs none).")
+	test.Tap(a.form.saveB)
+	q.until(t, "the save", func() bool { return len(ch.savesOf()) == 1 && a.form == nil })
+	if got := ch.savesOf()[0]; got.key == nil || *got.key != "" || got.conn.ID != "c1" {
+		t.Errorf("a saved connection without a key, the field empty: key %v, want a pointer to \"\"", got.key)
+	}
+}
+
 // TestAgentPreferencesPrivateHint (H-96): under the private connection's mark the form says that
 // conversations over a private connection are not saved: a hint in the settings' style (a muted
 // caption line under the setting), whole at the form's width, between the mark and the limits.

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -23,12 +22,13 @@ import (
 // Preferences › Agent (D-10; engine/chat.go): the built-in agent's LLM connections. The list shows
 // each connection's name, kind, host and model, which one is the default and which are private;
 // a connection is added, edited, made the default or deleted here. The form: name, kind (which
-// prefills LM Studio's usual base URL), base URL, API key (kept in the operating system's keychain:
-// empty keeps the stored key, "Remove key" removes it), model (the endpoint's list, any name may be
-// typed), the private connection's mark with what it unlocks and the hint that its conversations
-// are not saved (H-96), the four limits of a turn with their defaults, and "use as default"; Test
-// connection checks the form's values layer by layer (TCP, HTTP and TLS, authentication, tool use)
-// and shows each layer as it ends.
+// prefills LM Studio's usual base URL), base URL, API key (kept in an owner-only file in Cogpit's
+// settings folder, never in the keychain (the owner, 2026-10-15): empty keeps the stored key,
+// "Remove key" removes it, and empty saves no key where none is stored), model (the endpoint's
+// list, any name may be typed), the private connection's mark with what it unlocks and the hint
+// that its conversations are not saved (H-96), the four limits of a turn with their defaults, and
+// "use as default"; Test connection checks the form's values layer by layer (TCP, HTTP and TLS,
+// authentication, tool use) and shows each layer as it ends.
 //
 // Only the user edits this page. Its controls call the window's ChatAgent directly; none is a
 // command, so no agent can reach them (an agent must never mark a connection private, which loosens
@@ -64,14 +64,6 @@ var chatTestLabels = map[engine.ChatTestLayer]string{
 	engine.ChatTestTCP: "TCP", engine.ChatTestHTTP: "HTTP and TLS", engine.ChatTestAuth: "Authentication", engine.ChatTestTools: "Tool use",
 }
 
-// keychainName names where the API keys are kept on this platform.
-func keychainName() string {
-	if runtime.GOOS == goosMac {
-		return "the macOS keychain"
-	}
-	return "the system's keychain"
-}
-
 // Texts of the page.
 const (
 	privateCheckText = "Private connection: a local model or a private cloud"
@@ -80,6 +72,8 @@ const (
 	// privateNotKept is the setting's hint (H-96): a conversation in which a turn ran over a private
 	// connection is never saved (agent/conversation.go has the rule).
 	privateNotKept = "Conversations over a private connection are not saved: they are gone when Cogpit quits."
+	// keyKept says where the agent keeps an API key (agent.KeysFile, owner-only; no keychain).
+	keyKept = "Cogpit's settings folder, readable only by you"
 )
 
 // agentPrefs is the Agent section's state.
@@ -107,7 +101,7 @@ func (p *settingsPage) agentSection() fyne.CanvasObject {
 		a.edit(engine.ChatConnection{Kind: engine.ChatLMStudio, BaseURL: chatKinds[0].prefill})
 	})
 	a.load()
-	help := "Each conversation uses one; a new conversation the default. API keys are kept in " + keychainName() + "."
+	help := "Each conversation uses one; a new conversation the default. API keys stay in Cogpit's settings folder."
 	return container.NewVBox(
 		p.setting("agentConnections", "LLM connections", help, container.NewVBox(a.list, container.NewHBox(a.addB))),
 		a.formC,
@@ -237,8 +231,8 @@ func (a *agentPrefs) closeForm() {
 
 func (a *agentPrefs) confirmDelete(c engine.ChatConnection) {
 	sh := a.p.sh
-	d := dialog.NewConfirm("Delete "+c.Name+"?", "The connection and its API key in "+keychainName()+
-		" are deleted. Conversations that used it keep their history and take another connection.", func(ok bool) {
+	d := dialog.NewConfirm("Delete "+c.Name+"?", "The connection and its API key are deleted. "+
+		"Conversations that used it keep their history and take another connection.", func(ok bool) {
 		if !ok {
 			return
 		}
@@ -451,26 +445,28 @@ func (f *agentForm) showKeyState() {
 	switch {
 	case f.key.Text != "":
 		f.keyGone = false
-		f.keyHelp.SetText("Saving keeps this key in " + keychainName() + ".")
+		f.keyHelp.SetText("Saving keeps this key in " + keyKept + ".")
 	case f.keyGone:
 		f.keyHelp.SetText("Saving removes the stored key.")
 	case f.conn.HasKey:
-		f.keyHelp.SetText("A key is kept in " + keychainName() + ". Empty keeps it.")
+		f.keyHelp.SetText("The key is kept in " + keyKept + ". Empty keeps it.")
 	default:
-		f.keyHelp.SetText("Kept in " + keychainName() + ". Empty: no key (LM Studio needs none).")
+		f.keyHelp.SetText("Kept in " + keyKept + ". Empty: no key (LM Studio needs none).")
 	}
 	f.removeKey.Hidden = !f.conn.HasKey || f.keyGone || f.key.Text != ""
 	f.removeKey.Refresh()
 }
 
 // apiKey is the key argument of SaveConnection and TestConnection: nil keeps the stored key, a
-// pointer to "" removes it, any other text replaces it.
+// pointer to "" removes it, any other text replaces it. A saved connection without a stored key
+// saves "" for an empty field, as its hint says ("Empty: no key"): a key the agent no longer has
+// (one kept in the macOS keychain before 2026-10-15) is then given up, not asked for again.
 func (f *agentForm) apiKey() *string {
 	switch {
 	case f.key.Text != "":
 		k := f.key.Text
 		return &k
-	case f.keyGone:
+	case f.keyGone, f.conn.ID != "" && !f.conn.HasKey:
 		k := ""
 		return &k
 	}
