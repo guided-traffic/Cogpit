@@ -273,8 +273,17 @@ func TestLogsP5(t *testing.T) {
 		float64(total)/float64(len(batches)), pct(0.5), pct(0.99), sorted[len(sorted)-1], over16,
 		float64(heap)/(1<<20), l.lines.len(), raceEnabled)
 
-	// Generous bounds: the budget (16 ms) is judged from a run without the race detector.
-	if maxD := sorted[len(sorted)-1]; maxD > 500*time.Millisecond {
+	// Generous bounds: the budget (16 ms) is judged from a run without the race detector. Under the
+	// race detector on CI's shared node one batch of 43 took 629 ms (run 38808178422) while p99 stayed
+	// far lower: there the 99th percentile is held to 500 ms and the slowest batch to 2 s.
+	maxD, bound := sorted[len(sorted)-1], 500*time.Millisecond
+	if raceEnabled {
+		if p99 := pct(0.99); p99 > bound {
+			t.Errorf("p99 of the batches took %v on the main goroutine", p99)
+		}
+		bound = 2 * time.Second
+	}
+	if maxD > bound {
 		t.Errorf("a batch took %v on the main goroutine", maxD)
 	}
 	if heap > 64<<20 {
