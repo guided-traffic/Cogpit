@@ -8,7 +8,6 @@ import (
 	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
-	"github.com/guided-traffic/cogpit/internal/ui/fyneui/termview"
 )
 
 // What the dock's logs and terminal tabs show, for agents (G17, D-44; engine/dockoutput.go): the
@@ -50,9 +49,9 @@ func (d *dock) output(tab engine.DockTab, q engine.DockOutputQuery) engine.DockO
 		out.Shown, out.Held, out.Dropped = src.Len(), v.HeldLines(), v.DroppedLines()
 		out.Status, out.Ended = v.StatusText(), v.Ended()
 	case c.term != nil:
-		src := termview.ScreenOutput(c.term.ScreenLines())
+		src := c.term.Output()
 		out.DockPage = engine.PageDockLines(src, q)
-		out.Shown = src.Len()
+		out.Shown, out.Dropped = src.Len(), src.Dropped()
 		select {
 		case <-c.term.Done():
 			out.Ended = true

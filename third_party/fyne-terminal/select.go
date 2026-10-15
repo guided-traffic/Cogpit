@@ -2,7 +2,6 @@ package terminal
 
 import (
 	"fyne.io/fyne/v2"
-	widget2 "github.com/fyne-io/terminal/internal/widget"
 )
 
 // getSelectedRange returns the current selection range, start row, start col, end row, end col
@@ -40,26 +39,24 @@ func (t *Terminal) getSelectedRange() (int, int, int, int) {
 	return startRow - 1, startCol - 1, endRow - 1, endCol - 1
 }
 
+// Cogpit patch: the selection is by the rows of the scrollback and the screen (scrollback.go),
+// and the view highlights it in its copies of the rows.
 func (t *Terminal) highlightSelectedText() {
-	sr, sc, er, ec := t.getSelectedRange()
-	widget2.HighlightRange(t.content, t.blockMode, sr, sc, er, ec, highlightBitMask)
 	t.Refresh()
 }
 
 func (t *Terminal) clearSelectedText() {
-	sr, sc, er, ec := t.getSelectedRange()
-	widget2.ClearHighlightRange(t.content, t.blockMode, sr, sc, er, ec)
+	t.clearSelection()
 	t.Refresh()
-	t.blockMode = false
-	t.selecting = false
-	t.selStart = nil
-	t.selEnd = nil
 }
 
 // SelectedText gets the text that is currently selected.
 func (t *Terminal) SelectedText() string {
+	if !t.hasSelectedText() {
+		return ""
+	}
 	sr, sc, er, ec := t.getSelectedRange()
-	return widget2.GetTextRange(t.content, t.blockMode, sr, sc, er, ec)
+	return t.selectedText(sr, sc, er, ec)
 }
 
 func (t *Terminal) copySelectedText(clipboard fyne.Clipboard) {

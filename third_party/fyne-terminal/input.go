@@ -37,6 +37,7 @@ var goos = runtime.GOOS
 // TypedRune is called when the user types a visible character
 func (t *Terminal) TypedRune(r rune) {
 	keyTyped()
+	t.followOutput() // Cogpit patch: typing returns the view to the screen
 	b := make([]byte, utf8.UTFMax)
 	size := utf8.EncodeRune(b, r)
 	_, _ = t.in.Write(b[:size])
@@ -45,6 +46,9 @@ func (t *Terminal) TypedRune(r rune) {
 // TypedKey will be called if a non-printable keyboard event occurs
 func (t *Terminal) TypedKey(e *fyne.KeyEvent) {
 	keyTyped()
+	if !isModifier(e.Name) {
+		t.followOutput() // Cogpit patch: typing returns the view to the screen; ⌘ or Ctrl alone does not
+	}
 	if t.keyboardState.shiftPressed {
 		t.keyTypedWithShift(e)
 		return
@@ -190,6 +194,9 @@ func (t *Terminal) FocusGained() {
 
 // TypedShortcut handles key combinations, we pass them on to the tty.
 func (t *Terminal) TypedShortcut(s fyne.Shortcut) {
+	if !isCopy(s) {
+		t.followOutput() // Cogpit patch: what goes to the shell (ctrl+C, paste) returns the view to the screen
+	}
 	if ds, ok := s.(*desktop.CustomShortcut); ok {
 		t.ShortcutHandler.TypedShortcut(s) // it's not clear how we can check if this consumed the event
 

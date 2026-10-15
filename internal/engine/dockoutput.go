@@ -20,8 +20,9 @@ import (
 // A logs tab's lines are those its view shows: the pod and container it narrows to, its filter
 // applied, each line with the resource names and timestamps as the tab shows them (D-31's format),
 // without escape sequences or control characters (the view strips them as it reads); a terminal
-// tab's are its screen's rows, top to bottom, without colours or escape sequences. The widget keeps
-// no scrollback (fyne-io/terminal): what scrolled off the screen is gone, for the user too.
+// tab's are the lines its widget holds, its scrollback's and then its screen's, without colours or
+// escape sequences, a line wrapped over rows as one line (third_party/fyne-terminal, PATCHES.md ›
+// Scrollback).
 
 // Bounds of a page of dock output.
 const (
@@ -55,7 +56,8 @@ var (
 
 // DockOutputQuery asks for a page of a dock tab's lines. Lines are numbered in the order the tab
 // shows them, ascending; the numbers are only for paging (a logs tab's start anywhere and skip the
-// lines its filter hides; a terminal's rows are 1 to the screen's height).
+// lines its filter hides; a terminal's start at its first line and stay with a line as it scrolls
+// into the scrollback, so a page's numbers ask for the same lines again).
 type DockOutputQuery struct {
 	// After: the oldest lines numbered above it; Before: the newest numbered below it; neither:
 	// the newest lines. At most one is set.
@@ -93,11 +95,11 @@ type DockPage struct {
 type DockOutput struct {
 	Tab DockTab `json:"tab"`
 	DockPage
-	// Shown is the number of lines the tab shows: a logs tab's after its filter, a terminal's rows
-	// down to the last one with text.
+	// Shown is the number of lines the tab shows: a logs tab's after its filter, a terminal's
+	// scrollback and screen down to the last line with text.
 	Shown int `json:"shown"`
-	// Held is the number of lines a logs tab holds before its filter; Dropped the older ones it no
-	// longer holds (its scrollback's bound).
+	// Held is the number of lines a logs tab holds before its filter; Dropped the older ones a logs
+	// or terminal tab no longer holds (its scrollback's bound, or a terminal's erase saved lines).
 	Held    int   `json:"held,omitempty"`
 	Dropped int64 `json:"dropped,omitempty"`
 	// Status is a logs tab's status line as the window shows it ("1000 lines · stream ended").

@@ -66,6 +66,15 @@ func (t *TermGrid) refreshBlink(blink bool) {
 	}
 }
 
+// StopBlink stops the timer that blinks the grid's blinking text, as when the grid is no longer
+// shown. A refresh starts it again. Cogpit patch: the timer ran on after its terminal was gone.
+func (t *TermGrid) StopBlink() {
+	if t.tickerCancel != nil {
+		t.tickerCancel()
+		t.tickerCancel = nil
+	}
+}
+
 func (t *TermGrid) runBlink() {
 	if t.tickerCancel != nil {
 		t.tickerCancel()
@@ -81,9 +90,14 @@ func (t *TermGrid) runBlink() {
 			case <-tickerContext.Done():
 				return
 			case <-ticker.C:
+				if tickerContext.Err() != nil { // Cogpit patch: stopped meanwhile
+					ticker.Stop()
+					return
+				}
 				blinking = !blinking
+				blink := blinking // Cogpit patch: the closure runs later, on the main goroutine
 				fyne.Do(func() {
-					t.refreshBlink(blinking)
+					t.refreshBlink(blink)
 				})
 			}
 		}

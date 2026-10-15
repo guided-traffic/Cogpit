@@ -68,12 +68,13 @@ func (t *Terminal) enterAltBuffer() {
 	for i, row := range t.content.Rows {
 		cells := make([]widget.TextGridCell, len(row.Cells))
 		copy(cells, row.Cells)
-		t.altSavedGrid[i] = widget.TextGridRow{Cells: cells}
+		t.altSavedGrid[i] = widget.TextGridRow{Cells: cells, Style: row.Style} // Cogpit patch: wrapMark
 	}
 	t.altSavedRow = t.cursorRow
 	t.altSavedCol = t.cursorCol
 	t.altBufferActive = true
 	t.clearScreen()
+	t.followOutput() // Cogpit patch: the alternate screen does not scroll, see Scrolled
 }
 
 // exitAltBuffer restores the saved screen and cursor from before
@@ -84,20 +85,20 @@ func (t *Terminal) exitAltBuffer() {
 	}
 	t.altBufferActive = false
 	if t.altSavedGrid != nil {
-		// Restore saved grid content
-		for i, row := range t.altSavedGrid {
-			if i < len(t.content.Rows) {
-				t.content.SetRow(i, row)
-			}
-		}
-		// Clear any extra rows beyond the saved content
-		for i := len(t.altSavedGrid); i < len(t.content.Rows); i++ {
-			t.content.SetRow(i, widget.TextGridRow{})
-		}
+		// Cogpit patch: the saved rows replace the alternate screen's, which may have had more
+		// or fewer rows.
+		t.content.Rows = t.altSavedGrid
 		t.altSavedGrid = nil
 	}
 	t.cursorRow = t.altSavedRow
 	t.cursorCol = t.altSavedCol
+	// Cogpit patch: resized meanwhile, the main screen wraps its lines at the new size.
+	rows, cols := int(t.config.Rows), int(t.config.Columns)
+	if rows > 0 && cols > 0 && t.layoutCols > 0 && (t.layoutCols != cols || t.layoutRows != rows) {
+		t.clearSelection()
+		t.reflow(rows, cols)
+		t.scrollTop, t.scrollBottom = 0, rows-1
+	}
 }
 
 func (t *Terminal) clearScreen() {
@@ -349,6 +350,8 @@ func escapeEraseInScreen(t *Terminal, msg string) {
 		t.clearScreenToCursor()
 	case 2:
 		t.clearScreen()
+	case 3:
+		t.clearHistory() // Cogpit patch: erase saved lines
 	}
 }
 
@@ -646,6 +649,8 @@ func escapeScrollUp(t *Terminal, msg string) {
 
 	// Move cursor to the new position
 	t.moveCursor(newCursorRow, t.cursorCol)
+
+	t.pushToHistory(lines) // Cogpit patch: the rows scrolling off go to the scrollback
 
 	// Perform the actual scrolling action
 	for i := t.scrollTop; i <= t.scrollBottom-lines; i++ {

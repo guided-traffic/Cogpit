@@ -130,16 +130,16 @@ func TestTerminal_Resize_Narrower(t *testing.T) {
 	term.handleOutput([]byte("12345678"))
 	assert.Equal(t, 8, term.cursorCol)
 
+	// Cogpit patch: the line wraps again at the new width, the cursor after its last character.
 	term.Resize(fyne.NewSize(45, 45))
 	assert.Equal(t, uint(5), term.config.Columns)
-	assert.Equal(t, 4, term.cursorCol)
+	assert.Equal(t, "12345\n678", term.content.Text())
+	assert.Equal(t, 1, term.cursorRow)
+	assert.Equal(t, 3, term.cursorCol)
 
 	term.handleOutput([]byte("abcdefgh"))
 	assert.LessOrEqual(t, term.cursorCol, 5)
-	for i, row := range term.content.Rows {
-		if i == 0 {
-			continue // written before we got narrower
-		}
+	for _, row := range term.content.Rows {
 		assert.LessOrEqual(t, len(row.Cells), 5)
 	}
 }

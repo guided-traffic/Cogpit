@@ -109,6 +109,7 @@ func FuzzHandleOutput(f *testing.F) {
 			loop.do(func() {
 				term.Refresh()
 				_ = term.Text()
+				releaseRenderers(t, term) // as a closed tab: the blinking text's timer stops
 			})
 			done <- ""
 		}()

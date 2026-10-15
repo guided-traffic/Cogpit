@@ -101,7 +101,7 @@ func (t *Terminal) handleOutput(buf []byte) []byte {
 	// Cogpit patch: the selection belongs to Fyne's main goroutine, where the mouse changes it.
 	// Read and cleared here, on the goroutine reading the output, it raced that goroutine.
 	fyne.Do(func() {
-		if t.hasSelectedText() {
+		if t.selectionOnScreen() { // Cogpit patch: a selection in the scrollback stays
 			t.clearSelectedText()
 		}
 	})
@@ -114,13 +114,38 @@ func (t *Terminal) handleOutput(buf []byte) []byte {
 		size int
 		r    rune
 		i    = -1
+		// Cogpit patch: the characters and control characters in a row go to Fyne's main goroutine
+		// in one function; a function each, as many as the output has characters, cost a hand-over
+		// between the goroutines each and made output twenty times slower than Terminal.app's.
+		pending []rune
 	)
+	flush := func() {
+		if len(pending) == 0 {
+			return
+		}
+		batch := pending
+		pending = nil
+		fyne.Do(func() {
+			for _, r := range batch {
+				if out, ok := specialChars[r]; ok {
+					out(t)
+					continue
+				}
+				t.handleOutputChar(t.mapCharset(r))
+			}
+		})
+	}
+	defer flush()
 	for {
 		i += size
 		buf = buf[size:]
 		r, size = utf8.DecodeRune(buf)
 		if size == 0 {
 			break
+		}
+		if t.state.printing || r == asciiEscape || t.state.dcs || t.state.escNext || t.state.apc ||
+			t.state.osc || t.state.vt100 != 0 || t.state.esc != noEscape {
+			flush() // what follows queues its own functions, after these characters
 		}
 		if r == utf8.RuneError && size == 1 { // not UTF-8
 			if !t.state.printing {
@@ -172,22 +197,13 @@ func (t *Terminal) handleOutput(buf []byte) []byte {
 			continue
 		}
 
-		if out, ok := specialChars[r]; ok {
-			if out == nil {
-				continue
-			}
-			fyne.Do(func() {
-				out(t)
-			})
-		} else {
-			// Cogpit patch: shift in and shift out switch the character set on Fyne's main
-			// goroutine. Looked up here, on the goroutine reading the output, the set raced them;
-			// the lookup and the designations (handleVT100) run on the main goroutine now.
-			chr := r
-			fyne.Do(func() {
-				t.handleOutputChar(t.mapCharset(chr))
-			})
+		if out, ok := specialChars[r]; ok && out == nil {
+			continue
 		}
+		// Cogpit patch: shift in and shift out switch the character set on Fyne's main goroutine.
+		// Looked up here, on the goroutine reading the output, the set raced them; the lookup and
+		// the designations (handleVT100) run on the main goroutine now, in flush.
+		pending = append(pending, r)
 	}
 
 	return buf
@@ -345,6 +361,7 @@ func (t *Terminal) parseDCS(r rune) {
 func (t *Terminal) handleOutputChar(r rune) {
 	if t.cursorCol >= int(t.config.Columns) { // may be beyond the edge if restored from a wider terminal
 		if !t.disableAutoWrap {
+			t.markWrapped(t.cursorRow) // Cogpit patch: for the scrollback and reflow
 			t.cursorCol = 0
 			handleOutputLineFeed(t)
 		} else {
@@ -376,7 +393,7 @@ func (t *Terminal) handleOutputChar(r rune) {
 	if len(t.content.Rows) > row {
 		oldLen = len(t.content.Rows[row].Cells)
 	}
-	t.content.SetCell(row, col, cell)
+	t.setCell(row, col, cell) // Cogpit patch: the content has no renderer, see setCell
 
 	for i := oldLen; i < col; i++ {
 		if t.content.Rows[row].Cells[i].Rune == 0 {
@@ -414,7 +431,6 @@ func (t *Terminal) scrollUp() {
 		t.content.Rows[i] = t.content.Row(i - 1)
 	}
 	t.content.Rows[t.scrollTop] = widget.TextGridRow{}
-	t.content.Refresh()
 }
 
 func (t *Terminal) scrollDown() {
@@ -422,6 +438,7 @@ func (t *Terminal) scrollDown() {
 	if t.scrollTop < 0 || t.scrollBottom < t.scrollTop {
 		return
 	}
+	t.pushToHistory(1) // Cogpit patch: the row scrolling off goes to the scrollback
 	i := t.scrollTop
 	for ; i < t.scrollBottom && i < len(t.content.Rows)-1; i++ {
 		t.content.Rows[i] = t.content.Row(i + 1)
@@ -433,7 +450,6 @@ func (t *Terminal) scrollDown() {
 			t.content.Rows = append(t.content.Rows, widget.TextGridRow{})
 		}
 	}
-	t.content.Refresh()
 }
 
 func handleOutputBackspace(t *Terminal) {
@@ -449,6 +465,7 @@ func handleOutputBell(t *Terminal) {
 }
 
 func handleOutputCarriageReturn(t *Terminal) {
+	t.unwrapPadding() // Cogpit patch
 	t.moveCursor(t.cursorRow, 0)
 }
 

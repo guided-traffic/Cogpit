@@ -67,6 +67,32 @@ upstream yet, like the two input patches of 2026-10-13.
 | `term.go` | 2026-10-15: `ExitCode` reads the shell's state under `closeLock`, and only once `run` has waited for the shell (`exited`); it read it at any time, racing `cmd.Wait`, which writes it on the reader goroutine (`TestRunLocalShell_MainLoop`). On Windows, where a goroutine of `startPTY` records the state, the code shows once the output has ended instead of as soon as that goroutine has it |
 | `term.go` | 2026-10-15, no change of code: `run` reads `content` on the reader goroutine only after the size was read on the main goroutine (`columns`), and `Resize` creates the renderer, and with it the content, before it sets a size; `CreateRenderer` never replaces the content. Listed as a known race until then; for `RunWithConnection` this holds since 2026-10-12 |
 
+## Scrollback
+
+2026-10-15 ([D-56](../../docs/developer/decisions.md#d-56-the-terminals-scrollback), decided by the
+owner): the widget keeps the lines that scroll off the main screen, without a line limit and
+bounded at 256 MiB per terminal. Upstream keeps none (`scrollDown` overwrote the top row); its draft
+[#147](https://github.com/fyne-io/terminal/pull/147) keeps every row in the grid, which Fyne's
+TextGrid then lays out and refreshes on every refresh (measured in D-56: 56 times the cost with
+1,000 rows). Here the grid holds the screen only, as upstream's does, and is never drawn; the lines
+that scroll off go into a compact store; a second grid, the view, draws copies of the rows in view.
+Rows are numbered from the first the scrollback held, the scrollback's then the screen's; a row
+keeps its number when it scrolls into the scrollback, so a selection by row numbers stays on its
+text. Main goroutine only, like the rest of the widget's state.
+
+| File | Patch |
+|---|---|
+| `history.go` | New: the scrollback. A line is what the output wrote between two line feeds, its text as UTF-8 and its styles as runs (205 bytes for 80 cells in two colours against 9,267 in the grid, `TestScrollback_Size`); the rows each line takes at a width; numbers kept while a line is held; the oldest lines dropped past `SetScrollbackLimit` (256 MiB by default); a line grown to a quarter of the bound ends there |
+| `scrollback.go` | New: the view of the rows from `viewTop` (`refreshView`), the wheel (`Scrolled`: the scrollback, or a full-screen program's mouse buttons 4 and 5 or the arrow keys as `typeCursorKey` sends them), the reflow at a new size of the main screen and the scrollback (`reflow`; the cursor's line keeps its blanks up to the cursor, `padLine`, and the cursor stays on the screen: shortened, the line moved the cursor below the screen and later output landed above older lines), a carriage return on a row of blanks taking back the wrap into it (`unwrapPadding`: zsh's PROMPT_SP pads a line without a line feed to the right margin, and the joined padding pushed the next prompt into the middle of a row at another width), a row of dropped lines above the scrollback, the selection's text over both (`selectedText`), `Lines` and `LineTexts` for readers, `setCell` |
+| `scrollbar.go` | New: the scroll bar, thin and wide under the pointer, its thumb dragged, a tap above or below it moving a screen |
+| `render.go` | The renderer draws the view, the cursor and the bar; `refreshView` runs on the main goroutine with the cursor's refresh; `Destroy` stops the blink timer |
+| `term.go` | `Resize` reflows the main screen at a new size (the alternate screen when it ends); the double click reads its row with `rowCells`; a drag past the view's edge scrolls it, and one that ends outside the terminal takes the focus back (Fyne unfocuses on a release outside the focused widget, and ⌘C went nowhere); `run` waits for the main goroutine at most every `maxRefreshInterval` and queues a refresh in between, where it waited after every read |
+| `output.go` | The characters and control characters in a row go to the main goroutine in one function (`flush` in `handleOutput`), where each went in its own: in a window `seq 1 200000` took 24.6 s before the scrollback, 5.1 s with it, 1.9 s with the batches and 0.9 s with `run`'s waits (Terminal.app 0.29 s, the owner's measurement); `handleOutputChar` marks the row the output wraps from (`markWrapped`, for the reflow) and sets its cell with `setCell` (`TextGrid.SetCell` needs a renderer, which the screen's grid never gets); `scrollDown` pushes the row it scrolls off into the scrollback; the screen's grid is no longer refreshed; output clears a selection only where it reaches the screen |
+| `escape.go` | Scroll up (`CSI S`) pushes its rows into the scrollback; erase saved lines (`CSI 3 J`) clears it; the alternate screen keeps the main screen's wrap marks and, resized meanwhile, reflows the main screen when it ends |
+| `select.go`, `position.go`, `mouse.go` | The selection by row numbers, highlighted in the view's copies; positions are rows of the scrollback and the screen; mouse reports are the screen's (`screenPosition`) |
+| `input.go` | Typing returns the view to the screen (`followOutput`), a modifier alone (⌘, Ctrl, Shift) does not; a shortcut that goes to the shell (ctrl+C, paste) does, copying does not (`isCopy`) |
+| `internal/widget/termgrid.go` | `StopBlink`; the timer's closure takes the blink state as a value (it read the variable the timer's goroutine went on writing), and a tick after a stop ends the timer |
+
 ## Tests and fuzzing
 
 | File | What |
@@ -76,6 +102,10 @@ upstream yet, like the two input patches of 2026-10-13.
 | `fuzz_test.go` | 2026-10-12: `FuzzHandleOutput`, output at sizes from 0x0 to 255x255 with a resize part way, debug output on or off; a panic, or an input not done within 30 seconds, fails. Seeds: every input above and real programs' output in `test_data/sessions` (vim 9.1, less 668, macOS `nano` (UW PICO 5.09) and GNU screen 4.00.03 running less, recorded in an 80x24 pseudo-terminal on synthetic files) |
 | `mainloop_test.go` | 2026-10-12: the fuzz target runs `fyne.Do` on a stand-in for the desktop driver's main goroutine, so that the race detector sees the two goroutines; Fyne's test driver runs `fyne.Do` on the calling goroutine |
 | `term_test.go`, `term_unix_test.go` | 2026-10-14: the tests that start a local shell (`TestExitCode01`, `TestTerminal_Close`) write to it once its terminal is open, read under the widget's lock (`startLocalShell`), and wait for `RunLocalShell` to return within a bound (`shellTimeout`, 60 s) instead of without one. They wrote until a write succeeded, but `New` gives a terminal a writer that discards its input until the terminal is open, so the first write, 50 ms after the start, always succeeded: on a loaded machine it came before the terminal was open, the shell never got its `exit`, and `TestExitCode01` waited until the test binary's 10-minute timeout (CI run 38527183426, Linux); `TestTerminal_Close` read the command while it was still nil and panicked. Reproduced on macOS with a 100 ms delay before the terminal opens and on Linux (`golang:1.27.2`, bash) on a container limited to 0.05 CPUs; upstream's test is the same (`c8f30fa` made it stop at the first write that succeeds) |
+| `scrollback_test.go` | 2026-10-15: `TestScrollback_*`: lines kept and numbered, every editing sequence changing the screen only, `CSI S` and `CSI 3 J`, a wrapped line as one, the alternate screen, reflow (narrower, wider, shorter, taller, after the alternate screen), the bound and its row, the size of a line, the view (scrolled back, kept while output arrives, returned by typing, holding the screen's rows only), a selection over the scrollback and the screen, a double click in the scrollback, the wheel in the alternate screen, the bar |
+| `scrollback_test.go` | 2026-10-15, after the owner's check in a window: `TestScrollback_PromptPaddingIsNoWrap` (zsh's PROMPT_SP), `TestScrollback_RandomOutputKeepsItsOrder` (100 random runs of output, zsh's padding, resizes and scrolling: lines keep their order, the cursor stays on the screen), `TestScrollback_ShortcutsToTheShellReturnTheView`, `TestScrollback_DragEndingOutsideKeepsTheFocus`, and modifiers and the wheel's arrow keys in `TestScrollback_View` and `TestScrollback_WheelInTheAlternateScreen` |
+| `term_test.go` | 2026-10-15: `TestTerminal_Resize_Narrower` expects the line wrapped again at the new width and the cursor after its last character, where upstream moves the cursor to the right edge |
+| `fuzz_test.go` | 2026-10-15: each input ends by releasing the terminal's renderers, as a closed tab does, which stops the timer of blinking text; the reflow brought blinking text back onto screens that had dropped it, and timers that outlived their test ran Fyne's test driver on their own goroutines |
 | `term_unix_test.go` | 2026-10-15: `TestRunLocalShell_MainLoop` runs a local shell (`/bin/sh`, which does not report its directory by OSC 7 as macOS's zsh does) with `fyne.Do` on the main-loop stand-in: started before the terminal has a size, sized, written to and resized on the main loop, `cd` typed there until the directory check reports the new directory to a listener while the main loop resizes the terminal (which reads the configuration the check writes), the exit code read while the shell runs on a goroutine that synchronises with nothing else and lives until the shell has exited (the race detector can miss what a finished goroutine read), then `exit 3`. Against the code before the rows of 2026-10-15 above the detector reports seven races (the size, the directory twice, the input, the pseudo-terminal, the last key's time, the exit code); with them, none in 20 runs of the module under `-race` on macOS and on Linux (`golang:1.27.2`, bash, `/bin/sh` dash), and in 10 runs of the shell tests at `-cpu 1,2` on macOS. `TestRunLocalShell_MissingStartDir` marks a key as typed through `keyTyped` |
 
 The fuzz seeds and every test run under the race detector in Cogpit's `make test-unit-race` and
@@ -95,6 +125,8 @@ earlier test's directory check (patched above).
 | `FuzzRawWidget` (termview) | 9 min 48 s, 164,674 execs, 3 workers, before the main loop | no finding before the run was stopped |
 | `FuzzHandleOutput` | 2026-10-12, fifth run: 10 min, 443,665 execs, `-parallel 2`, with the fixed harness and the main loop, on an otherwise idle machine | no crash, no hang; 38 new interesting inputs |
 | `FuzzRawWidget` (termview) | 2026-10-12, fifth run: 10 min, 72,941 execs, `-parallel 2` | no crash, no hang; 24 new interesting inputs |
+| `FuzzHandleOutput` | 2026-10-15, after the batches and the fixes of the owner's check: 2 min, `-parallel 2` | no crash, no hang |
+| `FuzzHandleOutput` | 2026-10-15, with the scrollback and its reflow: 3 min, 106,152 execs, and 2 min, 143,070 execs, `-parallel 2` | no crash, no hang; the stretches at 0 execs/s while new inputs are minimised show on the unchanged fork too (1 min, 86,273 execs) |
 
 Crashers and hangs fixed above came from the seeds, the fuzzer's first minutes and reading the
 code around them; the string, APC and line-count findings were measured with probes (1 MiB of
@@ -119,8 +151,14 @@ unterminated OSC took about 60 s). The ten-minute runs with the fixed harness (f
   without synchronisation, racing `ExitCode` and `updatePTYSize`. Nothing runs the widget under the
   race detector on Windows (Cogpit's CI compiles its tests there), and Cogpit does not call
   `RunLocalShell`.
-- Blinking text starts a ticker goroutine that runs until no blinking cell is left, also after the
-  terminal is closed.
+- Blinking text starts a ticker goroutine that runs until no blinking cell is left in view; since
+  2026-10-15 it also stops when the terminal's renderer goes (a closed or hidden tab).
+- The arrow keys, and the wheel in the alternate screen, send `ESC O` in the alternate screen and
+  `ESC [` outside it: the widget does not track the application cursor-key mode (DECCKM) itself.
+- While a window is resized with the mouse on macOS, output stops until the mouse is released: Fyne's
+  GLFW loop runs queued functions only between its event polls, and `glfwPollEvents` stays in
+  Cocoa's resize loop meanwhile (read in Fyne 2.8.1's `loop.go`). Fyne's, not patched.
+- Wide characters (CJK) take one cell, also in the scrollback and its reflow.
 
 `go.mod` requires Fyne v2.8.1, the latest release, where upstream's asks for an unreleased Fyne
 (`v2.8.2-0.20261009111023-0a528b3a387b`); its indirect requirements are the ones `go mod tidy`

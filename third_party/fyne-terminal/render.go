@@ -16,7 +16,8 @@ type render struct {
 }
 
 func (r *render) Layout(s fyne.Size) {
-	r.term.content.Resize(s)
+	r.term.view.Resize(s) // Cogpit patch: the view draws the rows, see scrollback.go
+	r.term.layoutBar()
 }
 
 func (r *render) MinSize() fyne.Size {
@@ -25,11 +26,11 @@ func (r *render) MinSize() fyne.Size {
 
 func (r *render) Refresh() {
 	fyne.Do(func() { // TODO fix root cause in refresh on wrong thread
+		r.term.refreshView() // Cogpit patch: the view, on the main goroutine like the cursor
+		r.term.layoutBar()
 		r.moveCursor()
 		r.term.refreshCursor()
 	})
-
-	r.term.content.Refresh()
 }
 
 func (r *render) BackgroundColor() color.Color {
@@ -37,19 +38,22 @@ func (r *render) BackgroundColor() color.Color {
 }
 
 func (r *render) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.term.content, r.term.cursor}
+	return []fyne.CanvasObject{r.term.view, r.term.cursor, r.term.bar}
 }
 
 func (r *render) Destroy() {
+	r.term.view.StopBlink() // Cogpit patch: see StopBlink
 }
 
 func (r *render) moveCursor() {
 	cell := r.term.guessCellSize()
-	r.term.cursor.Move(fyne.NewPos(cell.Width*float32(r.term.cursorCol), cell.Height*float32(r.term.cursorRow)))
+	row := r.term.cursorRow + r.term.screenStart() - r.term.viewTop // Cogpit patch: the view's row
+	r.term.cursor.Move(fyne.NewPos(cell.Width*float32(r.term.cursorCol), cell.Height*float32(row)))
 }
 
 func (t *Terminal) refreshCursor() {
-	t.cursor.Hidden = !t.focused || t.cursorHidden
+	// Cogpit patch: hidden while the view shows rows above it.
+	t.cursor.Hidden = !t.focused || t.cursorHidden || t.cursorRow+t.screenStart()-t.viewTop >= int(t.config.Rows)
 	if t.bell {
 		t.cursor.FillColor = theme.Color(theme.ColorNameError)
 	} else {
@@ -57,6 +61,24 @@ func (t *Terminal) refreshCursor() {
 	}
 	t.cursor.Resize(fyne.NewSize(cursorWidth, t.guessCellSize().Height))
 	t.cursor.Refresh()
+}
+
+// layoutBar puts the scroll bar at the right edge, shown while there are rows above the screen.
+// Cogpit patch.
+func (t *Terminal) layoutBar() {
+	if t.bar == nil {
+		return
+	}
+	if _, _, ok := t.bar.thumb(); !ok && !t.bar.hovered {
+		t.bar.Hide()
+		return
+	}
+	size := t.Size()
+	width := t.bar.width()
+	t.bar.Resize(fyne.NewSize(width, size.Height))
+	t.bar.Move(fyne.NewPos(size.Width-width, 0))
+	t.bar.Show()
+	t.bar.Refresh()
 }
 
 // CreateRenderer requests a new renderer for this terminal (just a wrapper around the TextGrid)
@@ -67,6 +89,11 @@ func (t *Terminal) CreateRenderer() fyne.WidgetRenderer {
 	if t.content == nil {
 		t.content = widget2.NewTermGrid()
 		t.setupShortcuts()
+	}
+	if t.view == nil { // Cogpit patch
+		t.view = widget2.NewTermGrid()
+		t.bar = newScrollBar(t)
+		t.bar.Hide()
 	}
 
 	if t.cursor == nil {

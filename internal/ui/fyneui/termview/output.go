@@ -3,6 +3,8 @@ package termview
 import (
 	"strings"
 	"unicode"
+
+	fyneterm "github.com/fyne-io/terminal"
 )
 
 // What the stream widgets show, as text for a reader outside them: an agent's dock.read (G17,
@@ -53,25 +55,19 @@ func (l *Logs) DroppedLines() int64 {
 // Ended reports whether the stream ended, as the status shows it. Main goroutine only.
 func (l *Logs) Ended() bool { return l.stEnded }
 
-// ScreenLines returns the terminal's screen as lines of text, top to bottom: the characters of its
-// cells without colours or escape sequences (the widget holds none), a cell never written as a
-// space, any other control character left out, each line without its trailing spaces, and without
-// the empty lines below the last one with text. The widget keeps no scrollback: what scrolled off
-// the screen is gone. Main goroutine only.
-func (t *Terminal) ScreenLines() []string {
-	text := t.term.Text()
-	if text == "" {
-		return []string{}
-	}
-	rows := strings.Split(text, "\n")
-	for i, row := range rows {
-		rows[i] = strings.TrimRight(strings.Map(screenRune, row), " ")
-	}
-	end := len(rows)
-	for end > 0 && rows[end-1] == "" {
+// Output returns what the terminal holds as a numbered list for a reader (D-44): its scrollback's
+// lines, then its screen's, without the empty lines below the last one with text. A line is what
+// the output wrote between two line feeds, one wrapped over several rows is one line, as text: the
+// characters of its cells without colours or escape sequences (the widget holds none), a cell
+// never written as a space, any other control character left out, no trailing spaces. Lines are
+// numbered from the first the terminal held and keep their numbers when they scroll into the
+// scrollback; the scrollback drops its oldest lines past its bound (256 MiB). Main goroutine only.
+func (t *Terminal) Output() Output {
+	first, end := t.term.Lines()
+	for end > first && (Output{term: t.term}).text(end-1) == "" {
 		end--
 	}
-	return rows[:end]
+	return Output{term: t.term, first: first, n: int(end - first)}
 }
 
 // screenRune is a cell's character as text: a cell never written (0) is a space, other control
@@ -88,14 +84,29 @@ func screenRune(r rune) rune {
 	return r
 }
 
-// ScreenOutput is a terminal's screen lines as a numbered list for a reader (rows from 1).
-type ScreenOutput []string
+// Output is a terminal's lines, read from the widget when asked for one (Terminal.Output).
+type Output struct {
+	term  *fyneterm.Terminal
+	first int64
+	n     int
+}
 
 // Len is the number of lines.
-func (s ScreenOutput) Len() int { return len(s) }
+func (o Output) Len() int { return o.n }
 
-// Number is line i's row on the screen, from 1.
-func (s ScreenOutput) Number(i int) int64 { return int64(i + 1) }
+// Number is line i's number.
+func (o Output) Number(i int) int64 { return o.first + int64(i) }
 
 // Text is line i.
-func (s ScreenOutput) Text(i int) string { return s[i] }
+func (o Output) Text(i int) string { return o.text(o.Number(i)) }
+
+// Dropped is the number of older lines the terminal no longer holds.
+func (o Output) Dropped() int64 { return max(o.first-1, 0) }
+
+func (o Output) text(number int64) string {
+	texts := o.term.LineTexts(number, number+1)
+	if len(texts) == 0 {
+		return ""
+	}
+	return strings.TrimRight(strings.Map(screenRune, texts[0]), " ")
+}

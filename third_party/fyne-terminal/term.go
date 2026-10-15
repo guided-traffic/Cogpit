@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -72,6 +73,18 @@ type Terminal struct {
 	altSavedRow     int                  // saved cursor row
 	altSavedCol     int                  // saved cursor col
 	altBufferActive bool                 // true when alternate buffer is in use
+
+	// Cogpit patch: the scrollback (history.go) and the view that scrolls through it
+	// (scrollback.go); content holds the screen and is never drawn.
+	hist                   *history
+	view                   *widget2.TermGrid
+	viewRows               []widget.TextGridRow
+	viewTop                int
+	scrolledBack           bool
+	scrollRemainder        float32
+	bar                    *scrollBar
+	layoutCols, layoutRows int         // the size the screen's rows were written at
+	refreshQueued          atomic.Bool // run queued a refresh that has not run yet
 
 	onMouseDown, onMouseUp func(int, fyne.KeyModifier, fyne.Position)
 	g0Charset              charSet
@@ -202,11 +215,10 @@ func (t *Terminal) DoubleTapped(pe *fyne.PointEvent) {
 		t.clearSelectedText()
 	}
 
-	if row < 1 || row > len(t.content.Rows) {
+	rowContent, _ := t.rowCells(row - 1) // Cogpit patch: a row of the scrollback or the screen
+	if rowContent == nil {
 		return
 	}
-
-	rowContent := t.content.Rows[row-1].Cells
 
 	if col < 0 || col >= len(rowContent) {
 		return // No valid character under the cursor, do nothing
@@ -267,12 +279,24 @@ func (t *Terminal) Resize(s fyne.Size) {
 	}
 
 	t.BaseWidget.Resize(s)
-	if t.content != nil {
-		t.content.Resize(fyne.NewSize(float32(cols)*cellSize.Width, float32(rows)*cellSize.Height))
-	}
 
 	oldRows := int(t.config.Rows)
 	t.config.Columns, t.config.Rows = cols, rows
+	// Cogpit patch: the main screen and the scrollback wrap their lines at the new size; the
+	// alternate screen's program draws itself again.
+	if t.content != nil && cols > 0 && rows > 0 {
+		switch {
+		case t.layoutCols == 0:
+			t.history().setCols(int(cols))
+			t.layoutCols, t.layoutRows = int(cols), int(rows)
+		case t.altBufferActive:
+		case t.layoutCols != int(cols) || t.layoutRows != int(rows):
+			t.clearSelection()
+			t.reflow(int(rows), int(cols))
+			t.scrollTop, t.scrollBottom = 0, int(rows)-1
+			t.savedRow, t.savedCol = min(t.savedRow, int(rows)-1), min(t.savedCol, int(cols)-1)
+		}
+	}
 	if t.scrollBottom == 0 || t.scrollBottom == oldRows-1 {
 		t.scrollBottom = int(t.config.Rows) - 1
 	}
@@ -489,9 +513,18 @@ func (t *Terminal) run() {
 		}
 
 		leftOver = t.handleOutput(fullBuf[:num])
-		if len(leftOver) == 0 || time.Since(t.lastRefresh) > maxRefreshInterval {
+		// Cogpit patch: the reader waits for Fyne's main goroutine at most every
+		// maxRefreshInterval, which bounds what it queues there (upstream's #148); in between it
+		// queues a refresh unless one is queued. Waiting after every read made each of a
+		// pseudo-terminal's small reads a round trip to the main goroutine.
+		if time.Since(t.lastRefresh) > maxRefreshInterval {
 			t.lastRefresh = time.Now()
 			fyne.DoAndWait(t.Refresh)
+		} else if t.refreshQueued.CompareAndSwap(false, true) {
+			fyne.Do(func() {
+				t.refreshQueued.Store(false)
+				t.Refresh()
+			})
 		}
 	}
 }
@@ -648,11 +681,14 @@ func (t *Terminal) sanitizePosition(p fyne.Position) *fyne.Position {
 
 // Dragged is called by fyne when the left mouse is down and moved whilst over the widget.
 func (t *Terminal) Dragged(d *fyne.DragEvent) {
-	if t.selecting {
-		// clear the highlight applied by the previous drag event
-		sr, sc, er, ec := t.getSelectedRange()
-		widget2.ClearHighlightRange(t.content, t.blockMode, sr, sc, er, ec)
-	} else {
+	// Cogpit patch: dragged above or below the view, the selection scrolls it.
+	switch {
+	case d.Position.Y < 0:
+		t.scrollBy(1)
+	case d.Position.Y > t.Size().Height:
+		t.scrollBy(-1)
+	}
+	if !t.selecting {
 		// the first drag event arrives after the pointer has already moved, so
 		// take away the delta to find the cell the drag actually started from
 		start := t.getTermPosition(*t.sanitizePosition(d.Position.Subtract(d.Dragged)))
@@ -669,6 +705,13 @@ func (t *Terminal) Dragged(d *fyne.DragEvent) {
 
 // DragEnd is called by fyne when the left mouse is released after a Drag event.
 func (t *Terminal) DragEnd() {
+	// Cogpit patch: a drag that ends outside the terminal took the focus away (Fyne unfocuses
+	// on a release outside the focused widget), and the selection could not be copied.
+	if t.selecting {
+		if c := fyne.CurrentApp().Driver().CanvasForObject(t); c != nil && c.Focused() != t {
+			c.Focus(t)
+		}
+	}
 	if t.selecting {
 		t.selectClipboard().SetContent(t.SelectedText())
 	}
