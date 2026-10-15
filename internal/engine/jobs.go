@@ -172,7 +172,7 @@ var (
 	// errJobInterrupted stops a job when its cluster stops answering (D-58): as after a crash
 	// (S8), nothing a job does continues by itself after the connection is back; what it wrote
 	// stays, and the step under way may or may not have reached the cluster.
-	errJobInterrupted = errors.New("the connection was interrupted; Cogpit does not continue the job after the reconnect")
+	errJobInterrupted    = errors.New("the connection was interrupted; Cogpit does not continue the job after the reconnect")
 	errJobSessionClosed  = errors.New("the app is closing")
 	errJobCancelled      = errors.New("cancelled")
 	errJobAgentCancelled = errors.New("cancelled by an agent")
