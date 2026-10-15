@@ -140,6 +140,14 @@ the owner wants 1.0.0; a body line that starts with `BREAKING CHANGE:` counts as
 "Generated with" lines (owner, 2026-10-11). A pull request that moves a parity number updates the progress docs in
 the same change ([rules](../parity/README.md#rules-for-every-progress-page)).
 
+**A commit that only changes documentation carries `[skip ci]`** in its message (owner,
+2026-10-15: the pipeline needs not run for it; the runner is one shared machine). GitHub
+recognises `[skip ci]` and `[ci skip]` only, and skips a push by its newest commit's message: a
+docs-only commit is never the newest commit of a push that also carries code (push code with a
+code commit on top, or the docs commit on its own). Run `go run ./hack/parity` before such a
+commit, since CI's parity job does not run for it. Renders and the generated `commands.md` that
+come with a code change are part of that change, not docs-only.
+
 The root README is the showcase page (owner, 2026-10-14); the reference lives in
 [`usage.md`](usage.md) and [`commands.md`](commands.md). A change that adds or changes a command
 regenerates the table in `commands.md` with `go run ./hack/readmecmds` in the same change.

@@ -160,7 +160,9 @@ Windows compile, and the combined coverage. Read its result when you next push (
 semantic-release publishes a release for the `feat:` and `fix:` commits since the last one and
 pushes a release commit to `main`, so `git pull --rebase` before your next push.
 
-Then commit and push. Agents may commit and push to `main` on their own (owner, 2026-10-11), in
+Then commit and push. A commit that only changes documentation carries `[skip ci]` and is never
+the newest commit of a push with code (owner, 2026-10-15; [conventions](docs/developer/conventions.md#commits-and-pull-requests)).
+Agents may commit and push to `main` on their own (owner, 2026-10-11), in
 [Conventional Commits](docs/developer/conventions.md#commits-and-pull-requests) form and **without
 `Co-Authored-By` trailers or "Generated with" lines**, and **never with `!` or a `BREAKING CHANGE:`
 footer**: releases continue from the owner's anchor tag `v0.0.0`, and 1.0.0 is the owner's call
