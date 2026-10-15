@@ -97,7 +97,12 @@ func helmReleaseChart(obj *unstructured.Unstructured) (model.ObjectRef, error) {
 // FluxSourceStatic reports whether the flux CLI skips a source as static: a HelmRepository of type
 // oci, which no controller reconciles.
 func FluxSourceStatic(key string, obj *unstructured.Unstructured) bool {
-	return key == helmRepositoriesSpec.key() && model.NestedString(obj, fieldSpec, "type") == "oci"
+	return key == helmRepositoriesSpec.key() && ociHelmRepository(obj)
+}
+
+// ociHelmRepository reports whether a HelmRepository is of type oci.
+func ociHelmRepository(obj *unstructured.Unstructured) bool {
+	return model.NestedString(obj, fieldSpec, idType) == "oci"
 }
 
 // FluxSourceHasSource reports whether the flux CLI reconciles a source's own source first: a

@@ -1,0 +1,107 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "helmrepositories.source.toolkit.fluxcd.io",
+    "namespace": "flux-system",
+    "name": "charts-oci"
+  },
+  "status": "ok",
+  "cells": [
+    {
+      "column": "name",
+      "text": "charts-oci"
+    },
+    {
+      "column": "namespace",
+      "text": "flux-system",
+      "link": {
+        "kind": "namespaces",
+        "name": "flux-system"
+      }
+    },
+    {
+      "column": "url",
+      "text": "oci://registry.example.com/charts"
+    },
+    {
+      "column": "type",
+      "text": "oci"
+    },
+    {
+      "column": "revision",
+      "text": ""
+    },
+    {
+      "column": "suspended",
+      "text": "false"
+    },
+    {
+      "column": "age",
+      "text": "1d",
+      "num": 1791633600
+    },
+    {
+      "column": "status",
+      "text": "Ready",
+      "status": "ok"
+    },
+    {
+      "column": "message",
+      "text": ""
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "charts-oci"
+    ],
+    "namespace": [
+      "flux-system"
+    ],
+    "revision": [],
+    "status": [
+      "Ready"
+    ],
+    "suspended": [
+      "false"
+    ],
+    "type": [
+      "oci"
+    ],
+    "url": [
+      "oci://registry.example.com/charts"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Status",
+          "value": "Ready",
+          "status": "ok"
+        },
+        {
+          "name": "URL",
+          "value": "oci://registry.example.com/charts"
+        },
+        {
+          "name": "Type",
+          "value": "oci"
+        },
+        {
+          "name": "Provider",
+          "value": "generic"
+        },
+        {
+          "name": "Interval",
+          "value": "1m0s"
+        },
+        {
+          "name": "Suspended",
+          "value": "false"
+        }
+      ]
+    }
+  ]
+}

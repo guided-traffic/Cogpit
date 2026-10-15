@@ -1,0 +1,17 @@
+# An OCI Helm repository as Flux 2.1 and later leave it: no controller reconciles it, so it has no
+# status at all (shaped like one seen on a real cluster, 2026-10-16); the flux CLI reports it
+# Ready, "Helm repository is Ready".
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: charts-oci
+  namespace: flux-system
+  uid: uid-charts-oci
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 1
+spec:
+  interval: 1m0s
+  provider: generic
+  type: oci
+  url: oci://registry.example.com/charts
+status: {}

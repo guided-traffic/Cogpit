@@ -155,7 +155,7 @@ func FluxStateOf(key string, obj *unstructured.Unstructured) FluxState {
 	if s == nil {
 		return FluxUnknown
 	}
-	return fluxStatusOf(obj, s.static).state
+	return fluxStatusOf(obj, s.isStatic(obj)).state
 }
 
 // FluxStatusOf returns an object's state, the Ready condition's message (one line) and when the
@@ -165,7 +165,7 @@ func FluxStatusOf(key string, obj *unstructured.Unstructured) (state FluxState, 
 	if s == nil {
 		return FluxUnknown, "", time.Time{}
 	}
-	st := fluxStatusOf(obj, s.static)
+	st := fluxStatusOf(obj, s.isStatic(obj))
 	return st.state, st.message, st.since
 }
 
@@ -211,8 +211,8 @@ type fluxStatus struct {
 // fluxStatusOf reads an object's state: suspended first (the controller does not touch it, whatever
 // its last conditions say), then a failure (Ready False, Stalled True), then a reconciliation in
 // progress (Reconciling True, Ready Unknown, a generation the controller has not observed yet),
-// then Ready True. Without a Ready condition, a static kind's object (notification v1beta3) is
-// ready; any other's is unknown.
+// then Ready True. Without a Ready condition, a static object (notification v1beta3's Alerts and
+// Providers, an OCI HelmRepository) is ready; any other is unknown.
 func fluxStatusOf(obj *unstructured.Unstructured, static bool) fluxStatus {
 	var ready, reconciling, stalled string
 	var st fluxStatus
@@ -296,6 +296,9 @@ type fluxSpec struct {
 	fallback                     []string
 	section                      string
 	suspend, reconcile, static   bool
+	// staticOf names the objects of a kind the controller does not reconcile, which report no
+	// status (an OCI HelmRepository); nil: static decides for every object.
+	staticOf func(obj *unstructured.Unstructured) bool
 
 	// columns are the kind's own, after Namespace.
 	columns []fluxColumn
@@ -311,6 +314,13 @@ type fluxSpec struct {
 
 func (s *fluxSpec) key() string { return s.resource + "." + s.group }
 
+// isStatic reports whether obj is an object its controller reports no status for: every object
+// of a static kind, and those staticOf names. Such an object without a Ready condition is ready
+// unless suspended, as the flux CLI shows it.
+func (s *fluxSpec) isStatic(obj *unstructured.Unstructured) bool {
+	return s.static || (s.staticOf != nil && s.staticOf(obj))
+}
+
 func (s *fluxSpec) info() FluxKind {
 	return FluxKind{Key: s.key(), APIKind: s.kind, Title: s.title, Section: s.section, Suspend: s.suspend, Reconcile: s.reconcile, static: s.static}
 }
@@ -321,7 +331,7 @@ func (s *fluxSpec) profile() *model.KindProfile {
 	cols := []model.Column{nameColumn, namespaceColumn}
 	fields := map[string]fieldFunc{
 		idStatus: func(obj *unstructured.Unstructured) []string {
-			return nonEmpty(FluxStateText(fluxStatusOf(obj, s.static).state))
+			return nonEmpty(FluxStateText(fluxStatusOf(obj, s.isStatic(obj)).state))
 		},
 		idSuspended: func(obj *unstructured.Unstructured) []string { return []string{fluxSuspendedText(obj)} },
 	}
@@ -348,7 +358,7 @@ func (s *fluxSpec) profile() *model.KindProfile {
 }
 
 func (s *fluxSpec) cells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
-	st := fluxStatusOf(obj, s.static)
+	st := fluxStatusOf(obj, s.isStatic(obj))
 	token := FluxStateToken(st.state)
 	cells := make([]model.Cell, 0, 7+len(s.columns))
 	cells = append(cells, nameCell(obj), namespaceCell(obj))
@@ -371,7 +381,7 @@ func (s *fluxSpec) cells(obj *unstructured.Unstructured) ([]model.Cell, model.St
 // the last reconcile request the controller handled; the kind's own sections; the conditions.
 func (s *fluxSpec) detail(obj *unstructured.Unstructured) []model.DetailSection {
 	var d detailItems
-	st := fluxStatusOf(obj, s.static)
+	st := fluxStatusOf(obj, s.isStatic(obj))
 	d.addStatus(titleStatus, FluxStateText(st.state), FluxStateToken(st.state))
 	d.add("Message", readyMessage(obj))
 	if s.properties != nil {

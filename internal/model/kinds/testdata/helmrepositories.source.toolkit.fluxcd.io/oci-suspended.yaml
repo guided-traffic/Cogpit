@@ -1,0 +1,15 @@
+# A static OCI Helm repository someone suspended: suspended wins, as for every Flux object.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: charts-oci-paused
+  namespace: flux-system
+  uid: uid-charts-oci-paused
+  creationTimestamp: "2026-10-10T12:00:00Z"
+  generation: 2
+spec:
+  interval: 1m0s
+  type: oci
+  url: oci://registry.example.com/charts
+  suspend: true
+status: {}
