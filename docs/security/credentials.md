@@ -121,10 +121,12 @@ credential into its own files.
   the stored password (`MergeProxyPassword`). No error quotes a proxy value: the checks name the
   problem only, and `cluster.Connect` scrubs the password from any connect error as a guard
   (`TestCheckProxyURL`, `TestClusterProxyKeptPrivately`, `TestClusterProxyCommands`,
-  `TestProxyRefusalNeverQuotesThePassword`, `TestConnectThroughTheClusterProxy`). Only the user sets
-  a proxy ([agents and MCP](agents-and-mcp.md)); decided (owner, 2026-10-14 evening), not built
-  yet: an agent may set one as a write the user confirms, its password `•••` in the confirmation,
-  the audit log and every result, the same redaction as above. The file is plaintext
+  `TestProxyRefusalNeverQuotesThePassword`, `TestConnectThroughTheClusterProxy`). The user sets
+  a proxy in the window ([agents and MCP](agents-and-mcp.md)); decided (owner, 2026-10-14 evening,
+  A20) and built the same night: an agent may set one as a write the user confirms, whatever the
+  allowance of agent writes, its password `•••` in the confirmation, the audit log and every
+  result, the same redaction as above; the CLI is still refused (`TestClusterProxyCommands`,
+  `TestNonClusterProxyCommands`). The file is plaintext
   ([H-33](#h-33-proxy-passwords-are-plaintext-in-cogpits-settings), confirmed by the owner the same
   evening).
 - **Drafts of unsaved editor text** (built 2026-10-13, G9, [D-11](../developer/decisions.md#d-11-crash-stance)):
@@ -254,8 +256,8 @@ decrypted (`TestSecretKeyMatchesCertificate`, `TestMatchPrivateKeyReasons`,
 `TestObjectGetDecodesCertificatesForAgents`, which searches the result, the audit log, the events
 and the log for the key's PEM, base64 and DER).
 
-**Decided (owner, 2026-10-14 evening), two changes to these checks, the first built the same
-night:**
+**Decided (owner, 2026-10-14 evening), two changes to these checks, both built the same night
+(A99, R1):**
 
 - **A combined PEM** (a certificate and its private key in one value) gets the key-matches-certificate
   check too ([D-30](../developer/decisions.md#d-30-certificates-in-secrets-decoded),
@@ -265,7 +267,8 @@ night:**
   (`model.HoldsPrivateKeyBlock`).
 - **The chain's anchor** (a new requirement): beside the key match and the chain's order, the
   drawer and agents say whether the chain leads to a public certificate authority or an internal
-  (private) one, with the root's name. Built 2026-10-14 night as the lead's design (D-30): a root of
+  (private) one, with the root's name. Built 2026-10-14 night as the lead's design (D-30;
+  `TestCertAnchor`, `TestSecretChainAnchor`): a root of
   a public root program that Cogpit carries itself (Mozilla's NSS bundle, independent of the Mac);
   a root this Mac trusts (its trust store, a corporate root included); no known root (internal or
   self-signed). Certificates are
@@ -486,15 +489,22 @@ keychain held them; the owner accepted the trade-off to end the keychain's passw
 - **A key others may have read stays valid.** A key file that other users could access (group or
   other bits set: a copy restored without its mode, a `chmod` by hand) is made owner-only again
   before its keys are used, and the log names the file and its mode and says to replace keys that
-  others may have read; Cogpit cannot revoke a key at its provider (the lead's decision for the
-  owner to confirm, D-10 item 12: repaired rather than refused, since a key entered again is the
-  same key). Dormant: Cogpit itself always writes 0600; live only after a change outside Cogpit,
-  and only on a computer with other users.
+  others may have read; Cogpit cannot revoke a key at its provider (the lead's decision, D-10 item
+  12: repaired rather than refused, since a key entered again is the same key). Confirmed by the
+  owner (2026-10-15): repaired to 0600 and its keys used, with a Warn line in `cogpit.log` and on
+  stderr advising to replace the keys, and no notice in the window, chosen over the lead's
+  recommendation of the repair plus a bell notification; also weighed: refusing until the keys
+  are entered again (the MCP token's rule; friction, and it revokes nothing). What remains: the
+  advice reaches only a user who reads the log. Dormant: Cogpit itself always writes 0600; live
+  only after a change outside Cogpit, and only on a computer with other users.
 - **On Windows** file modes do not express access: the user profile's ACLs protect the file, as
   they protect the MCP token (not checked on Windows; Cogpit does not ship for it yet).
 - **The old keychain item** of a version up to 2026-10-15 stays in the login keychain until the
   user deletes it in Keychain Access; Cogpit never reads or removes it (reading it would ask for the
-  login password). Dormant: it holds a key Cogpit no longer uses, as safe as the keychain keeps it.
+  login password). Confirmed by the owner (2026-10-15): no migration, such a key is entered once
+  again and the old item left in the keychain; weighed: migrating once at the first start (one
+  prompt per connection, the cgo Security code kept for macOS only), an "Import from Keychain"
+  button. Dormant: it holds a key Cogpit no longer uses, as safe as the keychain keeps it.
 - **In memory** a key is a Go string while a turn's requests and a connection test run, and in the
   key store's read buffers until they are collected; a core dump of the process would hold it.
 
@@ -518,9 +528,10 @@ Confirmed by the owner (2026-10-14 evening): proxy passwords stay in the 0600 se
 `http://` proxy with a password gets no warning. What remains, per case: every proxy with a
 password sits in plain text in `cluster-settings.json` or `preferences.json`, readable to the
 user's own processes and carried by a backup (live wherever the user typed one); an `http://`
-proxy's password crosses the network in clear on every CONNECT (live for each such proxy). Once an
-agent may set a proxy (decided the same evening, not built, [above](#where-they-live-inside-cogpit)),
-the password an agent passes lands in the same file.
+proxy's password crosses the network in clear on every CONNECT (live for each such proxy). Since
+an agent may set a proxy (decided the same evening, A20, built the same night,
+[above](#where-they-live-inside-cogpit)), the password an agent passes lands in the same file once
+the user accepted it.
 
 ### H-38: Drafts keep typed text in plain text
 

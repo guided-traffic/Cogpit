@@ -58,9 +58,9 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
 - ⌨️ `cogpit-cli`, inside the app: your contexts and any kind's objects on the command line, read-only, and an MCP stdio bridge you register once.
-- 💬 *(planned)* A built-in agent in a chat beside your views, on any OpenAI-compatible endpoint such as LiteLLM or Open WebUI.
-- 📦 Installs the Mac way: open the disk image, drag Cogpit into Applications, signed and notarized (from the first release after v0.4.0 on); *(planned)* a Homebrew cask for shell users.
-- ⬆️ Updates with one click in the macOS app (Sparkle), verified against a signed update feed: built, and active from the first release that carries the update key (none yet).
+- 💬 A built-in agent in a chat beside your views (⌘I), on any OpenAI-compatible endpoint such as LM Studio, LiteLLM or Open WebUI.
+- 📦 Installs the Mac way: open the disk image, drag Cogpit into Applications, signed and notarized (since v0.6.0); *(planned)* a Homebrew cask for shell users.
+- ⬆️ Updates with one click in the macOS app (Sparkle), verified against a signed update feed: built; the releases carry the update key since v0.11.0, and updates start once the first of them has passed Apple's notarization and its feed is served (not yet on 2026-10-15).
 
 ## Get it and run it
 
@@ -429,7 +429,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`; the desktop app for Windows and Linux (M11), each with `cogpit-cli` inside | `Cogpit-0.1.0-macos-universal.dmg` # example |
 | Deep links (macOS) | `cogpit://open?context=<context id>&view=<view key>&namespace=<namespace>&name=<name>`, the scheme registered in the app's `CFBundleURLTypes` (name `io.guided-traffic.cogpit`); audited as `deeplink.open` with origin `deeplink` | `cogpit://open?view=pods&namespace=team-a` # example |
 | Release artifacts | `Cogpit-<version>-macos-<arch>.dmg` (signed releases; `universal` once the app is built for Intel too, planned), `Cogpit_<version>_darwin_<arch>.zip` (v0.4.0 and earlier, and builds without the signing secrets), `SHA256SUMS`; nothing else since D-16's revision (2026-10-14): `cogpit-cli_<version>_<os>_<arch>.tar.gz` (`.zip` for Windows) only up to v0.6.0 | `Cogpit-0.5.0-macos-arm64.dmg` # example |
-| Deep links (planned) | `cogpit://` | |
+| Deep links | `cogpit://` ([D-47](decisions.md#d-47-deep-links-cogpit)) | |
 | Update feed | the appcast every macOS app with the update key reads (`SUFeedURL`, [D-4](decisions.md#d-4-packaging-and-updates)) | `https://guided-traffic.github.io/cogpit/appcast.xml` # default |
 | Sparkle's own state | the app's user defaults, written by Sparkle: whether it checks automatically (`SUEnableAutomaticChecks`, which Cogpit sets from its preference), the last check's time, a skipped version | `~/Library/Preferences/io.guided-traffic.cogpit.plist` # default |
 

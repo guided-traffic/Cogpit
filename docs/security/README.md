@@ -18,7 +18,8 @@ API, credential plugins, terminals, agents, updates) and the check each boundary
 MVP (2026-10-11) the mechanisms it implements link to their code and tests; the rest names planned
 packages. When a mechanism lands, its row gains a link to the code and the test that proves it, in
 the same change. The owner's decision round of 2026-10-14 evening is recorded on every page whose
-mechanisms it changes, in the form below; none of the changes it decided is built yet.
+mechanisms it changes, in the form below; none of the changes it decided was built then;
+several are built since.
 
 ## Form of every page
 

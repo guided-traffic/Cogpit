@@ -89,14 +89,24 @@ repository can have that key sign what the workflow built
 ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)). The release page says what was
 signed, naming the certificate the signature carries, or that the build was unsigned.
 
-There is no update key yet, so no appcast is signed and no copy checks for an update: the app
-says "this build has no update key" under Preferences › App › Check for updates automatically and
-greys Help › Check for Updates…. Until the owner has made the key, a user learns of a new version
-from the release page, and the Developer ID signature is what Gatekeeper checks when the new copy
-first starts. Copies installed before the first release built with the key never update themselves
-(no updater, or none with a key): one manual download moves them onto the chain above.
+The owner set up the update key on 2026-10-15 (checked with `gh` that day, ~19:00 UTC: the secret
+`SPARKLE_ED_PRIVATE_KEY` in the environment `sparkle` since 07:00 UTC, the repository variable
+`SPARKLE_PUBLIC_ED_KEY` set), and v0.11.0, v0.12.0 and v0.13.0 are built with it (the app job's
+log of v0.11.0 and v0.12.0: "Sparkle bundled with the update key"; v0.13.0's app job passed the
+same check, its log not readable while the run was going). No appcast is signed yet:
+`https://guided-traffic.github.io/cogpit/appcast.xml` answers 404, because v0.9.0 to v0.12.0 got no
+files (Apple kept each notarization in progress beyond the old job's 45 minutes; since 2026-10-15 a
+job of its own waits up to 330 minutes) and v0.13.0's notarization was still running, its appcast
+jobs to wait for the owner's approval in `sparkle`. The first release that passes notarization with
+the key starts the signed feed; the release after it is the first update. Until then no copy
+updates itself: a user learns of a new version from the release page, and the Developer ID
+signature is what Gatekeeper checks when the new copy first starts. A build without the key (a
+local `make app`; the releases with files, v0.8.0 and earlier) says "this build has no update key"
+under Preferences › App › Check for updates automatically and greys Help › Check for Updates….
+Copies installed before the first release built with the key never update themselves (no updater,
+or none with a key): one manual download moves them onto the chain above.
 
-**What vouches for an update once the key exists:** the update key's EdDSA signatures over the
+**What vouches for an update once a signed feed is served:** the update key's EdDSA signatures over the
 feed and over the disk image, computed in a job the owner approved, checked by Sparkle in every
 copy; Apple's Developer ID signature and notarization of the app inside, checked by Sparkle against
 the running app's and by Gatekeeper. **What does not:** the host. GitHub Pages serves the feed and
@@ -110,8 +120,8 @@ anything the key did not sign.
 |---|---|---|---|
 | The organisation's GitHub App private key (`APP_CLIENT_ID`, `APP_PRIVATE_KEY`) | organisation secrets of `guided-traffic`, visible to this repository; used by the Semantic Release job (token with `contents: write`) and by Renovate | push to `main`, create tags and releases; a release it creates starts the release pipeline, which builds whatever the tag points at | rotate the App's private key in the App's settings and replace the organisation secret; delete the releases and tags it made. Secrets are not handed to workflows of pull requests from forks |
 | The release pipeline's `GITHUB_TOKEN` | per job; `contents: write` only in its last job, to attach the artifacts | upload assets to and edit the text of this repository's releases | expires with the job |
-| Developer ID Application certificate, App Store Connect team API key (role Developer) | secrets of the GitHub environment `release` (created 2026-10-13; the material in it since 2026-10-14), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them (decided by the owner on 2026-10-14 evening, GitHub settings not made yet: only the semantic-release GitHub App and the owner may create `v*` tags, and the environment's administrator bypass off; [H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)). Two jobs read them (since 2026-10-15; before, one job "Sign and notarize (macOS)"): "Sign and submit (macOS)" with the certificate and the API key, "Notarize and staple (macOS)" with the API key only. Neither builds anything or runs Go; the first imports the certificate into a temporary keychain (key not extractable, usable by `codesign` only), both write the API key into an owner-only file, and each deletes them when it ends ([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization)) | sign and notarize code as team 6L57P2HXN6: whatever is signed and notarized with the two passes Gatekeeper on every Mac until Apple revokes the certificate | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
-| The update key (Sparkle's EdDSA key; not made yet) | decided (owner, 2026-10-13): `SPARKLE_ED_PRIVATE_KEY`, a secret of the environment `sparkle` with the owner as required reviewer and tags `v*` only, so CI signs a release's feed only after the owner approved that run; made by the owner with Sparkle's `generate_keys`, which keeps it in his login keychain ([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). One job reads it, "Appcast (sign)": it refuses while the environment lacks its rules, hands the key to Sparkle's `sign_update` on its standard input only and runs no Go and no dependency's code. Its public half is the repository variable `SPARKLE_PUBLIC_ED_KEY`, built into every copy as `SUPublicEDKey` | sign appcasts and disk images that every copy with this key accepts | [H-15](#h-15-update-key-compromise-and-rotation) |
+| Developer ID Application certificate, App Store Connect team API key (role Developer) | secrets of the GitHub environment `release` (created 2026-10-13; the material in it since 2026-10-14), which only tag workflows may use (deployment rule: tags `v*`), so that no pull request workflow can read them (decided by the owner on 2026-10-14 evening and further on 2026-10-15, GitHub settings not made yet: only the semantic-release GitHub App may create `v*` tags, as the tag ruleset's only bypass, and the environment's administrator bypass off; [H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)). Two jobs read them (since 2026-10-15; before, one job "Sign and notarize (macOS)"): "Sign and submit (macOS)" with the certificate and the API key, "Notarize and staple (macOS)" with the API key only. Neither builds anything or runs Go; the first imports the certificate into a temporary keychain (key not extractable, usable by `codesign` only), both write the API key into an owner-only file, and each deletes them when it ends ([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization)) | sign and notarize code as team 6L57P2HXN6: whatever is signed and notarized with the two passes Gatekeeper on every Mac until Apple revokes the certificate | revoke the certificate at Apple, and the key in App Store Connect; releases notarized before stay valid (the owner's note, 2026-10-13; not checked against Apple's documentation) |
+| The update key (Sparkle's EdDSA key; made by the owner on 2026-10-15) | decided (owner, 2026-10-13) and set up 2026-10-15 (the secret since 07:00 UTC; the environment with the owner as required reviewer, the tag rule `v*` only and no administrator bypass; checked with `gh` that day): `SPARKLE_ED_PRIVATE_KEY`, a secret of the environment `sparkle` with the owner as required reviewer and tags `v*` only, so CI signs a release's feed only after the owner approved that run; made by the owner with Sparkle's `generate_keys`, which keeps it in his login keychain ([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). One job reads it, "Appcast (sign)": it refuses while the environment lacks its rules, hands the key to Sparkle's `sign_update` on its standard input only and runs no Go and no dependency's code. Its public half is the repository variable `SPARKLE_PUBLIC_ED_KEY`, built into every copy as `SUPublicEDKey` | sign appcasts and disk images that every copy with this key accepts | [H-15](#h-15-update-key-compromise-and-rotation) |
 
 ## What this does not cover
 
@@ -123,8 +133,10 @@ GitHub Pages serves a project site under the repository's name, case-sensitively
 2026-10-15: another spelling of the name answers 404); the repository is `guided-traffic/cogpit`
 (renamed back from `Cogpit` on 2026-10-15, before any build with the update key). Renaming the repository, or moving it to
 another owner, moves the feed: the copies installed before stop finding updates, without an
-error the user sees, and only a manual download brings them back. Dormant until the first release
-built with the update key (the environment `sparkle` and Pages set up 2026-10-15, the key not yet).
+error the user sees, and only a manual download brings them back. Dormant until a release built
+with the update key has files to install (the environment `sparkle`, Pages and the key set up
+2026-10-15; v0.11.0 to v0.13.0 are built with the key: v0.11.0 and v0.12.0 have no files, and
+v0.13.0's notarization was in progress on 2026-10-15 ~19:00 UTC).
 What bounds it: nothing in the code; the rename is a GitHub setting. A custom domain for Pages, or
 a redirect page at the old path, would keep the URL stable; neither is set up.
 
@@ -136,8 +148,9 @@ release up to v0.6.0 none at all. Since 2026-10-14 the release pipeline signs th
 its `cogpit-cli` and the disk image with the Developer ID and has them notarized
 ([releasing › signing and notarization](../developer/releasing.md#signing-and-notarization)),
 and a release carries nothing else but `SHA256SUMS`
-([D-16](../developer/decisions.md#d-16-the-first-real-release)); no tag run has done it yet, so
-this holds for every published release until the first signed one. What stays live after it:
+([D-16](../developer/decisions.md#d-16-the-first-real-release)); v0.6.0, v0.7.0 and v0.8.0 carry
+that signed, notarized disk image (v0.5.0 and v0.9.0 to v0.12.0 no files; checked 2026-10-15), so
+the unsigned case holds for v0.4.0 and earlier and for the archives up to v0.6.0. What stays live:
 `SHA256SUMS` is not signed, and the unsigned archives of the releases up to v0.6.0 stay on their
 release pages, so whoever can change a release's assets (the GitHub App's key, a maintainer's
 account) can replace one of those archives and its checksum together, and a user has nothing to
@@ -161,8 +174,16 @@ every automerged update.
 Decided (owner, 2026-10-14 evening): a repository ruleset lets only the semantic-release GitHub App
 (as a bypass actor) and the owner create `v*` tags, and "Allow administrators to bypass" is off on
 the environment `release`. Both are GitHub settings, an outward change made with the owner's
-approval; neither is made yet, so the arbitrary-tag case above is live today. What
-remains once they are made, per case:
+approval; neither is made yet, so the arbitrary-tag case above is live today (checked with `gh`
+2026-10-15 ~19:00 UTC: no ruleset exists, and `release` still has its administrator bypass on).
+Decided further (owner, 2026-10-15 afternoon): the ruleset's only bypass actor is the
+semantic-release GitHub App (`guided-traffic-automation`, app id 5070048, the releases' author);
+nobody creates a `v*` tag by hand, and an emergency tag means an administrator switches the
+ruleset off for the moment, which the organisation's audit log records. Options weighed: the App
+plus a team holding only the owner (a team to keep, for a path nobody uses); the App plus the
+Repository admin role (the bot's token alone could start a signed release). Not verified: whether
+a ruleset accepts a single user as a bypass actor, which is why the owner is not named directly.
+What remains once they are made, per case:
 
 - **A commit on `main`.** Branch protection is not part of the decision: a commit that passes the
   gates is still released and, since semantic-release tags it through the App, built, signed and
@@ -170,11 +191,15 @@ remains once they are made, per case:
 - **The App's private key.** It is an organisation secret that the Semantic Release job and
   Renovate use ([keys](#keys-and-who-holds-them)); whoever holds it can create a `v*` tag on any
   commit, which the ruleset admits as the App's. Live for every holder of the key.
-- **The owner's account** can create such a tag, as intended.
+- **An administrator's account** can switch the ruleset off and then create such a tag: the
+  emergency path the owner decided on 2026-10-15; the organisation's audit log records the switch.
+  Live for every administrator once the ruleset exists.
 
 ### H-15: Update key compromise and rotation
 
-Dormant until the key exists. Whoever holds the update key and can serve the feed (Pages) can offer
+Dormant until a copy built with the key is installed: the key exists since 2026-10-15, and v0.11.0
+to v0.13.0 are built with it, but none of them had passed notarization on 2026-10-15 ~19:00 UTC.
+Whoever holds the update key and can serve the feed (Pages) can offer
 every copy an update Sparkle accepts. Sparkle's documentation says a release may change either the
 Apple code signing certificate or the EdDSA key, but not both, so the key alone lets an update
 carry another team's Developer ID ([rotating signing keys](https://sparkle-project.org/documentation/#rotating-signing-keys);
@@ -197,7 +222,10 @@ mirror.
 
 ### H-92: An environment `sparkle` without rules hands the update key to any run
 
-Dormant today: the environment `sparkle` holds no secret. GitHub creates an environment the moment a
+Dormant: since 2026-10-15 the environment `sparkle` holds the secret (since 07:00 UTC), and it has
+its rules: the owner as required reviewer, the tag rule `v*` only, no administrator bypass (checked
+with `gh` 2026-10-15 ~19:00 UTC). It turns live if the rules are removed or loosened while the
+secret is there. GitHub creates an environment the moment a
 workflow run names it, without a reviewer and without a deployment rule; the first release run
 after 2026-10-14 does so ("Appcast (sign)"). Live from the moment the owner stores
 `SPARKLE_ED_PRIVATE_KEY` in it before the reviewer and the tag rule: then any workflow run in this
@@ -213,9 +241,11 @@ names the run and its tag, not what changed. The feed also signs the release's t
 when the job ran: whoever can edit it before then (the same actors) has their text and links shown
 in Sparkle's window. Administrators may bypass the reviewer while "Allow administrators to bypass"
 is on (GitHub's default; `release` has it on). Decided (owner, 2026-10-14 evening): the bypass goes
-off on `release`, a setting the owner makes, not made yet ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released));
-the decision names `release`, not `sparkle`, so for `sparkle` the bypass stays as the owner sets it
-when he adds the reviewer.
+off on `release`, a setting made only with the owner's explicit OK, not made yet (checked
+2026-10-15) ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released));
+the decision names `release`, not `sparkle`; `sparkle` has the bypass off since its set-up on
+2026-10-15 (checked with `gh` that day), and `github-pages` keeps its bypass (the owner, 2026-10-15:
+the feed is signed).
 
 ### H-93: The feed's host can withhold updates
 
@@ -231,7 +261,8 @@ freshness check is designed.
 
 ### H-91: After 20 days of unverifiable feeds, Sparkle presents items again
 
-Dormant until the key exists; then live by design. Sparkle's `SUSignedFeedFailureExpirationInterval`
+Dormant until a signed feed is served (the key exists since 2026-10-15; `appcast.xml` answered 404
+on 2026-10-15 ~19:00 UTC); then live by design. Sparkle's `SUSignedFeedFailureExpirationInterval`
 (default 20 days, Cogpit keeps it) lets a copy that has not validated a feed for that long present
 the items of an unverified feed, without their release notes and links, as a failsafe for a lost
 key ([Sparkle's security settings](https://sparkle-project.org/documentation/customization/#security-settings)).
@@ -243,10 +274,11 @@ that changes the update key; the copies' logs show the failures, the user still 
 Setting the interval to 0 closes this and turns a lost key into one manual download per copy.
 
 Confirmed by the owner (2026-10-14 evening): Sparkle's 20 days stay (the owner declined setting the
-interval to 0). What remains, dormant until the update key exists and live by design after: the
-case above. Once the tag ruleset decided the same evening is made
-([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)), the Developer ID-signed disk
-image it needs comes only from a run on a tag the GitHub App or the owner created.
+interval to 0). What remains, dormant until the first signed feed is served and live by design
+after: the case above. Once the tag ruleset decided the same evening (and further on 2026-10-15)
+is made ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)), the Developer
+ID-signed disk image it needs comes only from a run on a tag the GitHub App created, or one an
+administrator created with the ruleset switched off.
 
 ### H-17: Installs owned by a package manager
 
