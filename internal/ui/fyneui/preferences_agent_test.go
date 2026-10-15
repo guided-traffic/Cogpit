@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/theme"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
@@ -107,6 +109,36 @@ func TestAgentPreferencesKeySemantics(t *testing.T) {
 	if got.key != nil || got.conn.ID != "" || got.conn.Kind != engine.ChatLMStudio || got.conn.BaseURL != "http://localhost:1234/v1" ||
 		!got.conn.Private || got.conn.Limits.MaxToolCalls != 40 || got.conn.Limits.MaxTokens != 120_000 || got.conn.Limits.RepeatStop != 0 {
 		t.Errorf("the new connection was saved as %+v with key %v", got.conn, got.key)
+	}
+}
+
+// TestAgentPreferencesPrivateHint (H-96): under the private connection's mark the form says that
+// conversations over a private connection are not saved: a hint in the settings' style (a muted
+// caption line under the setting), whole at the form's width, between the mark and the limits.
+func TestAgentPreferencesPrivateHint(t *testing.T) {
+	sh, w, _, _ := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	a.edit(litellm())
+	settle(w)
+	var hint *textLine
+	for _, l := range findAll[*textLine](a.form.root) {
+		if l.text == privateNotKept {
+			hint = l
+		}
+	}
+	if hint == nil || !hint.Visible() {
+		t.Fatalf("the form has no visible hint %q", privateNotKept)
+	}
+	if hint.color != colorMuted || hint.size != theme.SizeNameCaptionText {
+		t.Errorf("the hint is drawn in %s at %s, want the settings' hint style", hint.color, hint.size)
+	}
+	if shown := test.WidgetRenderer(hint).Objects()[0].(*canvas.Text).Text; shown != privateNotKept {
+		t.Errorf("the hint is shortened to %q", shown)
+	}
+	d := fyne.CurrentApp().Driver()
+	y := d.AbsolutePositionForObject(hint).Y
+	if y <= d.AbsolutePositionForObject(a.form.private).Y || y >= d.AbsolutePositionForObject(a.form.limits[0]).Y {
+		t.Errorf("the hint at y %v is not between the private mark and the limits", y)
 	}
 }
 

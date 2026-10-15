@@ -121,7 +121,8 @@ func (c *fakeChat) emit(id string) {
 
 // --- scripting ---
 
-// add keeps a conversation of ctx with items; it is the newest.
+// add keeps a conversation of ctx with items; it is the newest. As the agent's, it is private
+// (memory only, H-96) when a user item's turn ran over a private connection.
 func (c *fakeChat) add(ctx, title string, items ...engine.ChatItem) string {
 	c.mu.Lock()
 	c.seq++
@@ -130,8 +131,9 @@ func (c *fakeChat) add(ctx, title string, items ...engine.ChatItem) string {
 	if len(c.conns) > 0 {
 		conn = c.conns[0].ID
 	}
+	private := slices.ContainsFunc(items, func(it engine.ChatItem) bool { return it.Sent != nil && it.Sent.Private })
 	c.convs[id] = &engine.ChatConversation{ChatConversationInfo: engine.ChatConversationInfo{ID: id, Title: title, Context: ctx,
-		ConnectionID: conn, Updated: c.now.Add(time.Duration(c.seq) * time.Minute)}, Revision: 1, Items: items}
+		ConnectionID: conn, Updated: c.now.Add(time.Duration(c.seq) * time.Minute), Private: private}, Revision: 1, Items: items}
 	c.mu.Unlock()
 	return id
 }

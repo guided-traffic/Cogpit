@@ -638,7 +638,11 @@ func (c *chatPanel) showMenu(m *fyne.Menu, pos fyne.Position) {
 	pm.ShowAtPosition(pos)
 }
 
-// showHistory lists the kept conversations of the cluster: open one, delete one, or clear them.
+// historyNotSaved marks a private conversation in the history: it lives in memory only (H-96).
+const historyNotSaved = "not saved"
+
+// showHistory lists the conversations of the cluster, the kept ones and the private ones of this
+// run: open one, delete one, or clear them.
 func (c *chatPanel) showHistory() {
 	ctx := c.sh.ui.Context
 	if ctx == "" && c.conv != nil {
@@ -680,8 +684,9 @@ func (c *chatPanel) showHistoryList(ctx string, list []engine.ChatConversationIn
 	c.history.ShowAtPosition(fyne.NewPos(pos.X+c.historyB.Size().Width-width-th.Size(theme.SizeNameInnerPadding), pos.Y+c.historyB.Size().Height))
 }
 
-// historyRow is one conversation of the history: its title and age (a running turn says so), the
-// shown one bold; a click opens it, × deletes it.
+// historyRow is one conversation of the history: its title and age (a running turn says so, and a
+// private conversation that it is not saved, H-96), the shown one bold; a click opens it, ×
+// deletes it.
 func (c *chatPanel) historyRow(info engine.ChatConversationInfo) fyne.CanvasObject {
 	title := info.Title
 	if title == "" {
@@ -690,6 +695,9 @@ func (c *chatPanel) historyRow(info engine.ChatConversationInfo) fyne.CanvasObje
 	t := newTextLine(title, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: info.ID == c.convID})
 	t.truncate = true
 	when := formatAgo(c.sh.now().Sub(info.Updated))
+	if info.Private {
+		when = historyNotSaved + " · " + when
+	}
 	if info.Running {
 		when = "running · " + when
 	}
@@ -729,7 +737,7 @@ func (c *chatPanel) confirmClear(ctx string, n int) {
 	c.closePopups()
 	name := c.sh.identity(ctx).name
 	d := dialog.NewConfirm("Delete "+pluralOf(n, "conversation")+"?",
-		"Every kept conversation about "+name+" is deleted. This cannot be undone.", func(ok bool) {
+		"Every conversation about "+name+" is deleted. This cannot be undone.", func(ok bool) {
 			if !ok {
 				return
 			}

@@ -483,6 +483,30 @@ func TestChatHistory(t *testing.T) {
 	})
 }
 
+// TestChatHistoryMarksUnsaved (H-96): a private conversation, which lives in memory only, says so
+// in the history; a kept one does not.
+func TestChatHistoryMarksUnsaved(t *testing.T) {
+	sh, _, q, _, _ := chatScene(t, ThemeDark, func(ch *fakeChat) string {
+		ch.add("demo", "Kept", engine.ChatItem{Kind: engine.ChatItemUser, Text: "one", Sent: &engine.ChatSent{Endpoint: "litellm.example.com"}})
+		return ch.add("demo", "Private", engine.ChatItem{Kind: engine.ChatItemUser, Text: "two", Sent: &engine.ChatSent{Endpoint: "localhost:1234", Private: true}})
+	})
+	test.Tap(sh.chat.historyB)
+	q.until(t, "the history", func() bool { return sh.chat.history != nil && len(sh.chat.histRows) == 2 })
+	texts := func(id string) string {
+		var out []string
+		for _, l := range findAll[*textLine](sh.chat.histRows[id]) {
+			out = append(out, l.text)
+		}
+		return strings.Join(out, "|")
+	}
+	if got := texts("conv-2"); !strings.Contains(got, historyNotSaved+" · ") {
+		t.Errorf("the private conversation's row %q does not say it is not saved", got)
+	}
+	if got := texts("conv-1"); strings.Contains(got, historyNotSaved) {
+		t.Errorf("the kept conversation's row %q says it is not saved", got)
+	}
+}
+
 // TestChatStreamingStaysCheap streams a 2,000-token answer in 10-token deltas (about 8 KiB in 200
 // steps): each step lays out the answer's last block only, never the other items, and the window's
 // work per step stays far below a frame.
@@ -726,6 +750,24 @@ func TestRenderChatConversation(t *testing.T) {
 					sh.chat.scroll.ScrollToTop()
 					sh.chat.updatePin()
 				})
+		})
+	}
+}
+
+// TestRenderChatHistory: the history of the cluster's conversations: the shown one (private, its
+// turns ran over the local connection) bold and marked not saved, two kept ones.
+func TestRenderChatHistory(t *testing.T) {
+	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
+		t.Run(string(mode), func(t *testing.T) {
+			renderChat(t, mode, "chat_history", func(ch *fakeChat) string {
+				team := &engine.ChatSent{Requests: 1, Endpoint: "litellm.example.com"}
+				ch.add("demo", "How many pods run in payments?", engine.ChatItem{Kind: engine.ChatItemUser, Text: "How many pods run in payments?", Sent: team})
+				ch.add("demo", "Which images does ledger-writer run?", engine.ChatItem{Kind: engine.ChatItemUser, Text: "Which images does ledger-writer run?", Sent: team})
+				return demoConversation(ch, "demo")
+			}, func(sh *shell, w fyne.Window, q *mainQueue) {
+				test.Tap(sh.chat.historyB)
+				q.until(t, "the history", func() bool { return sh.chat.history != nil && len(sh.chat.histRows) == 3 })
+			})
 		})
 	}
 }

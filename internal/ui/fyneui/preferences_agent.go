@@ -25,9 +25,10 @@ import (
 // a connection is added, edited, made the default or deleted here. The form: name, kind (which
 // prefills LM Studio's usual base URL), base URL, API key (kept in the operating system's keychain:
 // empty keeps the stored key, "Remove key" removes it), model (the endpoint's list, any name may be
-// typed), the private connection's mark with what it unlocks, the four limits of a turn with their
-// defaults, and "use as default"; Test connection checks the form's values layer by layer (TCP,
-// HTTP and TLS, authentication, tool use) and shows each layer as it ends.
+// typed), the private connection's mark with what it unlocks and the hint that its conversations
+// are not saved (H-96), the four limits of a turn with their defaults, and "use as default"; Test
+// connection checks the form's values layer by layer (TCP, HTTP and TLS, authentication, tool use)
+// and shows each layer as it ends.
 //
 // Only the user edits this page. Its controls call the window's ChatAgent directly; none is a
 // command, so no agent can reach them (an agent must never mark a connection private, which loosens
@@ -76,6 +77,9 @@ const (
 	privateCheckText = "Private connection: a local model or a private cloud"
 	privateHelp      = "Cogpit's chat then reads what the window shows, Secret values included; writes still ask. " +
 		"Without the mark it reads only what external agents may read."
+	// privateNotKept is the setting's hint (H-96): a conversation in which a turn ran over a private
+	// connection is never saved (agent/conversation.go has the rule).
+	privateNotKept = "Conversations over a private connection are not saved: they are gone when Cogpit quits."
 )
 
 // agentPrefs is the Agent section's state.
@@ -398,7 +402,7 @@ func newAgentForm(a *agentPrefs, c engine.ChatConnection) *agentForm {
 		p.setting("agentBaseURL", "Base URL", "", container.NewVBox(f.baseURL, f.urlHint)),
 		p.setting("agentKey", "API key", "", container.NewVBox(container.NewBorder(nil, nil, nil, f.removeKey, f.key), f.keyHelp)),
 		p.setting("agentModel", "Model", "", container.NewVBox(container.NewBorder(nil, nil, nil, f.modelsB, f.model), f.modelNote)),
-		p.setting("agentPrivate", "Private connection", "", container.NewVBox(f.private,
+		p.setting("agentPrivate", "Private connection", privateNotKept, container.NewVBox(f.private,
 			newParagraph(privateHelp, colorMuted, settingsColumn-4*p.sh.app.Settings().Theme().Size(theme.SizeNameInnerPadding)))),
 		p.setting("agentLimits", "Limits per turn", "Empty takes the default; a turn that reaches one stops with a note.",
 			container.NewGridWithColumns(4, grid...)),
