@@ -55,7 +55,7 @@ func run(previousCrash string) int {
 		perfMode    = flag.String("perf-mode", "", "with --perf (or alone for gate): scroll, or gate for start-up, scrolling, every view and typing into 5 MB of YAML in one run")
 		cpuProfile  = flag.String("cpuprofile", "", "write a CPU profile of the first --cpuprofile-for to this file")
 		cpuFor      = flag.Duration("cpuprofile-for", 5*time.Second, "how long --cpuprofile records")
-		themeName   = flag.String("theme", "", "colour theme for this run: dark, light or system; default: the Preferences' theme (dark until set)")
+		themeName   = flag.String("theme", "", "colour theme for this run: dark, light or system; default: the Preferences' theme (system until set)")
 		verbose     = flag.Bool("v", false, "debug logging")
 	)
 	flag.Parse()

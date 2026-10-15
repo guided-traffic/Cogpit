@@ -118,8 +118,8 @@ the hash puts 111 to 179 s of tests into a shard, the longest single test is
 `TestRenderPrometheusMetrics` at 46 s. To see the split: `go run ./hack/shard -pkg
 ./internal/ui/fyneui -tags race -of 8 -summary`, with `-durations <go test -json output>` for each
 shard's time. To change the number of shards, change the matrix and `RACE_SHARDS` in
-`release.yml`'s `race-ui` job together. The `Makefile`'s own default, `RACE_SHARDS ?= 6`, applies
-only to a local `make test-race-ui` without `RACE_SHARDS`, and splits the tests otherwise than CI.
+`release.yml`'s `race-ui` job together. The `Makefile`'s own default, `RACE_SHARDS ?= 8`, is CI's
+number (set equal 2026-10-15), so a local `make test-race-ui RACE_SHARD=<n>` runs CI's shard n.
 
 ### Coverage
 

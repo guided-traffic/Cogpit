@@ -16,9 +16,10 @@ import (
 
 // The settings pages (G13): Preferences (⌘,) and a cluster's Settings (⌘⇧,). Lens shows both as
 // pages (its cluster settings as a tab "Settings - <context>" with the cluster's icon and a page
-// list on the left, captured 2026-10-11; its Preferences as a page, inferred). Cogpit has no tab
-// bar, so a settings page takes the place of the navigator, the views and the dock until it is
-// closed (its × or Escape); the hotbar, the top bar and the status bar stay. Which page is open is
+// list on the left, captured 2026-10-11; its Preferences as a page, inferred). Cogpit does not open
+// them as tabs of its tab bar (tabs.go): a settings page takes the place of the navigator, the tab
+// bar, the views and the dock until it is closed (its × or Escape); the hotbar, the top bar and
+// the status bar stay. Which page is open is
 // UI state (UIState.Settings: preferences.open, cluster.settings.open, settings.close), so an
 // agent sees it and can open one; the section list dispatches the open command with the section.
 // Each section shows its settings under upper-case headings with a help line below each, as the

@@ -2,7 +2,10 @@
 
 This directory is `github.com/fyne-io/terminal` at commit `46cd12724ff3` (2026-10-09; moved from
 `91063bb29d69` on 2026-10-12, whose two upstream commits since touch none of the patched code),
-without its `cmd/` and `img/` directories, used by Cogpit through a `replace` directive in Cogpit's `go.mod`.
+without its `cmd/` and `img/` directories, used by Cogpit through a `replace` directive in Cogpit's `go.mod`,
+whose `require` names the same commit (Renovate leaves the module alone, `.github/renovate.json`:
+an upstream update means syncing this copy by hand; e858ee49 had moved the `require` to
+`522b7a6e5de3` while the copy stayed, set back 2026-10-15).
 Terminal output comes from containers, which anyone who can deploy to a cluster controls; the
 upstream widget crashed or froze Cogpit's whole process on some of it, on Fyne's main goroutine,
 where nothing can recover. Each patch is marked `Cogpit patch:` in the code. They are candidates

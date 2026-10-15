@@ -6,7 +6,7 @@ require (
 	fyne.io/fyne/v2 v2.8.2
 	github.com/creack/pty v1.1.24
 	github.com/fyne-io/oksvg v0.2.1-0.20260918172519-a9af55fa95d9
-	github.com/fyne-io/terminal v0.0.0-20261014185522-522b7a6e5de3
+	github.com/fyne-io/terminal v0.0.0-20261009134031-46cd12724ff3
 	github.com/google/jsonschema-go v0.4.3
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2

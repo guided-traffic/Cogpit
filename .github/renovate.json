@@ -37,6 +37,16 @@
   ],
   "packageRules": [
     {
+      "description": "github.com/fyne-io/terminal is Cogpit's patched copy in third_party/fyne-terminal through a replace directive (D-14): an upstream update means syncing the copy by hand (third_party/fyne-terminal/PATCHES.md), so go.mod's require keeps naming the copy's base commit.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchPackageNames": [
+        "github.com/fyne-io/terminal"
+      ],
+      "enabled": false
+    },
+    {
       "description": "Go modules: every minor, patch and digest update in one pull request a week, so that CI runs once for them instead of once per module (owner, 2026-10-15: 21 pull requests at once flooded the shared runner node, GitHub refused the actions' downloads with 429 and none merged). Before the Go version rules, which keep golang.org/x/* with the Go version.",
       "matchManagers": [
         "gomod"

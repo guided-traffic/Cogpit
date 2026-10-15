@@ -1,9 +1,9 @@
 // Package metrics finds out where a cluster's resource usage comes from and polls it while
 // something visible shows it (architecture §9).
 //
-// A [Provider] answers "what do these pods and nodes use right now". The first one is the
-// Kubernetes Metrics Server ([Server], the metrics.k8s.io API); Prometheus through the API
-// server's service proxy comes next and plugs into the same places: a [Detector] finds a provider
+// A [Provider] answers "what do these pods and nodes use right now". There are two: the
+// Kubernetes Metrics Server ([Server], the metrics.k8s.io API) and Prometheus through the API
+// server's service proxy, which also answers for the past (range queries). A [Detector] finds a provider
 // (and says why it found none), a [Hub] polls it while subscribed and keeps the latest results and
 // a short time series per watched object. Metrics cannot be watched, so polling is the documented
 // exception to "never poll what can be watched" (AGENTS.md, cache first), and it happens only

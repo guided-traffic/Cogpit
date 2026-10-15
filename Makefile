@@ -129,7 +129,7 @@ test-unit-coverage: ## Unit tests without the race detector, with a coverage pro
 # shard by a hash of its name, so a new test lands in one without a change here or in CI. The
 # number of shards is CI's (release.yml's matrix); locally any shard runs alone.
 UI_PKG          := ./internal/ui/fyneui
-RACE_SHARDS     ?= 6
+RACE_SHARDS     ?= 8
 RACE_SHARD      ?= 1
 
 test-race-ui: ## Race tests of internal/ui/fyneui, shard RACE_SHARD of RACE_SHARDS, with coverage (.cache/coverage/race-ui-<n>.out)

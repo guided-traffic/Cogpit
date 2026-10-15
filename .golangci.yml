@@ -369,6 +369,33 @@ linters:
               desc: "the built-in agent dispatches engine commands only"
             - pkg: "k8s.io/client-go"
               desc: "the built-in agent never talks to the API server"
+        l4-update:
+          files:
+            - "**/internal/update/**"
+            - "!$test"
+          deny:
+            - pkg: "github.com/guided-traffic/cogpit/internal/ui"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/mcp"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/agent"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/app"
+              desc: "L4 packages do not import each other"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cluster"
+              desc: "the update check never talks to a cluster"
+            - pkg: "github.com/guided-traffic/cogpit/internal/cache"
+              desc: "the update check never talks to a cluster"
+            - pkg: "github.com/guided-traffic/cogpit/internal/terminal"
+              desc: "the update check never talks to a cluster"
+            - pkg: "github.com/guided-traffic/cogpit/internal/demo"
+              desc: "the update check never talks to a cluster"
+            - pkg: "github.com/guided-traffic/cogpit/internal/helm"
+              desc: "the update check never talks to a cluster"
+            - pkg: "github.com/guided-traffic/cogpit/internal/metrics"
+              desc: "the update check never talks to a cluster"
+            - pkg: "k8s.io/client-go"
+              desc: "the update check never talks to a cluster"
         l4-app:
           files:
             - "**/internal/app/**"
