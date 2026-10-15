@@ -503,7 +503,7 @@ func TestCreateShowsTheNewObject(t *testing.T) {
 	}
 	h.must(t, engine.OriginGUI, "namespace.create", map[string]any{"name": "user-made"}, nil)
 	u := h.s.UIState()
-	if u.View != "namespaces" || u.Drawer == nil || u.Drawer.Name != "user-made" || len(u.Selected) != 1 || u.Selected[0].Name != "user-made" {
+	if u.View != "namespaces" || u.Drawer == nil || u.Drawer.Name != "user-made" || len(u.Selected) != 0 {
 		t.Errorf("after the user's create: view %q, drawer %+v, selected %+v", u.View, u.Drawer, u.Selected)
 	}
 }

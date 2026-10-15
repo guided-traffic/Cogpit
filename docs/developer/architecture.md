@@ -617,7 +617,12 @@ checked, through the mode `open`: it takes exactly one object (no `all`, no `noD
 `Drawer` to it and leaves `Selected` as it is, so an agent reading `ui_state` sees the drawer move
 and the checked rows stay (`TestSelectOpenKeepsTheCheckedRows`). The window sends it for a click on
 a row, ↵ and Space on a row, a link to the row's own object (the cluster Overview's issues) and the
-row menu's Show Details (`shell.openDetails`). The selection stays when the namespace filter or the
+row menu's Show Details (`shell.openDetails`). **Built 2026-10-15 night** (owner: selecting and
+opening a drawer are separate actions): `ui.navigate` sets the view and `Drawer` and leaves
+`Selected` alone in the same view; a view it changes to starts with no checked rows, as
+`ui.openView` (`TestNavigateLeavesTheSelection`); the window's selection bar shows from one checked
+row (`minSelectionBar`), while a checked row's menu acts on the selection only from two
+(`minSelectionMenu`). The selection stays when the namespace filter or the
 search hides some of its rows (inferred), and `ui.openView` clears it as before
 (`TestSelectModes`). The window's table ([`tablecheck.go`](../../internal/ui/fyneui/tablecheck.go))
 has a checkbox column first (table column 0; the view's columns follow from `firstDataColumn`, the

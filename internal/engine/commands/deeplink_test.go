@@ -138,7 +138,7 @@ func TestDeepLinkOpensAnObjectsDrawer(t *testing.T) {
 	}
 	want := model.ObjectRef{Context: "test", Kind: "pods", Namespace: "shop", Name: "web-0"}
 	u := h.s.UIState()
-	if u.View != "pods" || u.Drawer == nil || *u.Drawer != want || !slices.Equal(u.Selected, []model.ObjectRef{want}) {
+	if u.View != "pods" || u.Drawer == nil || *u.Drawer != want || len(u.Selected) != 0 {
 		t.Errorf("view %q, drawer %v, selected %v", u.View, u.Drawer, u.Selected)
 	}
 	if res.Ref == nil || *res.Ref != want || !res.Found || res.Connected || res.Context != "test" {

@@ -136,7 +136,7 @@ func TestShowcaseServiceByClusterIP(t *testing.T) {
 			t.Fatalf("ui_navigate: %+v", nav)
 		}
 		ui := s.UIState()
-		if ui.View != "services" || ui.Drawer == nil || !ui.Drawer.Same(want) || len(ui.Selected) != 1 || !ui.Selected[0].Same(want) {
+		if ui.View != "services" || ui.Drawer == nil || !ui.Drawer.Same(want) || len(ui.Selected) != 0 {
 			t.Fatalf("UI state after navigate: view=%q drawer=%v selected=%v", ui.View, ui.Drawer, ui.Selected)
 		}
 		if !testkit.WaitFor(ctx, func() bool { return s.Table("services").IndexOf(want) >= 0 }) {

@@ -123,8 +123,8 @@ func TestRowCheckboxes(t *testing.T) {
 	if c := cellAt(t, sh, 2, checkColumn); !c.selected || c.iconRes != tv.cellIcon(cellContent{kind: cellCheck}, true) || sh.ui.Drawer != nil {
 		t.Fatalf("checked row: selected %v, checked icon %v, drawer %v", c.selected, c.iconRes == tv.cellIcon(cellContent{kind: cellCheck}, true), sh.ui.Drawer)
 	}
-	if tv.check.bar.root.Visible() {
-		t.Error("the selection bar shows for one object")
+	if !tv.check.bar.root.Visible() || tv.check.bar.count.text != "1 selected" { // from one row (owner, 2026-10-15)
+		t.Errorf("selection bar for one object: visible %v, %q", tv.check.bar.root.Visible(), tv.check.bar.count.text)
 	}
 
 	// ⇧ on another checkbox adds the rows between.

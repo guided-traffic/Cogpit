@@ -51,8 +51,12 @@ const (
 )
 
 // minSelectionBar is the selection size from which the header shows the selection's actions:
-// the row menu of one checked object acts on it.
-const minSelectionBar = 2
+// one checked row (owner, 2026-10-15; was 2).
+const minSelectionBar = 1
+
+// minSelectionMenu is the selection size from which a checked row's menu acts on the selection:
+// the row menu of the one checked object acts on that object, with every action of one object.
+const minSelectionMenu = 2
 
 // selectModeParams are ui.select's parameters with its mode (engine/commands/ui.go).
 type selectModeParams struct {
@@ -227,7 +231,7 @@ func (tv *tableView) clearSelection() {
 
 // inSelection reports whether a row's menu acts on the selection: the row is selected, with others.
 func (tv *tableView) inSelection(row int) bool {
-	return len(tv.selected) >= minSelectionBar && tv.rowChecked(row)
+	return len(tv.selected) >= minSelectionMenu && tv.rowChecked(row)
 }
 
 // selectionAction is an action on a selection evaluated off the main goroutine.

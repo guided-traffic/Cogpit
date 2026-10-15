@@ -206,7 +206,7 @@ func registerUI(g *registrar) {
 			"selection (the checked rows) as it is: the click on a row. all: true takes " +
 			"every row the view shows (namespace filter, search and status filter applied) in place of refs. Actions on the selection " +
 			"take its objects (object_deleteMany). On the cluster Overview the objects are its issues' (any kind). To " +
-			"select an object of another kind or one hidden by the filters, use ui_navigate. Returns the new UI state.",
+			"select an object of another kind or one hidden by the filters, show it with ui_navigate first. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ selectParams) error { _, err := openView(s); return err },
 		Run:     selectObjects,
 	})
@@ -222,7 +222,9 @@ func registerUI(g *registrar) {
 	add(g, engine.Spec[refParams]{
 		ID: "ui.navigate", Label: "Go to Object", MenuPath: "View/Go to Object", Danger: engine.DangerUI, Verbs: cacheReads,
 		Description: "Shows one object to the user: opens its kind's view, makes sure the namespace filter, the search " +
-			"text and the status filter do not hide it (resetting them if they do), selects it and opens its detail drawer. Use it after " +
+			"text and the status filter do not hide it (resetting them if they do) and opens its detail drawer. It leaves " +
+			"the selection (the checked rows) as it is in the same view and clears it when the view changes, as ui_openView " +
+			"does; to check the object too, call ui_select afterwards. Use it after " +
 			"resources_find. Reads only the cache. Returns {view, ref, found}; found is false when the object is not in the cache.",
 		Enabled: func(s *engine.Session, _ refParams) error { _, err := connected(s); return err },
 		Run:     navigate,
@@ -257,7 +259,8 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 	sort := s.ViewSort(prof.Key)
 	st := s.UpdateUI(func(u *engine.UIState) {
 		if u.View != prof.Key {
-			u.View, u.Sort, u.Filter = prof.Key, sort, ""
+			// The checked rows are the open view's: another view's do not carry over (as ui.openView).
+			u.View, u.Sort, u.Filter, u.Selected = prof.Key, sort, "", nil
 		}
 		if prof.Namespaced && len(u.Namespaces) > 0 && !slices.Contains(u.Namespaces, ref.Namespace) {
 			u.Namespaces = nil
@@ -268,7 +271,8 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 		if len(u.States) > 0 && (row == nil || !engine.MatchesStates(prof, *row, u.States)) {
 			u.SetStates(nil) // the status filter hides it (statusfilter.go)
 		}
-		u.Selected = []model.ObjectRef{ref}
+		// Selecting and opening a drawer are separate actions (owner, 2026-10-15): the checked rows
+		// change only through ui.select.
 		d := ref
 		u.Drawer = &d
 	})

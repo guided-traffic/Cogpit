@@ -259,7 +259,7 @@ func TestMCPFindAndNavigate(t *testing.T) {
 			t.Fatalf("navigate: %+v", nav)
 		}
 		u := h.s.UIState()
-		if u.View != "services" || len(u.Selected) != 1 || !u.Selected[0].Same(ref) || u.Drawer == nil || !u.Drawer.Same(ref) {
+		if u.View != "services" || len(u.Selected) != 0 || u.Drawer == nil || !u.Drawer.Same(ref) {
 			t.Fatalf("UI state after navigate: view %s selected %v drawer %v", u.View, u.Selected, u.Drawer)
 		}
 		snap := waitTable(t, h.s, "services", func(s *engine.TableSnapshot) bool { return s.Synced && s.IndexOf(ref) >= 0 })
