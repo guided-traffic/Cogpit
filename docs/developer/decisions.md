@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -17,11 +17,30 @@ projects' repositories; re-check them before relying on a version number.
 | [D-6](#d-6-kubernetes-libraries) | Kubernetes libraries | decided: client-go, kubectl libraries, Helm SDK |
 | [D-7](#d-7-language-and-platforms) | Language and platforms | decided: Go; a macOS app first, Windows and Linux later |
 | [D-8](#d-8-licence) | Licence | decided: Apache-2.0 |
-| [D-9](#d-9-scope-against-lenss-paid-and-vendor-features) | Scope against Lens's paid and vendor features | decided: Flux CD and Argo CD in the beta, other paid features after it, vendor features never |
-| [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: a chat column at the window's right edge, OpenAI-compatible endpoints, several connections, a private-connection mark, kept scrubbed conversations, limits per turn (owner, 2026-10-14 late evening); the API keys in an owner-only file, no keychain (owner, 2026-10-15); a key file others could access repaired with a log warning, no migration of keychain keys (confirmed, owner, 2026-10-15); being built (M12) |
+| [D-9](#d-9-scope-against-lenss-paid-and-vendor-features) | Scope against Lens's paid and vendor features | decided: Flux CD and Argo CD in the beta (built 2026-10-13 and 2026-10-14), other paid features after it, vendor features never; verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, no longer an alpha-gate or M1 item (owner, 2026-10-15) |
+| [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: a chat column at the window's right edge, OpenAI-compatible endpoints, several connections, a private-connection mark, kept scrubbed conversations, limits per turn (owner, 2026-10-14 late evening); the API keys in an owner-only file, no keychain (owner, 2026-10-15); a key file others could access repaired with a log warning, no migration of keychain keys (confirmed, owner, 2026-10-15); built: the engine side 2026-10-14 late evening, the chat column, Preferences › Agent and the private connection in the night of 2026-10-14/15, the key file 2026-10-15; M12 stays open for the work of the owner's audit of 2026-10-15 ([roadmap](../parity/roadmap.md#milestones)) |
 | [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations; Helm install (owner, 2026-10-14 evening): nothing offered after an interrupted install, built 2026-10-14 (the journal still records installs and the banner offers Show release: the lead's decisions for the owner to confirm) |
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
+| [D-14](#d-14-terminal-widget) | Terminal widget | decided (owner, 2026-10-12): the patched copy of `fyne-io/terminal` in `third_party/fyne-terminal`, its patches offered upstream, the widget fuzzed alone; built 2026-10-12; 2026-10-14 evening: its four shell tests under the race detector in CI (A116), built 2026-10-15; the two newer patches offered upstream at the end (A86) |
+| [D-15](#d-15-progress-generators) | Progress generators | decided (owner, 2026-10-12): `make parity` first, the checklist page and the scorecard later; `make parity` built 2026-10-12; the generators not built (G1) |
+| [D-16](#d-16-the-first-real-release) | The first real release | decided (owner, 2026-10-12): a dry run until the alpha; revised 2026-10-13 (releases live: semantic-release on every green `main`, built) and 2026-10-14 (only the complete product, `cogpit-cli` inside the app, built 2026-10-14) |
+| [D-17](#d-17-token-files-named-by-added-kubeconfigs) | Token files named by added kubeconfigs | decided (owner, 2026-10-12): a token file outside the kubeconfig's folder only once the user allowed it, as a credential plugin; built 2026-10-12 |
+| [D-18](#d-18-secret-annotations-seen-by-agents) | Secret annotations seen by agents | decided (owner, 2026-10-12): agents see them in full but kubectl's `last-applied-configuration`; the risk documented (H-23), nothing to build |
+| [D-19](#d-19-editing-and-creating-secrets-from-yaml) | Editing and creating Secrets from YAML | decided (owner, 2026-10-12): in the GUI only; built 2026-10-12 |
+| [D-20](#d-20-a-port-forward-that-cannot-connect) | A port forward that cannot connect | decided (owner, 2026-10-12): Failed at once on an error that waiting does not cure, retried on one that can pass; built 2026-10-12 |
+| [D-21](#d-21-pasting-a-kubeconfig) | Pasting a kubeconfig | decided (owner, 2026-10-12): no kubeconfigs from pasted text; built the same day (the paste removed) |
+| [D-22](#d-22-colour-theme) | Colour theme | decided (owner, 2026-10-12): Solarized Dark and Light after VS Code's themes; built 2026-10-12; 2026-10-14 evening: Sync with computer the default (A94, built 2026-10-14), a free cluster colour (A93, built 2026-10-15) |
+| [D-23](#d-23-a-link-to-the-owner-in-the-status-bar) | A link to the owner in the status bar | decided (owner, 2026-10-12); built 2026-10-12 |
+| [D-24](#d-24-logo) | Logo | decided (owner, 2026-10-12): the C helm; built 2026-10-12; revised (owner, 2026-10-15): the glowing C helm everywhere, every version kept drawable; built 2026-10-15 |
+| [D-25](#d-25-copying-values) | Copying values | decided (owner, 2026-10-12); built 2026-10-12 and 2026-10-13; 2026-10-14 evening: the copy icon over a value's end in the lists and the drawer (A69, A71), built 2026-10-15 |
+| [D-26](#d-26-binding-a-credential-plugins-approval-to-its-program) | Binding a credential plugin's approval to its program | decided (owner, 2026-10-12): the program's content where a folder's writer can replace it, else its path; built 2026-10-12; 2026-10-14 evening: Cogpit's own proxy for the cluster bound too (A23), built 2026-10-14 |
+| [D-27](#d-27-an-agents-helm-values-in-the-confirmation) | An agent's Helm values in the confirmation | decided (owner, 2026-10-12): shown in the dialog before the user answers; built 2026-10-12 |
+| [D-28](#d-28-the-default-kubeconfig-as-sources-as-lens-has-it) | The default kubeconfig as sources, as Lens has it | decided (owner, 2026-10-12); built 2026-10-12; 2026-10-14 evening: Remove from Cogpit on a sync folder's context (A97), built 2026-10-15 |
+| [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) | Helm chart repositories from Helm's `repositories.yaml` | decided (owner, 2026-10-13): read, never written, credentials included; built 2026-10-13 and 2026-10-14; 2026-10-14 evening: http and insecure origins marked (A14, built 2026-10-15), dotted repository names (A36, built 2026-10-14), the lead's details for the owner to confirm |
+| [D-30](#d-30-certificates-in-secrets-decoded) | Certificates in Secrets, decoded | decided (owner, 2026-10-13); built 2026-10-13; 2026-10-14 evening: combined PEMs and encrypted keys (A99, A100), built 2026-10-14; the kind of CA (R1), built 2026-10-14 night as the lead's design for the owner to confirm |
+| [D-31](#d-31-every-timestamp-in-the-local-time-zone-and-format) | Every timestamp in the local time zone and format | decided (owner, 2026-10-13); built 2026-10-13; the format as a setting (the owner's "later") not built |
+| [D-32](#d-32-every-byte-amount-in-binary-units-with-one-decimal) | Every byte amount in binary units with one decimal | decided (owner, 2026-10-13); built 2026-10-13 |
 | [D-33](#d-33-the-flux-actions) | The Flux actions | decided (owner, 2026-10-14): Reconcile, Reconcile with Source, Reset, Suspend and Resume as the flux CLI patches them, mutating, on objects and selections; Force an agent's parameter; built 2026-10-13 and 2026-10-14; 2026-10-14 evening: Reconcile with Source waits for the source (built 2026-10-15, the night run, A91), the confirmation names the controller's identity (built 2026-10-14 night, A34) |
 | [D-34](#d-34-the-flux-dashboard) | The Flux dashboard | decided (owner, 2026-10-14): five states after kstatus, counts per kind and the objects that are not ready (built 2026-10-13); a state opens its kind's view filtered, through a status filter of every view (option a), built 2026-10-14; the filter's rules confirmed by the owner (2026-10-14 evening); the button in the accent colour while a filter is active, built 2026-10-14 night (A80) |
 | [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show) | What Argo CD's repository and cluster Secrets show | decided (owner, 2026-10-14): an allowlist of non-credential keys for the window and agents (option b), built 2026-10-13; the labelled Secrets kept whole in the cache, confirmed 2026-10-14 evening |
@@ -54,7 +73,10 @@ in a real window (F1, F2) and three new requirements (R1–R3). "To build" means
 built; "as built" means the owner confirmed what Cogpit does. Each line names where the answer is
 recorded: a decision record on this page, a security gap (`H-n`) in [docs/security](../security/README.md),
 [architecture](architecture.md), or the [parity pages](../parity/README.md) for details of the
-window. Nothing of it was built in the round.
+window. Nothing of it was built in the round. The night run of 2026-10-14/15 and the day after built
+every answer that asked for a build but two: R3 (designed in [D-52](#d-52-several-windows),
+postponed by the owner) and A10 (a GitHub ruleset, not set up); A86's upstream offer waits for the
+end by the owner's own answer. Each line says its state.
 
 <details>
 <summary>The answers, one line each (A1–A117, F1, F2, R1–R3 and the notes)</summary>
@@ -245,6 +267,12 @@ widget), S7 is partial, S8 is recorded.
 - **S5** at the start of M11: local shell, pod exec, resize, copy and paste on Linux (X11 and
   Wayland) and Windows.
 
+**S7 since CI landed (2026-10-13; [releasing › CI](releasing.md#ci)):** half done. On every push the
+macOS job packages the app (`make app`) and the Windows job compiles, vets and links every package
+and test with cgo and Fyne (`go build ./...`, `go test -run '^$' ./...` in "Compile (windows)");
+no job packages the app for Windows or Linux, so the re-check of packaging there stays open until
+M11's packages ([releasing › What gets built](releasing.md#what-gets-built)).
+
 A re-check that fails without a workaround reopens D-1 for that platform only; macOS stays on
 Fyne. Accessibility (S8: the table and the drawer announce nothing to a screen reader) is a known
 gap of Fyne 2.8 and the one criterion where egui, with AccessKit, would be ahead; it does not gate.
@@ -289,8 +317,7 @@ built-in agent alike):
 - Every agent-initiated command is recorded in an audit log the user can read.
 
 **The decision round of 2026-10-14 evening** ([the answers](#decision-round-2026-10-14-evening)).
-Built so far: A1 and A2 (2026-10-14, the night after the round); the rest is not built yet, and the
-code still does what the safety rules above and their notes say:
+All of it built 2026-10-14, the night after the round, each with its evidence below:
 
 - **Decided (owner, 2026-10-14 evening, A1):** every RBAC object an agent creates or changes waits
   for the user's acceptance, also where agent writes are allowed: Roles and ClusterRoles as well as
@@ -366,7 +393,9 @@ code still does what the safety rules above and their notes say:
   `cogpit-cli mcp` already, the doc fix #33 asked for.
 
 **Transport:** MCP Streamable HTTP on `127.0.0.1` with a random bearer token, written owner-only
-to the app's runtime directory; a `cogpit-cli mcp` stdio bridge for agents that only speak stdio.
+to `<user config dir>/Cogpit/mcp-token` and, since 2026-10-15, kept until the user regenerates it
+([D-53](#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it)); a `cogpit-cli mcp`
+stdio bridge for agents that only speak stdio.
 SDK: `github.com/modelcontextprotocol/go-sdk` v1.8.0 (MCP specification 2026-07-28). Lens
 Desktop's own MCP server is read-only and paid ([Lens MCP server](https://docs.lenshq.io/k8slens/mcp-server/));
 Cogpit's is the difference. Security perspective: [agents and MCP](../security/agents-and-mcp.md).
@@ -503,8 +532,9 @@ Applications; the universal image stays a later step), signs the disk image, has
 staples its ticket; `cogpit-cli` for macOS is signed and notarized too. The release page says so
 and names the certificate. No tag run has done it yet: the first release after v0.4.0 is the
 proof (since then, verified 2026-10-15: v0.6.0, v0.7.0 and v0.8.0 carry the signed, notarized
-disk image; v0.5.0 and v0.9.0 to v0.12.0 have no files). Not built yet: the universal binary, the Homebrew cask and Sparkle; the cask and Sparkle's
-EdDSA key come after the disk image. The decisions in this step:
+disk image; v0.5.0 and v0.9.0 to v0.12.0 have no files). Not built yet: the universal binary and
+the Homebrew cask. Sparkle followed the disk image (built 2026-10-14, below), its EdDSA key set up
+by the owner on 2026-10-15. The decisions in this step:
 
 - **A failure fails the release's macOS job (the lead, 2026-10-14; confirmed by the owner the same
   evening, A9, as built).**
@@ -545,9 +575,11 @@ EdDSA key come after the disk image. The decisions in this step:
 `io.guided-traffic.cogpit.cli`), so the disk image's one submission covers it, its stapled ticket
 carries the whole app, and Sparkle's update replaces it with the bundle. The separate signing and
 submission of a bare `cogpit-cli` (the bullet above) and the archives for Linux and Windows are
-gone; those systems get Cogpit with their desktop app (M11). Not verified until the first signed
-release: that the bundled `cogpit-cli`, run from a terminal in a quarantined copy before the app
-was ever opened, starts without a prompt
+gone; those systems get Cogpit with their desktop app (M11). Signed releases with the bundled
+`cogpit-cli` exist since v0.7.0 (v0.7.0 and v0.8.0, checked by download on 2026-10-14: signed with
+the Developer ID as `io.guided-traffic.cogpit.cli`, notarized, it runs and reports its version).
+Not tried: whether it starts without a prompt when run from a terminal in a quarantined copy before
+the app was ever opened
 ([releasing › signing and notarization](releasing.md#signing-and-notarization)).
 
 **Decided (owner, 2026-10-13):** the GitHub
@@ -776,6 +808,19 @@ servers).
 - **Never:** Lens ID activation, subscriptions, telemetry, surveys.
 - **Teamwork** needs a hosted relay and stays out of scope unless the owner decides to run one.
 - Lens's paid MCP server and Ask AI are superseded by D-2 and D-10.
+
+**Decided (owner, 2026-10-15): verifying the credential plugins against EKS, GKE and AKS is out of
+scope until long after parity.** It was an item of the path to alpha (item 7 of the
+[roadmap](../parity/roadmap.md)'s current focus) and part of M1's definition of done: connecting
+through `aws eks get-token` or `aws-iam-authenticator`, `gke-gcloud-auth-plugin` and `kubelogin`
+against real clusters of the three clouds, which needs accounts there
+([G2](../parity/gaps.md#g2-cluster-connection-and-authentication),
+[platform parity](../parity/platform-parity.md#cluster-authentication-and-connectivity)). Cogpit
+runs these plugins through client-go's exec support as it runs any other, once the user allowed
+them (D-26); what is out of scope is checking them end to end on the clouds, not the plugins. The
+rows stay `missing` in the platform checklist and count toward the full target, as the account
+integrations above do. Recorded here because this entry holds Cogpit's scope against Lens; the
+alpha gate itself lives in the roadmap, which no D-entry decides.
 
 Options weighed: all paid features after the beta (GitOps views late although used daily), all
 paid features in the beta (150–320 h more before it, with cloud accounts and data sources), none
@@ -3524,7 +3569,9 @@ What the build chose, Cogpit's defaults (not the owner's decision):
 - **A read and the switch:** a read that the user's switching off (or closing the tab) overtakes
   returns nothing; reads are audited like every agent command, with their parameters, never the
   lines.
-- **The built-in agent** (not built) is an agent like the others for the switch; what it then sends
+- **The built-in agent** (built since 2026-10-14, [D-10](#d-10-built-in-agent)) is an agent like the
+  others for the switch (`dock.read` with origin `builtInAgent` in
+  [`dockoutput_test.go`](../../internal/engine/commands/dockoutput_test.go)); what it then sends
   to its LLM endpoint falls under the endpoint's rules
   ([H-13](../security/agents-and-mcp.md#h-13-cluster-data-leaves-for-the-llm-endpoint)).
 
@@ -3790,11 +3837,11 @@ run from its app bundle (`bin/cogpit`, `go run`) reports not found and refuses t
 asking macOS.
 
 **What needs the signed app.** "Apps that use SMAppService APIs must be code signed"
-(ServiceManagement's `SMAppService.h`). The release's app is ad-hoc signed today; the Developer ID
-signature is being built (D-4). What macOS does with the ad-hoc signed app is **not verified**: it
+(ServiceManagement's `SMAppService.h`). The releases' app carries the Developer ID signature since
+v0.6.0 (D-4); a local build is ad-hoc signed. What macOS does with either is **not verified**: it
 may register it, report it not found, or refuse with an error, which the row shows under the check.
-Nothing was registered on a development machine to find out; a signed app installed in
-Applications is the check. **Not offered** on Windows and Linux (a Run key, an XDG autostart file
+Nothing was registered on a development machine to find out, and no signed app installed in
+Applications has been tried yet; that is the check. **Not offered** on Windows and Linux (a Run key, an XDG autostart file
 come with their packages, G22), rather than a switch that does nothing.
 
 ## D-49: The external MCP server's switch, honoured by `cogpit-cli mcp`
@@ -4825,6 +4872,7 @@ read in Fyne 2.8.1's `loop.go`, not patched).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | Decided by the owner and recorded in D-9, the entry that holds Cogpit's scope against Lens (the alpha gate itself lives in the roadmap, which no D-entry decides): verifying the credential plugins against EKS, GKE and AKS is out of scope until long after parity, no longer an alpha-gate step or part of M1's definition of done; index row D-9. The docs brought to the code (the owner's rule 10): the index row of D-10 said "being built (M12)" for what the code shows built (the engine side, the chat column, Preferences › Agent, the private connection, the key file); the index lacked D-14 to D-32, now one row each, its status from the entry and checked against the code; D-1: S7's re-check since CI (the macOS app packaged, Windows compiled and linked, no Windows or Linux package); D-2: "the rest is not built yet" over answers each marked built 2026-10-14, and the token's place (`<user config dir>/Cogpit/mcp-token`, kept since D-53); D-4: Sparkle said not built (built 2026-10-14, key 2026-10-15); D-44: the built-in agent said not built; D-48: "the release's app is ad-hoc signed today" (Developer ID since v0.6.0, the login item still not tried with it); D-16: "not verified until the first signed release" (signed releases with the bundled `cogpit-cli` since v0.7.0, checked by download on 2026-10-14; a run from a quarantined copy not tried); the decision round's intro: the night run built every answer that asked for a build but R3 and A10 |
 | 2026-10-15 | minor | D-4: Sparkle's update key set up by the owner (the environment `sparkle` with its rules and Pages by the lead with the owner's go-ahead; the secret and the variable by the owner), in v0.11.0 to v0.13.0, no signed appcast yet (`appcast.xml` 404: v0.9.0 to v0.12.0 got no files, v0.13.0 notarizing; checked with `gh` ~19:00 UTC); v0.6.0 to v0.8.0 carry the signed disk image; the notarization's 330-minute job noted at A9. A10 decided further by the owner: the semantic-release App the tag ruleset's only bypass, nobody tags by hand, an emergency tag by an admin switching the ruleset off; the settings not made (no ruleset, `release`'s admin bypass on). Confirmed by the owner: D-47 as a whole (navigation only with the build's defaults; the A7 ask verified built); D-10 item 12's repaired key file (a log warning, no bell notification, against the lead's recommendation) and no keychain migration, its third choice not asked; D-51's ↵ on an agent's palette text (b); D-51's dropdown bank moot (the scope dropdown to go, not built). The index rows of D-2, D-33, D-34, D-36, D-41 and D-44 said "not built" for answers of 2026-10-14 evening that the code shows built in the night run (A1, A2, A16, A18, A20, A65; A34 and A91; A80; A33; A63; A3, A5, A31): corrected |
 | 2026-10-15 | minor | D-24 revised (owner): the glowing C helm of the second icon lab as the app icon and the logo everywhere (the header, the welcome page, About, the README's banner, the social preview), the same in both themes; every version of the logo kept and drawable (`logo.Versions`, `hack/icon -version`, `assets/logo/`), D-24's own drawing matching its shipped icon pixel for pixel |
 | 2026-10-15 | minor | D-56 (the owner's decisions of 2026-10-15) built: the terminal's scrollback in the fork, a compact store (205 bytes for a line of 80 cells against 9,267 in the grid) without a line limit, bounded at 256 MiB, the view drawing only the rows in view (#147's model measured at 56× the refresh cost with 1,000 rows), a draggable bar, the view kept while scrolled back, reflow of the scrollback and the main screen, the wheel to full-screen programs, a selection over the scrollback, `dock_read` by stable line numbers (D-44 follows); the lead's decisions for the owner to confirm listed |

@@ -46,12 +46,12 @@ cogpit/
 ├─ go.mod                     module github.com/guided-traffic/cogpit
 ├─ Makefile                   build, run, test targets (one per CI job), lint, parity, gosec, vuln, cyclo, kind-up, kind-down, app, dist-* (releasing.md)
 ├─ .golangci.yml              linters and the depguard layering rules
-├─ .github/                   workflows: release (the checks, semantic-release), build (the release pipeline), renovate; actions/go-setup; renovate.json; the coverage badge
+├─ .github/                   workflows: release (the checks, semantic-release), build (the release pipeline), renovate, rerun (re-runs jobs that failed setting up); actions/go-setup; renovate.json; the coverage badge
 ├─ .releaserc.json            semantic-release config; package.json pins its npm tooling (CI only)
 ├─ cmd/cogpit/                desktop app (Fyne, cgo)
 ├─ cmd/cogpit-cli/            headless CLI: contexts, get, the MCP stdio bridge (pure Go)
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
-├─ hack/kind/                 kind cluster config, seed manifests (make kind-up), Prometheus values (make kind-prometheus)
+├─ hack/kind/                 kind cluster configs, seed manifests (make kind-up; the drain cluster: make kind-drain-up), Prometheus and kube-prometheus-stack values (make kind-prometheus, make kind-kps)
 ├─ hack/icon/                 generator of the app icon (make icon; internal/ui/logo draws it)
 ├─ hack/showcase/             oxipng.sh: the pinned oxipng and its lossless run over docs/images (make showcase)
 ├─ hack/parity/               make parity: checks the parity checklists and counts what they report
@@ -59,10 +59,13 @@ cogpit/
 ├─ hack/coverage/             merges coverage profiles into the badge and the summary (make coverage-report)
 ├─ hack/readmecmds/           the command table in docs/developer/commands.md, from the registry
 ├─ hack/macos/                release.sh: signs, images and notarizes the macOS downloads (make dist-macos; releasing.md)
-├─ packaging/                 icon.png; per-OS packaging later
-├─ tools/                     (planned) generators of the parity checklist page and the scorecard
+├─ hack/appcast/              drafts and checks Sparkle's appcast (make appcast-draft, appcast-verify; releasing.md)
+├─ hack/sigstoreroot/         refreshes the sigstore trusted root internal/kubectl embeds (make sigstore-root, D-50)
+├─ hack/ci/                   apt-install.sh: CI's apt-get with deadlines and tries
+├─ third_party/fyne-terminal/ the patched copy of fyne-io/terminal (D-14; PATCHES.md), a module of its own (make test-fork)
+├─ packaging/                 icon.png (no per-OS packaging yet: M11)
 └─ docs/
-   ├─ developer/              this directory
+   ├─ developer/              this directory; assets/logo holds every version of the logo (D-24)
    ├─ images/                 showcase renders for the README, <name>_dark.png and <name>_light.png (make showcase)
    ├─ parity/                 progress against Lens
    └─ security/               security architecture, one page per perspective
@@ -72,23 +75,25 @@ cogpit/
 
 | Package | Layer | Responsibility |
 |---|---|---|
-| `internal/model` | L0 | Kind profiles, object refs, rows, status tokens; pure |
+| `internal/model`, `internal/model/kinds` | L0 | Object refs, rows, status tokens, the time and byte formats; the kind profiles (46 built-in, the local kinds Port Forwarding and Helm Charts, the curated ones of Flux CD, Argo CD and the Vertical Pod Autoscalers, the virtual kinds Applications and Argo CD's repositories and clusters); pure |
 | `internal/kubeconfig` | L0 | Kubeconfig discovery, merge and validation from bytes |
+| `internal/buildinfo` | L0 | The version both binaries report: a release's, set by the linker, else `dev` and the commit ([releasing](releasing.md#the-version-a-build-reports)) |
 | `internal/cluster` | L1 | Connections: client-go config, auth, cached discovery, access reviews |
 | `internal/cache` | L1 | Shared informers, reference counting, warm period, transforms, request counters |
 | `internal/terminal` | L1 | PTY sessions: local shell with its own kubeconfig, pod exec and attach |
 | `internal/kubectl` | L1 | kubectl for terminals (2026-10-13, [D-3](decisions.md#d-3-helm-and-kubectl-binaries)): a binary's client version (`Prober`), the skew rule, the releases in the directory for binaries, the download from dl.k8s.io or a mirror verified against the published SHA-256 and the release's sigstore signature, since 2026-10-15 with sigstore-go and the signature's Rekor entry (`Downloader`, `Verifier`, `rekor.go`, [D-50](decisions.md#d-50-kubectls-signature-check)); the release host and `rekor.sigstore.dev` only, never an API server |
-| `internal/helm` | L2 | Helm SDK, crash-safe release actions (not built) |
-| `internal/metrics` | L2 | Metrics providers (the Metrics Server built, Prometheus next), the hub that polls while subscribed, its TTL cache and series ([architecture §9](architecture.md#9-metrics-internalmetrics)) |
+| `internal/locale` | L1 | The computer's date and time format: macOS's region through CoreFoundation, else the environment's locale ([D-31](decisions.md#d-31-every-timestamp-in-the-local-time-zone-and-format)) |
+| `internal/helm` | L2 | Helm on the SDK, in-process: the releases from the cached Secrets and ConfigMaps, chart repositories from Helm's `repositories.yaml`, install, upgrade, rollback and uninstall, crash-safe through the engine's journal ([architecture §8](architecture.md#8-helm-internalhelm)) |
+| `internal/metrics` | L2 | Metrics providers (the Metrics Server and Prometheus through the API server's service proxy, together), the hub that polls while subscribed, its TTL cache and series ([architecture §9](architecture.md#9-metrics-internalmetrics)) |
 | `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source`, and its synthetic Metrics Server (a `metrics.Provider`: demo and metrics are both L2, so the import is allowed) |
 | `internal/engine`, `internal/engine/commands` | L3 | Session, command registry, UI state, snapshots, drawer, streams, confirmation, audit log; the commands one file per area |
 | `internal/mcp` | L4 | MCP server over the registry |
 | `internal/app` | L4 | The wiring both binaries share (2026-10-13): Cogpit's directories, the kubeconfig sources (so the app and `cogpit-cli` offer the same contexts and honour the same plugin approvals), the audit log |
-| `internal/agent` | L4 | Built-in agent with an OpenAI-compatible endpoint (not built) |
+| `internal/agent` | L4 | The built-in agent (2026-10-14, [D-10](decisions.md#d-10-built-in-agent)): `engine.ChatAgent` over OpenAI-compatible Chat Completions endpoints on plain `net/http`, its connections and owner-only key file, the turn loop dispatching commands with origin `builtInAgent` ([architecture §7](architecture.md#7-mcp-and-the-built-in-agent)) |
 | `internal/update` | L4 | The macOS app's updater (2026-10-14): Sparkle 2 loaded at run time from the bundle through cgo, its reasons when there is none ([architecture §11](architecture.md#11-updates-internalupdate)) |
-| `internal/ui/fyneui` | L4 | The Fyne shell; `yamlview` the YAML viewer and editor, `termview` the terminal and log widgets |
+| `internal/ui/fyneui` | L4 | The Fyne shell, the chat column included; `yamlview` the YAML viewer and editor, `termview` the terminal and log widgets |
 | `internal/ui/logo` | L4 | The logo ([D-24](decisions.md#d-24-logo)), every version of it (`Versions`, `Current`), rasterised for the app icon (`hack/icon`) and the GUI's tile (header, welcome page, About, the README's banner); imports no Fyne |
-| `internal/testkit` | – | In-memory source, fake API server, object builders, a local kubectl release host (`KubectlReleases`, signed by a test certificate authority); `integration/` holds cross-package and kind tests |
+| `internal/testkit` | – | In-memory source, fake API server, object builders, a local kubectl release host (`KubectlReleases`); `enginekit/` the real engine over an in-memory source for the window's tests, `fakellm/` a fake OpenAI-compatible endpoint for the agent's, `sigstoretest/` a sigstore instance of the tests' own; `integration/` holds cross-package and kind tests; imported by tests only (depguard's `no-testkit-in-product`) |
 
 ## Data flow
 
@@ -106,7 +111,7 @@ flowchart LR
   E --> M[MCP server]
   M <--> X[external agents]
   E --> AG[built-in agent]
-  AG <--> L[(LLM endpoint<br/>LiteLLM, Open WebUI)]
+  AG <--> L[(LLM endpoint<br/>LM Studio, LiteLLM, Open WebUI)]
 ```
 
 ## Core flows, one fact each

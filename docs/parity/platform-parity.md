@@ -1,6 +1,6 @@
 # Platform parity: systems, packages, authentication and tools
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (Sparkle's update key set up by the owner on 2026-10-15, in the releases since v0.11.0, no signed appcast yet; macOS: v0.6.0 to v0.8.0 shipped the signed disk image, the binary's minimum macOS 13; no count moves); minor (Update notice: the title bar's Update button from Sparkle's gentle reminders, F7; no count moves); minor (the owner's decision round of 2026-10-14 evening: macOS, One-click update, the exec plugin, the cluster's proxy, custom CA and insecure TLS, and kubectl for terminals note what he confirmed and decided, not built; no status change); minor (D-16 revised by the owner: a release carries only the complete product, `cogpit-cli` inside the macOS app; the Windows and Linux rows no longer have `cogpit-cli` archives, their desktop app with M11; no status changes); minor (the update notice, one-click update, update channels and signed update manifest partial on macOS: Sparkle 2 and the signed appcast built, no update key yet, D-4, 18 of 38 rows; network endpoints: the appcast's host); minor (macOS: the app in a signed, notarized disk image from the release pipeline, no tag run yet, no count moves; network endpoints: the hosts of the charts' icons while Load chart icons is on, D-46, no count moves; `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial; kubectl for terminals: the signature with sigstore-go and its Rekor entry, D-50 built; the exec plugin's approval binds Cogpit's proxy, A23; an `insecure-skip-tls-verify` context asked once, A28, and marked while connected, A29) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (the EKS, GKE and AKS exec plugin rows: verifying them out of scope until long after parity, owner 2026-10-15, status unchanged; the summary's remaining work brought to G14's and G2's estimates and the signed releases; no count moves); minor (Sparkle's update key set up by the owner on 2026-10-15, in the releases since v0.11.0, no signed appcast yet; macOS: v0.6.0 to v0.8.0 shipped the signed disk image, the binary's minimum macOS 13; no count moves); minor (Update notice: the title bar's Update button from Sparkle's gentle reminders, F7; no count moves); minor (the owner's decision round of 2026-10-14 evening: macOS, One-click update, the exec plugin, the cluster's proxy, custom CA and insecure TLS, and kubectl for terminals note what he confirmed and decided, not built; no status change); minor (D-16 revised by the owner: a release carries only the complete product, `cogpit-cli` inside the macOS app; the Windows and Linux rows no longer have `cogpit-cli` archives, their desktop app with M11; no status changes); minor (the update notice, one-click update, update channels and signed update manifest partial on macOS: Sparkle 2 and the signed appcast built, no update key yet, D-4, 18 of 38 rows; network endpoints: the appcast's host); minor (macOS: the app in a signed, notarized disk image from the release pipeline, no tag run yet, no count moves; network endpoints: the hosts of the charts' icons while Load chart icons is on, D-46, no count moves; `proxy-url` in the kubeconfig and the custom CA, `tls-server-name` and `insecure-skip-tls-verify` partial, against TLS test servers; `kubectl` for terminals: the version check and the verified download, D-3; the HTTP proxy per cluster partial; fourth run recount: 9 of 38 rows partial; exec credential plugins partial; kubectl for terminals: the signature with sigstore-go and its Rekor entry, D-50 built; the exec plugin's approval binds Cogpit's proxy, A23; an `insecure-skip-tls-verify` context asked once, A28, and marked while connected, A29) · **Target:** Lens Desktop 2026.10.51501
 
 Where and how Cogpit runs compared with Lens Desktop 2026.10.51501: operating systems and
 architectures, packages and updates, how it authenticates to clusters, which Kubernetes versions
@@ -12,22 +12,24 @@ it handles, and the external tools it depends on. Method: [`README.md`](README.m
 (`latest.yml`, `latest-mac.yml`, `latest-linux.yml` on `downloads.k8slens.dev`) and the
 2026.10.51501 release notes. Cogpit's ecosystem facts: [decisions](../developer/decisions.md).
 
-**Summary (measured, 2026-10-14, counted by `make parity`):** 18 of 38 rows partial,
+**Summary (measured, 2026-10-15, counted by `make parity`):** 18 of 38 rows partial,
 none done (four more are not targets or have nothing to build): the macOS app bundle and the
 releases' checksums, and on macOS the update notice, the one-click update, the Stable channel and the signed update manifest, built, the owner's update key in the releases since v0.11.0 but no signed appcast served yet (6 of 13 package rows), client certificates, bearer tokens, exec credential plugins (run only after the user allowed
-them in the GUI, not yet verified against a cloud provider), users limited to some namespaces
+them in the GUI; verifying them against a cloud provider is out of scope until long after parity, owner
+2026-10-15), users limited to some namespaces
 through the access reviews, the HTTP proxy per cluster, `proxy-url` and the kubeconfig's TLS
 settings (custom CA, `tls-server-name`, `insecure-skip-tls-verify`; against TLS test servers, not a
 cloud cluster) (7 of 13 authentication rows), Kubernetes 1.36 on kind locally and 1.37 in CI, older
 clusters (views from discovery, Pod Security Policies where served), kinds newer
 than the client libraries (custom resources and edits), the sidebar following the served APIs
 version by version, and `kubectl` from `PATH`. Cogpit ships for macOS first; Windows and Linux follow after the macOS beta
-([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated): 22–45 h for
-the universal macOS app, the cask and one-click updates ([G14](gaps.md#g14-packaging-signing-and-updates-macos);
-the Developer ID signature, the disk image and the notarization built 2026-10-14, not yet proven by a release),
-40–80 h for Windows and Linux ([G22](gaps.md#g22-windows-and-linux)) and 20–45 h for authentication
-([G2](gaps.md#g2-cluster-connection-and-authentication)), both with work a human must do: signing
-material, and real cloud accounts to test credential plugins against.
+([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated, from the gap
+entries): the universal macOS app, the cask, an SBOM, signed checksums and the first proven update
+([G14](gaps.md#g14-packaging-signing-and-updates-macos); the Developer ID signature, the disk image
+and the notarization proven by v0.6.0 to v0.8.0), Windows and Linux ([G22](gaps.md#g22-windows-and-linux),
+with Windows signing material a human must provide) and authentication
+([G2](gaps.md#g2-cluster-connection-and-authentication); the cloud providers' plugins out of scope
+until long after parity).
 
 ## Operating systems and packages
 
@@ -62,9 +64,9 @@ client-go from the process that holds the credentials, so that requirement does 
 | Client certificate and key, inline or as files | yes | yes | partial: inline, against kind (`TestKindEngineWorkflows`, `TestKindIdleViewsCostNoLists`); files not tested |
 | Bearer token, inline or token file | yes | yes | partial: inline, against a fake API server over HTTPS (`TestBudgetIdleViewAndWarmReopen`, [`cluster_test.go`](../../internal/cluster/cluster_test.go)); a token file of a kubeconfig source outside the kubeconfig's folder is asked for in the plugin dialog before it is read (2026-10-12, D-17, `TestTokenFileOutsideTheFolderIsAskedFor`); a token file read against a server not tested |
 | Exec credential plugin (`client.authentication.k8s.io`) | yes; the binary must be on `PATH` or absolute; a synced file's plugin runs on connect without asking (capture, 2026-10-12) | yes, kubectl's own implementation | partial (2026-10-12): a test plugin authenticated against kind (an ExecCredential with the kind user's client certificate, `TestKindExecPluginAfterApproval`) and a fake API server (a token, `TestConnectAsksTheExecPolicyBeforeThePluginRuns`), a relative command resolved against its kubeconfig's folder as client-go does; a plugin of a kubeconfig source added in Cogpit runs only after the user allowed it in the GUI, a program or CA file inside the kubeconfig's folder is bound by its content, so replacing it asks again (2026-10-12, `TestExecApprovalRefusedAfterPluginBinaryChanged`), and the dialog shows the proxy, insecure and own-CA settings the approval binds; the default kubeconfig's run as kubectl runs them ([`cluster/sources.go`](../../internal/cluster/sources.go), [`engine/kubeconfigs.go`](../../internal/engine/kubeconfigs.go)). Missing: the cloud plugins (rows below), the plugin's environment ([H-6](../security/credentials.md#h-6-exec-plugins-inherit-the-environment)). Decided (owner, 2026-10-14 evening, A23) and built 2026-10-14: the approval shows and binds Cogpit's own proxy for the cluster too (as shown, its password `•••`), and a changed proxy asks for it again, also at connect time (`TestPluginApprovalBindsTheClusterProxy`, PNG [dark](../../internal/ui/fyneui/testdata/exec_approval_cluster_proxy_dark.png), [light](../../internal/ui/fyneui/testdata/exec_approval_cluster_proxy_light.png)). |
-| Exec plugin: `aws eks get-token` and `aws-iam-authenticator` (EKS) | yes | to verify against a real cluster (human) | missing |
-| Exec plugin: `gke-gcloud-auth-plugin` (GKE) | yes | to verify (human) | missing |
-| Exec plugin: `kubelogin` (AKS, Entra ID) | yes | to verify (human) | missing |
+| Exec plugin: `aws eks get-token` and `aws-iam-authenticator` (EKS) | yes | to verify against a real cluster (human), out of scope until long after parity (owner, 2026-10-15) | missing |
+| Exec plugin: `gke-gcloud-auth-plugin` (GKE) | yes | to verify (human), out of scope until long after parity (owner, 2026-10-15) | missing |
+| Exec plugin: `kubelogin` (AKS, Entra ID) | yes | to verify (human), out of scope until long after parity (owner, 2026-10-15) | missing |
 | Exec plugin: `kubectl oidc-login` (generic OIDC) | not documented | to verify | missing |
 | Exec plugins that open a browser or prompt (interactive mode) | not documented | to design ([H-6](../security/credentials.md#h-6-exec-plugins-inherit-the-environment)) | missing |
 | Legacy `oidc` auth provider | not documented | yes; refreshed tokens through a persister Cogpit supplies ([H-4](../security/credentials.md#h-4-auth-provider-token-refresh)) | missing |
@@ -109,6 +111,7 @@ Lens Desktop does not document which Kubernetes versions it supports (not verifi
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | Verifying the EKS, GKE and AKS exec plugins out of scope until long after parity (owner): their rows say so, status unchanged; the summary's remaining work named from the gap entries (G14's work after the signed releases v0.6.0 to v0.8.0; its stale 22–45 h and G2's 20–45 h dropped), its date 2026-10-15; no count moves |
 | 2026-10-15 | minor | Sparkle's update key set up by the owner (the secret in the environment `sparkle`, the public key as a repository variable), in the releases since v0.11.0; no signed appcast served yet, since no release with the key has passed Apple's notarization (the update rows say so, no status change); macOS: v0.6.0 to v0.8.0 shipped the signed, notarized disk image, and the binary's minimum is macOS 13 since 2026-10-14 (the row said 26.0); no count moves |
 | 2026-10-15 | minor | Update notice: a scheduled check's find shows as the title bar's "Update" button (Sparkle's gentle reminders, the owner's finding F7, D-54), a click opens Sparkle's window; no count moves |
 | 2026-10-15 | minor | `kubectl` for terminals: the signature checked with sigstore-go and its entry in sigstore's transparency log (D-50 built, night run); the row stays partial |

@@ -15,12 +15,13 @@ own credentials, and gives you the views Lens users know: workloads, logs, shell
 port forwarding and the Helm releases in your clusters. Every view reads from a cache that watches
 keep current, so it is fast for you and light on the API server. And agents can drive all of it
 over MCP, the UI included. Cogpit is a desktop client: it is never a web UI and is never deployed
-into a cluster. **Status: pre-alpha** (updated 2026-10-14): every view and every action on Lens's
-list exists at least in part (64 of 64 views, 39 of 39 actions, counted by `make parity`), with
+into a cluster. **Status: pre-alpha** (updated 2026-10-15): every view and every action on Lens's
+list exists at least in part (64 of 64 views, 41 of 41 actions, counted by `make parity`), with
 the Flux CD and Argo CD sections, Helm releases and charts, metrics, logs, a terminal, pod and node
-shells and MCP control of all of it; none of it has been walked through by a person on a real
-cluster yet. The releases are builds for Apple silicon, signed and notarized from the first release
-after v0.4.0 on ([Download a release](#download-a-release),
+shells, the built-in agent's chat and MCP control of all of it; none of it has been walked through
+by a person on a real cluster yet. The releases are builds for Apple silicon, signed and notarized
+since v0.6.0 (v0.6.0 to v0.8.0 carry the download; v0.5.0 and v0.9.0 to v0.12.0 got no files)
+([Download a release](#download-a-release),
 [Run the MVP](#run-the-mvp)); where Cogpit stands: [roadmap](../../ROADMAP.md).
 
 How data flows from the kubeconfig files to the views and agents:
@@ -53,7 +54,8 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🔌 Port forwarding, one click to the browser.
 - ⎈ The Helm releases in your clusters (Lens's Helm view), kept in Secrets or ConfigMaps: history, values, upgrade, rollback, through the Helm SDK, no `helm` binary needed.
 - 📦 Charts from the repositories in Helm's own `repositories.yaml` (add them with `helm repo add`; Cogpit picks a change up within seconds, logins and CA files included, and never writes the file), installed from a Helm Install tab; a chart's drawer shows the README of the version you pick, and charts show their icons (switch them off in Preferences).
-- 🔁 Flux CD: its section in the navigator (Helm releases, Kustomizations, sources, image automation, notifications) with each object's state, revision and message, a dashboard of what is not ready whose states open the kind's list filtered to them, and Reconcile, Suspend and Resume, on a selection too.
+- 🔁 Flux CD: its section in the navigator (Helm releases, Kustomizations, sources, image automation, notifications) with each object's state, revision and message, a dashboard of what is not ready whose states open the kind's list filtered to them, and Reconcile, Reconcile with Source (which waits for the source, as the flux CLI does, in a dock tab of its own), Reset, Suspend and Resume, on a selection too.
+- 🐙 Argo CD: its section in the navigator (Applications, Application Sets, Projects, and the repositories and clusters without their credentials), a dashboard of the Applications' health and sync state, Sync (with prune) and Refresh (normal or hard) through the Kubernetes API, on a selection too and within the project's sync windows, an Application's logs in one tab, and Argo CD's own UI through a port forward.
 - 📈 CPU and memory from the cluster's metrics-server and its Prometheus: columns in the Pods and Nodes lists, charts with requests and limits in the pod and node drawers, and the cluster Overview: CPU, Memory and Pods of the master or worker nodes over a time range, with the Issues (pods, nodes and workloads in trouble, warning events) below.
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
@@ -69,7 +71,10 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 Every [release](https://github.com/guided-traffic/cogpit/releases) carries the complete product
 only ([D-16](decisions.md#d-16-the-first-real-release)): today Cogpit for Apple silicon as
 `Cogpit-<version>-macos-arm64.dmg`, and `SHA256SUMS`. Open the disk image and drag Cogpit into
-Applications; `cogpit-cli` comes inside the app ([`cogpit-cli`](#cogpit-cli)). The app with its
+Applications; `cogpit-cli` comes inside the app ([`cogpit-cli`](#cogpit-cli)). v0.6.0, v0.7.0 and
+v0.8.0 carry these files; v0.5.0 and v0.9.0 to v0.12.0 have none, their signing or notarization
+having not finished ([releasing](releasing.md#when-signing-or-notarization-fails)), and v0.13.0's
+pipeline was still waiting for Apple's notarization on 2026-10-15. The app with its
 `cogpit-cli` and the disk image are signed with the project's Developer ID and notarized by Apple,
 so macOS starts them without a warning
 ([releasing › signing and notarization](releasing.md#signing-and-notarization)). v0.1.0 to v0.4.0
@@ -143,8 +148,10 @@ your confirmation in Cogpit's window ([agents and MCP](../security/agents-and-mc
 **Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
 `make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
 
-**Not built yet (2026-10-14):** Windows and Linux packages (the only way `cogpit-cli` is to reach them in a release, M11), the app for Intel Macs, updates, the built-in agent chat; what exists and
-what is missing, row by row: [docs/parity](../parity/README.md).
+**Not built yet (2026-10-15):** Windows and Linux packages (the only way `cogpit-cli` is to reach them in a release, M11), the app for Intel Macs, the Homebrew cask. Updates are built, but no
+installed copy has updated yet: no release with the update key has passed notarization
+([Preferences › App: updates](#preferences--app-updates)). What exists and what is missing, row by
+row: [docs/parity](../parity/README.md).
 
 <details>
 <summary>Clean up</summary>
@@ -171,7 +178,10 @@ rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, 
 | `--mcp-addr <addr>` | `127.0.0.1:0` # default | MCP listen address; anything but a loopback address is refused. Port 0 binds the port Cogpit kept in `mcp-port` (a free one the first time, or when the kept one is taken, which it then keeps); a port given here binds that port for this run and is not kept |
 | `--no-mcp` | `false` # default | do not start the external MCP server; without it, click the MCP item in the status bar to switch the server off and on (the choice is remembered; `--no-mcp` wins over it), or its gear for the MCP details |
 | `--perf <duration>` | `0` # default | measure main-loop latency while auto-scrolling the table, print it as JSON and quit |
-| `--theme <mode>` | `dark` # example | `dark` (Solarized Dark), `light` (Solarized Light) or `system`, for this run; without it the theme of Preferences › App (⌘,) applies, Dark until changed |
+| `--perf-mode <mode>` | empty # default | with `--perf`: `scroll`; or `gate`, alone too: start-up, scrolling, every view and typing into 5 MB of YAML in one run (the [spike](spike-fyne.md)'s measurements) |
+| `--cpuprofile <file>` | empty # default | write a CPU profile of the first `--cpuprofile-for` to this file |
+| `--cpuprofile-for <duration>` | `5s` # default | how long `--cpuprofile` records |
+| `--theme <mode>` | `dark` # example | `dark` (Solarized Dark), `light` (Solarized Light) or `system`, for this run; without it the theme of Preferences › App (⌘,) applies, System (follow macOS) until changed (since 2026-10-14, [D-22](decisions.md#d-22-colour-theme)) |
 | `-v` | `false` # default | debug logging |
 
 Security note on `--mcp-addr`: the server checks `Host`, `Origin` and the bearer token, and binds
@@ -245,7 +255,8 @@ version; more than one minor version off, or none, and the terminal offers the m
   "kubectlDownload": true,
   "kubectlMirror": "",
   "kubectlDir": "",
-  "kubectlPath": ""
+  "kubectlPath": "",
+  "kubectlEnforce": false
 }
 ```
 
@@ -255,8 +266,9 @@ version; more than one minor version off, or none, and the terminal offers the m
 | `kubectlMirror` | `""`: `https://dl.k8s.io/release` # default | the https base URL under which `v<version>/bin/<os>/<arch>/kubectl` and its `.sha256`, `.sig` and `.cert` lie, such as `https://mirror.example.com/kubernetes/kubectl` # example |
 | `kubectlDir` | `""`: `<user config dir>/Cogpit/kubectl` # default | the directory for binaries, an absolute path; releases go into `<dir>/<version>/kubectl` |
 | `kubectlPath` | `""`: the first `kubectl` on `PATH` # default | the `kubectl` your terminals run, an absolute path; Cogpit checks it against the cluster as it would check `PATH`'s and puts it first on the terminal's `PATH` |
+| `kubectlEnforce` | `false` # default | off: the chosen `kubectl` goes first on the terminal's `PATH` once the shell's profile ran (zsh through `ZDOTDIR`, bash through `--init-file`, fish through `-C`); on: zsh, bash and fish also get a function `kubectl` that runs it, so that a folder the profile puts first later, or an alias, does not win (A27, since 2026-10-14). Other shells keep the environment's `PATH` order ([H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first)) |
 
-Security note: the last three decide which program your terminals run as `kubectl`, so only you, in
+Security note: the last four decide which program your terminals run as `kubectl`, so only you, in
 Cogpit's window, can set them, and only you can start a download; agents and `cogpit-cli` are
 refused. A mirror needs no trust of its own: every download is checked against the Kubernetes
 release's sigstore signature (its certificate chained to sigstore's authority for the release's
@@ -314,8 +326,9 @@ the row shows what macOS reports, read when the section opens.
 
 Security note: with it on, Cogpit runs after every login without being opened, its MCP endpoint
 included unless you switched that off; so only you, in Cogpit's window, can turn it on, and agents
-may only turn it off. Not offered on Windows and Linux yet. What macOS does with the ad-hoc signed
-app of today's releases is not verified (the Developer ID signature is being built).
+may only turn it off. Not offered on Windows and Linux yet. What macOS does with the releases' app,
+signed with the Developer ID since v0.6.0, is not verified: no signed app installed in Applications
+has been tried ([D-48](decisions.md#d-48-start-at-login)).
 
 ### Deep links (`cogpit://`)
 
@@ -398,7 +411,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Kind keys (views, `kind` parameters) | the plural resource name for built-in kinds; `<plural>.<group>` for kinds from custom resource definitions ([why](architecture.md#45-kind-keys)) | `pods`, `services`, `gateways.gateway.networking.k8s.io` |
 | Page keys (views that are not one kind's list, `ui.openView`'s `view`) | `<navigator group>/<page>` | `cluster/overview`, `workloads/overview`, `flux/dashboard` |
 | Annotations the Flux actions set | `reconcile.fluxcd.io/requestedAt` (Reconcile, Resume) and, for a forced Helm release, `reconcile.fluxcd.io/forceAt`: the time in RFC 3339 with nanoseconds, as the flux CLI writes it | `2026-10-13T22:01:02.345678901Z` # example |
-| Environment variables | `COGPIT_<NAME>`; today only test variables: `COGPIT_KIND_KUBECONFIG`, `COGPIT_KIND_CONTEXT`, `COGPIT_PNG_DIR`; for the built-in agent's local tests `COGPIT_LLM_TEST_URL`, `COGPIT_LLM_TEST_MODEL`, `COGPIT_LLM_TEST_KIND`, `COGPIT_LLM_TEST_KEY` (`TestLiveEndpoint` against a real endpoint over the demo cluster; skipped without them) | `COGPIT_LLM_TEST_URL=http://localhost:1234/v1` # example |
+| Environment variables | `COGPIT_<NAME>`; the app reads one, `COGPIT_SYSTEM_TITLEBAR=1` (macOS's own title bar instead of Cogpit's); the others are the tests': `COGPIT_KIND_KUBECONFIG`, `COGPIT_KIND_CONTEXT`, `COGPIT_KIND_DRAIN_KUBECONFIG`, `COGPIT_KIND_DRAIN_CONTEXT`, `COGPIT_KIND_FALLBACK`, `COGPIT_PNG_DIR`, `COGPIT_SIGSTORE_LIVE`, `COGPIT_SPARKLE_FRAMEWORK` (and a few that tests set for their own child processes); for the built-in agent's local tests `COGPIT_LLM_TEST_URL`, `COGPIT_LLM_TEST_MODEL`, `COGPIT_LLM_TEST_KIND`, `COGPIT_LLM_TEST_KEY` (`TestLiveEndpoint` against a real endpoint over the demo cluster; skipped without them) | `COGPIT_LLM_TEST_URL=http://localhost:1234/v1` # example |
 | MCP endpoint | `http://127.0.0.1:<port>/mcp`, a free port the first time, kept in `mcp-port` for every later start; another one, kept from then on, when the kept port is taken | `http://127.0.0.1:59449/mcp` # example |
 | MCP bearer token | `<user config dir>/Cogpit/mcp-token`, owner-only (0600, directory 0700), kept across starts and the switch until you click Regenerate token in the MCP details (D-53); a file that holds no token Cogpit wrote, or that other users may read, is replaced at the next start | |
 | MCP port file | `<user config dir>/Cogpit/mcp-port`, beside the token and with its rules: the port the next start binds (not with `--mcp-addr` and a port) | `59449` # example |
@@ -421,7 +434,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | App log | `<user cache dir>/Cogpit/cogpit.log`, and stderr | |
 | Terminal kubeconfig | a temporary file per terminal holding only a context, owner-only, deleted on close ([why](../security/credentials.md#the-terminals-kubeconfig)) | |
 | Downloaded `kubectl` | `<user config dir>/Cogpit/kubectl/<version>/kubectl` (0755, directories 0700), or the directory for binaries set in Preferences › Kubernetes ([why](decisions.md#d-3-helm-and-kubectl-binaries)) | `~/Library/Application Support/Cogpit/kubectl/1.36.1/kubectl` # example |
-| A terminal's own directory | `<temp dir>/cogpit-terminal-<random>/`, owner-only, removed on close, only when Cogpit puts a `kubectl` first: `bin/kubectl` (a link), `zsh/.zshenv` (zsh only) | |
+| A terminal's own directory | `<temp dir>/cogpit-terminal-<random>/`, owner-only, removed on close, only when Cogpit puts a `kubectl` first: `bin/kubectl` (a link), `zsh/.zshenv` (zsh only), `bash/rc` (bash only, since 2026-10-14) | |
 | Node shell pod | `kube-system/cogpit-node-shell-<8 random characters>`, labels `app.kubernetes.io/name=cogpit-node-shell` and `app.kubernetes.io/managed-by=cogpit`, annotation `cogpit.io/node-shell-id=<random id>` (its journal entry's), deleted when the shell closes, else at the next connect to its context after a crash, else ended by its deadline, Cluster Settings › Node Shell › Maximum duration (2 hours unless the user sets 5 minutes to 24 hours; [why](../security/privilege-footprint.md#node-shell)) | `kube-system/cogpit-node-shell-k3v9q2mx` # example |
 | Node shell dock tab | id `nodeShell-<n>`, title `Node shell: <node>` | `Node shell: worker-1` # example |
 | Demo context | `demo` (the synthetic cluster) | |
@@ -457,20 +470,28 @@ Identifiers the documentation uses:
 |---|---|
 | `make build` | `bin/cogpit` (cgo, Fyne) and `bin/cogpit-cli` (pure Go) |
 | `make run`, `make run-demo` | run against the kind cluster, or the demo cluster |
-| `make test-unit-race`, `make test` | every test without a cluster, race detector on |
+| `make test-unit-race`, `make test` | every test without a cluster, race detector on, the patched terminal widget's (`make test-fork`) first |
+| `make test-unit` | every test without a cluster, without the race detector |
 | `make test-kind` | cluster tests against the kind cluster (build tag `kind`) |
-| `make test-unit-coverage`, `make coverage-badge` | the race tests with a coverage profile; `.github/badges/coverage.json` from it (CI keeps it current on main) |
-| `make vuln` | govulncheck over the code paths Cogpit calls |
+| `make test-unit-coverage`, `make test-race-ui RACE_SHARD=n RACE_SHARDS=m`, `make test-race-rest`, `make test-darwin` | CI's test jobs: the unit tests with a coverage profile; one shard of the UI's race tests; every other package's race tests; the macOS-only tests ([releasing › CI](releasing.md#ci)) |
+| `make coverage-report` | the profiles in `.cache/coverage` merged into `combined.out`, the badge `.github/badges/coverage.json` and `summary.md` (CI keeps the badge current on main) |
+| `make vuln`, `make gosec`, `make cyclo`, `make cyclo-report` | govulncheck over the code paths Cogpit calls; gosec over the shipped code; no function above `CYCLO_THRESHOLD`; the 20 most complex functions |
+| `make parity` | the parity checklists and the numbers the progress pages report ([rules](../parity/README.md#make-parity)) |
 | `make kind-drain-up`, `make test-kind-drain`, `make kind-drain-down` | a separate three-node kind cluster (`cogpit-drain`, own kubeconfig `.cache/kind-drain/kubeconfig`) for the cordon, uncordon and drain tests |
 | `make bench` | the gate benchmarks (S1, S2) |
 | `make lint`, `make fmt` | golangci-lint v2.14.0 (installed into `bin/`) with the team's linters and the `depguard` layering |
 | `make kind-up`, `make kind-seed`, `make kind-down` | the local kind cluster and its seed |
 | `make kind-prometheus`, `make kind-prometheus-down` | a real Prometheus in the kind cluster (`monitoring/prometheus-server`, the `prometheus` chart) for the drawer's charts ([hack/kind](../../hack/kind/README.md#prometheus)) |
+| `make kind-kps`, `make kind-kps-down` | a minimal kube-prometheus-stack in the kind cluster (namespace `cogpit-kps`) |
+| `make sigstore-root` | refresh the sigstore trusted root `internal/kubectl` embeds ([D-50](decisions.md#d-50-kubectls-signature-check)) |
+| `make icon` | redraw `packaging/icon.png` from the current logo ([extending › Changing the logo](extending.md#changing-the-logo)) |
 | `make app` | `bin/Cogpit.app` via `fyne package`, with Sparkle in `Contents/Frameworks` (`SPARKLE_PUBLIC_ED_KEY=<base64>` for an app that updates itself) and `cogpit-cli` in `Contents/MacOS` |
 | `make sparkle` | the pinned Sparkle release in `.cache/sparkle/<version>`, its SHA-256 checked |
 | `make showcase` | the README's pictures in `docs/images`, each in the dark and the light theme, then the pinned oxipng over them, lossless (`OXIPNG_FLAGS` without `--zopfli` for a quick look) |
 | `make oxipng` | the pinned oxipng release in `.cache/oxipng/<version>`, its SHA-256 checked (macOS on Apple silicon and Linux on x86-64) |
+| `make dist-app`, `make dist-macos`, `make dist-macos-sign`, `make dist-macos-notarize`, `make dist-checksums` | the release pipeline's macOS download and `SHA256SUMS` in `dist/`; `MACOS_SIGN=adhoc` for a local check ([releasing › Running the signing locally](releasing.md#running-the-signing-locally)) |
 | `make appcast-draft`, `make appcast-sign`, `make appcast-verify` | the release pipeline's appcast jobs ([releasing › the appcast](releasing.md#the-appcast)) |
+| `make clean` | removes `bin/` and `dist/`; `make help` lists every target |
 
 ## Development
 
@@ -483,7 +504,8 @@ make test-unit-race
 make test-kind      # needs make kind-up
 ```
 
-CI runs each check as a job of its own with its own make target (`make gosec`, `make cyclo`,
+Locally, check what a change touches and leave the full gate to CI
+([testing › Before a pull request](testing.md#before-a-pull-request)). CI runs each check as a job of its own with its own make target (`make gosec`, `make cyclo`,
 `make test-race-ui RACE_SHARD=n`, …), and semantic-release publishes every `feat:` and `fix:` on
 `main` once CI is green ([releasing](releasing.md)). Everything else:
 [docs/developer/](README.md).

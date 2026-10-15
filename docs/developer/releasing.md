@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-15 · **Change:** minor (Sparkle's update key set up by the owner on 2026-10-15 and in the releases since v0.11.0, no signed appcast yet: no release with the key has passed notarization; the releases with files are v0.6.0 to v0.8.0); minor (when no release comes: `hack/ci/apt-install.sh` with deadlines and tries, `rerun.yml` re-running jobs of main\'s newest run that failed setting up); major (notarization in a job of its own: "Sign and submit (macOS)" submits the disk image and records the submission, "Notarize and staple (macOS)" waits up to 330 minutes for that submission and a re-run waits for the same one, after v0.9.0 to v0.12.0 got no download); minor (Sparkle: steps 1 and 2 set up 2026-10-15, the environment `sparkle` and Pages; the repository renamed back to `cogpit`, the feed URL with its spelling, Pages being case-sensitive, H-97); minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app; Renovate: sigstore's trusted root refreshed by make sigstore-root, D-50) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-15 · **Change:** minor (signing and notarization: signed releases with `cogpit-cli` inside since v0.7.0, the quarantined-copy and offline checks not tried with them; v0.13.0's pipeline still waiting for Apple's notarization on 2026-10-15 at 20:10 UTC, no files yet; What gets built as of 2026-10-15); minor (Sparkle's update key set up by the owner on 2026-10-15 and in the releases since v0.11.0, no signed appcast yet: no release with the key has passed notarization; the releases with files are v0.6.0 to v0.8.0); minor (when no release comes: `hack/ci/apt-install.sh` with deadlines and tries, `rerun.yml` re-running jobs of main\'s newest run that failed setting up); major (notarization in a job of its own: "Sign and submit (macOS)" submits the disk image and records the submission, "Notarize and staple (macOS)" waits up to 330 minutes for that submission and a re-run waits for the same one, after v0.9.0 to v0.12.0 got no download); minor (Sparkle: steps 1 and 2 set up 2026-10-15, the environment `sparkle` and Pages; the repository renamed back to `cogpit`, the feed URL with its spelling, Pages being case-sensitive, H-97); minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app; Renovate: sigstore's trusted root refreshed by make sigstore-root, D-50) · **Target:** Lens Desktop 2026.10.51501
 
 Every push to `main` and every pull request runs the checks, each a job of its own with a make
 target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
@@ -10,8 +10,9 @@ release, and the release pipeline builds the artifacts from that tag and attache
 Developer ID, ships it in a disk image and has it notarized by Apple
 ([signing and notarization](#signing-and-notarization)); v0.6.0 to v0.8.0 carry that disk image,
 v0.5.0 and v0.9.0 to v0.12.0 have no files (v0.5.0's "Sign and notarize" job failed; from v0.9.0 on Apple kept each
-submission beyond the job's 45 minutes, [when it fails](#when-signing-or-notarization-fails)), and
-v0.4.0 and earlier are **unsigned**. Since 2026-10-14 (the owner,
+submission beyond the job's 45 minutes, [when it fails](#when-signing-or-notarization-fails)),
+v0.13.0's run was still in "Notarize and staple (macOS)" two hours after its tag (20:10 UTC on
+2026-10-15, no files yet), and v0.4.0 and earlier are **unsigned**. Since 2026-10-14 (the owner,
 [D-16](decisions.md#d-16-the-first-real-release)) a release carries **only the complete product**:
 today the disk image, with `cogpit-cli` inside the app, and `SHA256SUMS`; no `cogpit-cli`
 archives for any platform (releases up to v0.6.0 had them, unsigned for Linux and Windows,
@@ -117,7 +118,8 @@ the hash puts 111 to 179 s of tests into a shard, the longest single test is
 `TestRenderPrometheusMetrics` at 46 s. To see the split: `go run ./hack/shard -pkg
 ./internal/ui/fyneui -tags race -of 8 -summary`, with `-durations <go test -json output>` for each
 shard's time. To change the number of shards, change the matrix and `RACE_SHARDS` in
-`release.yml`'s `race-ui` job together.
+`release.yml`'s `race-ui` job together. The `Makefile`'s own default, `RACE_SHARDS ?= 6`, applies
+only to a local `make test-race-ui` without `RACE_SHARDS`, and splits the tests otherwise than CI.
 
 ### Coverage
 
@@ -435,8 +437,11 @@ it.
 notarized and stapled on its own first. Apple checks the code nested in a submission with it. Not
 verified: that the copy in Applications starts without a network the first time (Gatekeeper then
 needs the app's ticket, which only the disk image carries); that a `cogpit-cli` run from a
-terminal in a quarantined copy, before the app was ever opened, starts without a prompt; the first
-signed release is where to try both. Until 2026-10-14 `cogpit-cli` for macOS was a bare binary of
+terminal in a quarantined copy, before the app was ever opened, starts without a prompt. Signed
+releases with `cogpit-cli` inside exist since v0.7.0 (v0.7.0 and v0.8.0: the bundled `cogpit-cli`
+signed with the Developer ID as `io.guided-traffic.cogpit.cli`, notarized with the disk image,
+running and reporting its version, checked by download on 2026-10-14); neither check above has been
+tried with them. Until 2026-10-14 `cogpit-cli` for macOS was a bare binary of
 its own, notarized in a second submission, which could not carry a ticket
 ([D-16](decisions.md#d-16-the-first-real-release)).
 
@@ -619,9 +624,9 @@ steps). A release whose appcast jobs fail keeps its files; re-run the failed job
 
 ## What gets built
 
-| Platform | Today (2026-10-14) | Planned | Signing |
+| Platform | Today (2026-10-15) | Planned | Signing |
 |---|---|---|---|
-| macOS (minimum: [below](#the-minimum-macos)) | `Cogpit-<v>-macos-arm64.dmg` with `Cogpit.app` for Apple silicon, from the first release after v0.4.0 on (v0.4.0 and earlier: `Cogpit_<v>_darwin_arm64.zip`); `cogpit-cli` inside the app (`Contents/MacOS`) from the first release after v0.6.0 on, before as archives for amd64 and arm64 | `Cogpit-<v>-macos-universal.dmg` ([D-4](decisions.md#d-4-packaging-and-updates)), built per architecture with cgo and joined with `lipo` | the app with its `cogpit-cli` and the disk image signed with the Developer ID (hardened runtime, timestamp), the disk image notarized, its ticket stapled; without the secrets none (ad-hoc only) |
+| macOS (minimum: [below](#the-minimum-macos)) | `Cogpit-<v>-macos-arm64.dmg` with `Cogpit.app` for Apple silicon, from the first release after v0.4.0 on, in the releases whose pipeline finished (v0.6.0 to v0.8.0; v0.4.0 and earlier: `Cogpit_<v>_darwin_arm64.zip`); `cogpit-cli` inside the app (`Contents/MacOS`) from the first release after v0.6.0 on, before as archives for amd64 and arm64 | `Cogpit-<v>-macos-universal.dmg` ([D-4](decisions.md#d-4-packaging-and-updates)), built per architecture with cgo and joined with `lipo` | the app with its `cogpit-cli` and the disk image signed with the Developer ID (hardened runtime, timestamp), the disk image notarized, its ticket stapled; without the secrets none (ad-hoc only) |
 | Windows 10+ x64 and arm64 | nothing since D-16's revision (2026-10-14; up to v0.6.0 a `cogpit-cli` zip) | `Cogpit-<v>-windows-<arch>.msi`, a portable zip (M11), on native runners (cgo), with `cogpit-cli` inside | planned: Authenticode |
 | Linux x86_64 and aarch64 | nothing since D-16's revision (2026-10-14; up to v0.6.0 a `cogpit-cli` tar.gz) | AppImage, deb, rpm, tar.xz, Flatpak (M11), on native runners (cgo, OpenGL and X11/Wayland headers), with `cogpit-cli` inside | planned: checksums, SBOM, signed update manifest |
 

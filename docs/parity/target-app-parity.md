@@ -1,6 +1,6 @@
 # Cogpit vs Lens Desktop: target-app parity
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (Feature breadth's opening sentence brought to the table's 84.6% (it still said ~57% of 2026-10-12); beyond Lens ~3–12 h as G21's entry and ROADMAP say; no number re-measured); minor (Resource actions 41 / 41: the Config Maps row names the drawer's Save, `configMap.saveData`, the owner's F3; breadth not moved); minor (Sparkle 2 and the signed appcast built, no update key yet, D-4: interface 114 of 120, platforms and packages 6 of 13, weighted 84.2%, breadth ~84%); minor (paid features 3 of 11 with the Flux CD and Argo CD sections, partial: weighted 82.4%, breadth ~82%; the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%; beyond Lens re-estimated at ~20–42 h after the built-in agent's engine side) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-15 · **Last updated:** 2026-10-15 · **Change:** minor (AGENTS.md rule 10: checked against the code and gaps.md at HEAD; the remaining hours re-estimated from gaps.md's entries of 2026-10-15 (the lead's estimate, PhotoCraft's calibration): alpha ~65–240 h, beta ~240–650 h, free parity ~240–665 h, the full Lens target ~400–990 h, beyond Lens ~6–20 h, every dimension's hours, the audiences' hours and the feature areas' share of G6 and G7; the evidence text of the readiness, audience and area tables brought to what is built; 10 counted rows done, not 9; the human prerequisites current; verifying the cloud credential plugins out of scope until long after parity (owner, 2026-10-15); the readiness percentages and the ×0.7 discounts not changed, a decision pending with the owner); minor (Feature breadth's opening sentence brought to the table's 84.6% (it still said ~57% of 2026-10-12); beyond Lens ~3–12 h as G21's entry and ROADMAP say; no number re-measured); minor (Resource actions 41 / 41: the Config Maps row names the drawer's Save, `configMap.saveData`, the owner's F3; breadth not moved); minor (Sparkle 2 and the signed appcast built, no update key yet, D-4: interface 114 of 120, platforms and packages 6 of 13, weighted 84.2%, breadth ~84%); minor (paid features 3 of 11 with the Flux CD and Argo CD sections, partial: weighted 82.4%, breadth ~82%; the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%; beyond Lens re-estimated at ~20–42 h after the built-in agent's engine side) · **Target:** Lens Desktop 2026.10.51501
 
 The authoritative answer to "how close is Cogpit to Lens, and how much work is left". The
 one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
@@ -9,39 +9,46 @@ one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
 Cogpit adds beyond Lens is in [`beyond-lens.md`](beyond-lens.md). Method and vocabulary:
 [`README.md`](README.md).
 
-## Headline (2026-10-12, after the fourth implementation run)
+## Headline
 
 | Number | Value | Kind |
 |---|---|---|
-| **Feature breadth** (does each Lens feature exist?) | **~85%** (was ~82%) | measured by `make parity`: [breadth](#feature-breadth); 9 rows done, the rest partial |
-| **Ready for real work** (could a daily Lens user on macOS switch?) | **~26%** (was ~23%) | estimated: [weights](#ready-for-real-work) |
-| **Mainstream practitioner** (daily user of Lens's free features) | **~25%** (was ~24%) | estimated |
-| **Essentials user** (connect, pods, logs, shell, edit) | **~34%** (was ~32%) | estimated |
-| **Stage** | **pre-alpha** | the [alpha gate](roadmap.md#alpha-gate) fails: every workflow exists now, Helm upgrade and adding, pasting and syncing kubeconfigs included, but none is checked end to end in the GUI on a real cluster, and no cloud credential plugin is verified |
-| Remaining to **alpha** on macOS | **~135–370 agent-hours** | estimated (was ~150–400), [calibration](#remaining-effort-and-calibration) |
-| Remaining to **beta** on macOS (~75% ready, GitOps views, notarized, updates, budgets met) | **~425–995 agent-hours** | estimated (was ~440–1,020) |
-| Remaining to **full parity** with Lens's free features on macOS | **~420–1,040 agent-hours** | estimated (was ~430–1,060), the sum of G1–G16 |
-| Remaining to the **full Lens target** (paid features, Windows and Linux) | **~620–1,450 agent-hours** | estimated (was ~640–1,480); several parts need owner decisions |
-| Cogpit's targets **beyond Lens** (MCP control, built-in agent) | **~3–12 agent-hours** | estimated (2026-10-14 night: the built-in agent's chat column built, G21 3–10 h; was ~20–42, before that ~50–110); not part of the parity numbers |
+| **Feature breadth** (does each Lens feature exist?) | **~85%** (was ~82%) | measured by `make parity`: [breadth](#feature-breadth); 10 rows done, the rest partial |
+| **Ready for real work** (could a daily Lens user on macOS switch?) | **~26%** (was ~23%) | estimated 2026-10-12: [weights](#ready-for-real-work) |
+| **Mainstream practitioner** (daily user of Lens's free features) | **~25%** (was ~24%) | estimated 2026-10-12 |
+| **Essentials user** (connect, pods, logs, shell, edit) | **~34%** (was ~32%) | estimated 2026-10-12 |
+| **Stage** | **pre-alpha** | the [alpha gate](roadmap.md#alpha-gate) fails: every workflow exists, but none is checked end to end in the GUI on a real cluster; on the owner's real cluster the window hung after the Mac slept (2026-10-15 evening; decided, not built, [G2](gaps.md#g2-cluster-connection-and-authentication)). Verifying the cloud credential plugins is out of scope until long after parity (owner, 2026-10-15) |
+| Remaining to **alpha** on macOS | **~65–240 agent-hours** | estimated, re-estimated 2026-10-15 from [gaps](gaps.md#summary) (was ~135–370 on 2026-10-12; ~110–320 in ROADMAP's rough re-estimate of 2026-10-13), plus what the owner's walks find (G16); [calibration](#remaining-effort-and-calibration) |
+| Remaining to **beta** on macOS (~75% ready, GitOps views, notarized, updates, budgets met) | **~240–650 agent-hours** | estimated, re-estimated 2026-10-15 (was ~425–995) |
+| Remaining to **full parity** with Lens's free features on macOS | **~240–665 agent-hours** | estimated, re-estimated 2026-10-15 (was ~420–1,040), the sum of G1–G16 |
+| Remaining to the **full Lens target** (paid features, Windows and Linux) | **~400–990 agent-hours** | estimated, re-estimated 2026-10-15 (was ~620–1,450); several parts need owner decisions |
+| Cogpit's targets **beyond Lens** (MCP control, built-in agent) | **~6–20 agent-hours** | estimated (2026-10-15: G21 6–18 h with the owner's audit answers for the chat; was ~3–12 after the chat column of 2026-10-14 night, ~20–42 before it, ~50–110 before its engine side); not part of the parity numbers |
 
-The fourth measurement, the first counted by `make parity` rather than by hand. Breadth moved
-little (one action, three interface rows, one authentication row): the run built depth the
-alpha gate needs rather than new rows: Helm upgrade with Lens's drawer and dialogs, adding,
-pasting and syncing kubeconfigs with credential plugins run only once allowed, the Secrets view on
-a full watch, the journals shared safely between Cogpit processes, the terminal widget fuzzed on
-its own with twelve fixes, and ten flaky tests whose causes included four product bugs. Readiness
-moved for connectivity, Helm and stability; no workflow was walked through end to end by a person
-on a real cluster yet.
+Breadth is counted by `make parity` at every change (last moved 2026-10-15); the three readiness
+numbers are the estimate of 2026-10-12, not re-assessed since (ROADMAP carries the lead's rough
+~30% of 2026-10-13, which this page did not take up; a re-estimate is a decision pending with the
+owner); the remaining hours were re-estimated on 2026-10-15 from the entries of
+[gaps](gaps.md), which are now mostly the depth of rows that exist, decided work the owner added on
+2026-10-15 and the reservation for what real use finds (G16). The fourth measurement (2026-10-12),
+the first counted by `make parity` rather than by hand, moved breadth little (one action, three
+interface rows, one authentication row): that run built depth the alpha gate needs rather than new
+rows: Helm upgrade with Lens's drawer and dialogs, adding, pasting and syncing kubeconfigs with
+credential plugins run only once allowed, the Secrets view on a full watch, the journals shared
+safely between Cogpit processes, the terminal widget fuzzed on its own with twelve fixes, and ten
+flaky tests whose causes included four product bugs. Readiness moved then for connectivity, Helm
+and stability.
 
 ### Readiness by audience
 
 | Audience | Ready % | Agent-hours to ~95% | Work that dominates |
 |---|---:|---:|---|
-| Full Lens target | ~17% | 620–1,450 | Everything below, plus paid-plan features (G18, G23), Windows and Linux (G22) |
-| Mainstream practitioner (macOS) | ~25% | 420–1,040 | The interface (G5, G13: 100–275), stability (G16), metrics (G12), the depth of the views and actions (G6, G7: 50–170), Helm install and charts |
-| Essentials user (macOS) | ~34% | 90–280 | Cloud credential plugins verified against EKS, GKE and AKS, checking the flows end to end on real clusters, the remaining foundation |
+| Full Lens target | ~17% | 400–990 | Everything below, plus paid-plan features (G18, G23), Windows and Linux (G22) |
+| Mainstream practitioner (macOS) | ~25% | 240–665 | Stability and what real use finds (G16: 100–200), the interface (G5, G13: 39–137), the depth of the views and actions (G6, G7: 18–91), performance (G15: 28–66) |
+| Essentials user (macOS) | ~34% | 45–150, plus what the walks find (G16) | Checking the flows end to end on real clusters (the owner's walks), standby and lost connections (G2, decided 2026-10-15), the depth of logs, shells and the editor (G8, G9) and of the core views, actions and shell (a third of G5 to G7), the foundation left (G1, G3, G4); verifying the cloud credential plugins against EKS, GKE and AKS is out of scope until long after parity (owner, 2026-10-15) |
 
-Each tier is a subset of the one above.
+Each tier is a subset of the one above. The hours were re-estimated on 2026-10-15 from
+[gaps](gaps.md#summary) (were 620–1,450, 420–1,040 and 90–280); the percentages are the estimate
+of 2026-10-12.
 
 ## Target measured
 
@@ -50,8 +57,11 @@ Each tier is a subset of the one above.
   Chromium 152. Lens's documentation lives at [docs.lenshq.io](https://docs.lenshq.io/)
   (`docs.k8slens.dev` redirects there) and calls the product "Lens K8S IDE". Measured from that
   documentation, the release notes from 2025-10 to 2026-10, the update feeds and the pricing page.
-- **Not run.** Lens Desktop requires a Lens ID at first launch; rows marked *capture needed* in the
-  checklists need a look at an activated install (human).
+- **Captured, not run by agents.** Rows marked *capture* in the checklists come from screenshots
+  of a running Lens Desktop (2026-10-11 and 2026-10-12, the latter with the owner on a real
+  cluster, [gaps › G11](gaps.md#g11-helm), [G12](gaps.md#g12-metrics-and-cluster-overview)). Lens
+  Desktop requires a Lens ID at first launch; rows still marked *capture needed* need a look at an
+  activated install (human).
 - **Only Lens Desktop** ([D-12](../developer/decisions.md#d-12-parity-sources)). OpenLens, whose
   source was retired in January 2024, and its fork Freelens describe an older Lens and are not
   sources.
@@ -65,7 +75,7 @@ Each tier is a subset of the one above.
 | Lens feature group | Counts toward | Why |
 |---|---|---|
 | Free (Personal plan) features | every number | What a typical Lens user uses daily |
-| Paid features: Flux CD and Argo CD views | full Lens target; built for the beta | Daily work for the owner's team ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) |
+| Paid features: Flux CD and Argo CD views | full Lens target; built for the beta (both sections partial since 2026-10-13, G23) | Daily work for the owner's team ([D-9](../developer/decisions.md#d-9-scope-against-lenss-paid-and-vendor-features)) |
 | Paid features: EKS, AKS, GKE integrations, Security Center, cost monitoring | full Lens target only, after the beta | Need cloud accounts and data sources; not the mainstream audience's daily work |
 | Extensions installed from outside (paid in Lens) | nothing | Integrations are built into Cogpit's code ([D-5](../developer/decisions.md#d-5-extensions)) |
 | Paid features: Hotbar, editor diff | full Lens target; built with the interface and the editor | Cheap |
@@ -78,7 +88,8 @@ Each tier is a subset of the one above.
 
 **~85% (weighted 84.6%, measured by `make parity`, last moved 2026-10-15; ~57% on 2026-10-12 after the fourth implementation run).**
 Denominators count Lens Desktop's free features; paid features have their own component. A row
-counts when it exists in some form; nine counted rows are done, the rest partial.
+counts when it exists in some form; ten counted rows are done (one view, nine interface rows), the
+rest partial.
 
 | Component | Weight | Ours / Lens | % | Kind |
 |---|---:|---|---:|---|
@@ -92,23 +103,23 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 
 ## Ready for real work
 
-**~26% (weighted, estimated 2026-10-12, after the fourth implementation run; was ~23%).** Weights reflect what a daily Lens user depends on. Connectivity weighs as much
+**~26% (weighted, estimated 2026-10-12, after the fourth implementation run; was ~23%; not re-assessed since, the hours and the evidence brought current on 2026-10-15).** Weights reflect what a daily Lens user depends on. Connectivity weighs as much
 as the whole interface because a user who cannot authenticate to their cluster cannot use anything
 else.
 
 | Dimension | Weight | % ready | Remaining (agent-h) | Evidence | Detail |
 |---|---:|---:|---:|---|---|
-| Resource views and actions in depth | 28% | 29% | 50–170 | 55 of 64 views (one done) and 29 of 39 actions, the rest partial; Secrets' Keys and Type filled from a full watch; most texts and rules inferred, not checked against a capture | [resource-parity](resource-parity.md), G6, G7 |
-| Interface fidelity and feel | 15% | 23% | 100–275 | 54 of 120 rows (8 done); adding and syncing kubeconfigs, the Helm Upgrade tab, the View menu following the sidebar; Cogpit's own title bar on macOS not yet seen in a real window | [ui-parity](ui-parity.md), G5, G9, G13 |
-| Cluster connectivity and authentication | 15% | 28% | 10–28 + human | 4 of 13 rows partial; kubeconfig files, pasted kubeconfigs and sync folders, each read on its own; credential plugins run only once the user allowed them; no cloud plugin verified | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity), G2 |
-| Logs, terminal, shells, port forwarding | 10% | 47% | 18–46 | log options, logs of a workload's pods that resume a dropped stream, attach, port forwarding with reconnects (on kind); the terminal widget fuzzed on its own, twelve crashes, hangs and races fixed; the node shell since 2026-10-13 (D-37) | [ui-parity](ui-parity.md#logs), G8, G10 |
-| Performance and API load | 10% | 25% | 28–66 | P2, P9–P11 measured; frames on the GPU only once; the perf gate no longer hangs on a slow runner | [testing](../developer/testing.md#performance-budgets-proposed-not-measured), G15 |
-| Stability | 10% | 11% | 100–200 | race-clean tests and CI on every push; ten flaky tests fixed, four of them product bugs (a UI state overwritten, rows missing related objects, a failed forward reported as started, a nil colour); journals safe between Cogpit processes; no use on real clusters yet | [gaps](gaps.md#g16-stability-and-the-user-bug-backlog), G16 |
-| Helm releases and metrics | 5% | 25% | 52–110 | releases from the cache with Lens's drawer, rollback with Lens's dialog, uninstall and upgrade from the Helm Upgrade tab, crash-safe on kind; no install, charts or metrics | G11, G12 |
-| Platforms and distribution | 5% | 5% | 62–125 + human | a local unsigned app bundle | [platform-parity](platform-parity.md#operating-systems-and-packages), G14, G22 |
-| Paid-plan integrations | 2% | 5% | 165–335 + human | 1 of 11 partial (the editor's diff) | G18, G23 |
-| Foundation: workspace, cache, engine (enables every row) | – | – | 29–74 | the cache with scoped, covering, metadata-only, local and virtual kinds, live related-objects indexes, access reviews, CI, `make parity`; the generated pages, the scorecard and jobs are not | G1, G3, G4 |
-| **Weighted** | 100% | **~26%** | **614–1,429** | | |
+| Resource views and actions in depth | 28% | 29% | 18–91 | 64 of 64 views (one done) and 41 of 41 actions, the rest partial (`make parity`, 2026-10-15); Secrets' Keys and Type filled from a full watch; most texts and rules inferred, not checked against a capture | [resource-parity](resource-parity.md), G6, G7 |
+| Interface fidelity and feel | 15% | 23% | 44–154 | 117 of 121 free rows (9 done; 54 of 120, 8 done, on 2026-10-12); the tab bar, navigator, palette, Preferences and Cluster settings, hotbar, welcome page, editor drafts; Cogpit's own title bar on macOS not yet seen in a real window | [ui-parity](ui-parity.md), G5, G9, G13 |
+| Cluster connectivity and authentication | 15% | 28% | 15–43 | 7 of 13 rows partial; kubeconfig files and sync folders (`~/.kube` by default), each read on its own; credential plugins run only once the user allowed them; TLS and proxy fields verified against test servers; on the owner's real cluster the connections lost while the Mac slept went undetected (2026-10-15, decided, not built); no cloud plugin verified (out of scope until long after parity, owner 2026-10-15) | [platform-parity](platform-parity.md#cluster-authentication-and-connectivity), G2 |
+| Logs, terminal, shells, port forwarding | 10% | 47% | 9–31 | log options, logs of a workload's pods that resume a dropped stream, an application's logs in one tab, attach, port forwarding with reconnects (on kind); the terminal widget fuzzed on its own, twelve crashes, hangs and races fixed; the node shell since 2026-10-13 (D-37); kubectl downloaded and verified (D-3, D-50); the scrollback (D-56) | [ui-parity](ui-parity.md#logs), G8, G10 |
+| Performance and API load | 10% | 25% | 28–66 | P2, P3, P4, P7, P8 and P9–P11 measured (2026-10-11, one Mac, no Lens comparison), P1's engine share (2026-10-14); frames on the GPU only once; the perf gate no longer hangs on a slow runner | [testing](../developer/testing.md#performance-budgets-proposed-not-measured), G15 |
+| Stability | 10% | 11% | 100–200 | race-clean tests and CI on every push; ten flaky tests fixed, four of them product bugs (a UI state overwritten, rows missing related objects, a failed forward reported as started, a nil colour); journals safe between Cogpit processes; the owner's first use in a real window and on real clusters (2026-10-14 and 2026-10-15) found the About dialog's version, the missing node history, long keys in a Config Map's drawer and the hang after sleep | [gaps](gaps.md#g16-stability-and-the-user-bug-backlog), G16 |
+| Helm releases and metrics | 5% | 25% | 9–29 | releases from the cache with Lens's drawer, rollback with Lens's dialog, uninstall and upgrade, both storage drivers, crash-safe on kind; charts and install from Helm's own `repositories.yaml` (2026-10-13); metrics from the Metrics Server and Prometheus together, the cluster Overview (2026-10-12 to 2026-10-14) | G11, G12 |
+| Platforms and distribution | 5% | 5% | 52–110 + human | releases for Apple silicon; the signed, notarized disk image in v0.6.0 to v0.8.0 (built 2026-10-14; v0.9.0 to v0.12.0 got no files, notarization in a job of its own since 163664f2); Sparkle built, no signed appcast served yet | [platform-parity](platform-parity.md#operating-systems-and-packages), G14, G22 |
+| Paid-plan integrations | 2% | 5% | 118–242 + human | 3 of 11 partial (the editor's diff, the Flux CD and Argo CD sections) | G18, G23 |
+| Foundation: workspace, cache, engine (enables every row) | – | – | 7–23 | the cache with scoped, covering, metadata-only, local and virtual kinds, live related-objects indexes, access reviews, background jobs (2026-10-15), CI, `make parity`; the generated pages, the scorecard and the discovery cache on disk are not | G1, G3, G4 |
+| **Weighted** | 100% | **~26%** | **400–989** | | |
 
 ## Mainstream practitioner
 
@@ -129,8 +140,10 @@ weighted depth of the areas used every week, times discounts for what stops real
 | **Weighted depth** | 100% | **~52%** |
 
 Discounts: stability on real clusters (unproven: ×0.7) and authentication against the cloud
-providers' credential plugins (unverified: ×0.7) give **~25%**. Speed on large clusters is not
-discounted: the demo cluster's 10,000 pods meet the budgets measured so far.
+providers' credential plugins (unverified: ×0.7) give **~25%**. Verifying those plugins is out of
+scope until long after parity (owner, 2026-10-15); the discount stays as it is until the owner
+decides on the pending re-estimate. Speed on large clusters is not discounted: the demo cluster's
+10,000 pods meet the budgets measured so far.
 
 ## Essentials user
 
@@ -151,21 +164,24 @@ With the same two discounts as above (×0.7 each): **~34%**.
 
 ## Feature areas
 
-Percent is ready-for-real-work for the area; hours are the views and actions of the area (2–6 h
-each), contained in G6 and G7 above, plus the named subsystem where one exists.
+Percent is ready-for-real-work for the area, the estimate of 2026-10-12 (not re-assessed since);
+hours are the area's share of G6 and G7 (18–91 h for 105 views and actions, about 0.2–0.9 h each:
+every view and action exists, so what is left is depth; re-estimated 2026-10-15, the lead's
+estimate, PhotoCraft's calibration; 2–6 h per view or action to build before), plus the named
+subsystem where one exists.
 
 | Area | Views | Actions | % | Hours |
 |---|---:|---:|---:|---:|
-| Cluster: overview, applications, nodes, namespaces, events | 5 | 5 | ~25% (Nodes with its Pods table, Namespaces, Events; Cordon, Uncordon, Drain partial; the node shell partial, 2026-10-13; Create Namespace partial, 2026-10-12) | 12–35, plus metrics (G12) |
-| Workloads | 9 | 16 | ~55% (every view, the Overview page included; all 15 actions that are targets exist, partial; Share is not a target) | 8–30 |
-| Config | 16 | 2 | ~42% (15 of 16 views partial, Secrets on a full watch with Keys and Type; the Resource Quota create dialog partial, 2026-10-12; the Secret's, 2026-10-13) | 10–35 |
-| Network, Gateway API included | 17 | 5 | ~45% (every view; port forwarding and its four actions; the Gateway API views generic) | 6–25 |
-| Storage | 3 | – | ~40% (every view partial, a claim's pods) | 1–5 |
-| Device resources | 4 | – | 0% | 10–25 |
-| Helm releases and charts | 2 | 4 | ~45% (Releases with Lens's drawer, values and notes; rollback with Lens's dialog, uninstall, upgrade from the Helm Upgrade tab; no charts, no install) | 6–20, plus Helm (G11) |
-| Access control | 6 | 5 | ~35% (5 of 6 views partial; the create dialogs of Service Accounts and the four RBAC kinds partial, 2026-10-12) | 12–35 |
-| Custom resources (Definitions and the custom resource views) | 2 | – | ~65% (custom resource views done, Definitions with its group filter partial) | 1–3 |
-| Actions on every kind (edit, delete, copy name) | – | 3 | ~55% (all three, partial; Edit and Delete greyed by access reviews) | 1–5 |
+| Cluster: overview, applications, nodes, namespaces, events | 5 | 6 | ~25% (every view partial: the cluster Overview and Applications since 2026-10-13, Nodes with its Pods table, Namespaces, Events; Cordon, Uncordon, Drain partial; the node shell partial, 2026-10-13; Create Namespace partial, 2026-10-12; an application's logs, 2026-10-15) | 2–10, plus metrics (G12) |
+| Workloads | 9 | 16 | ~55% (every view, the Overview page included; all 15 actions that are targets exist, partial; Share is not a target) | 4–21 |
+| Config | 16 | 3 | ~42% (16 of 16 views partial, Secrets on a full watch with Keys and Type; the Resource Quota create dialog partial, 2026-10-12; the Secret's, 2026-10-13; a Config Map's values saved in the drawer, 2026-10-15) | 3–16 |
+| Network, Gateway API included | 17 | 5 | ~45% (every view; port forwarding and its four actions; the Gateway API views generic) | 4–19 |
+| Storage | 3 | – | ~40% (every view partial, a claim's pods) | 1–3 |
+| Device resources | 4 | – | 0% (the four views partial since 2026-10-13; the percentage of 2026-10-12, not re-assessed) | 1–3 |
+| Helm releases and charts | 2 | 4 | ~45% (Releases with Lens's drawer, values and notes; rollback with Lens's dialog, uninstall, upgrade from the Helm Upgrade tab; Charts and Install from Helm's own `repositories.yaml` since 2026-10-13, partial) | 1–5, plus Helm (G11) |
+| Access control | 6 | 5 | ~35% (6 of 6 views partial, Pod Security Policies since 2026-10-13; the create dialogs of Service Accounts and the four RBAC kinds partial, 2026-10-12) | 2–10 |
+| Custom resources (Definitions and the custom resource views) | 2 | – | ~65% (custom resource views done, Definitions with its group filter partial) | 0–2 |
+| Actions on every kind (edit, delete, copy name) | – | 3 | ~55% (all three, partial; Edit and Delete greyed by access reviews) | 1–3 |
 
 ## Remaining effort and calibration
 
@@ -181,11 +197,11 @@ make the cache and the editor more expensive. Replace the calibration with Cogpi
 
 | Milestone | Scope | Opus 5.5 agent-hours |
 |---|---|---:|
-| **Alpha (macOS)** | Foundation (G1–G4), the spike, core shell, ~20 views and ~20 actions, logs, shells, editor, port forwarding, Helm releases, MCP basics, an unsigned build | **~150–400** (was ~210–520): the alpha gate's rows (120–317) plus the foundation left (G1, G3, G4: 32–80) |
-| **Beta (macOS)** | Alpha plus metrics, most of the interface, MCP control, the Flux CD and Argo CD views, ~75% of views and actions, a notarized app with one-click updates, performance budgets, the first bug backlog | **~440–1,020** (was ~580–1,360; lowered by what the free-parity total lost) |
-| **Full parity (free features, macOS)** | G1–G16 | **~430–1,060** (was ~570–1,400) |
-| **Full Lens target** | plus G18, G22, G23 | **~640–1,480** (was ~780–1,820) |
-| **Beyond Lens** | G17, G21 | **~3–12** (was ~20–42, before that ~50–110; G21 re-estimated 2026-10-14 night) |
+| **Alpha (macOS)** | The gaps marked *blocks alpha* in [gaps](gaps.md#summary): the foundation, connections, the shell, logs, shells, the editor, port forwarding and Helm (G1 to G5, G8 to G11), the core half of the views and actions (G6, G7) and G13's share (the one list of clusters, the Clusters, Application menu and shortcut rows); the seven gate workflows walked by a person (human) | **~65–240** (re-estimated 2026-10-15: G1 to G5 and G8 to G11, 49–163; half of G6 and G7, 9–46; G13's share, 8–29; plus what the walks find, from G16, not split before them. Was ~150–400 here and ~135–370 in the headline, both 2026-10-12, as the gate's rows plus the foundation; ~110–320 in ROADMAP's rough re-estimate of 2026-10-13) |
+| **Beta (macOS)** | Alpha plus metrics, most of the interface, MCP control, the Flux CD and Argo CD views, ~75% of views and actions, a notarized app with one-click updates, performance budgets, the first bug backlog | **~240–650** (re-estimated 2026-10-15: G1 to G16, G17 and G23, 250–691, less a quarter of G6 and G7 and the several windows the owner postponed, 12–43; was ~440–1,020, before that ~580–1,360) |
+| **Full parity (free features, macOS)** | G1–G16 | **~240–665** (re-estimated 2026-10-15, 242–667; was ~420–1,040 on 2026-10-12, ~430–1,060 after the third run) |
+| **Full Lens target** | plus G18, G22, G23 | **~400–990** (re-estimated 2026-10-15, 400–989; was ~620–1,450 on 2026-10-12, ~640–1,480 after the third run) |
+| **Beyond Lens** | G17, G21 | **~6–20** (2026-10-15: G21 6–18 with the owner's audit answers for the chat; was ~3–12 after G21's re-estimate of 2026-10-14 night, ~20–42 before, ~50–110 before that) |
 
 **Cogpit's first data point (2026-10-11), not yet a calibration.** The MVP was built in one session:
 a serial skeleton by the lead, then eight agents in parallel for 18 to 45 minutes each (about
@@ -212,16 +228,25 @@ free-parity total (G2–G11, G15) and 60–120 of the alpha estimate. Merging co
 earlier runs: eight branches touched the same tables, constants and parity rows, and four tests
 that passed on every branch alone turned out to be timing-dependent on CI's slower runners.
 
-**Parallelism.** The foundation (G1–G4, 125–250 h) and the spike are serial: everything else builds
-on them. After that, about 80% parallelizes, as in PhotoCraft: one kind profile or command per agent.
-With about ten agents after the foundation, alpha is roughly 220–460 wall-clock hours, most of it
-the serial foundation.
+**Parallelism.** The foundation and the spike were serial: everything else builds on them. The spike
+has run (D-1) and the foundation left is small (G1, G3, G4: 7–23 h, 2026-10-15), so about 80% of
+what remains parallelizes, as in PhotoCraft: one kind profile or command per agent. With about ten
+agents, alpha's ~65–240 agent-hours are roughly 20–70 wall-clock hours (a fifth serial, the rest
+spread), plus the human steps: the owner's walks and each release's approvals. (On 2026-10-12, with
+the foundation at 125–250 h, this paragraph said 220–460 wall-clock hours.)
 
-**Needs a human.** The decision on the patched terminal widget ([H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input)); the open decision D-4 for Windows and Linux (with M11)
-([decisions](../developer/decisions.md)); EKS, GKE and AKS accounts to verify credential plugins;
-Apple signing material and the update signing key; an activated Lens Desktop to capture the rows
-marked *capture needed*; Lens Desktop on the same Mac as Cogpit to set the performance budgets; a
-LiteLLM or Open WebUI endpoint for the built-in agent.
+**Needs a human (2026-10-15).** The owner's walks in a real window and of the alpha gate's
+workflows on kind and a real cluster ([roadmap › Current focus](roadmap.md#current-focus) items 5
+and 6); the owner's approval of each release's appcast jobs in `sparkle`, and the tag ruleset A10
+(a GitHub setting made only with his OK; [gaps › G14](gaps.md#g14-packaging-signing-and-updates-macos));
+the owner's go-ahead to offer the terminal fork's patches upstream, at the end
+([D-14](../developer/decisions.md#d-14-terminal-widget), [H-19](../security/trust-boundaries.md#h-19-the-terminal-widget-trusts-its-input));
+the open decision D-4 for Windows and Linux (with M11) ([decisions](../developer/decisions.md));
+an activated Lens Desktop to capture the rows marked *capture needed*; Lens Desktop on the same Mac
+as Cogpit to set the performance budgets; a LiteLLM or Open WebUI endpoint for the built-in agent.
+No longer needed: Apple's signing material (2026-10-14) and Sparkle's update key (2026-10-15)
+exist; EKS, GKE and AKS accounts only once verifying their credential plugins is in scope (out of
+scope until long after parity, owner 2026-10-15).
 
 ## How to re-measure
 
@@ -241,6 +266,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | AGENTS.md rule 10, checked against the code and gaps.md at HEAD: the remaining hours re-estimated from gaps.md's entries of 2026-10-15 (the lead's estimate, PhotoCraft's calibration): alpha ~65–240 h (was ~135–370 in the headline and ~150–400 in the effort table, both 2026-10-12; now the gaps marked blocks alpha, half of G6 and G7 and G13's share, plus what the walks find), beta ~240–650 (~425–995), free parity ~240–665 (~420–1,040), the full Lens target ~400–990 (~620–1,450), beyond Lens ~6–20 (~3–12); every dimension's hours as the sums of its gaps (400–989 in all), the audiences' hours, the feature areas' hours as their share of G6 and G7; the evidence of the readiness, audience and area tables brought to what is built (64 of 64 views, 41 of 41 actions, 117 of 121 interface rows, Helm charts and install, metrics, the signed disk image, the Flux CD and Argo CD sections, jobs, no pasted kubeconfigs); 10 counted rows done, not 9; the headline's heading without its date; Lens's captures described as they are; the human prerequisites current (Apple's material and Sparkle's key exist); verifying the cloud credential plugins out of scope until long after parity (owner, 2026-10-15). The readiness percentages and the ×0.7 discounts not changed, a decision pending with the owner |
 | 2026-10-15 | minor | Feature breadth's opening sentence said ~57% (2026-10-12) under a table that adds up to 84.6%: brought to the table; beyond Lens ~3–12 h in the headline and the effort table, as G21's entry (3–10 h since the night run) and ROADMAP say. Nothing re-measured; the readiness figures here (~26%) and in ROADMAP (~30%) and the remaining hours (alpha ~135–370 h here, of 2026-10-12; ~110–320 h in ROADMAP, the lead's rough re-estimate of 2026-10-13, which this page did not take up) still differ, left for the next re-estimate with its evidence per dimension |
 | 2026-10-15 | minor | Resource actions 41 / 41 (was 40 / 40): the Config Maps row names the drawer's Save, `configMap.saveData` (the owner's F3, D-55); breadth not moved |
 | 2026-10-15 | minor | Resource actions 40 / 40 (was 39 / 39): the Applications row names its own command, `application.logs` (A81); breadth not moved |

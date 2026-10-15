@@ -61,7 +61,7 @@ and [`hack/appcast`](../../hack/appcast/main.go).
 | The history taken from Pages only when the update key signed it | "Appcast (draft)" | a feed altered on Pages being signed again with the next release |
 | The signed feed and the disk image checked with the public key before Pages gets them | "Appcast (deploy)" | a feed every copy would refuse (a secret that does not match the app's key) |
 | HTTPS | the feed and the download | eavesdroppers learning which version a user runs (not integrity: the signatures provide that) |
-| Package-manager installs hand over to the manager | planned | Cogpit overwriting files a package manager owns |
+| Package-manager installs hand over to the manager | not built: no package manager installs Cogpit ([H-17](#h-17-installs-owned-by-a-package-manager)) | Cogpit overwriting files a package manager owns |
 
 ## What a release holds today
 
@@ -76,7 +76,7 @@ that releases up to v0.6.0 carry (unsigned for Linux and Windows) are not built 
 | Artifact | Built by | What vouches for it today |
 |---|---|---|
 | `Cogpit-<v>-macos-arm64.dmg`, the app bundle in a disk image (from the first release after v0.4.0 on: v0.6.0, v0.7.0 and v0.8.0 carry it, v0.5.0 and v0.9.0 to v0.12.0 have no files; checked 2026-10-15) | `make dist-app` on GitHub's `macos-latest`, signed and imaged by `make dist-macos-sign` ([`hack/macos/release.sh`](../../hack/macos/release.sh)) in the job "Sign and submit (macOS)", notarized and stapled by `make dist-macos-notarize` in "Notarize and staple (macOS)" | the app and the disk image signed with the Developer ID "Developer ID Application: Hans Fischer (6L57P2HXN6)", the hardened runtime and Apple's timestamp; the disk image notarized by Apple, its ticket stapled, so Gatekeeper accepts it offline as `Notarized Developer ID`; its SHA-256 in `SHA256SUMS`. When a signature, the notarization or a check fails, the job fails and the release gets no files until the failed jobs are re-run, never unsigned files under a signed note; the notarization job waits 330 minutes at most for Apple's verdict on the one submission the signing job made, and a re-run waits for the same one; it staples only the disk image whose SHA-256 the signing job recorded with the submission ([`build.yml`](../../.github/workflows/build.yml), [`release.sh`](../../hack/macos/release.sh); the lead's default, confirmed by the owner on 2026-10-14 evening) |
-| `cogpit-cli` in the app, `Cogpit.app/Contents/MacOS/cogpit-cli` (from the first release after v0.6.0 on) | `make app` from `make build`'s binary, in the same job | the same as the app: signed with the same Developer ID before the bundle (identifier `io.guided-traffic.cogpit.cli`, the hardened runtime, the timestamp), sealed into the app's signature, so changing it breaks the app's; notarized with the disk image, whose stapled ticket covers it; replaced by Sparkle's update with the bundle. Not verified until the first signed release: that it runs from a terminal in a quarantined copy before the app was ever opened without a prompt |
+| `cogpit-cli` in the app, `Cogpit.app/Contents/MacOS/cogpit-cli` (from the first release after v0.6.0 on) | `make app` from `make build`'s binary, in the same job | the same as the app: signed with the same Developer ID before the bundle (identifier `io.guided-traffic.cogpit.cli`, the hardened runtime, the timestamp), sealed into the app's signature, so changing it breaks the app's; notarized with the disk image, whose stapled ticket covers it; replaced by Sparkle's update with the bundle. Not verified (the signed releases v0.7.0 and v0.8.0 carry it): that it runs from a terminal in a quarantined copy, before the app was ever opened, without a prompt |
 | `Cogpit_<v>_darwin_arm64.zip`, the app bundle (v0.4.0 and earlier, and any build without the signing secrets) | `make dist-app` on GitHub's `macos-latest` | its SHA-256 in `SHA256SUMS`; an ad-hoc signature (`codesign --sign -`), which seals the bundle but names nobody: **no Developer ID, not notarized**, so Gatekeeper blocks the first start until the user allows it |
 | `SHA256SUMS` | the release pipeline's last job | nothing: it is not signed, so it shows that a download matches what CI attached to the release, not who attached it |
 | The release's item in `https://guided-traffic.github.io/cogpit/appcast.xml` (from the first release built with the update key that passes notarization; none yet on 2026-10-15: v0.11.0 to v0.13.0 are built with the key, v0.11.0 and v0.12.0 have no files, v0.13.0's notarization was in progress) | the three appcast jobs after "Attach to the release" ([releasing › the appcast](../developer/releasing.md#the-appcast)) | the update key's EdDSA signature over the feed and over the disk image it names, made after the owner approved the run; checked with the public key before Pages gets it |
@@ -283,10 +283,35 @@ administrator created with the ruleset switched off.
 ### H-17: Installs owned by a package manager
 
 For Homebrew (and, later, winget, Flathub and Linux repositories) the integrity of an update is
-the package manager's, not Cogpit's.
+the package manager's, not Cogpit's. Dormant: this repository builds no package for a package
+manager (no Homebrew cask, no winget, Flathub or Linux package; checked 2026-10-15 in the
+`Makefile`, `packaging/` and the workflows), so the hand-over to the manager in the table above is
+not built either.
 
 ### H-18: Dependencies
 
-The Go modules Cogpit is built from are a supply chain of their own. The team's other repositories
-use Renovate and govulncheck; Cogpit adopts both with M0, but no page describes the dependency
-policy yet.
+The Go modules Cogpit is built from, and the GitHub Actions its pipeline runs, are a supply chain
+of their own. As built: Renovate ([`renovate.yml`](../../.github/workflows/renovate.yml),
+[`.github/renovate.json`](../../.github/renovate.json)) proposes updates, and the minor, patch and
+digest updates of Go modules, the Go version, Actions and the Makefile's tool pins merge on their
+own once CI passes (an Action's major update too), Sparkle's never; govulncheck checks every push
+to `main` for known vulnerabilities in code Cogpit reaches, and GoSec scans the shipped code (the
+jobs "Vulnerability Check" and "GoSec Security Scan" in
+[`release.yml`](../../.github/workflows/release.yml)). The policy is written in
+[releasing › Renovate](../developer/releasing.md#renovate). What remains, per case:
+
+- **An automerged update is reviewed by nobody.** A module's minor or patch release that passes
+  CI ships in the next `feat:` or `fix:` release, signed and notarized
+  ([H-62](#h-62-every-push-to-main-that-passes-the-gates-is-released)), and an Action's runs in the
+  next workflow run. Live for every update Renovate merges on its own.
+- **Actions are named by a version tag, not by a commit** (`actions/checkout@v7`,
+  `actions/download-artifact@v8`, `actions/upload-artifact@v7`), also in the jobs that hold the
+  Developer ID certificate and the API key (environment `release`) and the update key (environment
+  `sparkle`) in [`build.yml`](../../.github/workflows/build.yml): whoever can move such a tag in its
+  repository runs code in those jobs. Live for every release run.
+- **What Renovate cannot see:** sigstore's trusted root, refreshed by hand
+  ([trust boundaries › H-35](trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search)),
+  and the terminal widget's copy in `third_party/`, which moves to a new upstream commit by hand
+  ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)).
+- **A release names no inputs.** It carries no SBOM and no provenance attestation of the build
+  (none in the workflows, checked 2026-10-15).

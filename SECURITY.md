@@ -16,11 +16,15 @@ anything you send.
 
 ## Supported versions
 
-No version has been released. Once releases exist, only the latest release receives security fixes.
+Cogpit is released as 0.x versions from `main` on the
+[releases page](https://github.com/guided-traffic/cogpit/releases). Only the latest release
+receives security fixes: a fix ships in a new release, never as a patch to an older one
+([how a release is built and how the app updates](docs/security/updates.md)).
 
 | Version | Supported |
 |---|---|
-| none released | – |
+| the latest release | ✓ |
+| every earlier release | – |
 
 ## Known limitations
 

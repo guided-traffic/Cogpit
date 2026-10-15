@@ -55,14 +55,16 @@ internal/ui/logo              L4 the logo, every version of it, rasterised for t
 internal/mcp agent update     L4 MCP server; built-in agent; update check and install
 internal/app                  L4 the wiring both binaries share: Cogpit's directories, kubeconfig sources, audit log
 internal/engine               L3 Session, command registry, UI state, jobs, events, confirmation, audit log
-internal/helm metrics demo    L2 Helm SDK; metrics providers (not built yet); the synthetic demo cluster
+internal/engine/commands      L3 the commands, one file per area
+internal/helm metrics demo    L2 Helm SDK; metrics from the Metrics Server and Prometheus; the synthetic demo cluster
 internal/cluster cache        L1 connections and auth; shared informers (the cache)
-internal/terminal             L1 PTY sessions
+internal/terminal             L1 terminal sessions: a local shell on a PTY, pod and node shells, attach
 internal/kubectl              L1 kubectl for terminals: client version, skew, verified download (release host and sigstore's log only)
 internal/locale               L1 the computer's date and time format (macOS region via cgo, else $LC_TIME), D-31
-internal/model kubeconfig     L0 kind profiles and rows; kubeconfig parsing (no I/O)
+internal/model kubeconfig     L0 the resource model (references, kind profiles, rows, detail sections); kubeconfig parsing (no I/O)
+internal/model/kinds          L0 the built-in kind profiles, one file per kind
 internal/buildinfo            L0 the version both binaries report (release, else dev and the commit)
-internal/testkit              fixtures, fake clients, kind and envtest helpers
+internal/testkit              fixtures, a fake API server and clients, a fake LLM endpoint, a sigstore of its own; kind tests in testkit/integration
 ```
 
 **Layering is enforced** by golangci-lint's `depguard` in `make lint`: a package imports only

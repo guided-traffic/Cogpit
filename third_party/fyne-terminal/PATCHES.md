@@ -160,7 +160,8 @@ unterminated OSC took about 60 s). The ten-minute runs with the fixed harness (f
   Cocoa's resize loop meanwhile (read in Fyne 2.8.1's `loop.go`). Fyne's, not patched.
 - Wide characters (CJK) take one cell, also in the scrollback and its reflow.
 
-`go.mod` requires Fyne v2.8.1, the latest release, where upstream's asks for an unreleased Fyne
+`go.mod` requires Fyne v2.8.1 (Cogpit's own module builds it with v2.8.2, the latest release, since
+the Renovate updates of 2026-10-15, e858ee49), where upstream's asks for an unreleased Fyne
 (`v2.8.2-0.20261009111023-0a528b3a387b`); its indirect requirements are the ones `go mod tidy`
 derives from that, so the copy never raises a module in Cogpit's build above what Fyne v2.8.1
 needs. The code builds and its tests pass on v2.8.1 (2026-10-12), `TestExitCode*` included, which

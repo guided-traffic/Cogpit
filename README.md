@@ -184,8 +184,8 @@ agents did. A few commands, such as creating a Secret, only you can run.
 
 ### 💬 An agent chat in the window
 
-Cogpit is getting an agent of its own: a chat column at the window's right edge (⌘I) that talks to
-a model you choose, LM Studio on your Mac, a LiteLLM proxy or Open WebUI. Ask about the pod you
+Cogpit has an agent of its own: a chat column at the window's right edge (⌘I) that talks to a
+model you choose, LM Studio on your Mac, a LiteLLM proxy or Open WebUI. Ask about the pod you
 selected and it reads the object and its logs and answers in Markdown, tables included; each of its
 tool calls is a row you can open, a change waits for your OK as an MCP agent's does, and what a
 turn sent to the model is one click away. Escape or ⌘. stops it at any time.
@@ -212,8 +212,9 @@ dark theme too.
   acceptance unless you allowed changes on that cluster, and destructive actions always wait.
 - **Everything agents do is logged**, readable in Help › Audit Log.
 - **Secrets stay secret.** Values stay masked until you reveal them, agents never read them (where
-  a log prints a value of a Secret Cogpit holds, an agent reads a placeholder), and tokens and keys
-  never reach a log.
+  a log prints a value of a Secret Cogpit holds, an agent reads a placeholder) unless you mark the
+  built-in agent's connection private (a local model or a private cloud), and tokens and keys never
+  reach a log.
 - **Your credentials stay yours.** Cogpit authenticates the way `kubectl` does, with your
   kubeconfig, and runs a credential plugin only after you allowed it.
 - **Light on the API server.** Views read from a watch-fed cache: opening a view again costs no

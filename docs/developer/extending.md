@@ -25,6 +25,15 @@ Ordered checklists for the common additions. The packages they name are in
      the user even where agent writes are allowed (a role binding: a command that can write one
      declares it, [H-27](../security/privilege-footprint.md#h-27-a-binding-is-judged-by-its-roles-name-and-the-cache));
      `Prefill` when a dialog should start from cached values;
+   - for a command that asks the user ([`registry.go`](../../internal/engine/registry.go) `Spec`):
+     `Targets`, the objects the confirmation names and binds by UID; `Detail`, a sentence for what
+     the objects do not show (the drain's options that lose data); `Warning`, what the user must
+     know before answering, in the warning colour; `Review`, a text of the parameters to read (an
+     agent's Helm values); `Undoable` for a destructive command that loses nothing (a grant, a
+     rollback), whose confirmation then leaves out "This cannot be undone."; `Refuse` to refuse an
+     origin before anyone is asked; `GUIOnly` for a command only the user's own action in the
+     window runs (a new GUI-only command needs a decision of the owner,
+     [conventions](conventions.md#commands-not-handlers));
    - a parameter struct with `json` and `jsonschema` tags (the schema agents read);
    - `enabled`, returning the reason when disabled;
    - `verbs` (every API verb and resource it uses) and `danger` (`Read`, `UI`, `Mutating`,
@@ -51,7 +60,13 @@ Ordered checklists for the common additions. The packages they name are in
    area's methods in the area's own test file.
 4. **Multi-step mutations** (several API calls in a row) are crash-safe
    ([conventions](conventions.md#crash-tolerant-crash-safe)): a worker process, or detection of the
-   half-finished state on the next start.
+   half-finished state on the next start (the drain's and Helm's journals). Work that outlives the
+   command's call (waiting for a controller, as Reconcile with Source waits for Flux's source)
+   runs as a background job: `Session.StartJob` with a `JobSpec`
+   ([`jobs.go`](../../internal/engine/jobs.go)) opens the job's dock tab, whose steps agents read in
+   `ui_state`, and the command returns at once; closing the tab, a cluster change or the session's
+   end cancels the job. Jobs are not journaled, so the command says why a crash in the middle is
+   harmless ([`fluxsourcejob.go`](../../internal/engine/commands/fluxsourcejob.go)).
 5. **Respect the context:** cluster context and namespace, a multi-selection (a row inside the
    selection acts on the whole selection), the user's permissions, and the origin's confirmation
    rules.
@@ -102,12 +117,18 @@ belongs to:
 3. **A dashboard** as a page: a key `<group>/<page>` with its title in `pageTitles`, a worker in
    `internal/engine/<integration>dashboard.go` hooked into `state` (views.go) as the Overviews are,
    its read command, and its panel in `internal/ui/fyneui` (`tableview.go`'s page layout).
-4. **The navigator group** in `internal/ui/fyneui/<integration>nav.go`, one line in `navLayout`;
-   a group of pages alone is left out, so the section goes with the integration's CRDs.
+4. **The navigator group** in `internal/ui/fyneui/<integration>nav.go` (Flux's
+   [`fluxnav.go`](../../internal/ui/fyneui/fluxnav.go); Argo CD's group sits in
+   [`argocd.go`](../../internal/ui/fyneui/argocd.go)), one line in `navLayout`
+   ([`sidebar.go`](../../internal/ui/fyneui/sidebar.go)); a group of pages alone is left out, so the
+   section goes with the integration's CRDs.
 
 ## Adding a built-in kind profile
 
-A kind without a profile already gets a generic view from discovery; a profile makes it match Lens.
+A custom resource kind without a curated profile already gets a generic view from its definition
+(its printer columns); a built-in kind without a profile gets no view at all
+([architecture › Current state](architecture.md#current-state-2026-10-15)). A profile makes a kind
+match Lens.
 
 1. Take the columns, status rules and actions from the kind's row in
    [`resource-parity.md`](../parity/resource-parity.md).
@@ -163,9 +184,12 @@ A kind without a profile already gets a generic view from discovery; a profile m
 ## Adding a package
 
 1. Pick its layer in [`architecture.md`](architecture.md#3-dependency-layering-enforced) and add its
-   `depguard` rule to `.golangci.yml` in the same change.
+   `depguard` rule to `.golangci.yml` in the same change, and the new package to the deny lists of
+   the rules that must keep other packages off it.
 2. Give it a package doc comment.
-3. Add a row to the package table in [`README.md`](README.md).
+3. Add a row to the package table in [`README.md`](README.md) and to
+   [architecture › Current state](architecture.md#current-state-2026-10-15), and a line to the
+   package map in [`AGENTS.md`](../../AGENTS.md#2-package-map).
 
 ## Changing the logo
 

@@ -127,6 +127,22 @@ malformed-input tests or fuzz targets.
 - Verify every visual change with an offscreen render (Fyne's `test` package) or a screenshot, in
   dark and light themes, and attach before/after images to the pull request.
 
+## The docs show the current state
+
+The owner's rule of 2026-10-15 ([`AGENTS.md`](../../AGENTS.md#the-other-rules), rule 10): every
+change, patch and fix updates the documentation it affects in the same commit as the code, so that
+no page describes yesterday's Cogpit. Before committing, search the docs for what the change
+touches (its command ids, the decision, the `H-<n>`, "not built", "planned", "none yet") and
+correct every sentence that no longer holds: the parity row, the gap and the numbers they feed
+([rules](../parity/README.md#rules-for-every-progress-page)); the decision's status in
+[`decisions.md`](decisions.md) ("decided, not built" becomes "built", with its evidence); the
+security page whose mechanism changed; [architecture › Current state](architecture.md#current-state-2026-10-15);
+[`usage.md`](usage.md) for what a user sees; the package table in [`README.md`](README.md) for a
+new package; the table in [`commands.md`](commands.md) for a new or changed command; the current
+focus in [`roadmap.md`](../parity/roadmap.md) when the change closes or moves one of its items.
+Dated history (revision rows, "built 2026-10-13") stays as it was; a sentence about the present
+that the change makes false does not.
+
 ## Commits and pull requests
 
 Small, focused commits in the [Conventional Commits](https://www.conventionalcommits.org/) form

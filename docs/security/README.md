@@ -15,11 +15,16 @@ document nobody finishes is a document nobody checks. The file names are the ind
 
 These pages describe the boundaries that exist in the problem itself (kubeconfig, the Kubernetes
 API, credential plugins, terminals, agents, updates) and the check each boundary needs. Since the
-MVP (2026-10-11) the mechanisms it implements link to their code and tests; the rest names planned
-packages. When a mechanism lands, its row gains a link to the code and the test that proves it, in
-the same change. The owner's decision round of 2026-10-14 evening is recorded on every page whose
-mechanisms it changes, in the form below; none of the changes it decided was built then;
-several are built since.
+MVP (2026-10-11) the mechanisms Cogpit implements link to their code and tests; a required check
+without such a link says what of it is not built. When a mechanism lands, its row gains a link to
+the code and the test that proves it, in the same change. The owner's decision round of 2026-10-14
+evening is recorded on every page whose mechanisms it changes, in the form below; none of the
+changes it decided was built then. Every change of that round that these pages describe is built
+since (the night run of 2026-10-14/15), except two: the GitHub settings for the release
+environment, a tag ruleset and no administrator bypass, made only with the owner's OK and not made
+(checked 2026-10-15, [updates › H-62](updates.md#h-62-every-push-to-main-that-passes-the-gates-is-released));
+and several windows, postponed by the owner
+([D-52](../developer/decisions.md#d-52-several-windows), below).
 
 ## Form of every page
 
@@ -42,7 +47,7 @@ Reporting a vulnerability: [`SECURITY.md`](../../SECURITY.md).
 
 - **Isolation between clusters:** Cogpit is a single-user desktop app with no server side; the
   isolation that matters is between the clusters open in one process. An action, an editor apply,
-  a terminal or an agent's tool call must reach only the cluster whose view started it. The MVP has
+  a terminal or an agent's tool call must reach only the cluster whose view started it. Cogpit holds
   one connection at a time; a write confirmed for one context refuses to run after the user
   switched to another (`CheckConfirmedContext` in [`confirm.go`](../../internal/engine/confirm.go)),
   and each terminal is bound to its context by its own kubeconfig. No page covers this yet; it is
