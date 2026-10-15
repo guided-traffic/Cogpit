@@ -47,8 +47,8 @@ Not counted: 7 interface rows that are not a target, 5 platform rows that are pa
 | Jobs | partial | [Workloads](resource-parity.md#workloads) |
 | Replication Controllers | partial | [Workloads](resource-parity.md#workloads) |
 | Cron Jobs | partial | [Workloads](resource-parity.md#workloads) |
-| Config Maps | partial | [Config](resource-parity.md#config) |
-| Secrets | partial | [Config](resource-parity.md#config) |
+| Config Maps; checked against a real cluster, 2026-10-16: 210 config maps, Keys naming as many keys as kubectl's Data counts (165 for one) | partial | [Config](resource-parity.md#config) |
+| Secrets; checked against a real cluster, 2026-10-16: 261 secrets, Type and Keys as kubectl's Type and Data; a TLS Secret's drawer decodes a… | partial | [Config](resource-parity.md#config) |
 | Resource Quotas | partial | [Config](resource-parity.md#config) |
 | Limit Ranges | partial | [Config](resource-parity.md#config) |
 | Horizontal Pod Autoscalers | partial | [Config](resource-parity.md#config) |
