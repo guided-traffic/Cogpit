@@ -217,8 +217,8 @@ func registerArgoCD(g *registrar) {
 		Danger: engine.DangerMutating, Verbs: argoPatchVerbs,
 		Description: "Syncs several Argo CD Applications at once, as argocd.application.sync does for one: one " +
 			"acceptance names them all (with prune, a confirmation for every origin), then each is synced in turn, bound " +
-			"to its UID; one that has an operation requested or running is skipped and reported. The error names which " +
-			"were synced and which not, each with its reason. At most 500.",
+			"to its UID; one that has an operation requested or running is skipped and reported. At most 500. " +
+			jobManyDescription,
 		Enabled:  func(s *engine.Session, p argoSyncManyParams) error { return argoManyEnabled(s, p.Refs) },
 		Escalate: func(_ *engine.Session, p argoSyncManyParams) bool { return p.Prune },
 		Targets: func(s *engine.Session, p argoSyncManyParams) ([]model.ObjectRef, error) {
@@ -226,26 +226,28 @@ func registerArgoCD(g *registrar) {
 		},
 		Detail: func(s *engine.Session, p argoSyncManyParams) string { return argoSyncDetail(s, p.Refs, p.Prune) },
 		Run: func(ctx context.Context, s *engine.Session, p argoSyncManyParams) (any, error) {
-			return argoMany(ctx, s, p.Refs, argoSyncDone(p.Prune), func(w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
-				return argoSync(ctx, s, w, version, ref, p.Prune)
-			})
+			return argoMany(ctx, s, "argocd.application.syncMany", argoSyncLabel, p.Refs, argoSyncDone(p.Prune),
+				func(ctx context.Context, w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
+					return argoSync(ctx, s, w, version, ref, p.Prune)
+				})
 		},
 	})
 	add(g, engine.Spec[argoRefreshManyParams]{
 		ID: "argocd.application.refreshMany", Label: argoRefreshText, MenuPath: "Argo CD/Refresh Selected", Kinds: appKinds, Order: 110,
 		Danger: engine.DangerMutating, Verbs: argoPatchVerbs,
 		Description: "Refreshes several Argo CD Applications at once, normal or hard, as argocd.application.refresh does " +
-			"for one: one acceptance names them all, then each is refreshed in turn, bound to its UID. The error names " +
-			"which were refreshed and which not. At most 500.",
+			"for one: one acceptance names them all, then each is refreshed in turn, bound to its UID. At most 500. " +
+			jobManyDescription,
 		Enabled: func(s *engine.Session, p argoRefreshManyParams) error { return argoManyEnabled(s, p.Refs) },
 		Targets: func(s *engine.Session, p argoRefreshManyParams) ([]model.ObjectRef, error) {
 			return selectionTargets(s, p.Refs)
 		},
 		Detail: func(_ *engine.Session, p argoRefreshManyParams) string { return argoRefreshDetail(p.Hard) },
 		Run: func(ctx context.Context, s *engine.Session, p argoRefreshManyParams) (any, error) {
-			return argoMany(ctx, s, p.Refs, argoRefreshDone(p.Hard), func(w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
-				return argoRefresh(ctx, s, w, version, ref, p.Hard)
-			})
+			return argoMany(ctx, s, "argocd.application.refreshMany", argoRefreshText, p.Refs, argoRefreshDone(p.Hard),
+				func(ctx context.Context, w engine.ArgoCDActions, version string, ref model.ObjectRef) error {
+					return argoRefresh(ctx, s, w, version, ref, p.Hard)
+				})
 		},
 	})
 }
@@ -454,8 +456,13 @@ func argoOne(ctx context.Context, s *engine.Session, ref model.ObjectRef, do fun
 }
 
 // argoMany runs an action on the Applications the user confirmed, one after the other, and
-// reports them in one notification (as Lens does) and the result.
-func argoMany(ctx context.Context, s *engine.Session, refs []model.ObjectRef, action string, do func(engine.ArgoCDActions, string, model.ObjectRef) error) (any, error) {
+// reports them in one notification (as Lens does) and the result; more than
+// engine.DirectSelection as a job (manyjob.go). A crash in the middle leaves some Applications
+// with their operation or refresh annotation written and the others not, each wholly one or the
+// other: Argo CD's controller runs what was written whether Cogpit runs or not, and the action on
+// those left finishes what the user asked for (D-11).
+func argoMany(ctx context.Context, s *engine.Session, id, label string, refs []model.ObjectRef, action string,
+	do func(context.Context, engine.ArgoCDActions, string, model.ObjectRef) error) (any, error) {
 	b, w, err := argoActionsOf(s)
 	if err != nil {
 		return nil, err
@@ -474,28 +481,19 @@ func argoMany(ctx context.Context, s *engine.Session, refs []model.ObjectRef, ac
 	if !ok {
 		return nil, errors.New("the cluster no longer serves Argo CD's Applications")
 	}
-	var done []model.ObjectRef
-	var failed []DeleteFailure
-	var stop error
-	for _, ref := range targets {
-		if stop == nil {
-			stop = ctx.Err()
-		}
-		if stop != nil {
-			failed = append(failed, DeleteFailure{Ref: ref, Error: fmt.Sprintf("%v: %v", errNotAttempted, stop)})
-			continue
-		}
-		if err := do(w, p.Version, ref); err != nil {
-			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
-			continue
-		}
-		done = append(done, ref)
+	m := manyAction{
+		id: id, label: label, done: action, noun: "applications", b: b, targets: targets,
+		do: func(ctx context.Context, ref model.ObjectRef) (model.ObjectRef, error) {
+			return ref, do(ctx, w, p.Version, ref)
+		},
 	}
-	if len(failed) > 0 {
-		return nil, &ArgoManyError{Action: action, Done: done, Failed: failed}
-	}
-	userToast(s, engine.LevelInfo, fmt.Sprintf("%d applications: %s", len(done), action))
-	return ArgoManyResult{Action: action, Done: done}, nil
+	return runMany(ctx, s, m, func(out manyOutcome) (any, error) {
+		if len(out.failed) > 0 {
+			return nil, &ArgoManyError{Action: action, Done: out.done, Failed: out.failed}
+		}
+		userToast(s, engine.LevelInfo, fmt.Sprintf("%d applications: %s", len(out.done), action))
+		return ArgoManyResult{Action: action, Done: out.done}, nil
+	})
 }
 
 // argoRefresh refreshes one Application, bound to the UID the user confirmed.

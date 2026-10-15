@@ -64,9 +64,15 @@ Ordered checklists for the common additions. The packages they name are in
    command's call (waiting for a controller, as Reconcile with Source waits for Flux's source)
    runs as a background job: `Session.StartJob` with a `JobSpec`
    ([`jobs.go`](../../internal/engine/jobs.go)) opens the job's dock tab, whose steps agents read in
-   `ui_state`, and the command returns at once; closing the tab, a cluster change or the session's
-   end cancels the job. Jobs are not journaled, so the command says why a crash in the middle is
-   harmless ([`fluxsourcejob.go`](../../internal/engine/commands/fluxsourcejob.go)).
+   `ui_state`, and the command returns at once; `job.cancel` (the tab's Cancel), closing the tab, a
+   cluster change or the session's end cancels the job. Pass the command's context as
+   `JobSpec.Parent`, so that the job keeps the origin and the confirmation's UIDs. Jobs are not
+   journaled, so the command says why a crash in the middle is harmless
+   ([`fluxsourcejob.go`](../../internal/engine/commands/fluxsourcejob.go)). A new action on a
+   selection (a required `refs`, one request per object) goes through `runMany` with a
+   `manyAction` ([`manyjob.go`](../../internal/engine/commands/manyjob.go)): at most ten objects
+   within the call, more as a job with a step per object
+   ([D-63](decisions.md#d-63-long-commands-as-background-jobs)).
 5. **Respect the context:** cluster context and namespace, a multi-selection (a row inside the
    selection acts on the whole selection), the user's permissions, and the origin's confirmation
    rules.

@@ -66,7 +66,9 @@ type AuditItem struct {
 	// command (the MCP switch) or a command it does not know.
 	Label   string `json:"label,omitempty"`
 	Context string `json:"context,omitempty"`
-	// Phase is "requested" for the line a write gets before it runs, "done" for the outcome.
+	// Phase is "requested" for the line a write gets before it runs, "done" for the outcome,
+	// "ended" for the end of a background job the command started (AuditEntry.Phase; the
+	// AuditPhase constants).
 	Phase string `json:"phase"`
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
@@ -79,6 +81,13 @@ type AuditItem struct {
 	// returned what the window shows (AuditEntry.ReadsLikeUser).
 	ReadsLikeUser bool `json:"readsLikeUser,omitempty"`
 }
+
+// The phases of the audit log's entries (AuditItem.Phase).
+const (
+	AuditPhaseRequested = auditRequested
+	AuditPhaseDone      = auditDone
+	AuditPhaseEnded     = auditEnded
+)
 
 // AuditList is a page of the audit log's entries, newest first.
 type AuditList struct {

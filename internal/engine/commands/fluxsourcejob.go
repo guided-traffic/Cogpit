@@ -102,7 +102,7 @@ func fluxStartSourceJob(ctx context.Context, s *engine.Session, a fluxAction, id
 		return nil, &FluxManyError{Action: a.done, Failed: skipped}
 	}
 	tab, err := s.StartJob(engine.JobSpec{
-		Command: id, Title: title, Context: b.Context, Steps: steps,
+		Command: id, Title: title, Context: b.Context, Steps: steps, Parent: ctx,
 		Run: func(jctx context.Context, j *engine.Job) (string, error) {
 			outcome, err := runFluxSourceJob(jctx, s, j, nodes, func(ctx context.Context, n *fluxJobNode) error {
 				p, ok := b.Profile(n.ref.Kind)
@@ -128,13 +128,7 @@ func fluxStartSourceJob(ctx context.Context, s *engine.Session, a fluxAction, id
 }
 
 // fluxStepText names a step's object: "GitRepository flux-system/podinfo".
-func fluxStepText(b *engine.Backend, ref model.ObjectRef) string {
-	kind := ref.Kind
-	if p, ok := b.Profile(ref.Kind); ok {
-		kind = p.Kind
-	}
-	return kind + " " + ref.Namespace + "/" + ref.Name
-}
+func fluxStepText(b *engine.Backend, ref model.ObjectRef) string { return stepText(b, ref) }
 
 // fluxJobEnd is how the wait for one node ended.
 type fluxJobEnd struct {

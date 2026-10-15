@@ -207,7 +207,7 @@ func (a *auditLogTab) updateRow(id widget.ListItemID, o fyne.CanvasObject) {
 	row.Objects[2].(*textLine).style = fyne.TextStyle{Monospace: true}
 	outcome := row.Objects[len(row.Objects)-1].(*textLine)
 	switch {
-	case e.Phase != "done":
+	case e.Phase == engine.AuditPhaseRequested:
 		outcome.SetColor(colorStatusPending)
 	case e.OK:
 		outcome.SetColor(colorStatusOK)
@@ -231,13 +231,16 @@ func (a *auditLogTab) rowTexts(e engine.AuditItem) []string {
 	}
 	outcome := "ok"
 	switch {
-	case e.Phase != "done":
+	case e.Phase == engine.AuditPhaseRequested:
 		outcome = "requested"
 	case !e.OK:
 		outcome = e.Error
 		if outcome == "" {
 			outcome = "failed"
 		}
+	}
+	if e.Phase == engine.AuditPhaseEnded { // the end of a background job the command started (engine/jobs.go)
+		outcome = "job ended: " + outcome
 	}
 	return []string{a.timeText(e.Time), auditOriginText(e.Origin), e.Command, e.Context, obj, outcome}
 }

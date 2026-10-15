@@ -313,8 +313,8 @@ func fluxOneSpec[P any](a fluxAction, get func(P) (model.ObjectRef, bool)) engin
 func fluxManySpec[P any](a fluxAction, get func(P) ([]model.ObjectRef, bool)) engine.Spec[P] {
 	desc := "Does what " + strings.ReplaceAll(a.id, ".", "_") + " does for several Flux objects at once, as the table's " +
 		"selection menu does: it acts on the selected objects it applies to, one after the other, each bound to its UID, " +
-		"and skips the others. When an object fails the others still go on, and the error names which were done and which " +
-		"were not, each with its reason; nothing is retried. At most 500 objects."
+		"and skips the others. When an object fails the others still go on; nothing is retried. At most 500 objects. " +
+		strings.ReplaceAll(jobManyDescription, "objects", "objects it acts on")
 	if a.withSource {
 		desc = "Does what flux_reconcileWithSource does for several Kustomizations and Helm releases at once, as the table's " +
 			"selection menu does, in one background job with one dock tab: the objects' chains side by side, a source two " +
@@ -445,7 +445,11 @@ func (e *FluxManyError) Error() string {
 }
 
 // fluxRunMany runs an action on the selection's objects it applies to, one after the other, each
-// bound to its UID; every failure is kept for the report.
+// bound to its UID; every failure is kept for the report; more than engine.DirectSelection as a
+// job (manyjob.go). A crash in the middle leaves some objects patched (an annotation that asks for
+// a reconcile or a reset, or spec.suspend) and the others not, each wholly one or the other: their
+// controllers act on what was written whether Cogpit runs or not, and the action on those left
+// finishes what the user asked for (D-11).
 func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, refs []model.ObjectRef, force bool) (any, error) {
 	b, err := writable(s)
 	if err != nil {
@@ -461,33 +465,22 @@ func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, refs []mo
 	if err := engine.CheckConfirmedTargets(ctx, targets); err != nil {
 		return nil, err
 	}
-	var done []model.ObjectRef
-	var failed []DeleteFailure
-	var stop error
-	for _, ref := range targets {
-		if stop == nil {
-			stop = ctx.Err()
-		}
-		if stop != nil {
-			failed = append(failed, DeleteFailure{Ref: ref, Error: fmt.Sprintf("%v: %v", errNotAttempted, stop)})
-			continue
-		}
-		if ref.Context != b.Context || s.Backend() != b {
-			stop = fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
-			failed = append(failed, DeleteFailure{Ref: ref, Error: stop.Error()})
-			continue
-		}
-		if err := fluxWrite(ctx, s, a, ref, force); err != nil {
-			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
-			continue
-		}
-		done = append(done, ref)
+	m := manyAction{
+		id: a.manyID, label: a.label, done: a.done, noun: "Flux objects", b: b, targets: targets,
+		do: func(ctx context.Context, ref model.ObjectRef) (model.ObjectRef, error) {
+			if ref.Context != b.Context {
+				return ref, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+			}
+			return ref, fluxWrite(ctx, s, a, ref, force)
+		},
 	}
-	if len(failed) > 0 {
-		return nil, &FluxManyError{Action: a.done, Done: done, Failed: failed}
-	}
-	userToast(s, engine.LevelInfo, fmt.Sprintf("%d Flux objects %s", len(done), a.done))
-	return FluxManyResult{Action: a.done, Done: done}, nil
+	return runMany(ctx, s, m, func(out manyOutcome) (any, error) {
+		if len(out.failed) > 0 {
+			return nil, &FluxManyError{Action: a.done, Done: out.done, Failed: out.failed}
+		}
+		userToast(s, engine.LevelInfo, fmt.Sprintf("%d Flux objects %s", len(out.done), a.done))
+		return FluxManyResult{Action: a.done, Done: out.done}, nil
+	})
 }
 
 // fluxWrite patches one object: its kind's served version, the UID the user confirmed (or the

@@ -51,8 +51,8 @@ func registerRestartMany(g *registrar) {
 		Description: "Restarts several Deployments, Daemon Sets and Stateful Sets at once, as Restart on the table's selection " +
 			"does: one confirmation names them all, for every origin; then each is restarted the way kubectl rollout restart " +
 			"does (the pod template's restartedAt annotation), bound to the UID Cogpit's cache held when the user confirmed, " +
-			"one after the other. At most 500. When one is not restarted the others still are, and the error names which " +
-			"were restarted and which not, each with its reason; nothing is retried.",
+			"one after the other. At most 500. When one is not restarted the others still are; nothing is retried. " +
+			jobManyDescription,
 		Enabled: func(s *engine.Session, p selectionParams) error {
 			if len(p.Refs) == 0 {
 				return errors.New("no workloads are selected")
@@ -91,7 +91,10 @@ func registerRestartMany(g *registrar) {
 }
 
 // restartMany implements workload.restartMany: the workloads the user confirmed, one after the
-// other, each bound to its confirmed UID.
+// other, each bound to its confirmed UID; more than engine.DirectSelection as a job (manyjob.go).
+// A crash in the middle leaves some workloads restarted and the others not, each one patch of its
+// pod template's restartedAt annotation, which its controller rolls out whether Cogpit runs or
+// not: harmless, as Restart of those not restarted finishes what the user asked for (D-11).
 func restartMany(ctx context.Context, s *engine.Session, p selectionParams) (any, error) {
 	b, rw, err := restartsOf(s)
 	if err != nil {
@@ -107,34 +110,21 @@ func restartMany(ctx context.Context, s *engine.Session, p selectionParams) (any
 	if err := engine.CheckConfirmedTargets(ctx, targets); err != nil {
 		return nil, err
 	}
-	var restarted []model.ObjectRef
-	var failed []DeleteFailure
-	var stop error // the cluster changed or the call ended: the rest is not attempted
-	for _, ref := range targets {
-		if stop == nil {
-			stop = ctx.Err()
-		}
-		if stop != nil {
-			failed = append(failed, DeleteFailure{Ref: ref, Error: fmt.Sprintf("%v: %v", errNotAttempted, stop)})
-			continue
-		}
-		uid, err := sameAsConfirmed(ctx, s, ref)
-		if err == nil {
-			err = replaced(ref, rw.RestartWorkload(ctx, ref.Kind, ref.Namespace, ref.Name, uid))
-		}
-		switch {
-		case err == nil:
-			restarted = append(restarted, ref)
-		case errors.Is(err, engine.ErrWrongCluster), errors.Is(err, engine.ErrNotConnected):
-			stop = err
-			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
-		default:
-			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
-		}
+	a := manyAction{
+		id: "workload.restartMany", label: labelRestart, done: "restarted", noun: "workloads", b: b, targets: targets,
+		do: func(ctx context.Context, ref model.ObjectRef) (model.ObjectRef, error) {
+			uid, err := sameAsConfirmed(ctx, s, ref)
+			if err == nil {
+				err = replaced(ref, rw.RestartWorkload(ctx, ref.Kind, ref.Namespace, ref.Name, uid))
+			}
+			return ref, err
+		},
 	}
-	if len(failed) > 0 {
-		return nil, &RestartManyError{Restarted: restarted, Failed: failed}
-	}
-	userToast(s, engine.LevelInfo, fmt.Sprintf("%d workloads restarted", len(restarted)))
-	return RestartManyResult{Restarted: restarted}, nil
+	return runMany(ctx, s, a, func(out manyOutcome) (any, error) {
+		if len(out.failed) > 0 {
+			return nil, &RestartManyError{Restarted: out.done, Failed: out.failed}
+		}
+		userToast(s, engine.LevelInfo, fmt.Sprintf("%d workloads restarted", len(out.done)))
+		return RestartManyResult{Restarted: out.done}, nil
+	})
 }

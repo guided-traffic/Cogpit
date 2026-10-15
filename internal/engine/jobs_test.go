@@ -2,7 +2,10 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -197,4 +200,174 @@ func TestJobsRace(t *testing.T) {
 		defer s.jobs.mu.Unlock()
 		return len(s.jobs.running) == 0
 	})
+}
+
+// TestJobCancelKeepsItsTab (G4): job.cancel's CancelJob stops a job's work and keeps its tab, whose
+// outcome says it was cancelled (by an agent, when one did) and adds what Run said it did and did
+// not do; the steps' counts follow the steps. A job that ended, a tab that is no job and an unknown
+// tab cannot be cancelled.
+func TestJobCancelKeepsItsTab(t *testing.T) {
+	s := connectedJobSession(t)
+	started := make(chan struct{}, 2)
+	run := func(ctx context.Context, j *Job) (string, error) {
+		j.SetStep(0, JobDone, "Deleted")
+		j.SetStep(1, JobRunning, "")
+		started <- struct{}{}
+		<-ctx.Done()
+		j.SetStep(1, JobDone, "Deleted")
+		j.SetStep(2, JobCancelled, "Not attempted: "+context.Cause(ctx).Error())
+		return "", errors.New("deleted: 2 of 3 objects; 1 not attempted")
+	}
+	steps := []JobStep{{Text: "a"}, {Text: "b"}, {Text: "c"}}
+	byUser, _ := s.StartJob(JobSpec{Title: "user's", Context: "test", Steps: steps, Run: run})
+	byAgent, _ := s.StartJob(JobSpec{Title: "agent's", Context: "test", Steps: steps, Run: run})
+	<-started
+	<-started
+	if j, _ := jobTabOf(s, byUser.ID); j.Counts != (JobCounts{Total: 3, Done: 1, Running: 1, Pending: 1}) {
+		t.Errorf("counts while running %+v", j.Counts)
+	}
+
+	tab, err := s.CancelJob(context.Background(), byUser.ID, OriginGUI)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tab.Job == nil || tab.Job.State != JobCancelled ||
+		tab.Job.Outcome != "Stopped: cancelled. Deleted: 2 of 3 objects; 1 not attempted." ||
+		tab.Job.Counts != (JobCounts{Total: 3, Done: 2, Cancelled: 1}) {
+		t.Errorf("cancelled by the user %+v", tab.Job)
+	}
+	if u := s.UIState(); len(u.Dock) != 2 {
+		t.Errorf("the cancelled job's tab closed: %+v", u.Dock)
+	}
+	tab, err = s.CancelJob(context.Background(), byAgent.ID, OriginExternalAgent)
+	if err != nil || tab.Job == nil || !strings.HasPrefix(tab.Job.Outcome, "Stopped: cancelled by an agent. ") {
+		t.Errorf("cancelled by an agent: %v %+v", err, tab.Job)
+	}
+
+	if _, err := s.CancelJob(context.Background(), byUser.ID, OriginGUI); !errors.Is(err, ErrJobEnded) {
+		t.Errorf("cancelling an ended job: %v", err)
+	}
+	if err := s.JobCancellable("job-99"); err == nil || !strings.Contains(err.Error(), "no dock tab") {
+		t.Errorf("an unknown tab: %v", err)
+	}
+	s.UpdateUI(func(u *UIState) { u.Dock = append(u.Dock, DockTab{ID: "logs-1", Type: DockLogs}) })
+	if err := s.JobCancellable("logs-1"); err == nil || !strings.Contains(err.Error(), "not a job") {
+		t.Errorf("a logs tab: %v", err)
+	}
+}
+
+// TestJobEnd: how a job ends: done when Run returned no error, even after a stop that came after
+// its last step; stopped with why and what Run said; failed with Run's error.
+func TestJobEnd(t *testing.T) {
+	for _, tc := range []struct {
+		outcome    string
+		err, cause error
+		state      JobState
+		text       string
+	}{
+		{"All 12 deleted.", nil, nil, JobDone, "All 12 deleted."},
+		{"All 12 deleted.", nil, errJobCancelled, JobDone, "All 12 deleted."},
+		{"", context.Canceled, errJobTabClosed, JobCancelled, "Stopped: its tab was closed."},
+		{"", errors.New("deleted: 3 of 12 objects; 9 not attempted"), errJobClusterChanged, JobCancelled,
+			"Stopped: the connected cluster changed. Deleted: 3 of 12 objects; 9 not attempted."},
+		{"", errors.New("the source is not ready"), nil, JobFailed, "The source is not ready."},
+		{"", errors.New("the source is not ready"), context.Canceled, JobFailed, "The source is not ready."},
+	} {
+		if state, text := jobEnd(tc.outcome, tc.err, tc.cause); state != tc.state || text != tc.text {
+			t.Errorf("jobEnd(%q, %v, %v) = %s %q, want %s %q", tc.outcome, tc.err, tc.cause, state, text, tc.state, tc.text)
+		}
+	}
+}
+
+type jobProbeParams struct {
+	Steps int `json:"steps"`
+}
+
+// TestJobKeepsItsCommandsContext (G4): a job started by a command keeps the command's context
+// values (its origin, the confirmation that bound it) but outlives the call; an agent's job gets an
+// "ended" audit line after its command's "requested" and "done" lines, with its outcome.
+func TestJobKeepsItsCommandsContext(t *testing.T) {
+	audit := &lockedBuffer{}
+	fc := &fakeConnector{src: testkit.NewMemorySource(), profiles: testProfiles()}
+	s := New(Options{Connector: fc, SnapshotInterval: 5 * time.Millisecond, Audit: audit})
+	t.Cleanup(s.Close)
+	connectTest(t, s)
+	s.SetAgentWrites("test", true)
+	type seen struct {
+		origin  Origin
+		context string
+	}
+	seenIn := make(chan seen, 1)
+	release := make(chan struct{})
+	err := Register(s.Registry(), Spec[jobProbeParams]{
+		ID: "probe.job", Label: "Probe", Danger: DangerMutating, Verbs: []Verb{{Verb: "patch", Resource: "pods"}},
+		Targets: func(*Session, jobProbeParams) ([]model.ObjectRef, error) { return nil, nil },
+		Run: func(ctx context.Context, s *Session, p jobProbeParams) (any, error) {
+			return s.StartJob(JobSpec{Command: "probe.job", Title: "Probe", Context: "test", Parent: ctx,
+				Steps: make([]JobStep, p.Steps),
+				Run: func(jctx context.Context, j *Job) (string, error) {
+					req, _ := Confirmed(jctx)
+					seenIn <- seen{OriginOf(jctx), req.Context}
+					<-release
+					if jctx.Err() != nil {
+						return "", jctx.Err()
+					}
+					return "Probed.", nil
+				}})
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	res, err := s.Dispatch(ctx, Invocation{ID: "probe.job", Params: json.RawMessage(`{"steps":2}`), Origin: OriginExternalAgent})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancel() // the call ended: the job goes on
+	got := <-seenIn
+	if got.origin != OriginExternalAgent || got.context != "test" {
+		t.Errorf("the job's context: %+v", got)
+	}
+	close(release)
+	id := res.(DockTab).ID
+	waitFor(t, "the job's end", func() bool { j, ok := jobTabOf(s, id); return ok && j.State.Ended() })
+	if j, _ := jobTabOf(s, id); j.State != JobDone || j.Outcome != "Probed." {
+		t.Errorf("the job after its call ended: %+v", j)
+	}
+	waitFor(t, "the ended line", func() bool { return strings.Contains(audit.String(), `"phase":"ended"`) })
+	var phases []string
+	for line := range strings.SplitSeq(strings.TrimSpace(audit.String()), "\n") {
+		var e AuditEntry
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatal(err)
+		}
+		if e.Command == "probe.job" {
+			phases = append(phases, e.Phase+" "+e.Context+" "+strconv.FormatBool(e.OK)+" "+string(e.Params))
+		}
+	}
+	want := []string{`requested test true {"steps":2}`, `done test true {"steps":2}`, `ended test true {"steps":2}`}
+	if !slices.Equal(phases, want) {
+		t.Errorf("audit lines %q, want %q", phases, want)
+	}
+}
+
+// TestJobStopsWhenInterrupted: a connection that stops answering stops its cluster's jobs with
+// their own reason (D-58, as after a crash: nothing continues by itself after the reconnect).
+func TestJobStopsWhenInterrupted(t *testing.T) {
+	s := connectedJobSession(t)
+	causes := make(chan error, 1)
+	tab, _ := s.StartJob(JobSpec{Title: "waits", Context: "test", Run: func(ctx context.Context, _ *Job) (string, error) {
+		<-ctx.Done()
+		causes <- context.Cause(ctx)
+		return "", ctx.Err()
+	}})
+	s.UpdateUI(func(u *UIState) { u.Connection.State = Interrupted })
+	if err := <-causes; !errors.Is(err, errJobInterrupted) {
+		t.Errorf("interrupted: %v", err)
+	}
+	waitFor(t, "the job's end", func() bool { j, ok := jobTabOf(s, tab.ID); return ok && j.State.Ended() })
+	if j, _ := jobTabOf(s, tab.ID); j.State != JobCancelled || !strings.Contains(j.Outcome, "interrupted") {
+		t.Errorf("after the interruption %+v", j)
+	}
 }

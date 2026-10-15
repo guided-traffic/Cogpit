@@ -22,7 +22,9 @@ type AuditEntry struct {
 	Params  json.RawMessage `json:"params,omitempty"`
 	// Context is the context the command was dispatched for, or the one the user confirmed.
 	Context string `json:"context,omitempty"`
-	// Phase is "requested" for the line a write gets before it runs, "done" for the outcome.
+	// Phase is "requested" for the line a write gets before it runs, "done" for the outcome,
+	// "ended" for the end of a background job the command started (jobs.go): ok when it is done,
+	// else its outcome as the error.
 	Phase string `json:"phase"`
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
@@ -36,6 +38,7 @@ type AuditEntry struct {
 const (
 	auditRequested = "requested"
 	auditDone      = "done"
+	auditEnded     = "ended" // a background job's end (jobs.go)
 )
 
 // audit writes one JSON line for an agent-initiated command. Results are not logged: they can be

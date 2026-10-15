@@ -20,6 +20,9 @@ import "context"
 // a private turn's.
 type readsLikeUserKey struct{}
 
+// invocationKey is the context key under which Dispatch hands a command its invocation.
+type invocationKey struct{}
+
 // privateTurn reports whether the invocation is a turn of the built-in agent over a connection the
 // user marked private: the mark of any other origin is ignored.
 func (inv Invocation) privateTurn() bool {
@@ -30,6 +33,7 @@ func (inv Invocation) privateTurn() bool {
 // user. The mark is set either way, so that a context a command passes on to a nested Dispatch
 // never carries an outer turn's mark into another origin's command.
 func withInvocation(ctx context.Context, inv Invocation) context.Context {
+	ctx = context.WithValue(ctx, invocationKey{}, inv) // a background job's "ended" audit line (jobs.go)
 	ctx = context.WithValue(ctx, originKey{}, inv.Origin)
 	return context.WithValue(ctx, readsLikeUserKey{}, inv.privateTurn())
 }

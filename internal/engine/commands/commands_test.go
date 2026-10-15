@@ -206,6 +206,8 @@ var wantCommands = map[string]engine.Danger{
 	// An interrupted connection (D-58): Reconnect now, Log in again (GUI only), a shell tab's
 	// Reconnect, which opens a new shell (TestConnectionCommands).
 	"cluster.reconnect": engine.DangerUI, "cluster.login": engine.DangerUI, "dock.reconnect": engine.DangerMutating,
+	// A background job stopped, its tab kept (G4): UI state, as dock.close stops one (TestDeleteManyAsAJob).
+	"job.cancel": engine.DangerUI,
 }
 
 func TestRegistryComplete(t *testing.T) {

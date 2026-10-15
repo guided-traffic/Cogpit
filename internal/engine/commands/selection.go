@@ -13,9 +13,11 @@ import (
 )
 
 // The selection (ui-parity › Tables, G5, G7, G9): ui.select's modes (ui.go, selectObjects) and the
-// actions on a selection, which take its objects in "refs" (engine/selection.go). Delete is the only
-// one: the other actions stay on one object (Cogpit's default, inferred, 2026-10-13: each has its
-// own dialog or confirmation per object, and none is as common on many objects at once).
+// actions on a selection, which take its objects in "refs" (engine/selection.go): Delete here,
+// Restart (restartmany.go), the Flux actions (flux.go) and Argo CD's Sync and Refresh (argocd.go);
+// more than engine.DirectSelection objects run as a background job (manyjob.go, G4). The other
+// actions stay on one object (Cogpit's default, inferred, 2026-10-13: each has its own dialog or
+// confirmation per object, and none is as common on many objects at once).
 
 type selectionParams struct {
 	Refs []model.ObjectRef `json:"refs" jsonschema:"the objects, as ui_state's selected lists them: objects of any kind of the connected cluster, at most 500"`
@@ -81,9 +83,8 @@ func registerSelection(g *registrar) {
 			"confirmation names every object (the message the first ten and the count), their namespaces and the " +
 			"context, for every origin; then each object is deleted with its default grace period and the UID Cogpit's " +
 			"cache held for it when the user confirmed as a precondition, one after the other. At most 500 objects. " +
-			"When an object is not deleted the others still are, and the error names which were deleted and which " +
-			"were not, each with its reason; nothing is retried. Deleted objects leave the selection. Always asks the " +
-			"user to confirm.",
+			"When an object is not deleted the others still are; nothing is retried. Deleted objects leave the selection. " +
+			jobManyDescription + " Always asks the user to confirm.",
 		Enabled: func(s *engine.Session, p selectionParams) error {
 			if len(p.Refs) == 0 {
 				return errors.New("no objects are selected")
@@ -121,7 +122,11 @@ func selectionTargets(s *engine.Session, refs []model.ObjectRef) ([]model.Object
 }
 
 // deleteMany implements object.deleteMany: the objects the user confirmed, one after the other,
-// each bound to its confirmed UID (Session.DeleteObject), every failure kept for the report.
+// each bound to its confirmed UID (Session.DeleteObject), every failure kept for the report; more
+// than engine.DirectSelection as a job (manyjob.go). A crash in the middle leaves some of the
+// objects deleted and the others not, each wholly one or the other (one request each): the list
+// shows which are left, and Delete of those finishes what the user asked for; nothing needs
+// repairing (D-11).
 func deleteMany(ctx context.Context, s *engine.Session, p selectionParams) (any, error) {
 	b, err := writable(s)
 	if err != nil {
@@ -137,38 +142,27 @@ func deleteMany(ctx context.Context, s *engine.Session, p selectionParams) (any,
 	if err := engine.CheckConfirmedTargets(ctx, targets); err != nil {
 		return nil, err
 	}
-	var deleted []model.ObjectRef
-	var failed []DeleteFailure
-	var stop error // the cluster changed or the call ended: the rest is not attempted
-	for _, ref := range targets {
-		if stop == nil {
-			stop = ctx.Err()
-		}
-		if stop != nil {
-			failed = append(failed, DeleteFailure{Ref: ref, Error: fmt.Sprintf("%v: %v", errNotAttempted, stop)})
-			continue
-		}
-		res, err := s.DeleteObject(ctx, ref)
-		switch {
-		case err == nil:
-			deleted = append(deleted, res.Ref)
-		case errors.Is(err, engine.ErrWrongCluster), errors.Is(err, engine.ErrNotConnected):
-			stop = err
-			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
-		default:
-			failed = append(failed, DeleteFailure{Ref: ref, Error: err.Error()})
-		}
+	a := manyAction{
+		id: "object.deleteMany", label: labelDelete, done: "deleted", noun: "objects", b: b, targets: targets,
+		do: func(ctx context.Context, ref model.ObjectRef) (model.ObjectRef, error) {
+			res, err := s.DeleteObject(ctx, ref)
+			return res.Ref, err
+		},
+		after: func(deleted []model.ObjectRef) {
+			if len(deleted) > 0 {
+				s.UpdateUI(func(u *engine.UIState) {
+					u.Selected = engine.ApplySelection(u.Selected, deleted, engine.SelectRemove)
+				})
+			}
+		},
 	}
-	if len(deleted) > 0 {
-		s.UpdateUI(func(u *engine.UIState) {
-			u.Selected = engine.ApplySelection(u.Selected, deleted, engine.SelectRemove)
-		})
-	}
-	if len(failed) > 0 { // the caller shows it, as object.delete's errors: the GUI in a toast
-		return nil, &DeleteManyError{Deleted: deleted, Failed: failed}
-	}
-	s.Emit(engine.Event{Type: engine.EventToast, Level: engine.LevelInfo, Message: fmt.Sprintf("%d objects deleted", len(deleted))})
-	return DeleteManyResult{Deleted: deleted}, nil
+	return runMany(ctx, s, a, func(out manyOutcome) (any, error) {
+		if len(out.failed) > 0 { // the caller shows it, as object.delete's errors: the GUI in a toast
+			return nil, &DeleteManyError{Deleted: out.done, Failed: out.failed}
+		}
+		s.Emit(engine.Event{Type: engine.EventToast, Level: engine.LevelInfo, Message: fmt.Sprintf("%d objects deleted", len(out.done))})
+		return DeleteManyResult{Deleted: out.done}, nil
+	})
 }
 
 // selectObjects implements ui.select.

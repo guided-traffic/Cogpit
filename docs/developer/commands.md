@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 201 commands</summary>
+<summary>All 202 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -113,6 +113,7 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `hotbar.removeCluster` | `hotbar_removeCluster` | ui | `bank`?, `context`? | Unpins a cluster: removes the context's tile from a bank; the tiles below it move up one place |
 | `hotbar.renameBank` | `hotbar_renameBank` | ui | `bank`?, `name` | Renames a bank of the hotbar; the switcher shows the name as its tooltip |
 | `hotbar.switchBank` | `hotbar_switchBank` | ui | `bank` | Shows another bank of the hotbar, as the switcher's arrows or ⇧F1–⇧F12 do; F1–F12 then open that bank's clusters |
+| `job.cancel` | `job_cancel` | ui | `id` | Cancels a background job, a dock tab of type job (an action on more than 10 selected objects, Reconcile with Source): no further step starts (a request already sent finishes; a wait ends), and the tab stays open with the job's outcome, which says that it was cancelled, what was done and what was not |
 | `kinds.list` | `kinds_list` | read | `all`? | Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields resources_find can search by |
 | `kubeconfig.addFile` | `kubeconfig_addFile` | ui (GUI only) | `path` | Adds a kubeconfig file the user picked as a source: its contexts become available as "<context> [<file name>]", read from that file alone, and follow its changes |
 | `kubeconfig.addFolder` | `kubeconfig_addFolder` | ui (GUI only) | `path` | Adds a sync folder: every kubeconfig file in it (not in its subfolders) becomes available as "<context> [<folder>/<file>]", and files that appear in it or leave it later are picked up or dropped |

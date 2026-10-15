@@ -84,6 +84,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerChat(g)
 	registerRestartMany(g)
 	registerConnection(g)
+	registerJobs(g)
 	return g.err
 }
 

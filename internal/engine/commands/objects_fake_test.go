@@ -35,6 +35,9 @@ type objectServer struct {
 	creates  []*unstructured.Unstructured
 	deletes  []string // "namespace/name uid"
 	failNext error    // returned by the next write, then cleared
+	// beforeDelete, when set, runs before each delete request is served, outside the lock: a test
+	// holds a delete there (a job's step under way).
+	beforeDelete func(namespace, name string)
 }
 
 var objectServers sync.Map // *fakeWriter → *objectServer
@@ -184,6 +187,12 @@ func (w *fakeWriter) DeleteObject(_ context.Context, gvr schema.GroupVersionReso
 	srv := w.server()
 	if srv == nil {
 		return nil
+	}
+	srv.mu.Lock()
+	before := srv.beforeDelete
+	srv.mu.Unlock()
+	if before != nil {
+		before(namespace, name)
 	}
 	srv.mu.Lock()
 	srv.deletes = append(srv.deletes, namespace+"/"+name+" "+uid)
