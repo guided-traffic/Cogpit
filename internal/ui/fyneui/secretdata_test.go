@@ -1,0 +1,498 @@
+package fyneui
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/test"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
+	"github.com/guided-traffic/cogpit/internal/ui/fyneui/yamlview"
+)
+
+// A Secret's values edited in the drawer, the window's only (the owner's audit answer of
+// 2026-10-15, D-59): Show puts the whole value into an editor, Save reviews a masked diff and a
+// dry run and writes through secret.saveData, a newer version rebases or shows the conflict,
+// edited values the drawer moves away from stay in the window's memory, never on disk, and no
+// value reaches a toast, the notifications or a command but the GUI-only ones. The Secret is
+// checkout-db of secretsFake; every value is made up.
+
+const secTyped = "new-horse-battery-staple-77"
+
+// secFake answers the drawer's Secret commands as the engine does, on checkout-db: the whole value
+// on Show, a masked review with a dry run, a save that stores the values under a new version;
+// change is another client's write, which makes the drawer model list the keys at the new version.
+type secFake struct {
+	mu     sync.Mutex
+	f      *fakeEngine
+	t      testing.TB
+	ref    model.ObjectRef
+	values map[string]string
+	rv     int
+}
+
+func secretEditFake(t testing.TB) (*fakeEngine, *secFake) {
+	f, ref := secretsFake(t)
+	s := &secFake{f: f, t: t, ref: ref, values: map[string]string{}, rv: 48210}
+	for k, v := range fixtureSecretValues {
+		s.values[k] = v
+	}
+	f.handlers[engine.RevealCommand] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p engine.RevealParams
+		if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
+			return nil, err
+		}
+		if inv.Origin != engine.OriginGUI {
+			t.Errorf("secret.reveal dispatched by %s", inv.Origin)
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		v := s.values[p.Key]
+		return engine.SecretValue{Key: p.Key, Value: v, Size: len(v)}, nil
+	}
+	params := func(inv engine.Invocation) (secretDataParams, error) {
+		if inv.Origin != engine.OriginGUI {
+			t.Errorf("%s dispatched by %s", inv.ID, inv.Origin)
+		}
+		var p secretDataParams
+		err := json.Unmarshal(normalize(inv.Params), &p)
+		return p, err
+	}
+	f.handlers[engine.SecretReviewDataCommand] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		p, err := params(inv)
+		if err != nil {
+			return nil, err
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		cur := strconv.Itoa(s.rv)
+		r := engine.SecretDataReview{Ref: s.ref, Changes: s.changes(p.Data), BaseResourceVersion: p.ResourceVersion, CachedResourceVersion: cur}
+		if p.ResourceVersion != cur {
+			rebase := len(p.From) > 0
+			for k := range p.Data {
+				if from, ok := p.From[k]; !ok || from != s.values[k] {
+					rebase = false
+				}
+			}
+			if rebase {
+				r.RebasedFrom, r.BaseResourceVersion = p.ResourceVersion, cur
+			} else {
+				r.Stale = true
+			}
+		}
+		r.Accepted = len(r.Changes) > 0 && !r.Stale
+		return r, nil
+	}
+	f.handlers[engine.SecretSaveDataCommand] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		p, err := params(inv)
+		if err != nil {
+			return nil, err
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if cur := strconv.Itoa(s.rv); p.ResourceVersion != cur {
+			return nil, &engine.DataConflictError{Ref: s.ref, BaseResourceVersion: p.ResourceVersion, CurrentResourceVersion: cur, Changes: s.changes(p.Data)}
+		}
+		var keys []string
+		for k, v := range p.Data {
+			s.values[k] = v
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		s.rv++
+		s.publish()
+		return engine.SecretDataSaved{Ref: s.ref, Keys: keys, ResourceVersion: strconv.Itoa(s.rv)}, nil
+	}
+	if err := engine.Register(f.reg, engine.Spec[secretDataParams]{ID: engine.SecretSaveDataCommand, Label: "Save Secret Data",
+		Danger: engine.DangerMutating, GUIOnly: engine.ErrSecretDataGUIOnly,
+		Enabled: func(*engine.Session, secretDataParams) error { return f.reason(engine.SecretSaveDataCommand) },
+		Targets: func(_ *engine.Session, p secretDataParams) ([]model.ObjectRef, error) {
+			return []model.ObjectRef{p.Ref}, nil
+		},
+		Run: func(context.Context, *engine.Session, secretDataParams) (any, error) { return nil, nil }}); err != nil {
+		t.Fatal(err)
+	}
+	return f, s
+}
+
+// changes is the masked diff of data against the fake's values; mu is held.
+func (s *secFake) changes(data map[string]string) []engine.SecretKeyChange {
+	var out []engine.SecretKeyChange
+	for k, v := range data {
+		if s.values[k] != v {
+			out = append(out, engine.SecretKeyChange{Key: k, Change: engine.SecretKeyChanged, Bytes: len(s.values[k]), NewBytes: len(v)})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out
+}
+
+// change is another client's write of one value: a new version the drawer model lists.
+func (s *secFake) change(key, value string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.values[key] = value
+	s.rv++
+	s.publish()
+}
+
+// publish builds the drawer model of the Secret at the fake's version and tells the window; mu is
+// held.
+func (s *secFake) publish() {
+	obj := fixtureSecretObjects()[0].DeepCopy()
+	data := map[string]any{"ca.crt": obj.Object["data"].(map[string]any)["ca.crt"]}
+	for k, v := range s.values {
+		data[k] = base64.StdEncoding.EncodeToString([]byte(v))
+	}
+	obj.Object["data"] = data
+	obj.SetResourceVersion(strconv.Itoa(s.rv))
+	p, _ := kinds.ByKey("secrets")
+	m, err := engine.BuildDetail(p, s.ref, obj, nil, fixedNow)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	s.f.mu.Lock()
+	s.f.details[s.ref.String()] = m
+	s.f.mu.Unlock()
+	go s.f.emit(engine.Event{Type: engine.EventDetail})
+}
+
+func secDataOf(sh *shell) *secData {
+	sd, _ := sh.drawer.kept[secDataKept].(*secData)
+	return sd
+}
+
+// secShell opens the drawer on checkout-db with the save enabled.
+func secShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *fakeEngine, *secFake) {
+	t.Helper()
+	f, s := secretEditFake(t)
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the drawer", func() bool {
+		return sh.drawer.last != nil && len(drawerButtons(sh.drawer)["Show"]) == 4 && secDataOf(sh) != nil
+	})
+	return sh, w, q, f, s
+}
+
+// showKey taps Show beside key and waits for its editor.
+func showKey(t *testing.T, sh *shell, q *mainQueue, key string) *secRow {
+	t.Helper()
+	keys := []string{"DATABASE_URL", "DB_HOST", "DB_PASSWORD", "DB_USER"} // Show's order: the text keys, sorted
+	i := -1
+	for j, k := range keys {
+		if k == key {
+			i = j
+		}
+	}
+	shows := drawerButtons(sh.drawer)["Show"]
+	n := 0
+	for _, k := range keys[:i] {
+		if secDataOf(sh).rows[k] == nil {
+			n++
+		}
+	}
+	test.Tap(shows[n])
+	q.until(t, "the editor of "+key, func() bool { return secDataOf(sh).rows[key] != nil })
+	return secDataOf(sh).rows[key]
+}
+
+// valueLeaks reports a Secret value of the fixture, or the typed one, in what the window shows
+// outside the drawer's editors (its toasts, which the notification log keeps) or in any command's
+// parameters but the GUI-only reveal, review and save.
+func valueLeaks(sh *shell, f *fakeEngine) string {
+	// The distinctive values: DB_USER's "checkout" is the namespace's name too.
+	vals := []string{secTyped, fixtureSecretValues["DB_PASSWORD"], fixtureSecretValues["DATABASE_URL"]}
+	var texts []string
+	for _, o := range sh.toasts.Objects {
+		for _, l := range findAll[*textLine](o) {
+			texts = append(texts, l.text)
+		}
+		for _, p := range findAll[*paragraph](o) {
+			texts = append(texts, p.text)
+		}
+	}
+	for _, c := range f.calls { // no command but the GUI-only reveal, review and save carries a value
+		switch c.ID {
+		case engine.RevealCommand, engine.SecretReviewDataCommand, engine.SecretSaveDataCommand:
+		default:
+			texts = append(texts, string(c.Params))
+		}
+	}
+	for _, t := range texts {
+		for _, v := range vals {
+			if strings.Contains(t, v) {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
+// TestSecretDrawerEditAndSave: Show reads the whole value into an editor below its key, editable,
+// Hide at the key's end; typing enables Save; Save reviews a masked diff (the key and its sizes,
+// no value) and the dry run, based on the version the value was revealed at, the value read sent
+// as from; its Save writes exactly the edited value through secret.saveData.
+func TestSecretDrawerEditAndSave(t *testing.T) {
+	sh, w, q, f, s := secShell(t, ThemeDark)
+	sd := secDataOf(sh)
+	if sd.buttons.Visible() || sd.status.Visible() {
+		t.Error("the footer shows before a value is in an editor")
+	}
+	r := showKey(t, sh, q, "DB_PASSWORD")
+	calls := f.callsOf(engine.RevealCommand)
+	if len(calls) != 1 || !strings.Contains(string(calls[0].Params), `"whole":true`) || calls[0].Origin != engine.OriginGUI {
+		t.Fatalf("reveal calls %+v", calls)
+	}
+	if r.view.ReadOnly() || r.view.Text() != fixtureSecretValues["DB_PASSWORD"] || r.at != "48210" || r.masked {
+		t.Fatalf("the editor: read-only %v, text %q, at %s", r.view.ReadOnly(), r.view.Text(), r.at)
+	}
+	if !sd.buttons.Visible() || !sd.save.Disabled() || len(drawerButtons(sh.drawer)["Hide"]) != 1 {
+		t.Errorf("the footer of an unedited value: buttons %v, save disabled %v", sd.buttons.Visible(), sd.save.Disabled())
+	}
+	settle(w)
+	typeIntoRow(r.cmRow, secTyped)
+	if sd.save.Disabled() || !strings.Contains(sd.status.text, "1 value, based on version 48210") {
+		t.Fatalf("after editing: save disabled %v, status %q", sd.save.Disabled(), sd.status.text)
+	}
+	test.Tap(sd.save)
+	q.until(t, "the review", func() bool { return sd.review != nil && !sd.review.save.Disabled() })
+	rp := decodeParams[secretDataParams](t, f.callsOf(engine.SecretReviewDataCommand)[0])
+	if rp.ResourceVersion != "48210" || rp.Data["DB_PASSWORD"] != secTyped || rp.From["DB_PASSWORD"] != fixtureSecretValues["DB_PASSWORD"] || len(rp.Data) != 1 {
+		t.Errorf("review params %+v", rp)
+	}
+	var lines []string
+	for _, l := range findAll[*textLine](sd.review.changes) {
+		lines = append(lines, l.text)
+	}
+	if got := strings.Join(lines, " | "); !strings.Contains(got, "DB_PASSWORD") || !strings.Contains(got, "changed, 28 B → 27 B") {
+		t.Errorf("the masked diff: %q", got)
+	}
+	for _, text := range append(lines, sd.review.banner.text, sd.review.status.text) {
+		if strings.Contains(text, secTyped) || strings.Contains(text, fixtureSecretValues["DB_PASSWORD"]) {
+			t.Errorf("the review shows a value: %q", text)
+		}
+	}
+	settle(w)
+	test.Tap(sd.review.save)
+	q.until(t, "the save", func() bool { return sd.review == nil && strings.HasPrefix(sd.status.text, "Saved") })
+	sp := decodeParams[secretDataParams](t, f.callsOf(engine.SecretSaveDataCommand)[0])
+	if sp.ResourceVersion != "48210" || sp.Data["DB_PASSWORD"] != secTyped || len(sp.Data) != 1 || len(sp.From) != 0 {
+		t.Errorf("save params %+v", sp)
+	}
+	if s.values["DB_PASSWORD"] != secTyped || sd.dirty() || sd.status.text != "Saved 1 value · version 48211" {
+		t.Errorf("after the save: stored %v, dirty %v, status %q", s.values["DB_PASSWORD"] == secTyped, sd.dirty(), sd.status.text)
+	}
+	if l := valueLeaks(sh, f); l != "" {
+		t.Errorf("%q in a toast or the notifications", l)
+	}
+}
+
+// TestSecretDrawerHide: Hide on an unedited value masks it and the window forgets it; on an edited
+// one it masks the value and keeps the typing, which Show brings back without reading the Secret.
+func TestSecretDrawerHide(t *testing.T) {
+	sh, _, q, f, _ := secShell(t, ThemeDark)
+	sd := secDataOf(sh)
+	showKey(t, sh, q, "DB_USER")
+	test.Tap(drawerButtons(sh.drawer)["Hide"][0])
+	if sd.rows["DB_USER"] != nil || len(drawerButtons(sh.drawer)["Hide"]) != 0 || len(findAll[*yamlviewView](sh.drawer.details)) != 0 {
+		t.Fatal("Hide kept an unedited value")
+	}
+	r := showKey(t, sh, q, "DB_PASSWORD")
+	typeIntoRow(r.cmRow, secTyped)
+	test.Tap(drawerButtons(sh.drawer)["Hide"][0])
+	if !r.masked || !drawerHasText(sh.drawer, "(edited, not saved)") {
+		t.Fatal("Hide on an edited value did not mask it")
+	}
+	reveals := len(f.callsOf(engine.RevealCommand))
+	test.Tap(drawerButtons(sh.drawer)["Show"][2]) // DB_PASSWORD's, on its masked line
+	if r.masked || r.view.Text() != secTyped || len(f.callsOf(engine.RevealCommand)) != reveals {
+		t.Errorf("Show of an edited value: masked %v, text %q, reveals %d (was %d)", r.masked, r.view.Text(), len(f.callsOf(engine.RevealCommand)), reveals)
+	}
+}
+
+// TestSecretDrawerKeepsUnsavedInMemory: edited values the drawer moves away from stay in the
+// window's memory, never handed to a command (no draft); back on the Secret they are masked, and
+// Show brings them back based on the version they were edited at. Revert drops them.
+func TestSecretDrawerKeepsUnsavedInMemory(t *testing.T) {
+	sh, _, q, f, _ := secShell(t, ThemeDark)
+	r := showKey(t, sh, q, "DB_PASSWORD")
+	typeIntoRow(r.cmRow, secTyped)
+	other := model.ObjectRef{Context: "demo", Kind: "secrets", Namespace: "payments", Name: "stripe-webhook"}
+	f.update(func(u *engine.UIState) { u.Selected, u.Drawer = []model.ObjectRef{other}, &other })
+	q.until(t, "the other Secret", func() bool { return sh.drawer.shown != nil && *sh.drawer.shown == other })
+	if u := sh.drawer.secretUnsaved[sdRefOf(f).String()]; u == nil || u.values["DB_PASSWORD"] != secTyped || u.base != "48210" {
+		t.Fatalf("kept %+v", u)
+	}
+	if !toastSays(sh, "kept in this window's memory until Cogpit quits, never on disk") {
+		t.Error("no toast says where the changes are kept")
+	}
+	for _, c := range f.calls {
+		if strings.Contains(string(c.Params), secTyped) && c.ID != engine.SecretReviewDataCommand && c.ID != engine.SecretSaveDataCommand {
+			t.Errorf("the typed value reached %s", c.ID)
+		}
+	}
+	if l := valueLeaks(sh, f); l != "" {
+		t.Errorf("%q in a toast or the notifications", l)
+	}
+
+	ref := sdRefOf(f)
+	f.update(func(u *engine.UIState) { u.Selected, u.Drawer = []model.ObjectRef{ref}, &ref })
+	q.until(t, "the Secret again", func() bool { sd := secDataOf(sh); return sd != nil && sd.ref == ref && sd.rows["DB_PASSWORD"] != nil })
+	sd := secDataOf(sh)
+	back := sd.rows["DB_PASSWORD"]
+	if !back.masked || back.view.Text() != secTyped || back.from != fixtureSecretValues["DB_PASSWORD"] || sd.base != "48210" ||
+		!strings.Contains(sd.status.text, "are back, masked") || drawerHasText(sh.drawer, secTyped) {
+		t.Errorf("back: masked %v, text %q, base %s, status %q", back.masked, back.view.Text(), sd.base, sd.status.text)
+	}
+	if len(sh.drawer.secretUnsaved) != 0 {
+		t.Error("the kept values stay kept after they came back")
+	}
+	test.Tap(sd.revert)
+	if sd.dirty() || sd.rows["DB_PASSWORD"] != nil || !sd.save.Disabled() {
+		t.Error("Revert did not drop the edit")
+	}
+}
+
+func sdRefOf(*fakeEngine) model.ObjectRef {
+	return model.ObjectRef{Context: "demo", Kind: "secrets", Namespace: "checkout", Name: "checkout-db"}
+}
+
+// TestSecretDrawerRebaseAndConflict: another key changed since the value was revealed: the review
+// comes back rebased onto the newer version and Save writes with it. The edited key changed: the
+// conflict with Save over version N, the explicit second step. An unedited value revealed at the
+// older version is masked again (R-6).
+func TestSecretDrawerRebaseAndConflict(t *testing.T) {
+	sh, w, q, f, s := secShell(t, ThemeDark)
+	sd := secDataOf(sh)
+	r := showKey(t, sh, q, "DB_PASSWORD")
+	showKey(t, sh, q, "DB_USER")
+	typeIntoRow(r.cmRow, secTyped)
+	s.change("DB_HOST", "db.other.invalid")
+	q.until(t, "the newer listing", func() bool { return sd.latest == "48211" })
+	if sd.rows["DB_USER"] != nil || sd.rows["DB_PASSWORD"] == nil {
+		t.Errorf("after the change: an unedited value kept %v, the edited one kept %v", sd.rows["DB_USER"] != nil, sd.rows["DB_PASSWORD"] != nil)
+	}
+	if !strings.Contains(sd.status.text, "since your edits began (version 48210, now 48211)") {
+		t.Errorf("status %q", sd.status.text)
+	}
+	test.Tap(sd.save)
+	q.until(t, "the rebased review", func() bool { return sd.review != nil && !sd.review.save.Disabled() })
+	if sd.review.base != "48211" || !strings.Contains(sd.review.banner.text, "rebased onto version 48211") || sd.review.over != "" {
+		t.Fatalf("the rebased review: base %s, %q", sd.review.base, sd.review.banner.text)
+	}
+	settle(w)
+	test.Tap(sd.review.save)
+	q.until(t, "the save", func() bool { return sd.review == nil && strings.HasPrefix(sd.status.text, "Saved") })
+	if p := decodeParams[secretDataParams](t, f.callsOf(engine.SecretSaveDataCommand)[0]); p.ResourceVersion != "48211" {
+		t.Errorf("the rebased save based on %s", p.ResourceVersion)
+	}
+
+	// The edited key changes on the cluster: the conflict.
+	q.until(t, "the saved listing", func() bool { return sd.latest == "48212" })
+	r = sd.rows["DB_PASSWORD"]
+	typeIntoRow(r.cmRow, secTyped+"-2")
+	s.change("DB_PASSWORD", "rotated-by-someone-else")
+	test.Tap(sd.save)
+	q.until(t, "the conflict", func() bool { return sd.review != nil && sd.review.over == "48213" })
+	if sd.review.save.Text != "Save over version 48213" || len(f.callsOf(engine.SecretSaveDataCommand)) != 1 {
+		t.Fatalf("the conflict: button %q", sd.review.save.Text)
+	}
+	settle(w)
+	test.Tap(sd.review.save)
+	q.until(t, "the save over", func() bool { return sd.review == nil && strings.HasPrefix(sd.status.text, "Saved") })
+	if s.values["DB_PASSWORD"] != secTyped+"-2" {
+		t.Error("the save over the newer version did not write")
+	}
+}
+
+// TestSecretDrawerReadOnly: where the save is not permitted, Show reveals the value read-only as
+// before (no editor) and the line under the data says why.
+func TestSecretDrawerReadOnly(t *testing.T) {
+	f, _ := secretEditFake(t)
+	f.disabled[engine.SecretSaveDataCommand] = "not permitted: update secrets in namespace checkout"
+	sh, _, q := newTestShell(t, f, Options{Theme: ThemeDark})
+	q.until(t, "the drawer", func() bool { return sh.drawer.last != nil && len(drawerButtons(sh.drawer)["Show"]) == 4 })
+	test.Tap(drawerButtons(sh.drawer)["Show"][2]) // DB_PASSWORD
+	q.until(t, "the value", func() bool { return drawerHasText(sh.drawer, fixtureSecretValues["DB_PASSWORD"]) })
+	sd := secDataOf(sh)
+	if len(sd.rows) != 0 || sd.buttons.Visible() || sd.status.text != "Read-only: not permitted: update secrets in namespace checkout" {
+		t.Errorf("read-only: %d editors, buttons %v, status %q", len(sd.rows), sd.buttons.Visible(), sd.status.text)
+	}
+	if calls := f.callsOf(engine.RevealCommand); strings.Contains(string(calls[0].Params), `"whole"`) {
+		t.Errorf("a read-only reveal asked for the whole value: %s", calls[0].Params)
+	}
+}
+
+// TestSecretEditorCopiesAsASecret: a copy from a value's editor goes to the clipboard as a Secret's
+// value: cleared after the time, a toast that says so and holds no value.
+func TestSecretEditorCopiesAsASecret(t *testing.T) {
+	sh, _, q, f, _ := secShell(t, ThemeDark)
+	sh.secretClipTTL = 40 * time.Millisecond
+	r := showKey(t, sh, q, "DB_PASSWORD")
+	r.view.SelectAll()
+	r.view.TypedShortcut(&fyne.ShortcutCopy{Clipboard: sh.app.Clipboard()})
+	if got := sh.app.Clipboard().Content(); got != fixtureSecretValues["DB_PASSWORD"] {
+		t.Fatalf("the clipboard holds %q", got)
+	}
+	if !toastSays(sh, "cleared in") {
+		t.Error("no toast says the clipboard is cleared")
+	}
+	q.until(t, "the clipboard to be cleared", func() bool { return sh.app.Clipboard().Content() == "" })
+	if l := valueLeaks(sh, f); l != "" {
+		t.Errorf("%q in a toast or the notifications", l)
+	}
+}
+
+// typeIntoRow replaces a row's value as typing does.
+func typeIntoRow(r *cmRow, text string) {
+	r.view.SelectAll()
+	r.view.ReplaceSelection(text)
+}
+
+// renderSecretEdit renders the Secrets list with checkout-db's drawer: one value in its editor,
+// edited, another masked with Show, Revert and Save at the end.
+func renderSecretEdit(t *testing.T, mode ThemeMode, name string) {
+	sh, w, q, _, _ := secShell(t, mode)
+	q.until(t, "the list", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil && sh.diag.total > 0 })
+	r := showKey(t, sh, q, "DB_PASSWORD")
+	typeIntoRow(r.cmRow, secTyped)
+	settle(w)
+	savePNG(t, w, name)
+}
+
+func TestRenderSecretEditDark(t *testing.T) { renderSecretEdit(t, ThemeDark, "secret_edit_dark.png") }
+func TestRenderSecretEditLight(t *testing.T) {
+	renderSecretEdit(t, ThemeLight, "secret_edit_light.png")
+}
+
+// renderSecretSave renders the review of a Secret's save: the masked diff and the dry run.
+func renderSecretSave(t *testing.T, mode ThemeMode, name string) {
+	sh, w, q, _, _ := secShell(t, mode)
+	q.until(t, "the list", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil && sh.diag.total > 0 })
+	r := showKey(t, sh, q, "DB_PASSWORD")
+	typeIntoRow(r.cmRow, secTyped)
+	u := showKey(t, sh, q, "DB_USER")
+	typeIntoRow(u.cmRow, "checkout-api")
+	sd := secDataOf(sh)
+	test.Tap(sd.save)
+	q.until(t, "the review", func() bool { return sd.review != nil && !sd.review.save.Disabled() })
+	settle(w)
+	savePNG(t, w, name)
+}
+
+func TestRenderSecretSaveDark(t *testing.T) { renderSecretSave(t, ThemeDark, "secret_save_dark.png") }
+func TestRenderSecretSaveLight(t *testing.T) {
+	renderSecretSave(t, ThemeLight, "secret_save_light.png")
+}
+
+// yamlviewView is the editor's widget type, for findAll.
+type yamlviewView = yamlview.View

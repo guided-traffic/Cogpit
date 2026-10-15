@@ -198,6 +198,22 @@ func TestShiftSelectionAndClipboard(t *testing.T) {
 	}
 }
 
+// TestOnCopyTakesTheCopy: with OnCopy set, a copy and a cut hand the selection to it and leave the
+// clipboard alone (an editor of a Secret's value, D-59).
+func TestOnCopyTakesTheCopy(t *testing.T) {
+	v, app := editable(t, "s3cret\nline", 0, 0)
+	var got []string
+	v.OnCopy = func(text string) { got = append(got, text) }
+	app.clip.content = "before"
+	v.TypedShortcut(&fyne.ShortcutSelectAll{})
+	v.TypedShortcut(&fyne.ShortcutCopy{Clipboard: app.clip})
+	v.TypedShortcut(&fyne.ShortcutCut{Clipboard: app.clip})
+	if len(got) != 2 || got[0] != "s3cret\nline" || got[1] != "s3cret\nline" || app.clip.content != "before" {
+		t.Fatalf("copies %q, clipboard %q", got, app.clip.content)
+	}
+	wantText(t, v, "")
+}
+
 func TestSelectAllAndEscape(t *testing.T) {
 	v, app := editable(t, "a\nb", 0, 0)
 	v.TypedShortcut(&fyne.ShortcutSelectAll{})

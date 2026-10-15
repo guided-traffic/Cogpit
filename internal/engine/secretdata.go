@@ -163,6 +163,8 @@ type RevealParams struct {
 	// created again since is refused, and the drawer's revealed value of an older version no
 	// longer matches the action (R-6 of the fourth run's review).
 	ResourceVersion string `json:"resourceVersion,omitempty" jsonschema:"the Secret's resourceVersion the drawer listed the key at; a Secret changed since is refused"`
+	// Whole asks for the value uncut: the drawer's editor holds what Save writes back (D-59).
+	Whole bool `json:"whole,omitempty" jsonschema:"the whole value, not cut at 4 KiB and 40 lines: what the drawer's editor needs to save it"`
 }
 
 // SecretValue is one revealed value, for the user's own window only.
@@ -220,14 +222,18 @@ func (s *Session) SecretKeyShown(p RevealParams) error {
 }
 
 // SecretValue returns one value of the Secret the drawer shows, from the cache, cut to 4 KiB and
-// 40 lines. The caller (secret.reveal) hands it to the GUI only.
+// 40 lines unless the whole value is asked for (the drawer's editor, D-59). The caller
+// (secret.reveal) hands it to the GUI only.
 func (s *Session) SecretValue(p RevealParams) (SecretValue, error) {
 	raw, err := s.secretValueOf(p)
 	if err != nil {
 		return SecretValue{}, err
 	}
 	defer wipeBytes(raw)
-	shown := clip(raw)
+	shown := raw
+	if !p.Whole {
+		shown = clip(raw)
+	}
 	return SecretValue{Key: p.Key, Value: string(shown), Size: len(raw), Cut: len(shown) < len(raw)}, nil
 }
 

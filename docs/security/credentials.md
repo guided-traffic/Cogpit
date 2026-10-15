@@ -229,7 +229,8 @@ are handled with the same care: the list holds metadata only, an opened Secret's
 masked until the user reveals one field, decoded values are never logged, and a Secret is edited or
 created from YAML in the GUI only (since 2026-10-12, D-19: the editor shows its values to the user;
 agents and the CLI are refused, and no value reaches the audit log, an error or a toast; since
-2026-10-13 nor a draft on disk). As built (2026-10-11): when the
+2026-10-13 nor a draft on disk), and since 2026-10-15 its values are edited in the drawer, in the
+window only ([below](#secret-values-edited-in-the-drawer)). As built (2026-10-11): when the
 drawer closes or moves, the engine zeroes the bytes it kept of the opened Secret; the GET's
 response and a revealed value's string wait for the garbage collector, so the wipe is best effort
 ([privilege footprint › H-8](privilege-footprint.md#h-8-secret-data-arrives-with-the-list)).
@@ -332,6 +333,41 @@ the Secret itself stays a Secret, masked in its own drawer
 ([`kinds/argocd_settings.go`](../../internal/model/kinds/argocd_settings.go),
 `TestArgoSettingsNeverShowCredentials`, `TestArgoSettingsNeverReachAgents`). Where those values
 live meanwhile: [H-66](#h-66-argo-cds-credentials-are-in-cogpits-memory-while-its-settings-are-read).
+
+### Secret values edited in the drawer
+
+Since 2026-10-15 (the owner's audit answer, [D-59](../developer/decisions.md#d-59-a-secrets-values-edited-in-the-drawer))
+a Secret's values are edited in its drawer, as a Config Map's are, in the window only
+([`secretdata.go`](../../internal/ui/fyneui/secretdata.go),
+[`engine/secretdataedit.go`](../../internal/engine/secretdataedit.go)). Where a value goes, as built:
+
+- **Read whole into an editor, after Show.** Where the user may save the Secret (not the demo
+  cluster, `update secrets` allowed, not immutable, no Helm release record), Show runs
+  `secret.reveal` with `whole` (GUI-only) and the value goes into a `yamlview` editor below its key;
+  elsewhere Show reveals it read-only as before. Hide masks it again; an edited value stays, masked,
+  until it is saved or reverted. A Secret that changed (a rotation) masks every unedited value
+  revealed at the older version (R-6). ⌘C and ⌘X in the editor go through the clipboard for Secret
+  values (concealed, cleared after 60 seconds, [H-25](#h-25-a-copied-secret-value-reaches-the-clipboard);
+  yamlview's `OnCopy`, `TestSecretEditorCopiesAsASecret`).
+- **To the engine, in the GUI's own process.** `secret.reviewData` (a masked diff: the keys that
+  change and their sizes, never a value, and the server's dry run) and `secret.saveData` are marked
+  GUI-only: `Dispatch` refuses the CLI and every agent before anything is read, asked or sent, and
+  `Refuse`, `Run` and the engine refuse again (`ErrSecretDataGUIOnly`); a save refuses a Secret the
+  drawer does not show. The window's own calls are not audited, as none of the user's writes are;
+  an agent's refused call is, with the Secret, the version and the keys of `data` and `from`, each
+  value `<redacted>`, and only the names of other parameters (`auditSecretDataParams`,
+  `TestSecretDrawerDataIsGUIOnly`). The review's `from` (the values the edit is based on, for the
+  rebase) is compared base64-encoded: nothing is decoded for it.
+- **To the API server, base64-encoded in `data`**, in the cached Secret written back whole: a
+  server-side dry run, then the update with the version the values are based on as precondition. An
+  API message that quotes a value, the old or the new one, comes back with it removed; a conflict
+  carries the masked changes only (`TestSecretDrawerDataRefusals`,
+  `TestSecretDrawerDataConflictAndRebase`, on kind `TestKindSecretDataSave`). What the update also
+  does: [H-103](#h-103-a-secret-saved-from-cogpit-loses-kubectls-last-applied-annotation).
+- **Nowhere else.** No draft: edited values the drawer moves away from stay in the window's memory
+  until Cogpit quits (`drawer.secretUnsaved`) and come back masked; no toast beyond
+  "Secret <namespace>/<name> saved", no status line or review line with a value, no log line
+  (`TestSecretDrawerEditAndSave`, `TestSecretDrawerKeepsUnsavedInMemory`).
 
 ## What this does not cover
 
@@ -569,6 +605,20 @@ proxy's password crosses the network in clear on every CONNECT (live for each su
 an agent may set a proxy (decided the same evening, A20, built the same night,
 [above](#where-they-live-inside-cogpit)), the password an agent passes lands in the same file once
 the user accepted it.
+
+### H-103: A Secret saved from Cogpit loses kubectl's last-applied annotation
+
+Cogpit's cache drops `kubectl.kubernetes.io/last-applied-configuration` from every Secret, because
+it repeats the values in plain text ([privilege footprint › H-8](privilege-footprint.md#h-8-secret-data-arrives-with-the-list)).
+A save from the drawer (since 2026-10-15, [D-59](../developer/decisions.md#d-59-a-secrets-values-edited-in-the-drawer)),
+like an apply from a Secret's Edit tab (since 2026-10-12, D-19), writes the cached Secret back whole
+with an update, so the annotation is gone from the Secret afterwards (measured on kind:
+`TestKindSecretDataSave`). What it means: the next `kubectl apply` of that Secret's manifest finds no
+last-applied state, warns, writes it again, and cannot prune a key the manifest dropped meanwhile; a
+tool that reads the annotation reads nothing. Nothing of a value leaks by it (it removes a plain
+copy of the values); it is a change the user did not make. Live wherever a Secret was applied with
+`kubectl apply` and is saved from Cogpit. Closing it needs a write that leaves the annotation alone
+(a patch of `data`, or the live object read for the save), which the writer does not offer today.
 
 ### H-38: Drafts keep typed text in plain text
 

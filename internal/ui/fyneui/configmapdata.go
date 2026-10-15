@@ -111,7 +111,7 @@ type cmData struct {
 
 // cmRow is one key and its value's editor.
 type cmRow struct {
-	cd     *cmData
+	host   valueHost
 	key    string
 	name   fyne.CanvasObject
 	view   *yamlview.View
@@ -191,16 +191,36 @@ func (cd *cmData) row(key string) *cmRow {
 	if r := cd.rows[key]; r != nil {
 		return r
 	}
-	r := &cmRow{cd: cd, key: key, name: cd.d.keyName(key), view: yamlview.New()}
+	r := newValueRow(cd.d, cd, key, cd.edited)
+	r.name = cd.d.keyName(key)
+	cd.rows[key] = r
+	return r
+}
+
+// valueHost is what a value's editor row lives in (a Config Map's Data, a Secret's,
+// secretdata.go): the width its editors are laid out at, and the list to lay out again when an
+// editor's height changes.
+type valueHost interface {
+	editorWidth() float32
+	relayout()
+}
+
+func (cd *cmData) editorWidth() float32 { return cd.width }
+func (cd *cmData) relayout()            { cd.list.Refresh() }
+
+// newValueRow returns a key's editor row, read-only until its host makes it editable: yamlview
+// with plain scalars coloured as strings, on its background with the grip; edited follows the
+// user's typing.
+func newValueRow(d *drawer, host valueHost, key string, edited func(*cmRow)) *cmRow {
+	r := &cmRow{host: host, key: key, view: yamlview.New()}
 	r.view.SetPlainStrings(true)
 	r.view.SetReadOnly(true)
-	r.view.OnChanged = func() { cd.edited(r) }
-	r.view.OnScrollPast = cd.d.scroll.Scrolled // the drawer scrolls on where the editor cannot
+	r.view.OnChanged = func() { edited(r) }
+	r.view.OnScrollPast = d.scroll.Scrolled // the drawer scrolls on where the editor cannot
 	r.frame = box(cmFrameLayout{r: r}, newSurface(theme.ColorNameInputBackground), r.view, newCMGrip(r))
 	r.note = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	r.note.Hide()
 	r.value = container.NewStack(r.frame)
-	cd.rows[key] = r
 	return r
 }
 
@@ -522,12 +542,12 @@ func (r *cmRow) editorHeight() float32 {
 	if r.height > 0 {
 		return r.height
 	}
-	return r.view.HeightFor(min(max(r.view.LineCount(), cmMinLines), cmMaxLines), r.cd.width)
+	return r.view.HeightFor(min(max(r.view.LineCount(), cmMinLines), cmMaxLines), r.host.editorWidth())
 }
 
 // drag changes the editor's height by dy, between one line and cmMaxDrag.
 func (r *cmRow) drag(dy float32) {
-	lo, hi := r.view.HeightFor(1, r.cd.width), r.view.HeightFor(cmMaxDrag, r.cd.width)
+	lo, hi := r.view.HeightFor(1, r.host.editorWidth()), r.view.HeightFor(cmMaxDrag, r.host.editorWidth())
 	r.height = min(max(r.editorHeight()+dy, lo), hi)
 	r.resized()
 }
@@ -537,7 +557,7 @@ func (r *cmRow) resized() {
 	if h := r.editorHeight(); h != r.shown {
 		r.shown = h
 		r.frame.Refresh()
-		r.cd.list.Refresh()
+		r.host.relayout()
 	}
 }
 

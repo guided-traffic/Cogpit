@@ -22,6 +22,7 @@ var wantGUIOnly = []string{
 	"cluster.remove", "cluster.settings.setAgentWrites", "cluster.settings.uploadIcon", "dock.allowAgentRead",
 	"kubeconfig.addFile", "kubeconfig.addFolder", "kubeconfig.approveExec", "kubeconfig.remove",
 	"kubectl.download", engine.SecretCreateCommand, engine.RevealCommand, "configMap.keepEdits",
+	engine.SecretReviewDataCommand, engine.SecretSaveDataCommand,
 }
 
 // guiOnlyParams returns parameters that decode for a command: every required property with a value

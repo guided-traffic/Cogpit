@@ -18,7 +18,7 @@ import (
 // configMapDataVerbs are the verbs of saving values: an update of the Config Map, read from the
 // cache. The review's dry run is an update too, which the server checks as one.
 var configMapDataVerbs = []engine.Verb{
-	{Verb: nwVerbList, Resource: kindConfigMaps}, {Verb: nwVerbWatch, Resource: kindConfigMaps}, {Verb: "update", Resource: kindConfigMaps},
+	{Verb: nwVerbList, Resource: kindConfigMaps}, {Verb: nwVerbWatch, Resource: kindConfigMaps}, {Verb: dataVerbUpdate, Resource: kindConfigMaps},
 }
 
 // configMapReads are the verbs of reading a Config Map's values from the cache.

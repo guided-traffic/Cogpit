@@ -39,6 +39,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerAccess(g)
 	registerPortForward(g)
 	registerSecrets(g)
+	registerSecretData(g) // a Secret's values edited in the drawer, the window's only (D-59)
 	registerHelm(g)
 	registerHelmUpgrade(g)
 	registerHelmRepos(g)

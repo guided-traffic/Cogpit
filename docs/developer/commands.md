@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 196 commands</summary>
+<summary>All 198 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -168,7 +168,9 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `role.create` | `role_create` | mutating (agents always ask for some calls) | `name`, `namespace`?, `rules`? | Creates a Role in a namespace with the given rules (API groups, resources, verbs, optional resource names) after a server-side dry run; the API server refuses rules that grant more than the user holds unless the user may escalate roles |
 | `roleBinding.create` | `roleBinding_create` | mutating (destructive for some calls; agents always ask for some calls) | `name`, `namespace`?, `roleRef`, `subjects` | Creates a RoleBinding that grants a Role of its namespace, or a ClusterRole within its namespace, to users, groups and service accounts, after a server-side dry run; the API server refuses it unless the user holds the role's permissions or may bind it |
 | `secret.create` | `secret_create` | mutating (GUI only) | `annotations`?, `data`?, `labels`?, `name`, `namespace`?, `type`? | Creates a Secret (name, namespace, type, data entries, labels, annotations) after a server-side dry run, for the user in Cogpit's window only (D-19): an agent or the CLI is refused before anything is asked or sent, whatever the parameters, and no value is ever logged |
-| `secret.reveal` | `secret_reveal` | read (GUI only) | `key`, `ref`, `resourceVersion`? | Shows the user one value of the Secret open in the drawer, in Cogpit's own window (the drawer lists the keys with their values masked) |
+| `secret.reveal` | `secret_reveal` | read (GUI only) | `key`, `ref`, `resourceVersion`?, `whole`? | Shows the user one value of the Secret open in the drawer, in Cogpit's own window (the drawer lists the keys with their values masked) |
+| `secret.reviewData` | `secret_reviewData` | read (GUI only) | `data`, `from`?, `ref`, `resourceVersion` | Shows the user what Save in a Secret's drawer would write: the keys whose values change with their sizes before and after, never a value, and the API server's verdict on a dry run |
+| `secret.saveData` | `secret_saveData` | mutating (GUI only) | `data`, `from`?, `ref`, `resourceVersion` | Writes new values for keys of a Secret's data, as Save in its drawer does: the Secret from Cogpit's cache with the values set base64-encoded, a server-side dry run, then an update with resourceVersion as precondition; a Secret that changed since is not written |
 | `service.portForward` | `service_portForward` | mutating | `https`?, `localPort`?, `openInBrowser`?, `port`, `ref` | Forwards a service's port to a local port on 127.0.0.1 (only loopback; every local process can connect while it runs) through a ready pod of the service's selector, at the port the service targets, as kubectl port-forward svc/<name> does |
 | `serviceAccount.create` | `serviceAccount_create` | mutating | `name`, `namespace`? | Creates a ServiceAccount in a namespace after a server-side dry run |
 | `settings.close` | `settings_close` | ui |  | Closes the open settings page, Preferences or a cluster's Settings, as its close button or Escape does; the cluster's views come back as they were |

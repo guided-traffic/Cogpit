@@ -16,7 +16,7 @@ port forwarding and the Helm releases in your clusters. Every view reads from a 
 keep current, so it is fast for you and light on the API server. And agents can drive all of it
 over MCP, the UI included. Cogpit is a desktop client: it is never a web UI and is never deployed
 into a cluster. **Status: pre-alpha** (updated 2026-10-15): every view and every action on Lens's
-list exists at least in part (64 of 64 views, 41 of 41 actions, counted by `make parity`), with
+list exists at least in part (64 of 64 views, 42 of 42 actions, counted by `make parity`), with
 the Flux CD and Argo CD sections, Helm releases and charts, metrics, logs, a terminal, pod and node
 shells, the built-in agent's chat and MCP control of all of it; none of it has been walked through
 by a person on a real cluster yet. The releases are builds for Apple silicon, signed and notarized
@@ -49,6 +49,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 💻 Pod shells, attach and a terminal bound to the cluster's context; copy and paste by keys or, if you choose, the right mouse button.
 - 🖥️ A node shell, as Lens opens it: a privileged pod in `kube-system` from an image pinned by digest, confirmed every time, deleted when the shell closes.
 - 🔐 Create Secret from a dialog, values masked as you type, for you alone: agents can neither create a Secret nor read its values.
+- 🗝️ A Secret's values edited in its drawer, for you alone: Show puts a value into an editor, Save shows which keys change and their sizes, never a value, and checks with the server first; agents can neither save nor review a Secret's values, and unsaved ones never touch the disk.
 - 🧰 The terminal's `kubectl` checked against the cluster: more than one minor version off, or none, and one click downloads the matching release from `dl.k8s.io`, verified against its SHA-256, the Kubernetes release's signature and that signature's entry in sigstore's transparency log, for Cogpit's terminals only.
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 📝 A Config Map's values edited right in its drawer, each key above its editor, saved with a diff and a dry run; when someone else changed other keys meanwhile, Save moves your edits onto the newer version and shows you the diff again; unsaved values survive a quit or a crash as a draft.

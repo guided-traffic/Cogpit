@@ -42,6 +42,9 @@ type drawer struct {
 	revealedLen map[string]int    // how many bytes of a revealed text are the value; the rest is a note that it was cut
 	kept        map[string]any    // what section renderers keep across rebuilds for the shown object (drawerSections)
 
+	// A Secret's edited values the drawer moved away from, by object, in memory only (secretdata.go).
+	secretUnsaved map[string]*secUnsaved
+
 	kind     *textLine
 	title    *textLine
 	status   *pill

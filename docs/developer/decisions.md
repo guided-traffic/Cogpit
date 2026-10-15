@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-16 · **Change:** minor (D-55: the owner's audit answers of 2026-10-15 for a Config Map's drawer built: Save rebases by itself when no edited key changed, unsaved values kept as disk drafts; a Secret's values in the drawer decided); minor (D-57: an insecure context's warning icon on its section row; the selection bar in the item count's place); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; F9, a sent message edited and sent again, H-100; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the index row); minor (D-57 built: choosing a cluster in the navigator's section only, the context picker, "Switch context" and the scope dropdown gone; D-42, D-47 and D-51 follow); minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-16 · **Change:** minor (D-59: a Secret's values edited in the drawer, the window's only, decided by the owner 2026-10-15 and built the same night; D-55: the owner's audit answers for a Config Map's drawer built); minor (D-55: the owner's audit answers of 2026-10-15 for a Config Map's drawer built: Save rebases by itself when no edited key changed, unsaved values kept as disk drafts; a Secret's values in the drawer decided); minor (D-57: an insecure context's warning icon on its section row; the selection bar in the item count's place); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; F9, a sent message edited and sent again, H-100; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the index row); minor (D-57 built: choosing a cluster in the navigator's section only, the context picker, "Switch context" and the scope dropdown gone; D-42, D-47 and D-51 follow); minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -62,9 +62,10 @@ projects' repositories; re-check them before relying on a version number.
 | [D-52](#d-52-several-windows) | Several windows | postponed (owner, 2026-10-15): designed 2026-10-15; the owner chose the model (a) as the direction and answers the rest in a separate, larger interview once the rest is done (the owner's requirement, 2026-10-14 evening: a hotbar tile dragged out of the window opens another window with that cluster; the lead's proposal: one session, a window's state and a connection per window, seven questions in order); not built |
 | [D-53](#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it) | The MCP details, and a token kept until the user regenerates it | decided (owner, 2026-10-15, F6): the top bar's MCP button gone, a gear in the status bar's MCP item for the details and Regenerate token (with a warning first), the token and the port kept across starts; built 2026-10-15, the lead's decisions for the owner to confirm listed |
 | [D-54](#d-54-the-layout-toggles-and-the-update-button) | The layout toggles and the Update button | decided (owner, 2026-10-15, F7): three toggles at the top bar's right end for the navigator (⌘B), the dock (⌘J) and the chat column (⌘I) as engine state, kept in `workspace.json`; an Update button while Sparkle holds an update; built 2026-10-15, the lead's decisions for the owner to confirm listed |
-| [D-55](#d-55-a-config-maps-values-edited-in-the-drawer) | A Config Map's values edited in the drawer | decided (owner, 2026-10-15, his finding F3): the key above its value, a Config Map's in an editor, names without spaces wrap at - . _ /, values saved in the drawer through the existing write path, a Secret's layout too; built 2026-10-15 with the lead's decisions for the owner to confirm; the owner's audit answers of 2026-10-15: Save rebases by itself when no edited key changed (shown to the user), unsaved values kept as disk drafts, built the same night with the lead's decisions for the owner to confirm; a Secret's values in the drawer, the window's only, decided (owner, 2026-10-15) |
+| [D-55](#d-55-a-config-maps-values-edited-in-the-drawer) | A Config Map's values edited in the drawer | decided (owner, 2026-10-15, his finding F3): the key above its value, a Config Map's in an editor, names without spaces wrap at - . _ /, values saved in the drawer through the existing write path, a Secret's layout too; built 2026-10-15 with the lead's decisions for the owner to confirm; the owner's audit answers of 2026-10-15: Save rebases by itself when no edited key changed (shown to the user), unsaved values kept as disk drafts, built the same night with the lead's decisions for the owner to confirm; a Secret's values in the drawer, the window's only: [D-59](#d-59-a-secrets-values-edited-in-the-drawer) |
 | [D-56](#d-56-the-terminals-scrollback) | The terminal's scrollback | decided (owner, 2026-10-15): no line limit, a compact scrollback bounded at 256 MiB, the view and a draggable bar, reflow, the wheel to full-screen programs, agents by stable line numbers; built 2026-10-15 with the lead's decisions for the owner to confirm; fixes and this model to be offered to #147 |
 | [D-57](#d-57-choosing-a-cluster) | Choosing a cluster | decided (owner, 2026-10-15 evening): one list, the navigator's section; the context picker, the top bar's "Switch context" and the header's scope dropdown gone, ⌘P and Connect to Cluster… show the section with its search focused, Escape on its empty search goes back, a "+" adds kubeconfigs; built 2026-10-15 (night run) with the lead's decisions for the owner to confirm |
+| [D-59](#d-59-a-secrets-values-edited-in-the-drawer) | A Secret's values edited in the drawer | decided (owner, 2026-10-15, his audit answers): editable after Show as a Config Map's, in the window only (GUI-only, no path an agent or the CLI reaches), a masked diff and a dry run, never on disk; built 2026-10-15 (night run) with the lead's decisions for the owner to confirm; H-103 opened |
 
 ## Decision round 2026-10-14 evening
 
@@ -1676,7 +1677,8 @@ sent, and the audit line of a refused call names the Secret, its type and its ke
 default, not the owner's decision: the dialog sends the values base64-encoded in `data`, not in
 `stringData` (options: (a) `data`, (b) `stringData`; (a) because what is sent is what the API server
 stores and returns, as `kubectl create secret` sends it, and the scrubbing of an API message knows
-each value in both forms). The options weighed:
+each value in both forms). Since 2026-10-15 (the owner's audit answer) a Secret's values are edited in its
+drawer too, after Show, under the same rule: the window's only ([D-59](#d-59-a-secrets-values-edited-in-the-drawer)). The options weighed:
 
 | Option | For | Against |
 |---|---|---|
@@ -4873,7 +4875,7 @@ newer version, and the diff and the dry run run again against it and are shown t
 Save writes; otherwise the conflict and "Save over version N" as built; never overwritten silently.
 (10) **Unsaved drawer values as disk drafts**, as an Edit tab's ([D-11](#d-11-crash-stance),
 `drafts/`, 0600, offered at the next connect). (2) **A Secret's values in the drawer**, the window's
-only: [D-59](#d-59-a-secrets-values-edited-in-the-drawer). Built: `configMap.reviewData` takes
+only: [D-59](#d-59-a-secrets-values-edited-in-the-drawer), built the same night. Built: `configMap.reviewData` takes
 `from`, each edited key's value at the version the values are based on; a cached version newer than
 that one whose edited keys still hold those values rebases the edit (`rebasedFrom` names the old
 version, `baseResourceVersion` the new one, which the save takes), and a dry run that meets a still
@@ -5185,6 +5187,84 @@ the lead, for the owner to confirm), where the picker showed a pill and a line
 status bar's "TLS not checked" while connected are unchanged. Not verified: the section, ⌘P and
 Escape in a real window (Fyne's test driver only).
 
+## D-59: A Secret's values edited in the drawer
+
+**Decided (owner, 2026-10-15, his audit answers, (2)):** a Secret's values are editable in the
+drawer as a Config Map's are ([D-55](#d-55-a-config-maps-values-edited-in-the-drawer)), in Cogpit's
+window only, GUI-only as Create Secret ([D-19](#d-19-editing-and-creating-secrets-from-yaml)): no
+engine command path an agent, the CLI or an MCP client reaches writes a Secret's value. The editor
+per key comes after Show (the drawer's Show and Hide of a Secret's values); Save shows a **masked
+diff** (the keys changed, added or removed and their sizes, never a value) and a dry run; no value
+in logs, toasts, the audit log (its line names the Secret and the keys only) or a crash report. The
+layout is the Config Map's (the key on its own line, the editor below, one Save for all edits,
+conflicts as built), with Save rebasing by itself when none of the edited keys changed underneath
+(D-55's (9)); a Secret's unsaved values are never on disk, memory only (D-55's (10)). Lens's Secret
+drawer editing is not captured (inferred).
+
+**Built 2026-10-15 (night run).** Engine ([`engine/secretdataedit.go`](../../internal/engine/secretdataedit.go),
+[`commands/secretdataedit.go`](../../internal/engine/commands/secretdataedit.go)):
+`secret.reveal` takes `whole` (the value uncut, for the editor; GUI-only as before);
+`secret.reviewData` (read, verbs `list`, `watch`, `update secrets`) returns the masked diff
+(`SecretKeyChange`: key, `changed`/`added`/`removed`, bytes before and after) of the Secret with the
+given values against the cached one and, when something changes and the values are based on the
+cached version, the server's dry run; given `from` (each edited key's value at the base version,
+compared base64-encoded, nothing decoded) it rebases onto a newer version none of those keys
+changed in, as `configMap.reviewData`; `secret.saveData` (mutating) writes the cached Secret with
+the values set base64-encoded in `data`, `managedFields` dropped, a dry run, then the update with
+the base version as precondition; a newer version is a `DataConflictError` with the masked changes
+(`Changes`) against it, never a value, written over only by a save that names it. Both are marked
+GUI-only (`ErrSecretDataGUIOnly`, which `errors.Is` `ErrSecretGUIOnly`): `Dispatch` refuses every
+other origin before `Enabled`, `Refuse` and `Run` refuse again, and the engine functions check the
+origin themselves; a save refuses a Secret the drawer does not show, a key the data does not hold, a
+binary value, an immutable Secret and a Helm release record (`helm.sh/release.v1`) before anything
+is sent, naming keys only; an API server's message that quotes a value, old or new, is scrubbed
+(`scrubSecretWrite`). The audit line of an agent's refused call keeps the Secret, the version, the
+keys of `data` and `from` with each value `<redacted>`, and the names of any other parameters
+(`auditSecretDataParams`). The toast says "Secret <namespace>/<name> saved". GUI
+([`fyneui/secretdata.go`](../../internal/ui/fyneui/secretdata.go)): the Data section keeps each key
+above its masked value with Show; where `secret.saveData` is enabled, Show reads the whole value
+into the Config Map's editor row (yamlview, plain scalars as strings, 3 to 12 lines, the grip) with
+Hide at the key's end, the editor's ⌘C and ⌘X going to the clipboard for Secret values (yamlview's
+`OnCopy`; concealed, cleared after 60 seconds); Revert and Save at the end of the data once a value
+is in an editor; Save opens a review over the window: the masked diff, one line per key ("changed,
+28 B → 27 B"), the dry run's verdict, Save or "Save over version N"; a rebase says so. Tests:
+`TestSecretDrawerDataSave`, `TestSecretDrawerDataIsGUIOnly`, `TestSecretDrawerDataConflictAndRebase`,
+`TestSecretDrawerDataRefusals`, `TestSecretDrawerDataDisabledOnTheDemo`, on kind
+`TestKindSecretDataSave` (a real dry run, save, rebase, conflict and the agent's refusal); GUI
+`TestSecretDrawerEditAndSave`, `TestSecretDrawerHide`, `TestSecretDrawerKeepsUnsavedInMemory`,
+`TestSecretDrawerRebaseAndConflict`, `TestSecretDrawerReadOnly`, `TestSecretEditorCopiesAsASecret`;
+yamlview `TestOnCopyTakesTheCopy`. PNGs: [drawer dark](../../internal/ui/fyneui/testdata/secret_edit_dark.png),
+[light](../../internal/ui/fyneui/testdata/secret_edit_light.png), [masked diff dark](../../internal/ui/fyneui/testdata/secret_save_dark.png),
+[light](../../internal/ui/fyneui/testdata/secret_save_light.png).
+
+### The lead's decisions for the owner to confirm (night run 2026-10-15/16)
+
+| Question | Options | Choice | Reason |
+|---|---|---|---|
+| The GUI-only path | (a) two commands of their own, `secret.reviewData` and `secret.saveData`, marked GUI-only (refused in `Dispatch` before `Enabled`), refusing again in `Refuse`, `Run` and the engine; (b) no command, the window calling the engine directly; (c) the Secret's Edit tab | (a) | Create Secret's and Show's pattern: everything is a command (AGENTS.md rule 1), the MCP tool exists and tells an agent to ask the user, a refused call is audited; (b) would be the one write outside the registry; (c) leaves the drawer |
+| Where the editor's whole value comes from | (a) `secret.reveal` with `whole`; (b) a command of its own; (c) the drawer model | (a) | One GUI-only read of a value; the cut (4 KiB, 40 lines) stays for the read-only text, whose widget wraps every character; (c) would put values into the model agents read |
+| Show where Save cannot work (the demo cluster, no `update secrets`, immutable, a Helm release record) | (a) the value as before, read-only text with its copy icon, the reason under the data; (b) a read-only editor | (a) | A value that cannot change keeps D-25's copy icon and its wrapping; the editor appears where typing can lead to a save. The existing renders and tests of Show stay as they are |
+| Adding and removing keys | (a) values only; (b) keys too | (a) | Not trivial: a key row with the API server's key rules, a removal is a loss the review would have to weigh; the Edit tab adds and removes keys. The masked diff's model names added and removed keys for when it does |
+| Hide on an edited value | (a) masks it, the typing kept until Save or Revert; (b) Hide disabled while edited; (c) the edit dropped | (a) | The user can mask a value while it waits, and loses nothing; the masked line says "(edited, not saved)" |
+| Unsaved values when the drawer moves | (a) the window's memory until Cogpit quits, a toast, back masked when the Secret is shown again; (b) dropped | (a) | The owner's "memory only"; back masked, so no value shows without a click |
+| An unedited value revealed at an older version when the Secret changes | (a) masked again, gone from the window's memory; (b) kept | (a) | The rule of 2026-10-12 (R-6): a rotated credential's old value must not stay to be copied. An edited value stays, based on the version it was edited at |
+| What the masked diff shows | (a) the key, what changes, the sizes before and after; (b) a hash of each value too | (a) | The owner's "keys and sizes"; a hash of a short password can be guessed offline |
+| Copying from the editor | (a) ⌘C and ⌘X through the clipboard for Secret values (concealed, cleared after 60 seconds), no copy icon over the editor; (b) the plain clipboard | (a) | D-25's rule for every copy of a Secret's value; the Config Map's editors have no copy icon either |
+| An audit line for the window's own save | (a) none, as for every write of the user's (a Secret's Edit tab included); (b) a line naming the Secret and the keys | (a) | The audit log is agents' (D-2); an agent's refused call has its line, with the Secret and the keys only. (b) is one `AuditUser` call if wanted |
+| A save of a Secret the drawer does not show | (a) refused; (b) allowed | (a) | Defence in depth beside the GUI-only mark: a value is written only from the drawer that shows its Secret |
+| The footer | (a) Revert and Save once a value is in an editor; (b) always | (a) | The drawer of a Secret nobody edits looks as before |
+
+### What it does not cover
+
+- **kubectl's last-applied annotation is dropped by a save, live:**
+  [H-103](../security/credentials.md#h-103-a-secret-saved-from-cogpit-loses-kubectls-last-applied-annotation).
+- **The values stay in the window's memory until the garbage collector takes them, live.** A
+  revealed value, the editor's text, its undo and the base values are Go strings; the decoded bytes
+  the engine handles are zeroed, the strings cannot be (as for Show since 2026-10-12, H-8).
+- **A crash loses a Secret's unsaved values, by design:** never on disk.
+- **Pointer events over a scrolled-out editor**, as D-55 records for a Config Map's.
+- **Lens's Secret drawer editing is inferred**, not captured.
+
 ## Revision history
 
 | Date | Change | Summary |
@@ -5193,6 +5273,7 @@ Escape in a real window (Fyne's test driver only).
 | 2026-10-15 | minor | D-10 F9 built in the night run: a sent message edited and sent again (`ChatAgent.Resend`), everything after it cut from the window, the model's history and the kept file; seven decisions of the lead for the owner to confirm (editing while a turn runs, where editing starts, the keys, when the input could not send, the first message's title, a private conversation, when the file is rewritten); H-100 opened; the index row: the chat's audit answers built |
 | 2026-10-15 | minor | D-10 (6) built in the night run: the warning for `http://` to another machine (Preferences › Agent, the list's mark, the connection test) and a CA file per connection added to the system's roots, Go 1.27.2's verifier checked in its source and recorded; five decisions of the lead for the owner to confirm (the loopback exemption, where it warns, a CA file over http, the path, when it is read); item 10 revised; H-104 opened |
 | 2026-10-15 | minor | D-10: the owner's audit answers of 2026-10-15 for the chat recorded ((4) send all tools per connection, (6) a warning for `http://` to another machine and a CA file per connection, F9 a sent message edited and sent again; F8 postponed); (4) built in the night run (`ChatConnection.AllTools`, 179 tools and about 56,000 tokens measured), with the lead's decision for the owner to confirm (no meta-tools with all tools on); item 2 and the index row say so |
+| 2026-10-15 | minor | D-59 (the owner's audit answer of 2026-10-15) built (night run): a Secret's values edited in the drawer after Show, in the window only: `secret.reveal`'s `whole`, `secret.reviewData` (a masked diff and a dry run, the rebase of D-55) and `secret.saveData`, GUI-only, the audit line of a refused call with the Secret and its keys only; unsaved values in the window's memory only; the lead's decisions for the owner to confirm in a table; H-103 (the last-applied annotation a save drops) opened; index row; D-55's index row and open point point to it |
 | 2026-10-15 | minor | D-55: the owner's audit answers of 2026-10-15 built (night run): `configMap.reviewData` takes the edited keys' values at the base version (`from`) and rebases the edit onto a newer version none of those keys changed in, the diff and the dry run against it shown before Save, which never rebases; `configMap.keepEdits` (GUI-only) keeps the drawer's unsaved values in memory and as a draft of type `configMapData` (`drafts/`, 0600), offered at the next connect and restored into the drawer by `editor.restoreDraft`; two of the lead's questions marked answered; the lead's decisions for the owner to confirm of the night listed; "What it does not cover" brought to the new state; a Secret's values in the drawer decided (owner, 2026-10-15) |
 | 2026-10-15 | minor | Decided by the owner and recorded in D-9, the entry that holds Cogpit's scope against Lens (the alpha gate itself lives in the roadmap, which no D-entry decides): verifying the credential plugins against EKS, GKE and AKS is out of scope until long after parity, no longer an alpha-gate step or part of M1's definition of done; index row D-9. The docs brought to the code (the owner's rule 10): the index row of D-10 said "being built (M12)" for what the code shows built (the engine side, the chat column, Preferences › Agent, the private connection, the key file); the index lacked D-14 to D-32, now one row each, its status from the entry and checked against the code; D-1: S7's re-check since CI (the macOS app packaged, Windows compiled and linked, no Windows or Linux package); D-2: "the rest is not built yet" over answers each marked built 2026-10-14, and the token's place (`<user config dir>/Cogpit/mcp-token`, kept since D-53); D-4: Sparkle said not built (built 2026-10-14, key 2026-10-15); D-44: the built-in agent said not built; D-48: "the release's app is ad-hoc signed today" (Developer ID since v0.6.0, the login item still not tried with it); D-16: "not verified until the first signed release" (signed releases with the bundled `cogpit-cli` since v0.7.0, checked by download on 2026-10-14; a run from a quarantined copy not tried); the decision round's intro: the night run built every answer that asked for a build but R3 and A10 |
 | 2026-10-15 | minor | D-4: Sparkle's update key set up by the owner (the environment `sparkle` with its rules and Pages by the lead with the owner's go-ahead; the secret and the variable by the owner), in v0.11.0 to v0.13.0, no signed appcast yet (`appcast.xml` 404: v0.9.0 to v0.12.0 got no files, v0.13.0 notarizing; checked with `gh` ~19:00 UTC); v0.6.0 to v0.8.0 carry the signed disk image; the notarization's 330-minute job noted at A9. A10 decided further by the owner: the semantic-release App the tag ruleset's only bypass, nobody tags by hand, an emergency tag by an admin switching the ruleset off; the settings not made (no ruleset, `release`'s admin bypass on). Confirmed by the owner: D-47 as a whole (navigation only with the build's defaults; the A7 ask verified built); D-10 item 12's repaired key file (a log warning, no bell notification, against the lead's recommendation) and no keychain migration, its third choice not asked; D-51's ↵ on an agent's palette text (b); D-51's dropdown bank moot (the scope dropdown to go, not built). The index rows of D-2, D-33, D-34, D-36, D-41 and D-44 said "not built" for answers of 2026-10-14 evening that the code shows built in the night run (A1, A2, A16, A18, A20, A65; A34 and A91; A80; A33; A63; A3, A5, A31): corrected |

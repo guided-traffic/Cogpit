@@ -19,10 +19,17 @@ func init() { itemActionDialogs[engine.RevealCommand] = toggleReveal }
 // (the Secret and the key).
 func revealKey(a model.ItemAction) string { return a.Command + "\x00" + string(a.Params) }
 
-// toggleReveal shows the value an item action reveals, or hides it again.
+// toggleReveal shows the value an item action reveals, or hides it again. On a Secret whose values
+// the user may save, Show puts the whole value into an editor instead (secretdata.go, D-59).
 func toggleReveal(sh *shell, ref model.ObjectRef, a model.ItemAction) {
 	d := sh.drawer
 	key := revealKey(a)
+	if sd := d.secretDataOf(ref); sd != nil && sd.editable() {
+		if _, shown := d.revealed[key]; !shown {
+			sd.reveal(a)
+			return
+		}
+	}
 	if _, shown := d.revealed[key]; shown {
 		delete(d.revealed, key)
 		delete(d.revealedLen, key)

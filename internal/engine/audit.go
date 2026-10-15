@@ -54,6 +54,8 @@ func (s *Session) audit(inv Invocation, context, phase string, err error) {
 	}
 	if inv.ID == SecretCreateCommand {
 		e.Params = auditSecretCreateParams(e.Params) // its keys, never a value (secretcreate.go)
+	} else if secretDataAudited(inv.ID) {
+		e.Params = auditSecretDataParams(e.Params) // the Secret and its keys, never a value (secretdataedit.go)
 	} else {
 		e.Params = auditParams(e.Params)
 	}

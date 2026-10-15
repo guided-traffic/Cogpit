@@ -34,6 +34,9 @@ type View struct {
 	// is at its top or bottom (or has nothing to scroll), so that a view inside a scrolling
 	// container (the detail drawer's editors) hands the rest on to it.
 	OnScrollPast func(*fyne.ScrollEvent)
+	// OnCopy, when set, gets the text a copy or a cut takes instead of the clipboard: an editor
+	// that holds a Secret's value hands it to the clipboard for Secret values (cleared later).
+	OnCopy func(string)
 
 	doc       document
 	readOnly  bool
@@ -828,10 +831,12 @@ func (v *View) indentLines(add bool) {
 }
 
 func (v *View) copySelection(cb fyne.Clipboard) {
-	if cb == nil {
-		return
-	}
-	if text := v.SelectedText(); text != "" {
+	text := v.SelectedText()
+	switch {
+	case text == "":
+	case v.OnCopy != nil:
+		v.OnCopy(text)
+	case cb != nil:
 		cb.SetContent(text)
 	}
 }

@@ -116,21 +116,28 @@ type ConfigMapDataSaved struct {
 	ResourceVersion string          `json:"resourceVersion"`
 }
 
-// DataConflictError reports that a Config Map changed since the version the values are based on:
-// nothing was written. Diff holds the values against the version the cache holds now
-// (CurrentResourceVersion; empty when the cache has not seen it yet), which a save naming that
-// version writes them over.
+// DataConflictError reports that a Config Map, or a Secret saved from the drawer
+// (secretdataedit.go), changed since the version the values are based on: nothing was written.
+// Diff holds a Config Map's values against the version the cache holds now
+// (CurrentResourceVersion; empty when the cache has not seen it yet), Changes a Secret's masked
+// changes against it, never a value; a save naming that version writes them over it.
 type DataConflictError struct {
-	Ref                    model.ObjectRef `json:"ref"`
-	BaseResourceVersion    string          `json:"baseResourceVersion"`
-	CurrentResourceVersion string          `json:"currentResourceVersion,omitempty"`
-	Diff                   []DiffLine      `json:"diff,omitempty"`
+	Ref                    model.ObjectRef   `json:"ref"`
+	BaseResourceVersion    string            `json:"baseResourceVersion"`
+	CurrentResourceVersion string            `json:"currentResourceVersion,omitempty"`
+	Diff                   []DiffLine        `json:"diff,omitempty"`
+	Changes                []SecretKeyChange `json:"changes,omitempty"`
 }
 
 func (e *DataConflictError) Error() string {
 	if e.CurrentResourceVersion == "" {
 		return fmt.Sprintf("%s changed on the cluster since version %s, which the values are based on; nothing was saved. "+
 			"Cogpit's cache has not seen the new version yet: review the values again in a moment.", e.Ref.String(), e.BaseResourceVersion)
+	}
+	if e.Ref.Kind == secretsKind {
+		return fmt.Sprintf("%s changed on the cluster since version %s, which the values are based on; nothing was saved. It is at "+
+			"version %s now: Save in the drawer shows the changes against it, and Save over version %s writes them over it.",
+			e.Ref.String(), e.BaseResourceVersion, e.CurrentResourceVersion, e.CurrentResourceVersion)
 	}
 	return fmt.Sprintf("%s changed on the cluster since version %s, which the values are based on; nothing was saved. It is at "+
 		"version %s now: configMap_reviewData with that resourceVersion shows the values against it, and configMap_saveData "+

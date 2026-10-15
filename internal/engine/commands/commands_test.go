@@ -81,6 +81,8 @@ var wantCommands = map[string]engine.Danger{
 	"portforward.remove":  engine.DangerUI,
 
 	"secret.reveal": engine.DangerRead, // GUI only: refused for agents and the CLI
+	// A Secret's values edited in the drawer (D-59): GUI only (TestSecretDrawerDataIsGUIOnly).
+	engine.SecretReviewDataCommand: engine.DangerRead, engine.SecretSaveDataCommand: engine.DangerMutating,
 
 	"helm.release.rollback":   engine.DangerDestructive,
 	"helm.release.uninstall":  engine.DangerDestructive,
