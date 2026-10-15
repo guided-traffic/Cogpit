@@ -361,6 +361,19 @@ test-kind-drain: ## Cordon, uncordon and drain tests against the drain cluster (
 		$(GO) test -race -tags kind -count=1 -v -timeout 15m -run 'TestKindDrain' \
 		-covermode=atomic -coverpkg=./... -coverprofile=$(COVERAGE_DIR)/integration-drain.out ./internal/testkit/integration/
 
+# The tests against a real cluster someone names (real_kind_test.go): never in CI, only with
+# REAL_KUBECONFIG and REAL_CONTEXT, in a HOME of their own. REAL_RUN narrows them; the node, Helm and
+# Flux tests also need their COGPIT_REAL_* variables (the file's comment lists them).
+REAL_RUN  ?= ^TestReal
+REAL_HOME ?= $(CURDIR)/.cache/real-home
+
+.PHONY: test-real
+test-real: ## Tests against a real cluster (REAL_KUBECONFIG=<file> REAL_CONTEXT=<context>), never in CI
+	@test -n "$(REAL_KUBECONFIG)" -a -n "$(REAL_CONTEXT)" || { echo "set REAL_KUBECONFIG and REAL_CONTEXT"; exit 1; }
+	@mkdir -p $(REAL_HOME)
+	$(TEST_ENV) HOME=$(REAL_HOME) COGPIT_REAL_KUBECONFIG=$(REAL_KUBECONFIG) COGPIT_REAL_CONTEXT='$(REAL_CONTEXT)' \
+		$(GO) test -tags kind -count=1 -v -timeout 60m -run '$(REAL_RUN)' ./internal/testkit/integration/
+
 test-kind-drain-compile: ## Compile the drain tests without a cluster or a run
 	$(GO) test -race -tags kind -covermode=atomic -coverpkg=./... -run '^$$' ./internal/testkit/integration/
 
