@@ -203,7 +203,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install make
-        run: command -v make >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make >/dev/null; }
+        run: command -v make >/dev/null || hack/ci/apt-install.sh make
 
       - name: Download the artifacts
         uses: actions/download-artifact@v8
@@ -410,7 +410,7 @@ jobs:
           fyne-deps: "false"
 
       - name: Install make
-        run: command -v make >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make >/dev/null; }
+        run: command -v make >/dev/null || hack/ci/apt-install.sh make
 
       - name: Download the macOS downloads
         uses: actions/download-artifact@v8

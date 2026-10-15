@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-15 · **Change:** major (notarization in a job of its own: "Sign and submit (macOS)" submits the disk image and records the submission, "Notarize and staple (macOS)" waits up to 330 minutes for that submission and a re-run waits for the same one, after v0.9.0 to v0.12.0 got no download); minor (Sparkle: steps 1 and 2 set up 2026-10-15, the environment `sparkle` and Pages; the repository renamed back to `cogpit`, the feed URL with its spelling, Pages being case-sensitive, H-97); minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app; Renovate: sigstore's trusted root refreshed by make sigstore-root, D-50) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-15 · **Change:** minor (when no release comes: `hack/ci/apt-install.sh` with deadlines and tries, `rerun.yml` re-running jobs of main\'s newest run that failed setting up); major (notarization in a job of its own: "Sign and submit (macOS)" submits the disk image and records the submission, "Notarize and staple (macOS)" waits up to 330 minutes for that submission and a re-run waits for the same one, after v0.9.0 to v0.12.0 got no download); minor (Sparkle: steps 1 and 2 set up 2026-10-15, the environment `sparkle` and Pages; the repository renamed back to `cogpit`, the feed URL with its spelling, Pages being case-sensitive, H-97); minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app; Renovate: sigstore's trusted root refreshed by make sigstore-root, D-50) · **Target:** Lens Desktop 2026.10.51501
 
 Every push to `main` and every pull request runs the checks, each a job of its own with a make
 target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
@@ -22,7 +22,7 @@ Platform targets and how they compare with Lens Desktop:
 
 ## CI
 
-Three workflows in [`.github/workflows/`](../../.github/workflows/), laid out as in the team's
+Four workflows in [`.github/workflows/`](../../.github/workflows/), laid out as in the team's
 other repositories (`valkey-operator`):
 
 | Workflow | Triggers | What it does |
@@ -30,6 +30,7 @@ other repositories (`valkey-operator`):
 | [`release.yml`](../../.github/workflows/release.yml) "Test and Release" | push to `main`, pull request to `main`, manual | the checks below, each a job; on `main`, Semantic Release once all of them passed. The README's build badge shows this workflow. |
 | [`build.yml`](../../.github/workflows/build.yml) "Release Build" | a release published (`release: types: [published]`) | builds the artifacts from the release's tag, signs and notarizes the macOS ones, and attaches them ([the release pipeline](#the-release-pipeline)) |
 | [`renovate.yml`](../../.github/workflows/renovate.yml) | daily at 02:00 Berlin time, manual | dependency updates ([Renovate](#renovate)) |
+| [`rerun.yml`](../../.github/workflows/rerun.yml) "Re-run on runner failures" | a push run of "Test and Release" on `main` completed red or cancelled | re-runs its failed jobs once when each of them stopped in a set-up step (actions not downloadable, an apt mirror hanging) and the run is for `main`'s newest commit; never a failing test ([when no release comes](#when-no-release-comes)) |
 
 **Budget: no job needs more than ten minutes** (owner, 2026-10-13). Measured on the first live run
 (38445382032, 2026-10-13, the table's last column): the longest job took 9.6 minutes, with all
@@ -248,6 +249,26 @@ committing the coverage badge with the release) and the same pinned tooling
 3. The release's `published` event starts [the release pipeline](#the-release-pipeline), which
    builds the artifacts from the tag. It starts because the App's token created the release: a
    release made with `GITHUB_TOKEN` starts no workflow.
+
+### When no release comes
+
+semantic-release runs only when **every** job of a push run on `main` passed: one red or cancelled
+job of some twenty skips it, and a newer push cancels the run before (`concurrency`), which loses
+nothing, since the next green run releases every commit since the last tag. A release is missing
+when no run on `main`'s newest commit got through. On 2026-10-15 none did after `6ffd0ae` for
+three reasons: real failures (a data race and a lint finding, then a GoSec finding), runs cancelled
+by newer pushes, and the last run green but for one UI shard whose `apt-get update` hung 13
+minutes on the self-hosted node until the job's 15-minute timeout. What keeps that from recurring:
+
+- [`hack/ci/apt-install.sh`](../../hack/ci/apt-install.sh) installs the runners' Debian packages
+  with a deadline of four minutes a try, short network timeouts and three tries.
+- [`rerun.yml`](../../.github/workflows/rerun.yml) re-runs the failed jobs of `main`'s newest run
+  once when each of them stopped in a set-up step ("Set up job", "Checkout", "Set up Go",
+  "Install …", "Download the modules", "Restore the build cache"); the re-run ends with the
+  Semantic Release job. A test, lint or check that fails is never re-run.
+- By hand: `gh run list --branch main --limit 3`, then for the newest commit's run `gh run view
+  <id>` and, if a job failed setting up or timed out, `gh run rerun <id> --failed`. Do not push
+  while that re-run runs: the push cancels it.
 
 **v0 until the owner decides on 1.0.** Releases continue from the owner's anchor tag `v0.0.0`
 (2026-10-11). A breaking change makes a **minor** release, not 1.0.0 (`releaseRules: [{"breaking":

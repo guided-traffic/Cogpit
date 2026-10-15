@@ -54,14 +54,12 @@ runs:
     - name: Install Fyne's build dependencies
       if: runner.os == 'Linux' && inputs.fyne-deps == 'true'
       shell: bash
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq build-essential libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols >/dev/null
+      run: hack/ci/apt-install.sh build-essential libgl1-mesa-dev xorg-dev libxkbcommon-dev libwayland-dev wayland-protocols
 
     - name: Install make
       if: runner.os == 'Linux' && inputs.fyne-deps != 'true'
       shell: bash
-      run: command -v make >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq make >/dev/null; }
+      run: command -v make >/dev/null || hack/ci/apt-install.sh make
 
     # The self-hosted runner pods export no SHELL (bash sets one for itself without exporting it),
     # and Cogpit's local terminal falls back to zsh, which their image lacks; a login session on
