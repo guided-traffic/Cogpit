@@ -12,8 +12,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sigstore/protobuf-specs v0.5.1
-	github.com/sigstore/rekor v1.5.3
-	github.com/sigstore/sigstore v1.10.8
+	github.com/sigstore/rekor v1.5.4
+	github.com/sigstore/sigstore v1.10.9
 	github.com/sigstore/sigstore-go v1.3.0
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef
 	golang.org/x/crypto/x509roots/fallback v0.0.0-20261014201258-cf169cd0986f
@@ -44,7 +44,6 @@ require (
 	github.com/anthonynsimon/bild v0.17.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
