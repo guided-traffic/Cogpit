@@ -200,9 +200,12 @@ func TestHiddenMetricsAreNotPolled(t *testing.T) {
 	if d, _ := s.Detail(ref); !d.Metrics {
 		t.Error("the drawer has no Metrics section with Memory visible")
 	}
-	if snap := s.Table("pods"); !column(snap, model.ColumnCPU).Hidden || column(snap, model.ColumnMemory).Hidden {
-		t.Errorf("columns: cpu hidden %v, memory hidden %v", column(snap, model.ColumnCPU).Hidden, column(snap, model.ColumnMemory).Hidden)
-	}
+	// The view rebuilds its snapshot with the new columns on its own goroutine: wait for it rather
+	// than read the one before (seen under the race job's load).
+	waitFor(t, "the Pods list with only CPU hidden", func() bool {
+		snap := s.Table("pods")
+		return column(snap, model.ColumnCPU).Hidden && !column(snap, model.ColumnMemory).Hidden
+	})
 
 	// The Overview with its CPU and Memory hidden polls nothing for its charts; the Pods chart
 	// stays, from the cache. Hiding the cluster's place hides that too.

@@ -101,7 +101,7 @@ func TestBudgetAccessibleNamespaces(t *testing.T) {
 			t.Errorf("reviews: %d rules (team-a, team-b), %d access (list pods in all namespaces); want 2 and 1", r, a)
 		}
 
-		total := conn.Counter().Snapshot().Total
+		total := settledTotal(ctx, t, conn.Counter().Snapshot)
 		time.Sleep(idle)
 		if after := conn.Counter().Snapshot(); after.Total != total || !maps.Equal(podReads(srv), want) {
 			t.Errorf("idle cost %d requests, pod reads %v", after.Total-total, podReads(srv))
