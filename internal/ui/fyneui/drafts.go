@@ -14,10 +14,12 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// draftsBanner shows the drafts of unsaved editor text that Cogpit kept for the connected context
-// below the drain and Helm banners, one row each (D-11, G9): which tab the text was typed in, when
-// it was kept, and Discard (editor.discardDraft, the text is gone for good) and Restore
-// (editor.restoreDraft, the tab opens with the text in the dock). The engine announces changes
+// draftsBanner shows the drafts of unsaved editor text, and of a Config Map's values edited in the
+// drawer (configmapdata.go), that Cogpit kept for the connected context below the drain and Helm
+// banners, one row each (D-11, G9): which tab or drawer the text was typed in, when it was kept,
+// and Discard (editor.discardDraft, the text is gone for good) and Restore (editor.restoreDraft,
+// the tab opens with the text in the dock, or the drawer on the Config Map with the values in its
+// editors). The engine announces changes
 // with EventDrafts; the banner reads the drafts with editor.drafts, so that it shows what an agent
 // would read. That Lens offers its drafts this way is not captured (inferred).
 type draftsBanner struct {
@@ -75,6 +77,7 @@ func (b *draftsBanner) show(res any, err error) {
 		b.root.Show()
 	}
 	b.root.Refresh()
+	b.sh.drawer.draftsChanged() // a draft restored for the Config Map the drawer shows (configmapdata.go)
 }
 
 // row is one draft: a tinted strip with an icon, two lines of text and the actions.
@@ -99,22 +102,28 @@ func (b *draftsBanner) row(d engine.DraftInfo) fyne.CanvasObject {
 
 // draftTitle is a row's first line.
 func draftTitle(d engine.DraftInfo) string {
-	if d.Type == engine.DockCreate {
+	switch d.Type {
+	case engine.DockCreate:
 		return "Unsaved text of a Create resource tab"
+	case engine.DraftConfigMapData:
+		return "Unsaved values of " + d.Title + " (drawer)"
 	}
 	return "Unsaved changes to " + d.Title
 }
 
-// draftDetail is a row's second line: where the text belongs, when Cogpit kept it, its size, and
-// for an Edit tab the version the changes are based on. The time is written in tf, the user's
-// zone and format (D-31).
+// draftDetail is a row's second line: where the text belongs, when Cogpit kept it, its size (a
+// drawer's values: how many), and for an Edit tab or a drawer the version the changes are based
+// on. The time is written in tf, the user's zone and format (D-31).
 func draftDetail(d engine.DraftInfo, tf model.TimeFormat) string {
 	where := "Context " + d.Context
 	if d.Ref != nil && d.Ref.Namespace != "" {
 		where += ", namespace " + d.Ref.Namespace
 	}
-	parts := []string{where + ", kept " + tf.Format(d.Saved),
-		fmt.Sprintf("%d line%s", d.Lines, plural(d.Lines))}
+	size := fmt.Sprintf("%d line%s", d.Lines, plural(d.Lines))
+	if d.Type == engine.DraftConfigMapData {
+		size = valuesText(len(d.Keys))
+	}
+	parts := []string{where + ", kept " + tf.Format(d.Saved), size}
 	if d.BaseResourceVersion != "" {
 		parts = append(parts, "based on version "+d.BaseResourceVersion)
 	}

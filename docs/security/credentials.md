@@ -143,6 +143,15 @@ credential into its own files.
   `TestNoDraftsForSecretsOrHelmValues`, `TestNoDraftsOfSecretTabs`, `TestDraftFilesReadBack`).
   Agents list drafts without their text; a restored tab's text follows `editor.get`'s rules. What
   other kinds' text a user types is kept as typed ([H-38](#h-38-drafts-keep-typed-text-in-plain-text)).
+  Since 2026-10-15 (the owner's audit answer, [D-55](../developer/decisions.md#d-55-a-config-maps-values-edited-in-the-drawer))
+  **a Config Map's values edited in the drawer** and not saved are kept the same way: one file per
+  Config Map (type `configMapData`) with the edited keys' text, the values they are based on and
+  the version, removed when the user saves or reverts them
+  ([`drafts_drawer.go`](../../internal/engine/drafts_drawer.go), `TestConfigMapDrawerDrafts`). Only
+  the window keeps or reads them (`configMap.keepEdits` is GUI-only, `configMap.readData` returns
+  them to the window only); agents list such a draft with its keys, never a value. **A Secret's
+  values edited in the drawer are never on disk**: the window keeps them in its memory only
+  ([D-59](../developer/decisions.md#d-59-a-secrets-values-edited-in-the-drawer)).
 - **The tabs and the tables' layout** (built 2026-10-13, night build,
   [D-41](../developer/decisions.md#d-41-what-survives-a-restart)): `<user config dir>/Cogpit/workspace.json`,
   0600 in a 0700 directory, replaced atomically through `writePrivateFile`, holds per tab a context
@@ -204,7 +213,7 @@ That `kubectl` reads the same `KUBECONFIG` as any other.
 | Application log | No tokens, keys, certificates, exec-plugin output or Secret data, at any log level |
 | Audit log | An agent's parameters are logged (D-2), with Secret values, Helm values and a proxy's password redacted ([`audit.go`](../../internal/engine/audit.go) `auditParams`) |
 | Error messages and toasts | Same rule; errors name the context, never the credential. client-go's own errors can echo a kubeconfig's `users` entries; `kubeconfig.SafeError` ([`kubeconfig.go`](../../internal/kubeconfig/kubeconfig.go)) strips them, and connect errors are tested not to contain a known token. client-go's validation also quotes a `proxy-url` it cannot use whole (`invalid 'proxy-url' "http://user:password@…"`, "could not parse: …"): fixed 2026-10-13, `cluster.Connect` replaces the user information of every `proxy-url` of the kubeconfig, as written, as `%q` writes it, and the password alone, with `•••` (`TestKubeconfigProxyPasswordNeverInErrors`, `TestKubeconfigProxySecrets`). A certificate the server presents is checked, not a secret: a failed check names the kubeconfig field to look at (`TestConnectTrustsTheKubeconfigCA`) |
-| Drafts of unsaved editor text | Never a Secret's values, never Helm values (2026-10-13, see [above](#where-they-live-inside-cogpit)); the drafts' listing for agents carries no text |
+| Drafts of unsaved editor text | Never a Secret's values, never Helm values (2026-10-13, see [above](#where-they-live-inside-cogpit)); the drafts' listing for agents carries no text; a Config Map's drawer values (since 2026-10-15) listed by their keys only |
 | Files saved from the window | The Create resource tab's save (2026-10-13) writes the tab's text only to the file the user picks in the system's save dialog, a GUI action no agent can start, and refuses a text that holds a Secret's manifest ([`createtab_save.go`](../../internal/ui/fyneui/createtab_save.go), `TestCreateTabKeepsSecretsOffDisk`) |
 | Crash reports | Cogpit has no crash upload. Since 2026-10-12 the Go runtime writes an unhandled panic or fatal error into `<user config dir>/Cogpit/crash.log` (0600) as well as to standard error ([`crash.go`](../../cmd/cogpit/crash.go)); the next start moves it to `crashes/crash-<time>.log`, keeps the newest ten and names it in the window. Its text is the runtime's: the panic's message and the goroutines' stacks (function names, file lines, argument words, no strings' contents); a panic message the code formats from a value could carry it, so the file follows the log rule: local, owner-only, never sent anywhere |
 | Helm repositories' credentials | In memory only, sent to the repository's own scheme, host and port unless its entry says `pass_credentials_all` (2026-10-13, [above](#where-they-live-inside-cogpit)); never in a result, error, toast, the audit log or the log |
@@ -565,7 +574,9 @@ the user accepted it.
 
 A draft of unsaved editor text (2026-10-13) holds what the user typed into an Edit or Create
 resource tab of any kind but a Secret, as typed: a password pasted into a ConfigMap, a token in a
-Deployment's `env`, a manifest that names a Secret's values under another kind's fields. It sits
+Deployment's `env`, a manifest that names a Secret's values under another kind's fields. Since
+2026-10-15 a Config Map's values edited in the drawer are kept so too, each edited key's text and
+the value it is based on (live: a value a user keeps a credential in reaches the file). It sits
 in `<user config dir>/Cogpit/drafts/` protected by its permissions only (0600 in a 0700
 directory) until the text is saved, the tab closed or the draft discarded, and a crash leaves it
 there until the next connect of its context offers it; a backup of the configuration folder

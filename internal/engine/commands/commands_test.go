@@ -63,6 +63,9 @@ var wantCommands = map[string]engine.Danger{
 	"resource.templates": engine.DangerRead,
 	// A Config Map's values edited in the drawer (F3) (TestConfigMapDataSave).
 	"configMap.readData": engine.DangerRead, "configMap.reviewData": engine.DangerRead, "configMap.saveData": engine.DangerMutating,
+	// Its unsaved values kept, in memory and as a draft (the owner's answer of 2026-10-15): GUI-only,
+	// Cogpit's own files, never a cluster (TestConfigMapDrawerDrafts).
+	"configMap.keepEdits": engine.DangerUI,
 
 	"cluster.refreshAccess": engine.DangerRead,
 

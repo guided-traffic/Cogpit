@@ -6,6 +6,8 @@ import (
 	"image/color"
 	"slices"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -29,11 +31,18 @@ import (
 // at its bottom right that drags it taller or shorter. Save at the end of the data writes every
 // changed value at once: a review of the diff and the server's dry run (configMap.reviewData),
 // then configMap.saveData with the version the values are based on as precondition, so a Config
-// Map that changed meanwhile is shown as a conflict and never overwritten unasked. The values come
-// whole from configMap.readData (the drawer model's are cut); until then, and where nothing can be
-// saved (the demo cluster, no update permission, an immutable Config Map, a Helm release record),
-// the editors are read-only and the line under them says why. Edited values the drawer moves away
-// from are kept in memory (drawer.unsaved) and come back when the Config Map is shown again.
+// Map that changed meanwhile is shown as a conflict and never overwritten unasked. The review hands
+// the engine each edited key's value at that version (from): a Config Map that changed since, but
+// not in the keys the user edited, is reviewed against its newer version instead (the diff and the
+// dry run again, shown in the review), and Save writes with that version (the owner's answer of
+// 2026-10-15). The values come whole from configMap.readData (the drawer model's are cut); until
+// then, and where nothing can be saved (the demo cluster, no update permission, an immutable Config
+// Map, a Helm release record), the editors are read-only and the line under them says why. Edited
+// values go to configMap.keepEdits a moment after the typing stops, and at once when the drawer
+// moves away: the engine keeps them for the drawer's next visit, when configMap.readData hands
+// them back, and as a draft on disk that a quit or a crash leaves (the owner's answer of
+// 2026-10-15; engine/drafts_drawer.go). Restoring that draft from the drafts banner opens the
+// drawer with them.
 
 func init() { drawerSections["configmaps\x00Data"] = configMapDataSection }
 
@@ -50,15 +59,25 @@ type configMapDataParams struct {
 	Ref             model.ObjectRef   `json:"ref"`
 	ResourceVersion string            `json:"resourceVersion"`
 	Data            map[string]string `json:"data"`
+	From            map[string]string `json:"from,omitempty"`
 	Context         *int              `json:"context,omitempty"`
 }
 
-// cmUnsaved are a Config Map's edited values the drawer moved away from: the version they are based
-// on and each edited key's text.
-type cmUnsaved struct {
-	base   string
-	values map[string]string
+// configMapKeepParams mirror configMap.keepEdits's parameters.
+type configMapKeepParams struct {
+	Ref             model.ObjectRef   `json:"ref"`
+	ResourceVersion string            `json:"resourceVersion,omitempty"`
+	Data            map[string]string `json:"data,omitempty"`
+	From            map[string]string `json:"from,omitempty"`
+	Revision        uint64            `json:"revision"`
 }
+
+// cmKeepRevisions orders the drawer's configMap.keepEdits calls, which run concurrently: the
+// engine ignores one older than the newest it has.
+var cmKeepRevisions atomic.Uint64
+
+// cmKeepDelay is how long after the last keystroke the edited values go to configMap.keepEdits.
+const cmKeepDelay = 300 * time.Millisecond
 
 // cmData is the Data section of the Config Map the drawer shows.
 type cmData struct {
@@ -86,6 +105,8 @@ type cmData struct {
 	loads    int
 	closed   bool
 	review   *cmReview
+	keep     *time.Timer // the pending configMap.keepEdits; nil when none waits
+	keepErr  bool        // the user was told that the values cannot be kept
 }
 
 // cmRow is one key and its value's editor.
@@ -98,6 +119,7 @@ type cmRow struct {
 	note   *textLine       // a value that is not shown (a Helm release record's payload)
 	value  *fyne.Container // what shows below the key: the frame, or the note
 	orig   string          // the value as last read
+	from   string          // the value the user's edit is based on: orig while the row is not edited
 	read   bool            // orig is the whole value (configMap.readData), not the drawer model's cut text
 	height float32         // the height the grip dragged the editor to; 0: by its lines
 	shown  float32         // the editor height the list was last laid out for
@@ -156,7 +178,7 @@ func (cd *cmData) fromModel(sec model.DetailSection) {
 		}
 		r := cd.row(it.Name)
 		if !r.read {
-			r.orig = it.Value
+			r.orig, r.from = it.Value, it.Value
 			r.view.UpdateText(it.Value)
 		}
 		cd.keys = append(cd.keys, it.Name)
@@ -219,9 +241,9 @@ func (cd *cmData) load() {
 	})
 }
 
-// apply shows the values as read: an edited value keeps the user's text, every other one shows
-// the value read. The edited values stay based on the version they were edited at; without edits
-// the editors are based on the version read.
+// apply shows the values as read: an edited value keeps the user's text and the value it is based
+// on, every other one shows the value read. The edited values stay based on the version they were
+// edited at; without edits the editors are based on the version read.
 func (cd *cmData) apply(data engine.ConfigMapData) {
 	first := !cd.loaded
 	cd.loaded, cd.latest, cd.readOnly = true, data.ResourceVersion, data.ReadOnly
@@ -232,6 +254,7 @@ func (cd *cmData) apply(data engine.ConfigMapData) {
 		r.orig, r.read = v.Value, true
 		r.setNote(v.Note)
 		if clean {
+			r.from = v.Value
 			r.view.UpdateText(v.Value)
 		}
 		keys = append(keys, v.Key)
@@ -250,32 +273,73 @@ func (cd *cmData) apply(data engine.ConfigMapData) {
 		cd.base = data.ResourceVersion
 	}
 	cd.reason = cd.saveReason()
-	if first {
-		cd.restore()
+	// The kept values come back when the drawer shows the Config Map again, and when a draft of an
+	// earlier Cogpit was restored for it; never over the user's own typing.
+	if u := data.Unsaved; u != nil && !cd.dirty() && (first || u.Restored) {
+		cd.restore(u)
 	}
 	cd.layoutRows()
 	cd.refreshFooter()
 }
 
-// restore brings back the edited values the drawer moved away from, still based on the version
-// they were edited at: a Config Map that changed since shows the conflict when they are saved.
-func (cd *cmData) restore() {
-	u := cd.d.unsaved[cd.ref.String()]
-	if u == nil {
-		return
-	}
-	delete(cd.d.unsaved, cd.ref.String())
+// restore brings back kept edited values, still based on the version they were edited at: a
+// Config Map that changed since rebases them, or shows the conflict, when they are saved. They are
+// this window's own from then on.
+func (cd *cmData) restore(u *engine.ConfigMapEdits) {
 	back := 0
-	for k, v := range u.values {
+	for k, v := range u.Values {
 		if r := cd.rows[k]; r != nil && r.read && !r.note.Visible() {
+			if from, ok := u.From[k]; ok {
+				r.from = from
+			}
 			r.view.SetText(v)
+			r.resized()
 			back++
 		}
 	}
 	if back > 0 && cd.dirty() {
-		cd.base = u.base
-		cd.setStatus(fmt.Sprintf("Your unsaved changes are back, based on version %s: Save writes them, Revert drops them.", u.base), colorStatusWarning)
+		cd.base = u.BaseResourceVersion
+		cd.setStatus(fmt.Sprintf("Your unsaved changes are back, based on version %s: Save writes them, Revert drops them.", u.BaseResourceVersion), colorStatusWarning)
 	}
+	cd.keepSoon()
+}
+
+// keepSoon hands the edited values to configMap.keepEdits a moment after the typing stops.
+func (cd *cmData) keepSoon() {
+	if cd.keep != nil {
+		cd.keep.Stop()
+	}
+	cd.keep = time.AfterFunc(cmKeepDelay, func() {
+		cd.d.sh.do(func() {
+			if !cd.closed {
+				cd.keepNow()
+			}
+		})
+	})
+}
+
+// keepNow hands the edited values to configMap.keepEdits at once: the engine keeps them in memory
+// and as a draft; none drop them (saved, reverted).
+func (cd *cmData) keepNow() {
+	if cd.keep != nil {
+		cd.keep.Stop()
+		cd.keep = nil
+	}
+	if !cd.loaded {
+		return
+	}
+	p := configMapKeepParams{Ref: cd.ref, Revision: cmKeepRevisions.Add(1)}
+	if values := cd.edits(); len(values) > 0 {
+		p.ResourceVersion, p.Data, p.From = cd.base, values, cd.froms()
+	}
+	sh, key := cd.d.sh, cd.ref.Key()
+	sh.dispatch("configMap.keepEdits", p, func(_ any, err error) {
+		if err == nil || errors.Is(err, errUnavailable) || cd.keepErr {
+			return
+		}
+		cd.keepErr = true
+		sh.toast("warning", fmt.Sprintf("Cogpit cannot keep your unsaved changes to ConfigMap %s if the drawer moves on: %s", key, errText(err)))
+	})
 }
 
 // dirty reports whether the user changed a value since it was read.
@@ -299,11 +363,24 @@ func (cd *cmData) edits() map[string]string {
 	return out
 }
 
+// froms are the values the edited values are based on, by key: what the review hands the engine
+// to rebase them (from).
+func (cd *cmData) froms() map[string]string {
+	out := map[string]string{}
+	for k, r := range cd.rows {
+		if r.read && r.dirty() {
+			out[k] = r.from
+		}
+	}
+	return out
+}
+
 // edited follows the user's typing in a row: its height, when its lines changed it, and the
 // footer.
 func (cd *cmData) edited(r *cmRow) {
 	r.resized()
 	cd.refreshFooter()
+	cd.keepSoon()
 }
 
 // saveReason says why no value can be saved: the Config Map's own reason, else the command's
@@ -342,8 +419,9 @@ func (cd *cmData) refreshFooter() {
 	case reason != "" && !cd.hidden:
 		cd.setStatus("Read-only: "+reason, colorMuted)
 	case dirty && cd.latest != cd.base:
-		cd.setStatus(fmt.Sprintf("The Config Map changed on the cluster since your edits began (version %s, now %s): Save shows "+
-			"your changes against the newer version first.", cd.base, cd.latest), colorStatusWarning)
+		cd.setStatus(fmt.Sprintf("The Config Map changed on the cluster since your edits began (version %s, now %s): Save "+
+			"rebases your changes onto the newer version when none of your keys changed there, else shows them against it "+
+			"first.", cd.base, cd.latest), colorStatusWarning)
 	case dirty:
 		if !strings.HasPrefix(cd.status.text, "Your unsaved changes are back") {
 			cd.setStatus(fmt.Sprintf("Edited: %s, based on version %s.", valuesText(len(cd.edits())), cd.base), colorMuted)
@@ -369,6 +447,7 @@ func (cd *cmData) setStatus(text string, c fyne.ThemeColorName) {
 func (cd *cmData) revertAll() {
 	for _, r := range cd.rows {
 		if r.read && r.dirty() {
+			r.from = r.orig
 			r.view.SetText(r.orig)
 			r.resized()
 		}
@@ -376,40 +455,50 @@ func (cd *cmData) revertAll() {
 	cd.base = cd.latest
 	cd.setStatus("", colorMuted)
 	cd.refreshFooter()
+	cd.keepNow() // nothing unsaved: no draft
 }
 
 // saved follows a save: the values written are the rows' values now, based on the stored version.
 func (cd *cmData) saved(values map[string]string, rv string) {
 	for k, v := range values {
 		if r := cd.rows[k]; r != nil {
-			r.orig = v
+			r.orig, r.from = v, v
 		}
 	}
 	cd.base, cd.latest = rv, rv
 	cd.setStatus(fmt.Sprintf("Saved %s · version %s", valuesText(len(values)), rv), colorStatusOK)
 	cd.refreshFooter()
+	cd.keepNow() // what was edited is saved: the rest, if any, stays kept
 }
 
-// close keeps the edited values when the drawer moves to another object or closes, and says so.
+// close keeps the edited values when the drawer moves to another object or closes, and says so:
+// configMap.keepEdits gets them at once, in case the last keystroke's keep still waits.
 func (cd *cmData) close() {
-	cd.closed = true
 	if cd.review != nil {
 		cd.review.hide()
 	}
-	values := cd.edits()
-	if len(values) == 0 {
+	if cd.keep != nil || cd.dirty() {
+		cd.keepNow()
+	}
+	cd.closed = true
+	if !cd.dirty() {
 		return
 	}
-	if cd.d.unsaved == nil {
-		cd.d.unsaved = map[string]*cmUnsaved{}
-	}
-	cd.d.unsaved[cd.ref.String()] = &cmUnsaved{base: cd.base, values: values}
-	cd.d.sh.toast("info", fmt.Sprintf("Your unsaved changes to ConfigMap %s are kept until Cogpit quits: open it again to save or revert them.", cd.ref.Key()))
+	cd.d.sh.toast("info", fmt.Sprintf("Your unsaved changes to ConfigMap %s are kept, as a draft too: open it again to save or revert them.", cd.ref.Key()))
 }
 
-// dirty reports whether the row's text differs from the value read (line ends as the editor
-// keeps them).
-func (r *cmRow) dirty() bool { return r.view.Text() != normaliseNewlines(r.orig) }
+// draftsChanged reads the shown Config Map's values again when the drafts changed: a draft
+// restored for it (editor.restoreDraft, by the user or an agent) comes into the editors that hold
+// no typing of the user's.
+func (d *drawer) draftsChanged() {
+	if cd, ok := d.kept[cmDataKept].(*cmData); ok && cd.loaded && !cd.closed && !cd.dirty() {
+		cd.load()
+	}
+}
+
+// dirty reports whether the row's text differs from the value it is based on (line ends as the
+// editor keeps them).
+func (r *cmRow) dirty() bool { return r.view.Text() != normaliseNewlines(r.from) }
 
 // setNote shows a note in place of the editor for a value that is not shown, or the editor again.
 func (r *cmRow) setNote(note string) {
@@ -544,6 +633,8 @@ func (r *cmGripRenderer) Destroy() {}
 type cmReview struct {
 	cd     *cmData
 	values map[string]string
+	from   map[string]string // the values the edits are based on, for the engine's rebase
+	base   string            // the version the shown diff and dry run are of, which Save writes with
 	dlg    *dialog.CustomDialog
 	diff   *diffView
 	banner *textLine
@@ -560,7 +651,7 @@ func (cd *cmData) openReview() {
 		return
 	}
 	width := min(float32(760), cd.d.sh.win.Canvas().Size().Width-120)
-	rv := &cmReview{cd: cd, values: values, diff: newDiffView()}
+	rv := &cmReview{cd: cd, values: values, from: cd.froms(), base: cd.base, diff: newDiffView()}
 	rv.banner = newTextLine("Changes to ConfigMap "+cd.ref.Key(), theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	rv.banner.truncate = true
 	rv.status = newParagraph("", colorMuted, width)
@@ -579,11 +670,15 @@ func (cd *cmData) openReview() {
 	rv.check()
 }
 
-// check asks for the diff and the server's dry run.
+// check asks for the diff and the server's dry run, based on the version the review is of. A
+// Config Map that changed since in other keys than the edited ones comes back rebased onto its
+// newer version, which the review is of from then on.
 func (rv *cmReview) check() {
 	cd := rv.cd
+	rv.reset()
 	rv.setStatus("Comparing with the Config Map in the cluster and checking with the server (dry run)…", colorMuted)
-	cd.d.sh.dispatch("configMap.reviewData", configMapDataParams{Ref: cd.ref, ResourceVersion: cd.base, Data: rv.values}, func(res any, err error) {
+	params := configMapDataParams{Ref: cd.ref, ResourceVersion: rv.base, Data: rv.values, From: rv.from}
+	cd.d.sh.dispatch("configMap.reviewData", params, func(res any, err error) {
 		if rv.closed {
 			return
 		}
@@ -601,17 +696,38 @@ func (rv *cmReview) check() {
 			return
 		}
 		rv.diff.set(r.Lines)
+		rebased := ""
+		if r.RebasedFrom != "" && !r.Stale {
+			rv.base, cd.base = r.BaseResourceVersion, r.BaseResourceVersion
+			cd.keepSoon() // the kept values are based on the newer version now
+			rebased = fmt.Sprintf("The Config Map changed on the cluster since version %s, but none of the keys you edited did: "+
+				"your changes are rebased onto version %s, and this is their diff against it. ", r.RebasedFrom, r.BaseResourceVersion)
+		}
 		switch {
 		case r.Stale:
 			rv.showOver(r.BaseResourceVersion, r.CachedResourceVersion)
 		case r.Accepted:
-			rv.banner.SetText(fmt.Sprintf("Changes to ConfigMap %s: %s, %d lines added, %d removed", cd.ref.Key(), valuesText(len(r.Keys)), r.Added, r.Removed))
-			rv.setStatus("The server accepts the change (dry run). Save writes it to the cluster.", colorStatusOK)
+			title := fmt.Sprintf("Changes to ConfigMap %s: %s, %d line%s added, %d removed", cd.ref.Key(), valuesText(len(r.Keys)), r.Added, plural(r.Added), r.Removed)
+			if rebased != "" {
+				title += ", rebased onto version " + r.BaseResourceVersion
+			}
+			rv.banner.SetText(title)
+			rv.setStatus(rebased+"The server accepts the change (dry run). Save writes it to the cluster.", colorStatusOK)
 			rv.save.Enable()
 		default:
-			rv.setStatus("The server refuses the change: "+r.Refused, colorStatusError)
+			rv.setStatus(rebased+"The server refuses the change: "+r.Refused, colorStatusError)
 		}
+		cd.refreshFooter()
 	})
+}
+
+// reset puts the review back to its first look before a check: no newer version to write over,
+// Save disabled with its own label, the banner in the text colour.
+func (rv *cmReview) reset() {
+	rv.over = ""
+	rv.save.SetText("Save")
+	rv.save.Disable()
+	rv.banner.SetColor(theme.ColorNameForeground)
 }
 
 // showOver shows the values against a newer version of the Config Map: Save then writes them over
@@ -626,28 +742,31 @@ func (rv *cmReview) showOver(base, current string) {
 	rv.over = current
 	rv.banner.SetText(fmt.Sprintf("ConfigMap %s changed on the cluster since version %s: your changes against version %s", rv.cd.ref.Key(), base, current))
 	rv.banner.SetColor(colorStatusWarning)
-	rv.setStatus(fmt.Sprintf("Nothing was saved. Save over version %s writes your values over it; the cluster's other changes stay.", current), colorStatusWarning)
+	rv.setStatus(fmt.Sprintf("Nothing was saved: a key you edited changed there too. Save over version %s writes your values over it; the cluster's other changes stay.", current), colorStatusWarning)
 	rv.save.SetText("Save over version " + current)
 	rv.save.Enable()
 }
 
-// commit saves the reviewed values, over the newer version when the review showed one.
+// commit saves the reviewed values, over the newer version when the review showed one. A save
+// that meets a still newer version reviews the values again: rebased onto it when none of the
+// edited keys changed there, else shown against it, and nothing is written until the user saves
+// again.
 func (rv *cmReview) commit() {
 	cd := rv.cd
 	if rv.over != "" {
-		cd.base, rv.over = rv.over, ""
+		rv.base, cd.base, rv.over = rv.over, rv.over, ""
+		cd.keepSoon()
 	}
 	rv.save.Disable()
 	rv.setStatus("Saving…", colorMuted)
-	cd.d.sh.dispatch("configMap.saveData", configMapDataParams{Ref: cd.ref, ResourceVersion: cd.base, Data: rv.values}, func(res any, err error) {
+	cd.d.sh.dispatch("configMap.saveData", configMapDataParams{Ref: cd.ref, ResourceVersion: rv.base, Data: rv.values}, func(res any, err error) {
 		if rv.closed {
 			return
 		}
 		var ce *engine.DataConflictError
 		switch {
 		case errors.As(err, &ce):
-			rv.diff.set(ce.Diff)
-			rv.showOver(ce.BaseResourceVersion, ce.CurrentResourceVersion)
+			rv.check()
 			return
 		case err != nil:
 			rv.setStatus("Not saved: "+errText(err), colorStatusError)

@@ -185,6 +185,26 @@ data:
 		t.Fatalf("the save over the newer version: %v", got)
 	}
 
+	// Another client changes another key again; a review that names the edited key's value at the
+	// saved version rebases onto the newer one (dry run included), and the save with it writes.
+	cur = get()
+	cur.Object["data"].(map[string]any)["agent-not-ready-taint-key"] = "node.cilium.io/third-client"
+	if other, err = dyn.Resource(kindConfigMaps).Namespace(configMapDataNamespace).Update(ctx, cur, metav1.UpdateOptions{FieldManager: "other-client"}); err != nil {
+		t.Fatal(err)
+	}
+	rebase := map[string]any{"ref": ref, "resourceVersion": saved.ResourceVersion, "data": map[string]string{"bpf-lb-acceleration": "native"},
+		"from": map[string]string{"bpf-lb-acceleration": "best-effort"}}
+	review = engine.ConfigMapDataReview{}
+	must("configMap.reviewData", rebase, &review)
+	if review.RebasedFrom != saved.ResourceVersion || review.BaseResourceVersion != other.GetResourceVersion() || review.Stale || !review.Accepted {
+		t.Fatalf("a review over another key's change (version %s): %+v", other.GetResourceVersion(), review)
+	}
+	must("configMap.saveData", map[string]any{"ref": ref, "resourceVersion": review.BaseResourceVersion, "data": rebase["data"]}, &saved)
+	got, _, _ = unstructured.NestedStringMap(get().Object, "data")
+	if got["bpf-lb-acceleration"] != "native" || got["agent-not-ready-taint-key"] != "node.cilium.io/third-client" {
+		t.Fatalf("the rebased save: %v", got)
+	}
+
 	// An immutable Config Map: refused before anything is sent.
 	frozen := model.ObjectRef{Kind: "configmaps", Namespace: configMapDataNamespace, Name: "frozen"}
 	var fd engine.ConfigMapData

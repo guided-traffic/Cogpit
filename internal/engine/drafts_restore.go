@@ -57,6 +57,8 @@ func (s *Session) restoreDraft(ctx context.Context, d *Drafts, id string) (strin
 		if tabID, err = s.restoreEditTab(ctx, b, dr); err != nil {
 			return "", err
 		}
+	default: // a drawer's values: RestoreConfigMapDraft (drafts_drawer.go)
+		return "", fmt.Errorf("the draft %s holds %s, which the drawer restores, not an editor tab", id, dr.kept())
 	}
 	d.adopt(s, tabID, dr)
 	return tabID, nil

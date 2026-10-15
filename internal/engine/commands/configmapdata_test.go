@@ -251,6 +251,84 @@ func TestConfigMapDataNeverOverwritesUnasked(t *testing.T) {
 	}
 }
 
+// TestConfigMapDataRebases (the owner's answer of 2026-10-15): another client changes a key the
+// user did not edit. A review given the edited keys' values at the base version rebases the values
+// onto the newer version: the diff and the dry run against it, the newer version to save with,
+// the other client's change kept. A change of an edited key is the conflict as before; so is a
+// review without from. A change that reaches the server while the review runs ends rebased too.
+func TestConfigMapDataRebases(t *testing.T) {
+	h, srv := configMapHarness(t, engine.Options{})
+	gui := engine.OriginGUI
+	var data engine.ConfigMapData
+	h.must(t, gui, "configMap.readData", map[string]any{"ref": cmApp}, &data)
+	base := data.ResourceVersion
+	change := func(key, value string) {
+		t.Helper()
+		obj, err := srv.current(configMapsGVR, "shop", "cilium-config")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := unstructured.SetNestedField(obj.Object, value, "data", key); err != nil {
+			t.Fatal(err)
+		}
+		h.src.Set(configMapsGVR, obj)
+	}
+	change("bpf-lb-acceleration", "enabled")
+	newer := cachedRV(t, h, cmApp, base)
+
+	edits := map[string]any{"enable-ipv4": "false"}
+	params := map[string]any{"ref": cmApp, "resourceVersion": base, "data": edits, "from": map[string]any{"enable-ipv4": "true"}}
+	var review engine.ConfigMapDataReview
+	h.must(t, gui, "configMap.reviewData", params, &review)
+	if review.RebasedFrom != base || review.BaseResourceVersion != newer || review.Stale || !review.Accepted || !review.Changed {
+		t.Fatalf("a review over a change of another key: %+v", review)
+	}
+	for _, l := range review.Lines {
+		if l.Op != engine.DiffSame && !strings.Contains(l.Text, "enable-ipv4") {
+			t.Errorf("the rebased diff changes another line: %+v", l)
+		}
+	}
+	if got := h.writer.Calls(); !slices.Equal(got, []string{"update(dry) shop/cilium-config"}) || srv.lastUpdate().GetResourceVersion() != newer {
+		t.Fatalf("the rebased dry run: %v at version %s", got, srv.lastUpdate().GetResourceVersion())
+	}
+	var saved engine.ConfigMapDataSaved
+	h.must(t, gui, "configMap.saveData", map[string]any{"ref": cmApp, "resourceVersion": review.BaseResourceVersion, "data": edits}, &saved)
+	got, _, _ := unstructured.NestedStringMap(srv.lastUpdate().Object, "data")
+	if got["enable-ipv4"] != "false" || got["bpf-lb-acceleration"] != "enabled" {
+		t.Errorf("the rebased save: %v", got)
+	}
+
+	// An edited key changed on the cluster: no rebase, the values against the newer version.
+	cachedRV(t, h, cmApp, newer)
+	change("enable-ipv4", "maybe")
+	newest := cachedRV(t, h, cmApp, saved.ResourceVersion)
+	params = map[string]any{"ref": cmApp, "resourceVersion": saved.ResourceVersion, "data": map[string]any{"enable-ipv4": "true"},
+		"from": map[string]any{"enable-ipv4": "false"}}
+	review = engine.ConfigMapDataReview{}
+	h.must(t, gui, "configMap.reviewData", params, &review)
+	if review.RebasedFrom != "" || !review.Stale || review.CachedResourceVersion != newest || review.Accepted {
+		t.Errorf("a review over a change of the edited key: %+v", review)
+	}
+	delete(params, "from")
+	params["data"], params["resourceVersion"] = map[string]any{"bpf-lb-acceleration": "disabled"}, saved.ResourceVersion
+	review = engine.ConfigMapDataReview{}
+	h.must(t, gui, "configMap.reviewData", params, &review)
+	if review.RebasedFrom != "" || !review.Stale {
+		t.Errorf("a review without from over a newer version: %+v", review)
+	}
+
+	// A change of another key that the server holds before the cache does: the dry run meets it,
+	// and the review ends rebased onto it.
+	change("agent-not-ready-taint-key", "node.cilium.io/other")
+	params = map[string]any{"ref": cmApp, "resourceVersion": newest, "data": map[string]any{"enable-ipv4": "true"},
+		"from": map[string]any{"enable-ipv4": "maybe"}}
+	review = engine.ConfigMapDataReview{}
+	h.must(t, gui, "configMap.reviewData", params, &review)
+	if review.RebasedFrom != newest || review.BaseResourceVersion == newest || review.Stale || !review.Accepted {
+		t.Errorf("a review that meets a newer version on the server: %+v", review)
+	}
+}
+
 // TestConfigMapDataRefusals: values only, of keys the data holds; no immutable Config Map, no
 // Helm release record (whose payload is never read out), no binary data; a resourceVersion is
 // required.

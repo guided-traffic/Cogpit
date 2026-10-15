@@ -26,7 +26,8 @@ import (
 // tab's is the text it opened with or the one it created in full) or when the tab is closed. A
 // quit flushes the drafts that are waiting. When a context is connected, the drafts of that
 // context that no open tab and no other live Cogpit process owns are offered (EventDrafts):
-// editor.restoreDraft opens the tab with the text again, editor.discardDraft deletes it.
+// editor.restoreDraft opens the tab with the text again, editor.discardDraft deletes it. A Config
+// Map's values edited in the drawer are kept the same way (drafts_drawer.go).
 //
 // Never for values (D-19, owner 2026-10-12): an Edit tab of a Secret, a text that holds a Secret's
 // manifest or might be one being typed, and the Helm Upgrade and Install tabs, whose values can
@@ -76,6 +77,10 @@ type Draft struct {
 	Saved               time.Time        `json:"saved"`
 	Owner               *JournalOwner    `json:"owner,omitempty"`
 	Text                string           `json:"text"`
+	// A Config Map's values edited in the drawer (DraftConfigMapData, drafts_drawer.go): each
+	// edited key's text and the value it is based on.
+	Values map[string]string `json:"values,omitempty"`
+	From   map[string]string `json:"from,omitempty"`
 }
 
 // DraftInfo is a draft as editor.drafts lists it: what it is for, never its text (restore it and
@@ -90,6 +95,9 @@ type DraftInfo struct {
 	Saved               time.Time        `json:"saved"`
 	Lines               int              `json:"lines"`
 	Bytes               int              `json:"bytes"`
+	// Keys are the edited keys of a Config Map's values kept from the drawer (type
+	// configMapData); Bytes is then their values' size.
+	Keys []string `json:"keys,omitempty"`
 }
 
 func (dr Draft) info() DraftInfo {
@@ -97,8 +105,12 @@ func (dr Draft) info() DraftInfo {
 	if dr.Text != "" && !strings.HasSuffix(dr.Text, "\n") {
 		lines++
 	}
-	return DraftInfo{ID: dr.ID, Type: dr.Type, Context: dr.Context, Title: dr.Title, Ref: dr.Ref,
+	info := DraftInfo{ID: dr.ID, Type: dr.Type, Context: dr.Context, Title: dr.Title, Ref: dr.Ref,
 		BaseResourceVersion: dr.BaseResourceVersion, Saved: dr.Saved, Lines: lines, Bytes: len(dr.Text)}
+	if dr.Type == DraftConfigMapData {
+		return drawerDraftInfo(dr, info)
+	}
+	return info
 }
 
 // what names a draft in messages: "ConfigMap demo (namespace shop)", "a Create resource tab".
@@ -110,6 +122,15 @@ func (dr Draft) what() string {
 		return dr.Title + " (namespace " + dr.Ref.Namespace + ")"
 	}
 	return dr.Title
+}
+
+// kept says what a draft keeps: "the unsaved text of Service web (namespace shop)", "the unsaved
+// values of ConfigMap app (namespace shop)" for a drawer's.
+func (dr Draft) kept() string {
+	if dr.Type == DraftConfigMapData {
+		return "the unsaved values of " + dr.what()
+	}
+	return "the unsaved text of " + dr.what()
 }
 
 // Drafts writes and offers a session's drafts. Create it with NewDrafts and pass it as
@@ -293,7 +314,7 @@ func (d *Drafts) offer(s *Session, ctxName string) {
 	msg := ""
 	switch n := len(list); {
 	case n == 1:
-		msg = fmt.Sprintf("Cogpit kept the unsaved text of %s in context %s", list[0].what(), ctxName)
+		msg = fmt.Sprintf("Cogpit kept %s in context %s", list[0].kept(), ctxName)
 	case n > 1:
 		msg = fmt.Sprintf("Cogpit kept the unsaved text of %d editor tabs in context %s", n, ctxName)
 	}
@@ -328,8 +349,12 @@ func (d *Drafts) flush(tabID string, gen uint64) {
 	d.flushLocked(s, tabID, t)
 }
 
-// flushLocked writes or removes a tab's draft; wmu is held.
+// flushLocked writes or removes a tab's draft, or a drawer's (drafts_drawer.go); wmu is held.
 func (d *Drafts) flushLocked(s *Session, tabID string, t *draftTab) {
+	if strings.HasPrefix(tabID, drawerDraftPrefix) {
+		d.flushDrawerLocked(s, tabID, t)
+		return
+	}
 	d.mu.Lock()
 	id := t.id
 	d.mu.Unlock()
@@ -616,7 +641,7 @@ func (d *Drafts) read(id string) (Draft, error) {
 	switch {
 	case dr.ID != id:
 		return dr, fmt.Errorf("the draft file %s names another id", id)
-	case dr.Type != DockEdit && dr.Type != DockCreate:
+	case dr.Type != DockEdit && dr.Type != DockCreate && dr.Type != DraftConfigMapData:
 		return dr, fmt.Errorf("the draft %s is of an unknown tab type %q", id, dr.Type)
 	case dr.Context == "":
 		return dr, fmt.Errorf("the draft %s names no context", id)
@@ -624,6 +649,10 @@ func (d *Drafts) read(id string) (Draft, error) {
 		return dr, fmt.Errorf("the draft %s names no object", id)
 	case len(dr.Text) > MaxManifestBytes:
 		return dr, fmt.Errorf("the draft %s is larger than %s", id, model.FormatBytes(MaxManifestBytes))
+	case dr.Type == DraftConfigMapData:
+		if err := checkDrawerDraft(dr); err != nil {
+			return dr, err
+		}
 	}
 	if dr.Ref != nil {
 		dr.Ref.Context = dr.Context

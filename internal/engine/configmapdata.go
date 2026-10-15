@@ -22,9 +22,15 @@ import (
 // ObjectWriter, a server-side dry run first, then the update with the resourceVersion the values
 // are based on as its precondition. When the Config Map changed since, nothing is written and the
 // caller gets a *DataConflictError with the values against the newer version; writing them over it
-// takes a second call that names the newer version. Only values change: a key is neither added nor
-// removed here (the Edit tab does that), binary data and a Helm release record's payload are not
-// edited, and an immutable Config Map is refused.
+// takes a second call that names the newer version. A review that is given the edited keys' values
+// at the version the values are based on (from) rebases them onto the newer version when none of
+// those keys changed there (the owner's answer of 2026-10-15): the diff and the dry run are then
+// against the newer version, which the caller saves with, after the user has seen them. Only
+// values change: a key is neither added nor removed here (the Edit tab does that), binary data and
+// a Helm release record's payload are not edited, and an immutable Config Map is refused.
+
+// configMapAPIKind is a Config Map's kind as its manifest names it.
+const configMapAPIKind = "ConfigMap"
 
 // ConfigMapDataKeys is how many keys of a Config Map's data configMap.readData returns, sorted: the
 // keys the drawer lists (kinds' configMapItems).
@@ -54,10 +60,14 @@ type ConfigMapData struct {
 	// ReadOnly says why no value of this Config Map can be saved: it is immutable, or a Helm
 	// release record.
 	ReadOnly string `json:"readOnly,omitempty"`
+	// Unsaved are the values the user edited in this Config Map's drawer and has not saved
+	// (configMap.keepEdits, drafts_drawer.go): for the window only, never for an agent or the CLI.
+	Unsaved *ConfigMapEdits `json:"unsaved,omitempty"`
 }
 
 // ForAgent replaces the cached Secrets' values in the values an agent reads (H-82).
 func (d ConfigMapData) ForAgent(v *AgentView) any {
+	d.Unsaved = nil // the window's only; ConfigMapData never fills it for an agent
 	d.Values = slices.Clone(d.Values)
 	for i := range d.Values {
 		d.Values[i].Value = v.Text(d.Values[i].Value)
@@ -81,6 +91,11 @@ type ConfigMapDataReview struct {
 	BaseResourceVersion   string `json:"baseResourceVersion"`
 	CachedResourceVersion string `json:"cachedResourceVersion"`
 	Stale                 bool   `json:"stale,omitempty"`
+	// RebasedFrom is the version the values were based on when the Config Map changed since but
+	// none of the edited keys did there: the values are rebased onto BaseResourceVersion, the
+	// version the cache holds, and the lines and the dry run are against it. A save names
+	// BaseResourceVersion.
+	RebasedFrom string `json:"rebasedFrom,omitempty"`
 	// Accepted: the server accepted the save in a dry run (asked only when something changes and
 	// the values are based on the version the cache holds). Refused is its reason when it did not.
 	Accepted bool   `json:"accepted,omitempty"`
@@ -137,7 +152,7 @@ func configMapReadOnly(obj *unstructured.Unstructured) string {
 // asConfigMap returns a cached Config Map with its apiVersion and kind, which the cache may leave
 // out.
 func asConfigMap(obj *unstructured.Unstructured) *unstructured.Unstructured {
-	return withTypeMeta(obj, ObjectTarget{APIVersion: "v1", Kind: "ConfigMap"})
+	return withTypeMeta(obj, ObjectTarget{APIVersion: "v1", Kind: configMapAPIKind})
 }
 
 // configMapTarget resolves ref for the Config Map commands: a core Config Map of the connected
@@ -185,7 +200,8 @@ func (s *Session) ConfigMapSavable(ref model.ObjectRef) error {
 }
 
 // ConfigMapData returns a Config Map's data from the cache, each value whole, with the version it
-// is of. A Helm release record's payload is never returned (it holds the release's values).
+// is of, and for the window the values the user edited in its drawer and has not saved. A Helm
+// release record's payload is never returned (it holds the release's values).
 func (s *Session) ConfigMapData(ctx context.Context, ref model.ObjectRef) (ConfigMapData, error) {
 	t, b, err := s.configMapTarget(ctx, ref)
 	if err != nil {
@@ -197,6 +213,9 @@ func (s *Session) ConfigMapData(ctx context.Context, ref model.ObjectRef) (Confi
 	}
 	obj = withTypeMeta(obj, t)
 	out := ConfigMapData{Ref: t.Ref, ResourceVersion: obj.GetResourceVersion(), Values: []ConfigMapValue{}, ReadOnly: configMapReadOnly(obj)}
+	if OriginOf(ctx) == OriginGUI {
+		out.Unsaved = s.keptConfigMapEdits(t.Ref)
+	}
 	data := model.NestedMap(obj.Object, "data")
 	keys := make([]string, 0, len(data))
 	for k := range data {
@@ -229,7 +248,8 @@ type configMapEdit struct {
 	base   string
 	cached *unstructured.Unstructured
 	edited *unstructured.Unstructured
-	keys   []string // the keys whose values change, sorted
+	keys   []string          // the keys whose values change, sorted
+	edits  map[string]string // the values as given, by key
 }
 
 // prepareConfigMapEdit checks a change of values against the Config Map as the cache holds it:
@@ -272,7 +292,7 @@ func (s *Session) prepareConfigMapEdit(ctx context.Context, ref model.ObjectRef,
 		return configMapEdit{}, fmt.Errorf("%s: %w", t.Ref.String(), err)
 	}
 	edited.SetResourceVersion(base)
-	return configMapEdit{t: t, b: b, w: w, base: base, cached: cached, edited: edited, keys: keys}, nil
+	return configMapEdit{t: t, b: b, w: w, base: base, cached: cached, edited: edited, keys: keys, edits: values}, nil
 }
 
 // withValues returns a copy of a Config Map with values set in its data, without managedFields
@@ -310,8 +330,15 @@ func withValues(obj *unstructured.Unstructured, values map[string]string) (*unst
 // ReviewConfigMapData diffs the Config Map with the given values against the object as the cache
 // holds it, keeping context unchanged lines around each change (negative: all), and, when the
 // values change something and are based on the cached version, asks the server for a dry run of
-// the save. A dry run that meets a newer version reports the values against it as Stale.
-func (s *Session) ReviewConfigMapData(ctx context.Context, ref model.ObjectRef, base string, values map[string]string, context int) (ConfigMapDataReview, error) {
+// the save. from holds the edited keys' values at base: when the Config Map changed since base but
+// none of those keys did, the values are rebased onto the cached version (RebasedFrom), and a dry
+// run that meets a still newer version reviews them once more against that one. Without from, or
+// when an edited key changed, a newer version is reported as Stale with the values against it.
+func (s *Session) ReviewConfigMapData(ctx context.Context, ref model.ObjectRef, base string, values, from map[string]string, context int) (ConfigMapDataReview, error) {
+	return s.reviewConfigMapData(ctx, ref, base, values, from, context, true)
+}
+
+func (s *Session) reviewConfigMapData(ctx context.Context, ref model.ObjectRef, base string, values, from map[string]string, context int, retry bool) (ConfigMapDataReview, error) {
 	if err := guardAgentValues(ctx, values); err != nil {
 		return ConfigMapDataReview{}, err
 	}
@@ -319,15 +346,16 @@ func (s *Session) ReviewConfigMapData(ctx context.Context, ref model.ObjectRef, 
 	if err != nil {
 		return ConfigMapDataReview{}, err
 	}
+	rebased := e.rebase(from, plainDataValue)
 	lines, err := diffAgainst(e.cached, e.edited)
 	if err != nil {
 		return ConfigMapDataReview{}, err
 	}
 	r := ConfigMapDataReview{
 		Ref: e.t.Ref, Keys: e.keys, Changed: DiffChanged(lines), Lines: CompactDiff(lines, context),
-		BaseResourceVersion: base, CachedResourceVersion: e.cached.GetResourceVersion(),
+		BaseResourceVersion: e.base, CachedResourceVersion: e.cached.GetResourceVersion(), RebasedFrom: rebased,
 	}
-	r.Stale = r.CachedResourceVersion != base
+	r.Stale = r.CachedResourceVersion != e.base
 	r.Added, r.Removed = diffCounts(lines)
 	if !r.Changed || r.Stale {
 		return r, nil
@@ -336,8 +364,12 @@ func (s *Session) ReviewConfigMapData(ctx context.Context, ref model.ObjectRef, 
 		werr := s.configMapWriteError(ctx, e, values, err)
 		var ce *DataConflictError
 		switch {
+		case errors.As(werr, &ce) && retry && len(from) > 0 && ce.CurrentResourceVersion != "":
+			// The cache holds the version the server met by now: review against it, which
+			// rebases the values again when none of the edited keys changed there.
+			return s.reviewConfigMapData(ctx, ref, base, values, from, context, false)
 		case errors.As(werr, &ce):
-			r.Stale = true
+			r.Stale, r.RebasedFrom, r.BaseResourceVersion = true, "", base
 			if ce.CurrentResourceVersion != "" {
 				r.CachedResourceVersion, r.Lines = ce.CurrentResourceVersion, ce.Diff
 			}
@@ -350,6 +382,47 @@ func (s *Session) ReviewConfigMapData(ctx context.Context, ref model.ObjectRef, 
 	}
 	r.Accepted = true
 	return r, nil
+}
+
+// rebase moves the edit onto the version the cache holds when it is based on an older one and
+// none of the edited keys changed since: from holds their values at the older version, value
+// reads a value of the cached data. It returns the older version; "" when the edit stays where it
+// is.
+func (e *configMapEdit) rebase(from map[string]string, value func(any) (string, bool)) string {
+	cached := e.cached.GetResourceVersion()
+	if cached == e.base || !unchangedSince(model.NestedMap(e.cached.Object, "data"), e.edits, from, value) {
+		return ""
+	}
+	older := e.base
+	e.base = cached
+	e.edited.SetResourceVersion(cached)
+	return older
+}
+
+// unchangedSince reports whether every key of edits holds in data the value from names for it:
+// the keys an edit changes are as they were at the version it is based on. A key from does not
+// name, or one data no longer holds, has changed.
+func unchangedSince(data map[string]any, edits, from map[string]string, value func(any) (string, bool)) bool {
+	if len(from) == 0 || len(edits) == 0 {
+		return false
+	}
+	for k := range edits {
+		was, ok := from[k]
+		if !ok {
+			return false
+		}
+		now, ok := value(data[k])
+		if !ok || now != was {
+			return false
+		}
+	}
+	return true
+}
+
+// plainDataValue reads one value of a Config Map's data: the text itself.
+func plainDataValue(v any) (string, bool) {
+	s, ok := v.(string)
+	return s, ok
 }
 
 // SaveConfigMapData writes values into a Config Map: a dry run first, then the update, both with

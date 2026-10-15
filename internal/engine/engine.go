@@ -182,6 +182,8 @@ type Session struct {
 	updates    updaterSlot     // the app's updater: updates.go
 	chat       chatSlot        // the built-in agent's chat: chat.go
 	jobs       jobSet          // the running background jobs: jobs.go
+
+	drawerEdits drawerEditStore // a Config Map's values edited in the drawer, not saved: drafts_drawer.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.

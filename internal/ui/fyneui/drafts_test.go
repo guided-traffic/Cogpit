@@ -107,6 +107,14 @@ func TestDraftsBannerOffersAndActs(t *testing.T) {
 	if got := draftTitle(fixtureDrafts()[1]); got != "Unsaved text of a Create resource tab" {
 		t.Errorf("title %q", got)
 	}
+	drawer := engine.DraftInfo{ID: strings.Repeat("c", 32), Type: engine.DraftConfigMapData, Context: "demo", Title: "ConfigMap cilium-config",
+		Ref: &ciliumRef, BaseResourceVersion: "4211", Saved: fixtureDrafts()[0].Saved, Keys: []string{"allow-localhost", "bpf-lb-map-max"}}
+	if got := draftTitle(drawer); got != "Unsaved values of ConfigMap cilium-config (drawer)" {
+		t.Errorf("a drawer draft's title %q", got)
+	}
+	if got := draftDetail(drawer, germanTime); got != "Context demo, namespace kube-system, kept 11.10.2026 14:02:00 · 2 values · based on version 4211" {
+		t.Errorf("a drawer draft's detail %q", got)
+	}
 	b := draftsButtons(sh.drafts)
 	if len(b["Restore"]) != 2 || len(b["Discard"]) != 2 {
 		t.Fatalf("buttons %v", b)

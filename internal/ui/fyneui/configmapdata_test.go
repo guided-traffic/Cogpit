@@ -48,14 +48,37 @@ var ciliumValues = map[string]string{
 
 // cmFake answers the Config Map data commands as the engine does: the values from its state,
 // a review with the diff and an accepted dry run, a save that stores the values under a new
-// version; stale and conflict make the next review or save meet a newer version.
+// version. change is another client's write: a review based on an older version rebases the
+// values when it names their old values (from) and none of the edited keys changed, and is stale
+// otherwise; a save based on an older version meets a conflict.
 type cmFake struct {
 	mu       sync.Mutex
 	values   map[string]string
 	rv       int
-	stale    string // the review answers stale at this version
-	conflict string // the save answers with a conflict at this version, unless based on it
 	readOnly string
+	// kept are the unsaved values configMap.keepEdits keeps, as the engine does; keptRev the
+	// newest call's revision.
+	kept    *engine.ConfigMapEdits
+	keptRev uint64
+}
+
+// keptValues returns the kept values' copy; nil when none are kept.
+func (c *cmFake) keptValues() *engine.ConfigMapEdits {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.kept == nil {
+		return nil
+	}
+	k := *c.kept
+	return &k
+}
+
+// change is another client's write of one value: a new version.
+func (c *cmFake) change(key, value string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.values[key] = value
+	c.rv++
 }
 
 func newCMFake(t testing.TB, f *fakeEngine) *cmFake { return newCMFakeWith(t, f, ciliumValues) }
@@ -87,7 +110,30 @@ func newCMFakeWith(t testing.TB, f *fakeEngine, values map[string]string) *cmFak
 		for _, k := range c.keys() {
 			d.Values = append(d.Values, engine.ConfigMapValue{Key: k, Value: c.values[k]})
 		}
+		if c.kept != nil {
+			k := *c.kept
+			d.Unsaved = &k
+		}
 		return d, nil
+	}
+	f.handlers["configMap.keepEdits"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p configMapKeepParams
+		if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
+			return nil, err
+		}
+		if inv.Origin != engine.OriginGUI {
+			return nil, engine.ErrConfigMapEditsGUIOnly
+		}
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if p.Revision <= c.keptRev {
+			return nil, nil
+		}
+		c.keptRev, c.kept = p.Revision, nil
+		if len(p.Data) > 0 {
+			c.kept = &engine.ConfigMapEdits{BaseResourceVersion: p.ResourceVersion, Values: p.Data, From: p.From}
+		}
+		return nil, nil
 	}
 	f.handlers["configMap.reviewData"] = func(_ context.Context, inv engine.Invocation) (any, error) {
 		p, err := params(inv)
@@ -97,8 +143,9 @@ func newCMFakeWith(t testing.TB, f *fakeEngine, values map[string]string) *cmFak
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		lines := engine.DiffLines(c.text(nil), c.text(p.Data))
+		cur := strconv.Itoa(c.rv)
 		r := engine.ConfigMapDataReview{Ref: ciliumRef, Changed: engine.DiffChanged(lines), Lines: engine.CompactDiff(lines, 3),
-			BaseResourceVersion: p.ResourceVersion, CachedResourceVersion: strconv.Itoa(c.rv)}
+			BaseResourceVersion: p.ResourceVersion, CachedResourceVersion: cur}
 		for k, v := range p.Data {
 			if c.values[k] != v {
 				r.Keys = append(r.Keys, k)
@@ -112,12 +159,20 @@ func newCMFakeWith(t testing.TB, f *fakeEngine, values map[string]string) *cmFak
 				r.Removed++
 			}
 		}
-		switch {
-		case c.stale != "":
-			r.Stale, r.CachedResourceVersion = true, c.stale
-		case r.Changed:
-			r.Accepted = true
+		if p.ResourceVersion != cur {
+			rebase := len(p.From) > 0
+			for k := range p.Data {
+				if from, ok := p.From[k]; !ok || from != c.values[k] {
+					rebase = false
+				}
+			}
+			if rebase {
+				r.RebasedFrom, r.BaseResourceVersion = p.ResourceVersion, cur
+			} else {
+				r.Stale = true
+			}
 		}
+		r.Accepted = r.Changed && !r.Stale
 		return r, nil
 	}
 	f.handlers["configMap.saveData"] = func(_ context.Context, inv engine.Invocation) (any, error) {
@@ -127,10 +182,10 @@ func newCMFakeWith(t testing.TB, f *fakeEngine, values map[string]string) *cmFak
 		}
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		if c.conflict != "" && p.ResourceVersion != c.conflict {
+		if cur := strconv.Itoa(c.rv); p.ResourceVersion != cur {
 			lines := engine.DiffLines(c.text(nil), c.text(p.Data))
 			return nil, &engine.DataConflictError{Ref: ciliumRef, BaseResourceVersion: p.ResourceVersion,
-				CurrentResourceVersion: c.conflict, Diff: engine.CompactDiff(lines, 3)}
+				CurrentResourceVersion: cur, Diff: engine.CompactDiff(lines, 3)}
 		}
 		var keys []string
 		for k, v := range p.Data {
@@ -303,68 +358,146 @@ func TestConfigMapDrawerEditAndSave(t *testing.T) {
 	}
 }
 
-// TestConfigMapDrawerConflict: the Config Map changed on the cluster since the values were read.
-// The review shows the values against the newer version and writes nothing; Save over version N
-// is the explicit second step, based on N. A save that meets a still newer version shows that.
+// TestConfigMapDrawerConflict: the key the user edited changed on the cluster since the values
+// were read. The review shows the values against the newer version and writes nothing; Save over
+// version N is the explicit second step, based on N. A save that meets a still newer version
+// reviews again and shows that one.
 func TestConfigMapDrawerConflict(t *testing.T) {
 	sh, w, q, f, c := cmShell(t, ThemeDark)
 	cd := cmDataOf(sh)
 	typeInto(cd.rows["allow-localhost"], "always")
-	c.mu.Lock()
-	c.stale, c.conflict = "4300", "4300"
-	c.mu.Unlock()
+	c.change("allow-localhost", "policy")
 	test.Tap(cd.save)
-	q.until(t, "the stale review", func() bool { return cd.review != nil && cd.review.over == "4300" })
+	q.until(t, "the stale review", func() bool { return cd.review != nil && cd.review.over == "4212" })
 	if len(f.callsOf("configMap.saveData")) != 0 || !strings.Contains(cd.review.banner.text, "changed on the cluster since version 4211") ||
-		cd.review.save.Text != "Save over version 4300" {
+		cd.review.save.Text != "Save over version 4212" {
 		t.Fatalf("the stale review: %q, button %q", cd.review.banner.text, cd.review.save.Text)
 	}
+	review := decodeParams[configMapDataParams](t, f.callsOf("configMap.reviewData")[0])
+	if review.ResourceVersion != "4211" || review.From["allow-localhost"] != "auto" || len(review.From) != 1 {
+		t.Errorf("the review's params %+v: based on 4211, from the value read", review)
+	}
 
-	// Meanwhile the Config Map moved again: the save based on 4300 meets 4400.
-	c.mu.Lock()
-	c.conflict = "4400"
-	c.mu.Unlock()
+	// Meanwhile the Config Map moved again: the save based on 4212 meets 4213.
+	c.change("allow-localhost", "never")
 	settle(w)
 	test.Tap(cd.review.save)
-	q.until(t, "the conflict", func() bool { return cd.review != nil && cd.review.over == "4400" })
-	if calls := f.callsOf("configMap.saveData"); len(calls) != 1 || decodeParams[configMapDataParams](t, calls[0]).ResourceVersion != "4300" {
-		t.Fatalf("the save over 4300: %+v", calls)
+	q.until(t, "the conflict", func() bool { return cd.review != nil && cd.review.over == "4213" })
+	if calls := f.callsOf("configMap.saveData"); len(calls) != 1 || decodeParams[configMapDataParams](t, calls[0]).ResourceVersion != "4212" {
+		t.Fatalf("the save over 4212: %+v", calls)
 	}
 	test.Tap(cd.review.save)
-	q.until(t, "the save over 4400", func() bool { return cd.review == nil && strings.HasPrefix(cd.status.text, "Saved") })
-	if calls := f.callsOf("configMap.saveData"); len(calls) != 2 || decodeParams[configMapDataParams](t, calls[1]).ResourceVersion != "4400" {
+	q.until(t, "the save over 4213", func() bool { return cd.review == nil && strings.HasPrefix(cd.status.text, "Saved") })
+	if calls := f.callsOf("configMap.saveData"); len(calls) != 2 || decodeParams[configMapDataParams](t, calls[1]).ResourceVersion != "4213" {
 		t.Errorf("the second save: %+v", calls)
 	}
 }
 
-// TestConfigMapDrawerKeepsUnsavedEdits: the drawer moving to another object keeps the edited
-// values and says so; back on the Config Map they are in the editors again, based on the version
-// they were edited at. Revert drops them.
+// TestConfigMapDrawerRebases (the owner's answer of 2026-10-15): another key changed on the
+// cluster since the values were read. The review comes back rebased onto the newer version and
+// says so, the diff and the dry run against it; Save writes with that version. A change of
+// another key between the review and Save reviews again, rebased once more, and writes nothing
+// until Save.
+func TestConfigMapDrawerRebases(t *testing.T) {
+	sh, w, q, f, c := cmShell(t, ThemeDark)
+	cd := cmDataOf(sh)
+	typeInto(cd.rows["allow-localhost"], "always")
+	c.change("bpf-lb-map-max", "131072")
+	test.Tap(cd.save)
+	q.until(t, "the rebased review", func() bool { return cd.review != nil && !cd.review.save.Disabled() })
+	rv := cd.review
+	if rv.over != "" || rv.base != "4212" || cd.base != "4212" || rv.save.Text != "Save" ||
+		!strings.Contains(rv.banner.text, "rebased onto version 4212") || !strings.Contains(rv.status.text, "none of the keys you edited") {
+		t.Fatalf("the rebased review: base %s, over %q, %q / %q", rv.base, rv.over, rv.banner.text, rv.status.text)
+	}
+
+	c.change("bpf-lb-acceleration", "native") // between the review and Save
+	settle(w)
+	test.Tap(rv.save)
+	q.until(t, "the review again", func() bool { return rv.base == "4213" && !rv.save.Disabled() })
+	if calls := f.callsOf("configMap.saveData"); len(calls) != 1 || decodeParams[configMapDataParams](t, calls[0]).ResourceVersion != "4212" {
+		t.Fatalf("the save that met 4213: %+v", calls)
+	}
+	if calls := f.callsOf("configMap.reviewData"); len(calls) != 2 {
+		t.Fatalf("no second review: %+v", calls)
+	}
+	test.Tap(rv.save)
+	q.until(t, "the save", func() bool { return cd.review == nil && strings.HasPrefix(cd.status.text, "Saved") })
+	calls := f.callsOf("configMap.saveData")
+	if p := decodeParams[configMapDataParams](t, calls[len(calls)-1]); p.ResourceVersion != "4213" || p.Data["allow-localhost"] != "always" || len(p.Data) != 1 {
+		t.Errorf("the rebased save: %+v", p)
+	}
+	if c.values["bpf-lb-map-max"] != "131072" || c.values["bpf-lb-acceleration"] != "native" {
+		t.Error("the other client's changes did not stay")
+	}
+}
+
+// TestConfigMapDrawerKeepsUnsavedEdits: typing hands the edited values to configMap.keepEdits a
+// moment later, with the version and the values they are based on; the drawer moving to another
+// object hands them at once and says so; back on the Config Map they are in the editors again,
+// based on the version they were edited at. Revert drops them, in the engine too.
 func TestConfigMapDrawerKeepsUnsavedEdits(t *testing.T) {
-	sh, _, q, f, _ := cmShell(t, ThemeDark)
+	sh, _, q, f, c := cmShell(t, ThemeDark)
 	typeInto(cmDataOf(sh).rows["allow-localhost"], "always")
+	q.until(t, "the values kept", func() bool { return c.keptValues() != nil })
+	if k := c.keptValues(); k.BaseResourceVersion != "4211" || k.Values["allow-localhost"] != "always" || k.From["allow-localhost"] != "auto" || len(k.Values) != 1 {
+		t.Fatalf("kept while typing %+v", k)
+	}
+	typeInto(cmDataOf(sh).rows["allow-localhost"], "always-on")
 	other := f.tables["pods"].Rows[0].Ref
 	f.update(func(u *engine.UIState) { u.Selected, u.Drawer = []model.ObjectRef{other}, &other })
-	q.until(t, "the other object", func() bool { return sh.drawer.last != nil && sh.drawer.last.Ref == other })
-	if u := sh.drawer.unsaved[ciliumRef.String()]; u == nil || u.base != "4211" || u.values["allow-localhost"] != "always" {
-		t.Fatalf("kept %+v", u)
+	q.until(t, "the other object", func() bool {
+		k := c.keptValues()
+		return sh.drawer.last != nil && sh.drawer.last.Ref == other && k != nil && k.Values["allow-localhost"] == "always-on"
+	})
+	if calls := f.callsOf("configMap.keepEdits"); len(calls) == 0 || calls[len(calls)-1].Origin != engine.OriginGUI {
+		t.Errorf("keep calls %+v", calls)
 	}
-	if !toastSays(sh, "unsaved changes to ConfigMap kube-system/cilium-config are kept") {
+	if !toastSays(sh, "unsaved changes to ConfigMap kube-system/cilium-config are kept, as a draft too") {
 		t.Error("no toast says the changes are kept")
 	}
 
 	f.update(func(u *engine.UIState) { u.Selected, u.Drawer = []model.ObjectRef{ciliumRef}, &ciliumRef })
 	q.until(t, "the Config Map again", func() bool { cd := cmDataOf(sh); return cd != nil && cd.loaded && cd.dirty() })
 	cd := cmDataOf(sh)
-	if cd.rows["allow-localhost"].view.Text() != "always" || cd.base != "4211" || !strings.Contains(cd.status.text, "are back") {
-		t.Errorf("back: %q based on %s, status %q", cd.rows["allow-localhost"].view.Text(), cd.base, cd.status.text)
-	}
-	if len(sh.drawer.unsaved) != 0 {
-		t.Error("the kept values stay kept after they came back")
+	if r := cd.rows["allow-localhost"]; r.view.Text() != "always-on" || r.from != "auto" || cd.base != "4211" || !strings.Contains(cd.status.text, "are back") {
+		t.Errorf("back: %q from %q based on %s, status %q", r.view.Text(), r.from, cd.base, cd.status.text)
 	}
 	test.Tap(cd.revert)
 	if cd.dirty() || cd.rows["allow-localhost"].view.Text() != "auto" || !cd.save.Disabled() {
 		t.Error("Revert did not put the value back")
+	}
+	q.until(t, "the kept values dropped", func() bool { return c.keptValues() == nil })
+}
+
+// TestConfigMapDrawerTakesARestoredDraft: a draft of an earlier Cogpit restored for the Config Map
+// the drawer shows (editor.restoreDraft, which announces the drafts changed) comes into the
+// editors, based on the version it was edited at; a restored draft never replaces the user's own
+// typing.
+func TestConfigMapDrawerTakesARestoredDraft(t *testing.T) {
+	sh, _, q, f, c := cmShell(t, ThemeDark)
+	cd := cmDataOf(sh)
+	c.mu.Lock()
+	c.rv++ // the Config Map moved on since the draft was kept
+	c.kept = &engine.ConfigMapEdits{BaseResourceVersion: "4100", Values: map[string]string{"bpf-lb-map-max": "131072"},
+		From: map[string]string{"bpf-lb-map-max": "65536"}, Restored: true}
+	c.mu.Unlock()
+	f.emit(engine.Event{Type: engine.EventDrafts})
+	q.until(t, "the restored values", func() bool { return cd.dirty() })
+	if r := cd.rows["bpf-lb-map-max"]; r.view.Text() != "131072" || r.from != "65536" || cd.base != "4100" || !strings.Contains(cd.status.text, "since your edits began (version 4100, now 4212)") {
+		t.Errorf("restored: %q from %q based on %s, status %q", r.view.Text(), r.from, cd.base, cd.status.text)
+	}
+	q.until(t, "the values kept as the window's own", func() bool { k := c.keptValues(); return k != nil && !k.Restored })
+
+	// The user's typing stays when another draft is restored.
+	typeInto(cd.rows["allow-localhost"], "always")
+	c.mu.Lock()
+	c.kept = &engine.ConfigMapEdits{BaseResourceVersion: "4000", Values: map[string]string{"allow-localhost": "never"}, Restored: true}
+	c.mu.Unlock()
+	f.emit(engine.Event{Type: engine.EventDrafts})
+	sh.drawer.draftsChanged()
+	if cd.rows["allow-localhost"].view.Text() != "always" || cd.base != "4100" {
+		t.Errorf("the typing was replaced: %q based on %s", cd.rows["allow-localhost"].view.Text(), cd.base)
 	}
 }
 
@@ -549,13 +682,24 @@ func TestRenderConfigMapConflictDark(t *testing.T) {
 	sh, w, q, _, c := cmShell(t, ThemeDark)
 	cd := cmDataOf(sh)
 	typeInto(cd.rows["allow-localhost"], "always")
-	c.mu.Lock()
-	c.stale = "4300"
-	c.mu.Unlock()
+	c.change("allow-localhost", "policy")
 	test.Tap(cd.save)
-	q.until(t, "the stale review", func() bool { return cd.review != nil && cd.review.over == "4300" })
+	q.until(t, "the stale review", func() bool { return cd.review != nil && cd.review.over == "4212" })
 	settle(w)
 	savePNG(t, w, "configmap_conflict_dark.png")
+}
+
+// TestRenderConfigMapRebasedDark renders a review rebased onto a newer version: another key
+// changed on the cluster since the values were read.
+func TestRenderConfigMapRebasedDark(t *testing.T) {
+	sh, w, q, _, c := cmShell(t, ThemeDark)
+	cd := cmDataOf(sh)
+	typeInto(cd.rows["allow-localhost"], "always")
+	c.change("bpf-lb-map-max", "131072")
+	test.Tap(cd.save)
+	q.until(t, "the rebased review", func() bool { return cd.review != nil && !cd.review.save.Disabled() })
+	settle(w)
+	savePNG(t, w, "configmap_rebased_dark.png")
 }
 
 // TestRenderConfigMapDrawerFooterDark renders the end of the data: an edited value, Revert and

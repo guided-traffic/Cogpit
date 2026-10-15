@@ -34,10 +34,32 @@ type configMapReviewParams struct {
 	Ref             model.ObjectRef   `json:"ref" jsonschema:"the Config Map, e.g. {kind: configmaps, namespace: shop, name: app}"`
 	ResourceVersion string            `json:"resourceVersion" jsonschema:"the version of the Config Map the values are based on, as configMap_readData returned it"`
 	Data            map[string]string `json:"data" jsonschema:"the keys to change, each with its whole new value; only keys the data holds"`
+	From            map[string]string `json:"from,omitempty" jsonschema:"the changed keys' values at resourceVersion, as configMap_readData returned them: when the Config Map changed since but none of these keys did, the values are rebased onto the newer version (rebasedFrom) instead of reported stale"`
 	Context         *int              `json:"context,omitempty" jsonschema:"unchanged lines to keep around each change; default 3; -1 keeps every line"`
 }
 
+type configMapKeepParams struct {
+	Ref             model.ObjectRef   `json:"ref" jsonschema:"the Config Map the drawer shows"`
+	ResourceVersion string            `json:"resourceVersion,omitempty" jsonschema:"the version the edited values are based on"`
+	Data            map[string]string `json:"data,omitempty" jsonschema:"the edited keys with their unsaved text; empty drops the kept values and their draft"`
+	From            map[string]string `json:"from,omitempty" jsonschema:"each edited key's value at resourceVersion"`
+	Revision        uint64            `json:"revision" jsonschema:"orders the window's calls: one older than the newest for the Config Map is ignored"`
+}
+
 func registerConfigMapData(g *registrar) {
+	add(g, engine.Spec[configMapKeepParams]{
+		ID: "configMap.keepEdits", Label: "Keep Unsaved Config Map Values", Danger: engine.DangerUI,
+		GUIOnly: engine.ErrConfigMapEditsGUIOnly,
+		Description: "Keeps the values the user edited in a Config Map's drawer and has not saved: in memory for the " +
+			"drawer's next visit and, a moment after the typing stops, as a draft on disk (owner-only) that a quit or a " +
+			"crash leaves and editor_drafts offers when the context connects again; empty data drops them and the draft " +
+			"(saved or reverted). The user's own window only: agents and the CLI are refused, whatever the parameters " +
+			"(an agent changes values with configMap_saveData). Writes nothing to the cluster.",
+		Run: func(_ context.Context, s *engine.Session, p configMapKeepParams) (any, error) {
+			return nil, s.KeepConfigMapEdits(p.Ref, p.Revision, engine.ConfigMapEdits{BaseResourceVersion: p.ResourceVersion, Values: p.Data, From: p.From})
+		},
+	})
+
 	add(g, engine.Spec[refParams]{
 		ID: "configMap.readData", Label: "Read Config Map Data", Kinds: []string{kindConfigMaps}, Danger: engine.DangerRead,
 		Verbs: configMapReads,
@@ -62,16 +84,19 @@ func registerConfigMapData(g *registrar) {
 		Verbs: configMapDataVerbs,
 		Description: "Shows what configMap_saveData would write: the line diff of the Config Map's YAML with the given values " +
 			"against the object as Cogpit's cache holds it (op \"-\" removed, \"+\" added, \"=\" context), the keys that change, " +
-			"and the API server's verdict on a dry run (accepted, or refused with its reason). Stores nothing. stale means " +
-			"the Config Map changed since resourceVersion: the lines are the values against the newer version " +
-			"(cachedResourceVersion), and a save based on resourceVersion is refused. Needs the update permission.",
+			"and the API server's verdict on a dry run (accepted, or refused with its reason). Stores nothing. Given from " +
+			"(the changed keys' values at resourceVersion), a Config Map that changed since but not in those keys is " +
+			"reviewed against its newer version: rebasedFrom names resourceVersion, baseResourceVersion the newer one, " +
+			"which the save then takes. stale means the Config Map changed since resourceVersion in an edited key (or " +
+			"from was not given): the lines are the values against the newer version (cachedResourceVersion), and a save " +
+			"based on resourceVersion is refused. Needs the update permission.",
 		Enabled: func(s *engine.Session, p configMapReviewParams) error { return configMapDataEnabled(s, p.Ref) },
 		Run: func(ctx context.Context, s *engine.Session, p configMapReviewParams) (any, error) {
 			n := engine.DefaultDiffContext
 			if p.Context != nil {
 				n = *p.Context
 			}
-			return s.ReviewConfigMapData(ctx, p.Ref, p.ResourceVersion, p.Data, n)
+			return s.ReviewConfigMapData(ctx, p.Ref, p.ResourceVersion, p.Data, p.From, n)
 		},
 	})
 
