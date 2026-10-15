@@ -27,15 +27,31 @@
   "automergeType": "pr",
   "automergeStrategy": "squash",
   "ignoreTests": false,
-  "prConcurrentLimit": 0,
-  "prHourlyLimit": 0,
-  "branchConcurrentLimit": 0,
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "branchConcurrentLimit": 3,
   "rebaseWhen": "auto",
   "postUpdateOptions": [
     "gomodTidy",
     "gomodUpdateImportPaths"
   ],
   "packageRules": [
+    {
+      "description": "Go modules: every minor, patch and digest update in one pull request a week, so that CI runs once for them instead of once per module (owner, 2026-10-15: 21 pull requests at once flooded the shared runner node, GitHub refused the actions' downloads with 429 and none merged). Before the Go version rules, which keep golang.org/x/* with the Go version.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "groupName": "Go modules",
+      "groupSlug": "go-modules",
+      "schedule": [
+        "before 6am on monday"
+      ]
+    },
     {
       "description": "Go version: group all Go version updates together to keep them in sync (go.mod; the workflows read it through go-version-file)",
       "matchDatasources": [
