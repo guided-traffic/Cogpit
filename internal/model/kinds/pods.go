@@ -50,7 +50,11 @@ var pods = &model.KindProfile{
 		statusColumn,
 		ageColumn,
 	},
-	Cells:      podCells,
+	Cells: podCells,
+	// Controlled By links an owner that is a custom resource through the definitions, which the
+	// custom kinds already watch (a real cluster's pods of a Logging or a Challenge, 2026-10-16).
+	Needs:      []model.RelatedIndex{CustomKindsByGroupKind},
+	CellsWith:  podCellsWith,
 	Usage:      model.UsagePods,
 	UsageCells: podUsageCells,
 	Fields: map[string]fieldFunc{
@@ -89,6 +93,10 @@ var pods = &model.KindProfile{
 }
 
 func podCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
+	return podCellsWith(obj, model.NoRelated)
+}
+
+func podCellsWith(obj *unstructured.Unstructured, rel model.Related) ([]model.Cell, model.Status) {
 	s := summarisePod(obj)
 	ns := model.NestedString(obj, "metadata", "namespace")
 	ownerVersion, ownerKind, ownerName := controllerRef(obj)
@@ -101,9 +109,9 @@ func podCells(obj *unstructured.Unstructured) ([]model.Cell, model.Status) {
 		{}, // Memory
 		containersCell(obj, s),
 		{Num: s.restarts},
-		// Lens shows the owner's kind, a link to the owner (capture, 2026-10-11). An owner of a kind
-		// whose key is not known without discovery (a custom resource) stays unlinked.
-		{Text: ownerKind, Link: model.RefTo(ownerVersion, ownerKind, ns, ownerName)},
+		// Lens shows the owner's kind, a link to the owner (capture, 2026-10-11). An owner that is a
+		// custom resource links through its definition (RefToWith), plain without one.
+		{Text: ownerKind, Link: RefToWith(rel, ownerVersion, ownerKind, ns, ownerName)},
 		{Text: node, Link: linkTo(keyNodes, "", node)},
 		{Text: model.NestedString(obj, "status", "qosClass")},
 		{Text: s.text, Status: s.status},

@@ -431,7 +431,7 @@ func (b *Backend) drawerPlanKey(p *model.KindProfile, namespace string) string {
 	if ep, ok := b.Profile(eventsKind); ok && p.APIObject() {
 		key += "|" + b.readKeyIn(ep, namespace)
 	}
-	return key + b.relatedKey(p, p.DrawerNeeds(), namespace)
+	return key + b.relatedKey(p, drawerNeeds(b, p), namespace)
 }
 
 // relatedKey is how the related-objects indexes of a kind's view (p.Needs, namespace "") or of a

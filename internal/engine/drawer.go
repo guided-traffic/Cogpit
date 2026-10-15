@@ -16,6 +16,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // eventsKind is the kind key of core v1 events, which the drawer shows for its object.
@@ -85,7 +86,7 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 	// Woken only by changes to the keys the drawer's model looked up (a node's pods, not every
 	// pod); Detail reads through this set while the drawer shows ref (drawerRelated). The drawer's
 	// own indexes (DetailNeeds: a workload's pods) live only as long as it does.
-	d.related = newRelatedSetWith(b, p.DrawerNeeds(), func() { signal(d.wake) }, true, func(rp *model.KindProfile) *cache.Handle { return b.acquireNow(rp, ns) })
+	d.related = newRelatedSetWith(b, drawerNeeds(b, p), func() { signal(d.wake) }, true, func(rp *model.KindProfile) *cache.Handle { return b.acquireNow(rp, ns) })
 	d.followHidden(s, hidden)
 	objSynced, evSynced := d.synced()
 	poll := func() bool {
@@ -290,7 +291,10 @@ func buildDetail(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Un
 			// one arrive another way, its Annotations show it redacted.
 			meta = model.Redact(obj)
 		}
-		m.Sections = model.MergeProperties(model.PropertiesSection(meta, now), kind)
+		owners := func(apiVersion, kind, namespace, name string) *model.ObjectRef { // custom owners too (drawerNeeds)
+			return kinds.RefToWith(rel, apiVersion, kind, namespace, name)
+		}
+		m.Sections = model.MergeProperties(model.PropertiesSectionLinked(meta, now, owners), kind)
 		if isSecrets(p) {
 			m.Sections = append(m.Sections, secretDataSection(ref, obj)) // keys and sizes, values masked
 			// The certificates its values hold, decoded (D-30): never a value, PEM text or key.
@@ -311,6 +315,24 @@ func buildDetail(p *model.KindProfile, ref model.ObjectRef, obj *unstructured.Un
 		m.InitContainers = containerNames(obj, "initContainers")
 	}
 	return m, err
+}
+
+// drawerNeeds are the related-objects indexes a kind's drawer reads: its profile's, and on a
+// cluster with custom kinds the definitions by group and Kind, through which Controlled By links an
+// owner that is a custom resource (a StatefulSet's Prometheus, a Deployment's CephCluster, seen on a
+// real cluster 2026-10-16). Their scope is the custom kinds' own watch, so the index costs no
+// request; a virtual or local kind's drawer has no owners to link.
+func drawerNeeds(b *Backend, p *model.KindProfile) []model.RelatedIndex {
+	needs := p.DrawerNeeds()
+	if b == nil || !b.CustomResources || p.Derive != nil || p.Local {
+		return needs
+	}
+	for _, ix := range needs {
+		if ix.ID() == kinds.CustomKindsByGroupKind.ID() {
+			return needs
+		}
+	}
+	return append(append(make([]model.RelatedIndex, 0, len(needs)+1), needs...), kinds.CustomKindsByGroupKind)
 }
 
 // detailTitle is the drawer's title: "Pod: web-0", "Release: web" (a profile's DetailTitle).

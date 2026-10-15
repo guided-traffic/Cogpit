@@ -233,6 +233,21 @@ func TestPropertiesSection(t *testing.T) {
 	if custom := s.Items[6]; custom.Value != "Widget w" || custom.Link != nil {
 		t.Errorf("a custom owner kind must stay unlinked: %+v", custom)
 	}
+	// With a link for custom kinds (the engine's drawer: the definitions), the custom owner links;
+	// the built-in one still does.
+	widgets := func(apiVersion, kind, namespace, name string) *ObjectRef {
+		if kind == "Widget" {
+			return &ObjectRef{Kind: "widgets.example.com", Namespace: namespace, Name: name}
+		}
+		return RefTo(apiVersion, kind, namespace, name)
+	}
+	linked := PropertiesSectionLinked(obj, now, widgets)
+	if l := linked.Items[6].Link; l == nil || *l != (ObjectRef{Kind: "widgets.example.com", Namespace: "shop", Name: "w"}) {
+		t.Errorf("the custom owner with a link for custom kinds: %+v", linked.Items[6])
+	}
+	if l := linked.Items[5].Link; l == nil || l.Kind != "replicasets" {
+		t.Errorf("the built-in owner with a link for custom kinds: %+v", linked.Items[5])
+	}
 
 	bare := PropertiesSection(&unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "n"}}}, now)
 	if len(bare.Items) != 1 || bare.Items[0].Name != "Name" {

@@ -142,7 +142,7 @@ func eventObjectLink(obj any, rel model.Related) *model.ObjectRef {
 	if ns == "" {
 		ns = model.NestedString(obj, "metadata", "namespace")
 	}
-	return refToWith(rel, model.NestedString(ref, "apiVersion"), model.NestedString(ref, "kind"), ns, model.NestedString(ref, "name"))
+	return RefToWith(rel, model.NestedString(ref, "apiVersion"), model.NestedString(ref, "kind"), ns, model.NestedString(ref, "name"))
 }
 
 // eventObjectText renders the involved object as "Kind: name".

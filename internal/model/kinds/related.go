@@ -39,11 +39,11 @@ func crdGroupKindKeys(crd *unstructured.Unstructured) []string {
 	return []string{k.Group + "/" + k.Kind}
 }
 
-// refToWith is model.RefTo, which knows the built-in kinds, for the custom kinds too: a reference
+// RefToWith is model.RefTo, which knows the built-in kinds, for the custom kinds too: a reference
 // to a custom resource links to its kind's view when exactly one definition of rel's
 // CustomKindsByGroupKind defines its group and Kind. Without the definitions (not listed yet, or
 // not listable) it is nil, as RefTo's.
-func refToWith(rel model.Related, apiVersion, kind, namespace, name string) *model.ObjectRef {
+func RefToWith(rel model.Related, apiVersion, kind, namespace, name string) *model.ObjectRef {
 	if ref := model.RefTo(apiVersion, kind, namespace, name); ref != nil || name == "" || rel == nil {
 		return ref
 	}

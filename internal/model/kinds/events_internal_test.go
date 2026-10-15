@@ -106,6 +106,29 @@ func TestEventInvolvedCustomResourceLinks(t *testing.T) {
 	}
 }
 
+// TestPodControlledByCustomResource: a pod whose controller is a custom resource (cert-manager's
+// Challenge, the logging operator's Logging; seen on a real cluster, 2026-10-16) links to it in
+// the Pods list once the definitions are known, and stays plain without them; the Pods view reads
+// the definitions by group and Kind.
+func TestPodControlledByCustomResource(t *testing.T) {
+	defs := definitions{definition("acme.cert-manager.io", "challenges", "Challenge", "Namespaced", true)}
+	obj := asUnstructured(pod(map[string]any{"containers": []any{map[string]any{"name": "solver"}}}, map[string]any{"phase": "Running"},
+		map[string]any{"name": "cm-acme-http-solver-x", "namespace": "iam", "ownerReferences": []any{map[string]any{
+			"apiVersion": "acme.cert-manager.io/v1", "kind": "Challenge", "name": "dex-tls-1", "controller": true}}}))
+	col := pods.ColumnIndex("controlledBy")
+	row := model.BuildRowWith(pods, "test", obj, defs)
+	want := model.ObjectRef{Kind: "challenges.acme.cert-manager.io", Namespace: "iam", Name: "dex-tls-1"}
+	if c := row.Cells[col]; c.Text != "Challenge" || c.Link == nil || *c.Link != want {
+		t.Errorf("Controlled By %+v, want Challenge linked to %+v", c, want)
+	}
+	if c := model.BuildRow(pods, "test", obj).Cells[col]; c.Text != "Challenge" || c.Link != nil {
+		t.Errorf("Controlled By without the definitions %+v, want plain", c)
+	}
+	if len(pods.Needs) != 1 || pods.Needs[0].ID() != CustomKindsByGroupKind.ID() {
+		t.Errorf("the Pods view reads %v", pods.Needs)
+	}
+}
+
 // TestEventInvolvedObjectLinks pins the Involved Object link of the Events list: built-in kinds
 // link by their key; a custom kind stays unlinked without its definition, because its key needs
 // the plural (TestEventInvolvedCustomResourceLinks: with it).

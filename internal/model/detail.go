@@ -243,12 +243,25 @@ func ChipsItem(name string, chips []Chip) DetailItem {
 	return DetailItem{Name: name, Value: strings.Join(texts, "\n"), Chips: chips}
 }
 
+// RefFunc links a reference (an owner reference) to the object it names, as [RefTo] does, or
+// returns nil.
+type RefFunc func(apiVersion, kind, namespace, name string) *ObjectRef
+
 // PropertiesSection returns the generic part of the drawer's first section, the metadata every
 // kind shows: Created, Name, Namespace (a link), Labels (folded chips), Annotations (folded) and
 // Controlled By (a link for built-in owner kinds). Lens shows no UID (capture, 2026-10-11).
 // Created is the age against now, then the time as a mark ([MarkTime]) that the engine writes in
 // the user's zone and format (D-31): "5m ago (10.09.2026 17:41:01)".
 func PropertiesSection(obj *unstructured.Unstructured, now time.Time) DetailSection {
+	return PropertiesSectionLinked(obj, now, RefTo)
+}
+
+// PropertiesSectionLinked is PropertiesSection with the owners linked by link: the engine's
+// drawer links custom kinds too, through their definitions (kinds.RefToWith).
+func PropertiesSectionLinked(obj *unstructured.Unstructured, now time.Time, link RefFunc) DetailSection {
+	if link == nil {
+		link = RefTo
+	}
 	s := DetailSection{Title: TitleProperties}
 	if ts := obj.GetCreationTimestamp(); !ts.IsZero() {
 		s.Items = append(s.Items, DetailItem{
@@ -284,7 +297,7 @@ func PropertiesSection(obj *unstructured.Unstructured, now time.Time) DetailSect
 	for _, o := range obj.GetOwnerReferences() {
 		s.Items = append(s.Items, DetailItem{
 			Name: "Controlled By", Value: o.Kind + " " + o.Name,
-			Link: RefTo(o.APIVersion, o.Kind, obj.GetNamespace(), o.Name),
+			Link: link(o.APIVersion, o.Kind, obj.GetNamespace(), o.Name),
 		})
 	}
 	return s
