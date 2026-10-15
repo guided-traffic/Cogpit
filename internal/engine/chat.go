@@ -96,6 +96,12 @@ type ChatConnection struct {
 	// then reads what the window shows (Invocation.ReadsLikeUser). Off: the external agents' read
 	// rules. Only the user sets it, in the window.
 	Private bool `json:"private,omitempty"`
+	// AllTools sends every command the chat may run as a tool of its own with each request, for
+	// large cloud models (the owner's decision of 2026-10-15): about four times the core set's
+	// tokens and more, which fill a local model's context. Off (the default): the core tools and
+	// two meta-tools that find and run the rest. The rules are the same either way (D-2, the
+	// confirmations, the Secret filter); only the user sets it, in the window.
+	AllTools bool `json:"allTools,omitempty"`
 	// HasKey reports whether an API key for the connection is stored. A connection saved with a
 	// key that is not stored (one kept in the macOS keychain before 2026-10-15) reports false.
 	HasKey  bool       `json:"hasKey,omitempty"`

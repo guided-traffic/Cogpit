@@ -26,7 +26,8 @@ import (
 // settings folder, never in the keychain (the owner, 2026-10-15): empty keeps the stored key,
 // "Remove key" removes it, and empty saves no key where none is stored), model (the endpoint's
 // list, any name may be typed), the private connection's mark with what it unlocks and the hint
-// that its conversations are not saved (H-96), the four limits of a turn with their defaults, and
+// that its conversations are not saved (H-96), whether to send all tools (for large cloud models,
+// what it costs said), the four limits of a turn with their defaults, and
 // "use as default"; Test connection checks the form's values layer by layer (TCP, HTTP and TLS,
 // authentication, tool use) and shows each layer as it ends.
 //
@@ -74,6 +75,13 @@ const (
 	privateNotKept = "Conversations over a private connection are not saved: they are gone when Cogpit quits."
 	// keyKept says where the agent keeps an API key (agent.KeysFile, owner-only; no keychain).
 	keyKept = "Cogpit's settings folder, readable only by you"
+	// allToolsText and allToolsHelp are the setting to send every command as a tool (the owner's
+	// decision of 2026-10-15). The numbers are agent.TestToolsetSize's, measured 2026-10-15: 179
+	// tools, about 56,000 tokens; the core set 22 tools, about 7,600.
+	allToolsText = "Send all tools: every Cogpit command as a tool of its own"
+	allToolsHelp = "For large cloud models: each request then carries some 180 tools, about 56,000 tokens, more than " +
+		"many local models' context holds. Off: 20 core tools and a search that finds the rest, about 7,600 tokens. " +
+		"The same rules either way: reads as the private mark says, writes ask."
 )
 
 // agentPrefs is the Agent section's state.
@@ -177,6 +185,9 @@ func (a *agentPrefs) row(c engine.ChatConnection) fyne.CanvasObject {
 	}
 	if !c.HasKey {
 		parts = append(parts, "no API key")
+	}
+	if c.AllTools {
+		parts = append(parts, "all tools")
 	}
 	detail := newTextLine(strings.Join(parts, " · "), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	detail.truncate = true
@@ -290,6 +301,7 @@ type agentForm struct {
 	modelsB   *widget.Button
 	modelNote *textLine
 	private   *widget.Check
+	allTools  *widget.Check
 	limits    [4]*widget.Entry
 	def       *widget.Check
 	errLine   *textLine
@@ -355,6 +367,8 @@ func newAgentForm(a *agentPrefs, c engine.ChatConnection) *agentForm {
 
 	f.private = widget.NewCheck(privateCheckText, nil)
 	f.private.SetChecked(c.Private)
+	f.allTools = widget.NewCheck(allToolsText, nil)
+	f.allTools.SetChecked(c.AllTools)
 
 	lim := c.Limits
 	def := engine.DefaultChatLimits
@@ -398,6 +412,8 @@ func newAgentForm(a *agentPrefs, c engine.ChatConnection) *agentForm {
 		p.setting("agentModel", "Model", "", container.NewVBox(container.NewBorder(nil, nil, nil, f.modelsB, f.model), f.modelNote)),
 		p.setting("agentPrivate", "Private connection", privateNotKept, container.NewVBox(f.private,
 			newParagraph(privateHelp, colorMuted, settingsColumn-4*p.sh.app.Settings().Theme().Size(theme.SizeNameInnerPadding)))),
+		p.setting("agentAllTools", "Tools", "", container.NewVBox(f.allTools,
+			newParagraph(allToolsHelp, colorMuted, settingsColumn-4*p.sh.app.Settings().Theme().Size(theme.SizeNameInnerPadding)))),
 		p.setting("agentLimits", "Limits per turn", "Empty takes the default; a turn that reaches one stops with a note.",
 			container.NewGridWithColumns(4, grid...)),
 		f.def,
@@ -491,6 +507,7 @@ func (f *agentForm) values() (engine.ChatConnection, error) {
 	}
 	c.Model = strings.TrimSpace(f.model.Text)
 	c.Private = f.private.Checked
+	c.AllTools = f.allTools.Checked
 	var n [4]int
 	for i, e := range f.limits {
 		t := strings.NewReplacer(",", "", ".", "", " ", "").Replace(strings.TrimSpace(e.Text))

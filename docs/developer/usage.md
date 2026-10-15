@@ -386,6 +386,27 @@ is not.
 Sparkle installs an update only when its disk image and the feed carry the update key's signature
 and the new app carries Cogpit's Developer ID ([updates](../security/updates.md)).
 
+### Preferences › Agent: the chat's connections
+
+The built-in agent's chat (⌘I) talks to the LLM connections you add here
+([D-10](decisions.md#d-10-built-in-agent)); each conversation uses one, a new one the default.
+Only you edit them, in the window: none of it is a command or an MCP tool. A connection's fields,
+kept in `llm-connections.json` (its key apart in `llm-keys.json`, [naming](#naming-conventions)):
+
+| Field | Default | Meaning |
+|---|---|---|
+| Name | – | how the chat's connection menu names it, `LM Studio on this Mac` # example |
+| Kind | LM Studio # default | LM Studio, LiteLLM, Open WebUI or another OpenAI-compatible server: sets the paths (`/chat/completions` and `/models`, Open WebUI's under `/api`) |
+| Base URL | `http://localhost:1234/v1` # default for LM Studio | where the API is; `https://litellm.example.com` # example |
+| API key | none # default | sent as `Authorization: Bearer …` to the base URL only (no redirects are followed); empty keeps a stored key, Remove Key removes it |
+| Model | – | from the endpoint's list or typed, `qwen/qwen3.8-27b` # example |
+| Private connection | off # default | a local model or a private cloud: the chat then reads what the window shows, Secret values included; its conversations are not saved ([H-94](../security/agents-and-mcp.md#h-94-a-private-connection-gives-the-model-what-the-window-shows), [H-96](../security/agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)) |
+| Send all tools | off # default | every Cogpit command the chat may run as a tool of its own with each request (179 tools, about 56,000 tokens, measured 2026-10-15), for large cloud models; off, 20 core tools and a search that finds the rest (about 7,600 tokens). The same rules either way: what the agent reads follows the private mark, every write asks as D-2 says |
+| Limits per turn | 3 identical tool calls, 25 tool calls, 300,000 tokens, 10 minutes # default | a turn that reaches one stops with a note |
+
+Test Connection checks the form's values layer by layer (TCP, HTTP and TLS, authentication, tool
+use) without saving them and without cluster data.
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,
@@ -418,7 +439,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | MCP endpoint file | `<user config dir>/Cogpit/mcp-endpoint`, beside the token and with its rules: the endpoint's URL, for `cogpit-cli mcp`, written while the server listens and removed when it stops (on exit and when you switch the external MCP server off) | `http://127.0.0.1:59449/mcp` # example |
 | MCP switch | `<user config dir>/Cogpit/mcp-switch`, beside the token and with its rules: `on` or `off`, the status bar's MCP switch, written only by a click in the window; `cogpit-cli mcp` serves nothing but a note that the server is off while it says `off` (D-49) | `off` # example; no file means on |
 | Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command; read back newest first in Help › Audit Log and by `audit_list` (its last 4 MiB) | |
-| Agent chat connections | `<user config dir>/Cogpit/llm-connections.json`, owner-only (0600, directory 0700): each LLM connection's id, name, kind (`lmstudio`, `litellm`, `openwebui`, `openai`), base URL, model, limits, private mark, whether a key was given and which one is the default; never a key ([D-10](decisions.md#d-10-built-in-agent)) | |
+| Agent chat connections | `<user config dir>/Cogpit/llm-connections.json`, owner-only (0600, directory 0700): each LLM connection's id, name, kind (`lmstudio`, `litellm`, `openwebui`, `openai`), base URL, model, limits, private mark, whether it sends all tools (`allTools`, since 2026-10-15), whether a key was given and which one is the default; never a key ([D-10](decisions.md#d-10-built-in-agent)) | |
 | Agent chat API keys | `<user config dir>/Cogpit/llm-keys.json`, owner-only (0600, directory 0700), on every platform: the connection's id to its API key, in plain text ([H-99](../security/credentials.md#h-99-llm-api-keys-are-plaintext-in-cogpits-settings-folder)); written when you save a key, a key removed with Remove Key or its connection; a file other users could access is made owner-only again at the next read, and the log says so. Never in a keychain since 2026-10-15 (the owner's decision): a key an earlier version kept in the macOS login keychain is not read, so its connection shows "no API key" until you enter the key once again; that keychain item (named `Cogpit LLM connection`, service `io.guided-traffic.cogpit.llm`) is left alone, and you can delete it in Keychain Access | `{"version":1,"keys":{"3f9a…":"sk-…"}}` # example |
 | Agent chat conversations | `<user config dir>/Cogpit/chat-conversations.json`, owner-only (0600, directory 0700): the last 20 conversations per context with their items and the history the model is sent, every text with the cached Secrets' values replaced (`«secret <ns>/<name>/<key>»`), a text that could not be scrubbed `<withheld: …>`; the request bodies sent are never written, and never a conversation in which a turn ran over a private connection: it lives in memory only and is gone when Cogpit quits, and one an earlier version (v0.8.0 to v0.10.0) wrote is removed from the file at the next start ([H-96](../security/agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)) | |
 | Drain journal | `<user config dir>/Cogpit/drains.json`, owner-only (0600, directory 0700): the drains Cogpit started and has not finished, offered again on the next connect | |

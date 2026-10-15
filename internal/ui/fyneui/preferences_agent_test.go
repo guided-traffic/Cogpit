@@ -185,6 +185,40 @@ func TestAgentPreferencesPrivateHint(t *testing.T) {
 	}
 }
 
+// TestAgentPreferencesAllTools: the form's "send all tools" (the owner's decision of 2026-10-15) is
+// off for a connection without it, says what it costs, is saved with the connection, and the list
+// names a connection that sends all tools.
+func TestAgentPreferencesAllTools(t *testing.T) {
+	sh, w, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	a.edit(litellm())
+	settle(w)
+	if a.form.allTools.Checked || a.form.allTools.Text != allToolsText {
+		t.Fatalf("all tools: %v %q", a.form.allTools.Checked, a.form.allTools.Text)
+	}
+	var help bool
+	for _, p := range findAll[*paragraph](a.form.root) {
+		help = help || (p.text == allToolsHelp && p.color == colorMuted)
+	}
+	if !help {
+		t.Error("the setting does not say what it costs")
+	}
+	a.form.allTools.SetChecked(true)
+	test.Tap(a.form.saveB)
+	q.until(t, "the save", func() bool { return len(ch.savesOf()) == 1 && a.form == nil })
+	if got := ch.savesOf()[0]; !got.conn.AllTools || got.conn.ID != "c2" {
+		t.Errorf("saved %+v, want all tools", got.conn)
+	}
+	q.until(t, "the list", func() bool {
+		for _, l := range findAll[*textLine](a.list) {
+			if strings.HasSuffix(l.text, "gpt-oss-120b · all tools") {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 // TestAgentPreferencesValidation: a form without a name or with a base URL that is no http(s)
 // address is not saved and says why.
 func TestAgentPreferencesValidation(t *testing.T) {

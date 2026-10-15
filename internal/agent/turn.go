@@ -191,10 +191,10 @@ func (a *Agent) request(st *turnState) ([]toolCall, bool) {
 		return nil, false
 	}
 	a.mu.Lock()
-	msgs := append([]message{{Role: "system", Content: systemPrompt}}, c.history...)
+	msgs := append([]message{{Role: "system", Content: systemPromptFor(st.conn.AllTools)}}, c.history...)
 	noOpts := a.noOptions[st.conn.ID]
 	a.mu.Unlock()
-	req := chatRequest{Model: st.conn.Model, Messages: msgs, Tools: st.tools.defs, Stream: true}
+	req := chatRequest{Model: st.conn.Model, Messages: msgs, Tools: st.tools.defsFor(st.conn.AllTools), Stream: true}
 	if !noOpts {
 		req.StreamOptions = &streamOptions{IncludeUsage: true}
 	}

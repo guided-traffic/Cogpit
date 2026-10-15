@@ -112,6 +112,13 @@ func TestToolsetSize(t *testing.T) {
 	if len(ts.defs) != len(coreCommands)+2 || ts.bytes > 40<<10 {
 		t.Errorf("the core set: %d tools, %d bytes", len(ts.defs), ts.bytes)
 	}
+	// Sending all tools (ChatConnection.AllTools): every command the chat may run. Preferences ›
+	// Agent's hint (allToolsHelp in ui/fyneui/preferences_agent.go) names some 180 tools and about
+	// 56,000 tokens: fix the hint when this fails.
+	if ts.fullN != len(ts.all) || ts.fullN < 150 || ts.fullN > 210 || estimateTokens(ts.full) < 45_000 || estimateTokens(ts.full) > 70_000 {
+		t.Errorf("all tools: %d of %d commands, %d bytes (~%d tokens): Preferences › Agent's hint no longer holds",
+			ts.fullN, len(ts.all), ts.full, estimateTokens(ts.full))
+	}
 	for _, c := range s.Registry().Commands() {
 		if !chatExcluded(c) {
 			continue

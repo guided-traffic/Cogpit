@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -20,6 +21,13 @@ import (
 // search_commands finds any other command by words and returns its id, label, danger and parameter
 // schema; run_command runs any command by id with parameters, through the same Dispatch and the
 // same rules. Both kinds dispatch with origin builtInAgent.
+//
+// A connection the user set to send all tools (ChatConnection.AllTools, the owner's decision of
+// 2026-10-15, for large cloud models) gets every command the chat may run as a native tool instead:
+// the core ones first, in their order, then the rest in the registry's, and no meta-tools (nothing
+// is left to find). Measured 2026-10-15 (TestToolsetSize): 179 tools, 223,961 bytes, about 56,000
+// tokens with every request; the core set 22 tools, 30,447 bytes, about 7,600 tokens. The tools
+// resolve and dispatch alike either way, so the rules are the same.
 //
 // Left out of both: GUI-only commands (Dispatch refuses them to every agent anyway, so offering
 // them costs tokens and teaches nothing the refusal does not) and chat.toggle (the chat closing
@@ -60,19 +68,32 @@ func chatExcluded(c *engine.Command) bool {
 
 // toolset is the tools of every request, built once from the registry.
 type toolset struct {
-	defs  []toolDef
+	defs  []toolDef                  // the core set and the meta-tools
 	bytes int                        // the definitions' JSON size
 	core  map[string]*engine.Command // native tool name → command
 	all   []*engine.Command          // every command the chat may run, by id
 	byID  map[string]*engine.Command
 	byTN  map[string]*engine.Command // tool name → command
-	full  int                        // the size of every command as a tool, measured
+	// every is every command the chat may run as a tool (a connection's AllTools); full its JSON
+	// size and fullN its count.
+	every []toolDef
+	full  int
 	fullN int
+}
+
+// defsFor returns the tools a request carries: every command for a connection that sends all
+// tools, else the core set and the meta-tools.
+func (t *toolset) defsFor(all bool) []toolDef {
+	if all {
+		return t.every
+	}
+	return t.defs
 }
 
 // newToolset builds the tools from the registry.
 func newToolset(reg *engine.Registry) (*toolset, error) {
 	t := &toolset{core: map[string]*engine.Command{}, byID: map[string]*engine.Command{}, byTN: map[string]*engine.Command{}}
+	var rest []toolDef
 	for _, c := range reg.Commands() {
 		if chatExcluded(c) {
 			continue
@@ -80,10 +101,8 @@ func newToolset(reg *engine.Registry) (*toolset, error) {
 		t.all = append(t.all, c)
 		t.byID[c.ID] = c
 		t.byTN[c.ToolName()] = c
-		if def, err := commandTool(c); err == nil {
-			b, _ := json.Marshal(def)
-			t.full += len(b)
-			t.fullN++
+		if def, err := commandTool(c); err == nil && !slices.Contains(coreCommands, c.ID) {
+			rest = append(rest, def)
 		}
 	}
 	if t.byTN[toolSearch] != nil || t.byTN[toolRun] != nil {
@@ -101,6 +120,12 @@ func newToolset(reg *engine.Registry) (*toolset, error) {
 		t.defs = append(t.defs, def)
 		t.core[def.Function.Name] = c
 	}
+	t.every = append(slices.Clone(t.defs), rest...)
+	b, err := json.Marshal(t.every)
+	if err != nil {
+		return nil, err
+	}
+	t.full, t.fullN = len(b), len(t.every)
 	t.defs = append(t.defs,
 		toolDef{Type: typeFunction, Function: toolDefFunc{Name: toolSearch, Parameters: json.RawMessage(searchSchema),
 			Description: "Finds Cogpit commands beyond the tools listed here (scaling a StatefulSet, Helm actions, port forwards, " +
@@ -111,8 +136,7 @@ func newToolset(reg *engine.Registry) (*toolset, error) {
 				"the other tools: read and ui commands run at once; mutating and destructive ones wait for the user's " +
 				"confirmation in Cogpit's window and fail if the user declines."}},
 	)
-	b, err := json.Marshal(t.defs)
-	if err != nil {
+	if b, err = json.Marshal(t.defs); err != nil {
 		return nil, err
 	}
 	t.bytes = len(b)
