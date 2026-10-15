@@ -43,7 +43,7 @@ credential into its own files.
 | Secret | Lives in | Rule |
 |---|---|---|
 | MCP bearer token | `<user config dir>/Cogpit/mcp-token` (macOS: `~/Library/Application Support/Cogpit/mcp-token`), file 0600 in a 0700 directory, written atomically, never through a symlink, kept across starts and the status bar's switch since 2026-10-15 (until then removed on exit and when switched off); a file that holds no token Cogpit wrote, or that other users may read, is replaced at the next start ([`internal/mcp/token.go`](../../internal/mcp/token.go), `TestTokenFileLifecycle`, `TestTokenKeptAcrossStarts`, `TestTokenFileNotKept`, `TestStartRefusesSymlinks`) | 32 random bytes, new only when the user clicks Regenerate token in the MCP details (the gear in the status bar's MCP item; F6, [D-53](../developer/decisions.md#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it), `TestRegenerateToken`), until then valid across starts ([agents and MCP › H-98](agents-and-mcp.md#h-98-a-leaked-token-stays-valid-until-the-user-regenerates-it)); shown there masked until the user shows it, copied on request as a Secret's value (kept from clipboard managers on macOS, cleared after 1 minute; `TestMCPDetailsTokenShownAndCopied`), never in a toast or a notification; printed to the terminal that started Cogpit inside the HTTP `claude mcp add` command, at start and after a regenerate, never logged; an app whose bundle carries `cogpit-cli` prints and copies the stdio registration of that `cogpit-cli` instead, which names no token (since 2026-10-14, [D-2](../developer/decisions.md#d-2-agent-interface-scope), `TestMCPControlOffersTheBundledCLI`) (`TestTokenNeverLogged`) ([agents and MCP](agents-and-mcp.md)). Since 2026-10-13 the endpoint's URL is written beside it, `mcp-endpoint`, with the same rules (not a secret: a loopback URL), while the server listens, for the stdio bridge `cogpit-cli mcp`, which reads both before every call and sends the token to that loopback URL only, and nothing while the file is missing (`TestEndpointFileLifecycle`, `TestReadEndpointTakesOnlyWhatCogpitWrites`, `TestBridgeFollowsARestart`); since 2026-10-15 the port is kept beside them, `mcp-port`, with the same rules (not a secret) (`TestPortKeptAcrossStarts`) |
-| LLM API key (built-in agent) | `<user config dir>/Cogpit/llm-keys.json` (macOS: `~/Library/Application Support/Cogpit/llm-keys.json`), the connection's id to its key, file 0600 in a 0700 directory, written atomically through the engine's owner-only writer, never through a symlink, read and written anew on every call, on every platform; a file other users may access is made owner-only again before its keys are used, the log naming the file and its mode, never a key ([`agent/keystore.go`](../../internal/agent/keystore.go), `TestKeyFileKeepsTheKey`, `TestKeyFileAccessibleByOthersIsRepaired`, `TestFileKeyStoreRefuses`). Never in a keychain since 2026-10-15 (the owner's decision, [D-10](../developer/decisions.md#d-10-built-in-agent) item 12: every self-built binary made macOS ask for the login password). Until then the macOS login keychain held it (service `io.guided-traffic.cogpit.llm`, label "Cogpit LLM connection"); Cogpit no longer reads that item, not even to move a key out of it, and has no keychain code left (`TestNoKeychainCode`): such a connection shows "no API key" and its turn asks for the key again until the user enters it once more (`TestKeyFromTheKeychainIsAskedForAgain`); the item stays for the user to delete in Keychain Access | never in `llm-connections.json`, which holds whether a key was given (`TestConnectionsKeepTheKeyInTheKeyStore`); never logged; never in an error (a key file that does not decode is named, not quoted), a note, the audit log, the conversations or a request body (`TestTurnErrors`, `TestKeyFileKeepsTheKey`); sent only in the `Authorization` header to the configured endpoint, which no redirect can change ([D-10](../developer/decisions.md#d-10-built-in-agent)); removed from the file by Remove Key and with its connection; plain text protected by the file's mode ([H-99](#h-99-llm-api-keys-are-plaintext-in-cogpits-settings-folder)) |
+| LLM API key (built-in agent) | `<user config dir>/Cogpit/llm-keys.json` (macOS: `~/Library/Application Support/Cogpit/llm-keys.json`), the connection's id to its key, file 0600 in a 0700 directory, written atomically through the engine's owner-only writer, never through a symlink, read and written anew on every call, on every platform; a file other users may access is made owner-only again before its keys are used, the log naming the file and its mode, never a key ([`agent/keystore.go`](../../internal/agent/keystore.go), `TestKeyFileKeepsTheKey`, `TestKeyFileAccessibleByOthersIsRepaired`, `TestFileKeyStoreRefuses`). Never in a keychain since 2026-10-15 (the owner's decision, [D-10](../developer/decisions.md#d-10-built-in-agent) item 12: every self-built binary made macOS ask for the login password). Until then the macOS login keychain held it (service `io.guided-traffic.cogpit.llm`, label "Cogpit LLM connection"); Cogpit no longer reads that item, not even to move a key out of it, and has no keychain code left (`TestNoKeychainCode`): such a connection shows "no API key" and its turn asks for the key again until the user enters it once more (`TestKeyFromTheKeychainIsAskedForAgain`); the item stays for the user to delete in Keychain Access | never in `llm-connections.json`, which holds whether a key was given (`TestConnectionsKeepTheKeyInTheKeyStore`); never logged; never in an error (a key file that does not decode is named, not quoted), a note, the audit log, the conversations or a request body (`TestTurnErrors`, `TestKeyFileKeepsTheKey`); sent only in the `Authorization` header to the configured endpoint, which no redirect can change ([D-10](../developer/decisions.md#d-10-built-in-agent)), over `https` checked against the system's roots and, since 2026-10-15, a connection's own CA file beside them ([trust boundaries › H-104](trust-boundaries.md#h-104-a-connections-ca-file-is-trusted-beside-the-systems-roots-by-gos-verifier)); over plain `http` to another machine the window warns (H-95); removed from the file by Remove Key and with its connection; plain text protected by the file's mode ([H-99](#h-99-llm-api-keys-are-plaintext-in-cogpits-settings-folder)) |
 | Update public key (Sparkle's EdDSA key) | the app bundle's `Info.plist` (`SUPublicEDKey`), written at build time by [`hack/macos/sparkle.sh`](../../hack/macos/sparkle.sh) from the repository variable `SPARKLE_PUBLIC_ED_KEY`; a build without it has no update key and its updater does not start | not secret; its private counterpart never touches a user's machine ([updates](updates.md)) |
 
 ## Where they live inside Cogpit
@@ -448,7 +448,8 @@ applies). What remains, per case:
 - **Without a configuration directory** the allowances last for the session (in memory).
 - **The built-in agent's files** (2026-10-14, [D-10](../developer/decisions.md#d-10-built-in-agent)):
   `<user config dir>/Cogpit/llm-connections.json` (0600 in 0700: each connection's name, kind,
-  base URL, model, limits and private mark, and whether a key was given; a base URL with a user or
+  base URL, model, limits, private mark, whether it sends all tools, its CA file's path (not
+  secret, since 2026-10-15), and whether a key was given; a base URL with a user or
   password is refused, so no credential lands there; the keys sit beside it in `llm-keys.json`
   since 2026-10-15, [H-99](#h-99-llm-api-keys-are-plaintext-in-cogpits-settings-folder)) and
   `chat-conversations.json`
@@ -465,14 +466,36 @@ applies). What remains, per case:
 
 Since 2026-10-14 (the built-in agent's engine side): a connection whose base URL is `http://` sends
 its API key in the clear to whoever is on the path, a LiteLLM or Open WebUI on the local network
-for example. Cogpit allows it (the lead's decision for the owner to confirm,
-[D-10](../developer/decisions.md#d-10-built-in-agent): refusing it would block such a set-up); the
-connection test's HTTP layer says "plain http (the API key travels unencrypted)" for a connection
-with a key ([`agent/conntest.go`](../../internal/agent/conntest.go)). Live since the chat's settings
-were built (Preferences › Agent, the night run of 2026-10-14/15), which save such a connection, for
-every `http://` connection with a key to a host other than this computer; a local LM Studio without
-a key sends none. What would close it: refusing
-a key over `http://` to anything but a loopback address, or asking once per connection.
+for example; and not only the key: the whole conversation, every tool result and every Secret or
+other secret the agent reads go over the network unencrypted, so a private connection over plain
+http hands the window's Secret values to the path. Cogpit allows it (the lead's decision of
+2026-10-14, kept by the owner on 2026-10-15: refusing it would block such a set-up).
+
+**Built 2026-10-15 (the owner's audit answer (6), [D-10](../developer/decisions.md#d-10-built-in-agent)):**
+for a base URL that is plain http to another machine (any host but `localhost` and the loopback
+addresses, `engine.ChatPlainHTTPRemote`) Preferences › Agent says so in the warning colour under
+the base URL while it is typed ("Plain http to another machine: not only the API key but the whole
+conversation, and every Secret or other secret the agent reads, travel unencrypted over the
+network."), the list marks the connection "plain http", and the connection test's HTTP layer passes
+with the same warning ([`agent/conntest.go`](../../internal/agent/conntest.go),
+`TestPlainHTTPToAnotherMachineIsWarned`, `TestAgentPreferencesPlainHTTPWarning`,
+`TestAgentPreferencesTestWarns`); an http connection on this computer keeps the line "plain http
+(the API key travels unencrypted)" for a key. Checked against the owner's LM Studio on another
+machine of his network over plain http (`TestLiveEndpoint`, 2026-10-15: the HTTP layer passed with
+the warning). What remains, per case:
+
+- **It is still sent.** The warning informs, it does not stop: every turn over such a connection
+  sends the key, the conversation and what the agent read in the clear. Live for every
+  `http://` connection to another machine; a local LM Studio sends nothing over the network.
+- **The chat itself does not repeat it:** the warning is in Preferences › Agent and the test, not
+  in the chat column or per turn (the lead's decision, D-10 (6)); a user who set the connection up
+  long ago is not reminded. The message's "Sent … to <host>" names the host only.
+- **A name that resolves to this computer** (`*.localhost`, a hosts-file entry) is warned about
+  although nothing leaves the computer; the opposite, a name for another machine that the warning
+  misses, does not occur: only `localhost` and loopback addresses are exempt.
+
+What would close it: refusing a key or a private connection over `http://` to another machine, or
+asking once per connection.
 
 ### H-99: LLM API keys are plaintext in Cogpit's settings folder
 

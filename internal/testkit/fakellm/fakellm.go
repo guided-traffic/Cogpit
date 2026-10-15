@@ -5,9 +5,11 @@
 package fakellm
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -89,6 +91,25 @@ type Server struct {
 func New(t testing.TB) *Server {
 	s := &Server{models: []string{"test-model"}, closing: make(chan struct{})}
 	s.srv = httptest.NewServer(http.HandlerFunc(s.serve))
+	s.Root = s.srv.URL
+	s.Base = s.srv.URL + "/v1"
+	t.Cleanup(func() {
+		close(s.closing)
+		s.srv.Close()
+	})
+	return s
+}
+
+// NewTLS starts a server over https that presents cert (with its chain), closed when the test ends:
+// a server with a private CA for the tests of a connection's CA file. Base and Root are https URLs.
+func NewTLS(t testing.TB, cert tls.Certificate) *Server {
+	s := &Server{models: []string{"test-model"}, closing: make(chan struct{})}
+	s.srv = httptest.NewUnstartedServer(http.HandlerFunc(s.serve))
+	s.srv.TLS = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+	// A client that refuses the certificate is what these tests are about; the server's log line
+	// for each refused handshake is noise.
+	s.srv.Config.ErrorLog = log.New(io.Discard, "", 0)
+	s.srv.StartTLS()
 	s.Root = s.srv.URL
 	s.Base = s.srv.URL + "/v1"
 	t.Cleanup(func() {

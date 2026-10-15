@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -82,6 +85,9 @@ const (
 	allToolsHelp = "For large cloud models: each request then carries some 180 tools, about 56,000 tokens, more than " +
 		"many local models' context holds. Off: 20 core tools and a search that finds the rest, about 7,600 tokens. " +
 		"The same rules either way: reads as the private mark says, writes ask."
+	// caHelp is the CA file's hint (the owner's decision of 2026-10-15; agent/cafile.go).
+	caHelp = "For an https server with a private CA: a PEM file of its CA certificates, trusted for this connection " +
+		"beside the system's (on macOS its keychains), read when connecting. Empty: the system's alone."
 )
 
 // agentPrefs is the Agent section's state.
@@ -179,6 +185,9 @@ func (a *agentPrefs) row(c engine.ChatConnection) fyne.CanvasObject {
 	if c.Private {
 		tags.Add(newPill("private", colorStatusOK, true))
 	}
+	if engine.ChatPlainHTTPRemote(c.BaseURL) {
+		tags.Add(newPill("plain http", colorStatusWarning, true))
+	}
 	parts := []string{chatKindLabel(c.Kind), hostOf(c.BaseURL)}
 	if c.Model != "" {
 		parts = append(parts, c.Model)
@@ -188,6 +197,9 @@ func (a *agentPrefs) row(c engine.ChatConnection) fyne.CanvasObject {
 	}
 	if c.AllTools {
 		parts = append(parts, "all tools")
+	}
+	if c.CAFile != "" {
+		parts = append(parts, "CA file")
 	}
 	detail := newTextLine(strings.Join(parts, " · "), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	detail.truncate = true
@@ -293,6 +305,9 @@ type agentForm struct {
 	kind      *widget.Select
 	baseURL   *widget.Entry
 	urlHint   *textLine
+	plainWarn *paragraph // plain http to another machine (H-95)
+	caFile    *widget.Entry
+	caB       *widget.Button
 	key       *widget.Entry
 	keyHelp   *textLine
 	removeKey *widget.Button
@@ -309,6 +324,7 @@ type agentForm struct {
 	testB     *widget.Button
 	steps     *fyne.Container
 	stepRows  map[engine.ChatTestLayer]*agentTestRow
+	testWarn  *paragraph // a layer's warning, under the test's rows
 
 	lastKind engine.ChatConnectionKind
 	testing  context.CancelFunc
@@ -335,6 +351,14 @@ func newAgentForm(a *agentPrefs, c engine.ChatConnection) *agentForm {
 	f.baseURL.SetText(c.BaseURL)
 	f.urlHint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	f.urlHint.truncate = true
+	textW := settingsColumn - 4*p.sh.app.Settings().Theme().Size(theme.SizeNameInnerPadding)
+	f.plainWarn = newParagraph(engine.ChatPlainHTTPWarning, colorStatusWarning, textW)
+	f.baseURL.OnChanged = func(string) { f.showPlainWarning() }
+	f.caFile = widget.NewEntry()
+	f.caFile.SetPlaceHolder("/path/to/private-ca.pem")
+	f.caFile.SetText(c.CAFile)
+	f.caB = widget.NewButton("Choose…", f.chooseCAFile)
+	f.caB.Importance = widget.LowImportance
 	f.kind = widget.NewSelect(labels, func(label string) { f.kindChanged(label) })
 	f.kind.SetSelected(chatKindLabel(orKind(c.Kind)))
 
@@ -407,13 +431,14 @@ func newAgentForm(a *agentPrefs, c engine.ChatConnection) *agentForm {
 		newSpace(theme.SizeNamePadding),
 		p.setting("agentName", "Name", "How the chat's connection menu names it.", f.name),
 		p.setting("agentKind", "Kind", "Every kind speaks OpenAI's Chat Completions API with tool calling.", f.kind),
-		p.setting("agentBaseURL", "Base URL", "", container.NewVBox(f.baseURL, f.urlHint)),
+		p.setting("agentBaseURL", "Base URL", "", container.NewVBox(f.baseURL, f.urlHint, f.plainWarn)),
 		p.setting("agentKey", "API key", "", container.NewVBox(container.NewBorder(nil, nil, nil, f.removeKey, f.key), f.keyHelp)),
 		p.setting("agentModel", "Model", "", container.NewVBox(container.NewBorder(nil, nil, nil, f.modelsB, f.model), f.modelNote)),
+		p.setting("agentCAFile", "CA file", "", container.NewVBox(container.NewBorder(nil, nil, nil, f.caB, f.caFile),
+			newParagraph(caHelp, colorMuted, textW))),
 		p.setting("agentPrivate", "Private connection", privateNotKept, container.NewVBox(f.private,
-			newParagraph(privateHelp, colorMuted, settingsColumn-4*p.sh.app.Settings().Theme().Size(theme.SizeNameInnerPadding)))),
-		p.setting("agentAllTools", "Tools", "", container.NewVBox(f.allTools,
-			newParagraph(allToolsHelp, colorMuted, settingsColumn-4*p.sh.app.Settings().Theme().Size(theme.SizeNameInnerPadding)))),
+			newParagraph(privateHelp, colorMuted, textW))),
+		p.setting("agentAllTools", "Tools", "", container.NewVBox(f.allTools, newParagraph(allToolsHelp, colorMuted, textW))),
 		p.setting("agentLimits", "Limits per turn", "Empty takes the default; a turn that reaches one stops with a note.",
 			container.NewGridWithColumns(4, grid...)),
 		f.def,
@@ -423,7 +448,45 @@ func newAgentForm(a *agentPrefs, c engine.ChatConnection) *agentForm {
 		f.steps,
 	)
 	f.root = container.NewStack(bg, inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, form))
+	f.testWarn = newParagraph("", colorStatusWarning, textW)
+	f.showPlainWarning()
 	return f
+}
+
+// showPlainWarning shows, while the base URL is plain http to another machine, that not only the
+// key but the conversation and every secret the agent reads cross the network unencrypted (the
+// owner's decision of 2026-10-15, H-95); localhost and loopback addresses are exempt.
+func (f *agentForm) showPlainWarning() {
+	if f.plainWarn == nil {
+		return
+	}
+	f.plainWarn.Hidden = !engine.ChatPlainHTTPRemote(f.baseURL.Text)
+	f.plainWarn.Refresh()
+}
+
+// chooseCAFile picks the CA file in the file dialog.
+func (f *agentForm) chooseCAFile() {
+	d := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
+		if err != nil || r == nil {
+			return
+		}
+		path := r.URI().Path()
+		_ = r.Close()
+		f.caFile.SetText(path)
+	}, f.a.p.sh.win)
+	d.SetFilter(storage.NewExtensionFileFilter([]string{".pem", ".crt", ".cer"}))
+	d.Show()
+}
+
+// caFilePath is the CA file's field as a path: "~/" is the home folder.
+func (f *agentForm) caFilePath() string {
+	p := strings.TrimSpace(f.caFile.Text)
+	if rest, ok := strings.CutPrefix(p, "~/"); ok {
+		if home, err := os.UserHomeDir(); err == nil {
+			p = filepath.Join(home, rest)
+		}
+	}
+	return p
 }
 
 func orKind(k engine.ChatConnectionKind) engine.ChatConnectionKind {
@@ -504,6 +567,13 @@ func (f *agentForm) values() (engine.ChatConnection, error) {
 	u, err := url.Parse(c.BaseURL)
 	if err != nil || (u.Scheme != schemeWeb && u.Scheme != schemeWebSecure) || u.Host == "" {
 		return c, errors.New("the base URL must be an http or https address, such as http://localhost:1234/v1")
+	}
+	c.CAFile = f.caFilePath()
+	switch {
+	case c.CAFile != "" && u.Scheme != schemeWebSecure:
+		return c, errors.New("a CA file is for an https base URL: plain http checks no certificate")
+	case c.CAFile != "" && !filepath.IsAbs(c.CAFile):
+		return c, errors.New("the CA file must be an absolute path, such as /Users/you/certs/private-ca.pem")
 	}
 	c.Model = strings.TrimSpace(f.model.Text)
 	c.Private = f.private.Checked
@@ -662,14 +732,22 @@ func (f *agentForm) showSteps(steps []engine.ChatTestStep) {
 			f.stepRows[l] = r
 			objs = append(objs, r.root)
 		}
-		objs = append(objs, newTextLine("The test sends no cluster data: one harmless tool and a fixed question.", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{}))
+		objs = append(objs, f.testWarn,
+			newTextLine("The test sends no cluster data: one harmless tool and a fixed question.", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{}))
 		f.steps.Objects = objs
 	}
+	warning := ""
 	for _, s := range steps {
 		if r := f.stepRows[s.Layer]; r != nil {
 			r.set(s)
 		}
+		if s.State == engine.ChatTestPass && s.Warning != "" {
+			warning = s.Warning
+		}
 	}
+	f.testWarn.text = warning
+	f.testWarn.Hidden = warning == ""
+	f.testWarn.Refresh()
 	f.steps.Refresh()
 }
 
@@ -703,6 +781,9 @@ func (r *agentTestRow) set(s engine.ChatTestStep) {
 		icon, c, text = theme.ViewRefreshIcon(), colorAccent, "Checking…"
 	case engine.ChatTestPass:
 		icon, c, text = theme.ConfirmIcon(), colorStatusOK, "Passed"
+		if s.Warning != "" { // passed, with a caution shown under the rows
+			icon, c = theme.WarningIcon(), colorStatusWarning
+		}
 	case engine.ChatTestFail:
 		icon, c, text = theme.ErrorIcon(), colorStatusError, "Failed"
 	case engine.ChatTestNotReached:

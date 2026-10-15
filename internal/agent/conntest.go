@@ -68,10 +68,19 @@ func (a *Agent) TestConnection(ctx context.Context, c engine.ChatConnection, api
 	if err != nil {
 		return fail(0, err.Error())
 	}
-	cl := &client{hc: a.hc, ep: ep, key: key}
+	if _, err := normalize(c); errors.Is(err, ErrCAFileScheme) || errors.Is(err, ErrCAFilePath) {
+		return fail(0, err.Error())
+	}
+	// The CA file is read now; a file that cannot be used fails the TLS layer, after TCP.
+	cl, clErr := a.clientFor(c, key)
 	layers := []func(context.Context) (string, error){
 		func(ctx context.Context) (string, error) { return testTCP(ctx, ep) },
-		func(ctx context.Context) (string, error) { return a.testHTTP(ctx, cl) },
+		func(ctx context.Context) (string, error) {
+			if clErr != nil {
+				return "", clErr
+			}
+			return a.testHTTP(ctx, cl)
+		},
 		func(ctx context.Context) (string, error) { return testAuth(ctx, cl, c.Model) },
 		func(ctx context.Context) (string, error) { return testTools(ctx, cl, c.Model) },
 	}
@@ -86,6 +95,9 @@ func (a *Agent) TestConnection(ctx context.Context, c engine.ChatConnection, api
 			return fail(i, err.Error())
 		}
 		steps[i].State, steps[i].Detail = engine.ChatTestPass, detail
+		if engine.ChatTestLayers[i] == engine.ChatTestHTTP && ep.plainRemote {
+			steps[i].Warning = engine.ChatPlainHTTPWarning // the owner's decision of 2026-10-15 (H-95)
+		}
 		report()
 	}
 	return slices.Clone(steps)
@@ -144,10 +156,12 @@ func hostPort(ep endpoint) string {
 	return net.JoinHostPort(u.Hostname(), "80")
 }
 
+// dialTCP opens the TCP layer's connection; tests route it to a fake endpoint.
+var dialTCP = (&net.Dialer{}).DialContext
+
 func testTCP(ctx context.Context, ep endpoint) (string, error) {
 	addr := hostPort(ep)
-	var d net.Dialer
-	conn, err := d.DialContext(ctx, "tcp", addr)
+	conn, err := dialTCP(ctx, "tcp", addr)
 	if err != nil {
 		var dnsErr *net.DNSError
 		if errors.As(err, &dnsErr) {
@@ -179,9 +193,12 @@ func (a *Agent) testHTTP(ctx context.Context, cl *client) (string, error) {
 	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxModelsBytes))
 	detail := fmt.Sprintf("HTTP %d", resp.StatusCode)
-	if resp.TLS != nil {
+	switch {
+	case resp.TLS != nil:
 		detail += ", " + tlsVersion(resp.TLS.Version)
-	} else {
+	case cl.ep.plainRemote:
+		detail += ", plain http to another machine" // TestConnection adds the warning
+	default:
 		detail += ", plain http"
 		if cl.key != "" {
 			detail += " (the API key travels unencrypted)"

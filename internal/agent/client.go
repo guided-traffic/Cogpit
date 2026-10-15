@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -63,6 +64,9 @@ type endpoint struct {
 	models string // the models list's URL
 	host   string // host[:port], for what the chat shows was sent where
 	https  bool
+	// plainRemote: plain http to another machine (engine.ChatPlainHTTPRemote), which the connection
+	// test warns about.
+	plainRemote bool
 }
 
 // errBaseURL is the reason a base URL is refused.
@@ -83,7 +87,8 @@ func endpointFor(kind engine.ChatConnectionKind, base string) (endpoint, error) 
 		root = strings.TrimSuffix(root, "/api")
 		chat, models = root+"/api/chat/completions", root+"/api/models"
 	}
-	return endpoint{chat: chat, models: models, host: u.Host, https: u.Scheme == schemeHTTPS}, nil
+	return endpoint{chat: chat, models: models, host: u.Host, https: u.Scheme == schemeHTTPS,
+		plainRemote: engine.ChatPlainHTTPRemote(u.String())}, nil
 }
 
 // parseBaseURL checks a base URL: http or https, a host, no credentials (they would land in the
@@ -312,10 +317,16 @@ func (c *client) complete(ctx context.Context, body []byte, onText func(string))
 }
 
 // transportError is a failed request in words, the context's end named as such; the key removed
-// (Go's errors quote the URL, never a header, but a key in a base URL is refused anyway).
+// (Go's errors quote the URL, never a header, but a key in a base URL is refused anyway). A server
+// certificate that could not be verified says so and where a private CA goes.
 func transportError(ctx context.Context, err error, key string) error {
 	if ctxErr := context.Cause(ctx); ctxErr != nil {
 		return ctxErr
+	}
+	var cv *tls.CertificateVerificationError
+	if errors.As(err, &cv) {
+		return errors.New("the endpoint's certificate is not trusted (" + cleanMessage(cv.Err.Error(), key) +
+			"): for a server with a private CA, name its CA file in the connection's settings")
 	}
 	return errors.New("the endpoint could not be reached: " + cleanMessage(err.Error(), key))
 }

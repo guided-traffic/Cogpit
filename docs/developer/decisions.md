@@ -1,6 +1,6 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the index row); minor (D-57 built: choosing a cluster in the navigator's section only, the context picker, "Switch context" and the scope dropdown gone; D-42, D-47 and D-51 follow); minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-15 · **Change:** minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the index row); minor (D-57 built: choosing a cluster in the navigator's section only, the context picker, "Switch context" and the scope dropdown gone; D-42, D-47 and D-51 follow); minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
@@ -18,7 +18,7 @@ projects' repositories; re-check them before relying on a version number.
 | [D-7](#d-7-language-and-platforms) | Language and platforms | decided: Go; a macOS app first, Windows and Linux later |
 | [D-8](#d-8-licence) | Licence | decided: Apache-2.0 |
 | [D-9](#d-9-scope-against-lenss-paid-and-vendor-features) | Scope against Lens's paid and vendor features | decided: Flux CD and Argo CD in the beta (built 2026-10-13 and 2026-10-14), other paid features after it, vendor features never; verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, no longer an alpha-gate or M1 item (owner, 2026-10-15) |
-| [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: a chat column at the window's right edge, OpenAI-compatible endpoints, several connections, a private-connection mark, kept scrubbed conversations, limits per turn (owner, 2026-10-14 late evening); the API keys in an owner-only file, no keychain (owner, 2026-10-15); a key file others could access repaired with a log warning, no migration of keychain keys (confirmed, owner, 2026-10-15); built: the engine side 2026-10-14 late evening, the chat column, Preferences › Agent and the private connection in the night of 2026-10-14/15, the key file 2026-10-15; the owner's audit answers of 2026-10-15 for the chat (send all tools per connection, a warning for `http://` to another machine and a CA file per connection, a sent message edited and sent again, F9): send all tools built 2026-10-15 (night run); M12 stays open for the rest ([roadmap](../parity/roadmap.md#milestones)) |
+| [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: a chat column at the window's right edge, OpenAI-compatible endpoints, several connections, a private-connection mark, kept scrubbed conversations, limits per turn (owner, 2026-10-14 late evening); the API keys in an owner-only file, no keychain (owner, 2026-10-15); a key file others could access repaired with a log warning, no migration of keychain keys (confirmed, owner, 2026-10-15); built: the engine side 2026-10-14 late evening, the chat column, Preferences › Agent and the private connection in the night of 2026-10-14/15, the key file 2026-10-15; the owner's audit answers of 2026-10-15 for the chat (send all tools per connection, a warning for `http://` to another machine and a CA file per connection, a sent message edited and sent again, F9): send all tools, the `http://` warning and the CA file built 2026-10-15 (night run); M12 stays open for the rest ([roadmap](../parity/roadmap.md#milestones)) |
 | [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations; Helm install (owner, 2026-10-14 evening): nothing offered after an interrupted install, built 2026-10-14 (the journal still records installs and the banner offers Show release: the lead's decisions for the owner to confirm) |
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
@@ -990,7 +990,10 @@ the options weighed):
     only; proxies from the environment as Go's default; a plain `http://` base URL with a key is
     allowed and the connection test's HTTP layer says the key travels unencrypted (chosen; refusing
     it would block a LiteLLM on the local network; recorded as
-    [H-95](../security/credentials.md#h-95-an-llm-api-key-over-plain-http)).
+    [H-95](../security/credentials.md#h-95-an-llm-api-key-over-plain-http)). **Revised by the owner
+    (2026-10-15, his audit answer (6), below):** still allowed, and warned about in the warning
+    colour wherever it is set up when the host is another machine; an `https://` server with a
+    private CA gets a CA file per connection.
 11. **Errors.** An endpoint's 401 or 403 is reported without its message (OpenAI's quotes a part of
     the key); other errors carry at most 200 characters of the server's message with the key
     removed; never the request body.
@@ -1200,7 +1203,52 @@ chat stays no command and no MCP tool, N3):
   only the key but the conversation and every Secret or other secret the agent reads go
   unencrypted over the network; and a CA file per connection for an `https://` server with a
   private CA, adding to the system's roots (macOS: its trust store), its path kept with the
-  connection, the file read when connecting, its errors named. Decided, not built yet.
+  connection, the file read when connecting, its errors named. **Built 2026-10-15 (night run):**
+  `engine.ChatPlainHTTPRemote` and `ChatPlainHTTPWarning`; Preferences › Agent shows the warning
+  under the base URL while it is typed and marks such a connection "plain http" in the list; the
+  connection test's HTTP layer passes with the warning (`ChatTestStep.Warning`: the warning icon
+  and colour, the text under the layers). `ChatConnection.CAFile` (an absolute path, not secret,
+  in `llm-connections.json`), [`agent/cafile.go`](../../internal/agent/cafile.go): the file is
+  read whenever a request is sent (a turn, the test, the models list; at most 1 MiB of a regular
+  file, its `CERTIFICATE` blocks only), its certificates added to `x509.SystemCertPool()` with
+  `AppendCertsFromPEM`, the client kept per connection and file digest. **Checked in Go 1.27.2's
+  source** (`crypto/x509` `cert_pool.go`, `root.go`, `verify.go`): on macOS the system pool holds
+  no certificates and is marked as the system's; the mark survives the copy and the append, and
+  `Verify` asks macOS's platform verifier first (its trust store and the user's trust settings)
+  and, only when that fails, Go's own verifier against the added certificates alone. So the CA file
+  adds to the trust store, a public server is still verified by macOS, and a pool from
+  `x509.NewCertPool()` would have replaced it (not done); on Linux the system's bundle is read from
+  disk and the file added to the copy. Since Go 1.27, `SSL_CERT_FILE` or `SSL_CERT_DIR` in the
+  environment replace the platform verifier for every TLS connection of the process
+  ([trust boundaries › H-104](../security/trust-boundaries.md#h-104-a-connections-ca-file-is-trusted-beside-the-systems-roots-by-gos-verifier)).
+  An untrusted certificate fails the HTTP and TLS layer and a turn with "the endpoint's certificate
+  is not trusted (…): for a server with a private CA, name its CA file in the connection's
+  settings"; a CA file that does not exist, is not a file, holds no certificate or is larger than
+  1 MiB fails them with the file named, never its content. The lead's decisions for the owner to
+  confirm, each with the options weighed:
+  - **What is exempt from the warning:** the name `localhost` and every loopback address
+    (127.0.0.0/8, ::1) (chosen: none of them leaves the computer); or exactly the three the owner
+    named (127.0.0.2 would warn though it never leaves the computer); or also `*.localhost` names
+    (not exempt: whether they resolve to loopback is the resolver's, not guaranteed).
+  - **Where it warns:** under the base URL as the user types it, the list's "plain http" mark, and
+    the connection test's HTTP layer, which passes with the warning (chosen: the owner named
+    Preferences › Agent and the test; the mark keeps it visible after the form closes); or also a
+    line in the chat per turn (noise at every message for a set-up the user chose), or a question on
+    save (friction the owner did not ask for).
+  - **A CA file with an `http://` base URL:** refused on save and by the test ("a CA file is for an
+    https base URL") (chosen: it would do nothing, and silence would suggest a protection); or kept
+    and ignored.
+  - **The path:** absolute, the form expanding `~/`, with a Choose… button (the file dialog, `.pem`,
+    `.crt`, `.cer`) (chosen); or relative to the configuration folder (where the user does not keep
+    certificates).
+  - **When it is read:** whenever a request is sent, the client kept while the file's content is
+    the same (chosen: the owner's "read when connecting", and a renewed CA counts at the next
+    request without a restart); or once at save (a renewed CA would need the form again).
+  Tests: `TestCAFileTrustsAPrivateCA`, `TestCAFileErrorsAreNamed`, `TestCAFileAddsToTheSystemRoots`,
+  `TestPlainHTTPToAnotherMachineIsWarned`, `TestChatPlainHTTPRemote`,
+  `TestAgentPreferencesPlainHTTPWarning`, `TestAgentPreferencesCAFile`,
+  `TestAgentPreferencesTestWarns`; renders `preferences_agent_plainhttp_*.png`,
+  `preferences_agent_*.png`.
 - **F9: a sent message edited and sent again**, ChatGPT's form (the owner's choice): every user's
   message can be edited and sent again; everything after it is dropped from the window, the model's
   history and the kept conversation (the audit log keeps everything); a failed or stopped turn is
@@ -5058,6 +5106,7 @@ Escape in a real window (Fyne's test driver only).
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-15 | minor | D-57 (the owner's interview of 2026-10-15 evening) built in the night run: the context picker, the top bar's "Switch context ▾" and the navigator's scope dropdown gone; ⌘P, the Cluster menu's Connect to Cluster… (was Switch Context…), the palette's Connect to Cluster, the welcome page's and the workspace's button and a refused `--context` show the navigator's section with its search focused, the navigator shown first if ⌘B hid it; Escape on that empty search goes back to the cluster's tree; at a cluster the header's "‹ All Clusters", the root without its ‹; at the section the title "All Clusters" with a "+" (Add Kubeconfigs…); the section's row tooltip and menu take over what the picker's row said (the error, a login waiting, an unchecked certificate, Show Connection Updates…); `cluster.connect`'s menu path `Cluster/Connect to Cluster`; the lead's decisions for the owner to confirm listed. D-42 (a refused `--context`), D-47 (the link's refusal names the navigator) and D-51 (the dropdown's bank gone with it) follow |
+| 2026-10-15 | minor | D-10 (6) built in the night run: the warning for `http://` to another machine (Preferences › Agent, the list's mark, the connection test) and a CA file per connection added to the system's roots, Go 1.27.2's verifier checked in its source and recorded; five decisions of the lead for the owner to confirm (the loopback exemption, where it warns, a CA file over http, the path, when it is read); item 10 revised; H-104 opened |
 | 2026-10-15 | minor | D-10: the owner's audit answers of 2026-10-15 for the chat recorded ((4) send all tools per connection, (6) a warning for `http://` to another machine and a CA file per connection, F9 a sent message edited and sent again; F8 postponed); (4) built in the night run (`ChatConnection.AllTools`, 179 tools and about 56,000 tokens measured), with the lead's decision for the owner to confirm (no meta-tools with all tools on); item 2 and the index row say so |
 | 2026-10-15 | minor | Decided by the owner and recorded in D-9, the entry that holds Cogpit's scope against Lens (the alpha gate itself lives in the roadmap, which no D-entry decides): verifying the credential plugins against EKS, GKE and AKS is out of scope until long after parity, no longer an alpha-gate step or part of M1's definition of done; index row D-9. The docs brought to the code (the owner's rule 10): the index row of D-10 said "being built (M12)" for what the code shows built (the engine side, the chat column, Preferences › Agent, the private connection, the key file); the index lacked D-14 to D-32, now one row each, its status from the entry and checked against the code; D-1: S7's re-check since CI (the macOS app packaged, Windows compiled and linked, no Windows or Linux package); D-2: "the rest is not built yet" over answers each marked built 2026-10-14, and the token's place (`<user config dir>/Cogpit/mcp-token`, kept since D-53); D-4: Sparkle said not built (built 2026-10-14, key 2026-10-15); D-44: the built-in agent said not built; D-48: "the release's app is ad-hoc signed today" (Developer ID since v0.6.0, the login item still not tried with it); D-16: "not verified until the first signed release" (signed releases with the bundled `cogpit-cli` since v0.7.0, checked by download on 2026-10-14; a run from a quarantined copy not tried); the decision round's intro: the night run built every answer that asked for a build but R3 and A10 |
 | 2026-10-15 | minor | D-4: Sparkle's update key set up by the owner (the environment `sparkle` with its rules and Pages by the lead with the owner's go-ahead; the secret and the variable by the owner), in v0.11.0 to v0.13.0, no signed appcast yet (`appcast.xml` 404: v0.9.0 to v0.12.0 got no files, v0.13.0 notarizing; checked with `gh` ~19:00 UTC); v0.6.0 to v0.8.0 carry the signed disk image; the notarization's 330-minute job noted at A9. A10 decided further by the owner: the semantic-release App the tag ruleset's only bypass, nobody tags by hand, an emergency tag by an admin switching the ruleset off; the settings not made (no ruleset, `release`'s admin bypass on). Confirmed by the owner: D-47 as a whole (navigation only with the build's defaults; the A7 ask verified built); D-10 item 12's repaired key file (a log warning, no bell notification, against the lead's recommendation) and no keychain migration, its third choice not asked; D-51's ↵ on an agent's palette text (b); D-51's dropdown bank moot (the scope dropdown to go, not built). The index rows of D-2, D-33, D-34, D-36, D-41 and D-44 said "not built" for answers of 2026-10-14 evening that the code shows built in the night run (A1, A2, A16, A18, A20, A65; A34 and A91; A80; A33; A63; A3, A5, A31): corrected |

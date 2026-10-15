@@ -1,6 +1,8 @@
 package fyneui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -219,6 +221,142 @@ func TestAgentPreferencesAllTools(t *testing.T) {
 	})
 }
 
+// lanStudio is an LM Studio on another machine of the local network, over plain http (the owner's).
+func lanStudio() engine.ChatConnection {
+	return engine.ChatConnection{ID: "c3", Name: "LM Studio on the LAN", Kind: engine.ChatLMStudio, BaseURL: "http://192.168.1.20:1234/v1",
+		Model: "qwen/qwen3.8-27b"}
+}
+
+// TestAgentPreferencesPlainHTTPWarning (the owner's decision of 2026-10-15, H-95): while the base
+// URL is plain http to another machine the form says, in the warning colour and whole, that the key,
+// the conversation and every secret the agent reads travel unencrypted; localhost, 127.0.0.1, ::1
+// and https do not warn. The list marks such a connection "plain http".
+func TestAgentPreferencesPlainHTTPWarning(t *testing.T) {
+	sh, w, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	ch.mu.Lock()
+	ch.conns = append(ch.conns, lanStudio())
+	ch.mu.Unlock()
+	a.load()
+	q.until(t, "the LAN connection's mark", func() bool {
+		for _, p := range findAll[*pill](a.list) {
+			if p.text == "plain http" && p.fg == colorStatusWarning {
+				return true
+			}
+		}
+		return false
+	})
+	if n := len(findAll[*pill](a.list)); n != 3 { // default, private, plain http
+		t.Errorf("%d marks in the list, want only the LAN connection's plain http besides LM Studio's two", n)
+	}
+
+	a.edit(lanStudio())
+	settle(w)
+	warn := a.form.plainWarn
+	if !warn.Visible() || warn.text != engine.ChatPlainHTTPWarning || warn.color != colorStatusWarning {
+		t.Fatalf("the LAN connection: warning shown %v, %q in %s", warn.Visible(), warn.text, warn.color)
+	}
+	if lines := test.WidgetRenderer(warn).Objects(); !strings.HasSuffix(lines[len(lines)-1].(*canvas.Text).Text, "over the network.") {
+		t.Error("the warning is cut")
+	}
+	for base, shown := range map[string]bool{
+		"http://localhost:1234/v1": false, "http://127.0.0.1:1234/v1": false, "http://[::1]:1234/v1": false,
+		"https://llm.lan:1234/v1": false, "http://litellm.lan:4000": true,
+	} {
+		a.form.baseURL.SetText(base)
+		if warn.Visible() != shown {
+			t.Errorf("%s: warning shown %v, want %v", base, warn.Visible(), shown)
+		}
+	}
+}
+
+// TestAgentPreferencesCAFile: the CA file is saved with an https connection by its absolute path
+// ("~/" the home folder), refused with an http base URL or a relative path; the list says a
+// connection has one.
+func TestAgentPreferencesCAFile(t *testing.T) {
+	sh, _, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	a.edit(litellm())
+	a.form.caFile.SetText("certs/ca.pem")
+	test.Tap(a.form.saveB)
+	if !a.form.errLine.Visible() || !strings.Contains(a.form.errLine.text, "absolute path") {
+		t.Errorf("a relative CA file: %q", a.form.errLine.text)
+	}
+	a.form.caFile.SetText("~/certs/ca.pem")
+	a.form.baseURL.SetText("http://litellm.lan:4000")
+	test.Tap(a.form.saveB)
+	if !strings.Contains(a.form.errLine.text, "https") {
+		t.Errorf("a CA file over http: %q", a.form.errLine.text)
+	}
+	q.drain()
+	if n := len(ch.savesOf()); n != 0 {
+		t.Fatalf("%d saves of invalid forms", n)
+	}
+	a.form.baseURL.SetText("https://litellm.example.com")
+	test.Tap(a.form.saveB)
+	q.until(t, "the save", func() bool { return len(ch.savesOf()) == 1 && a.form == nil })
+	home, _ := os.UserHomeDir()
+	if got := ch.savesOf()[0].conn.CAFile; got != filepath.Join(home, "certs", "ca.pem") {
+		t.Errorf("saved CA file %q", got)
+	}
+	q.until(t, "the list", func() bool {
+		for _, l := range findAll[*textLine](a.list) {
+			if strings.HasSuffix(l.text, "gpt-oss-120b · CA file") {
+				return true
+			}
+		}
+		return false
+	})
+	conns, _ := ch.Connections()
+	a.edit(conns[1])
+	if a.form.caFile.Text != filepath.Join(home, "certs", "ca.pem") {
+		t.Errorf("the form shows the CA file %q", a.form.caFile.Text)
+	}
+}
+
+// plainSteps is a connection test of the LAN connection: every layer passed, the HTTP layer with
+// the plain http warning.
+func plainSteps() [][]engine.ChatTestStep {
+	return [][]engine.ChatTestStep{{
+		{Layer: engine.ChatTestTCP, State: engine.ChatTestPass, Detail: "192.168.1.20:1234 answers", Duration: 2 * time.Millisecond},
+		{Layer: engine.ChatTestHTTP, State: engine.ChatTestPass, Detail: "HTTP 200, plain http to another machine",
+			Warning: engine.ChatPlainHTTPWarning, Duration: 9 * time.Millisecond},
+		{Layer: engine.ChatTestAuth, State: engine.ChatTestPass, Detail: "7 models, no key needed", Duration: 11 * time.Millisecond},
+		{Layer: engine.ChatTestTools, State: engine.ChatTestPass, Detail: "qwen/qwen3.8-27b called get_time", Duration: 3200 * time.Millisecond},
+	}}
+}
+
+// TestAgentPreferencesTestWarns: a layer that passed with a warning shows the warning icon and
+// colour, and the warning under the test's rows.
+func TestAgentPreferencesTestWarns(t *testing.T) {
+	sh, _, q, ch := agentPrefsShell(t, ThemeDark)
+	a := sh.settings.agent
+	ch.testSteps = plainSteps()
+	a.edit(lanStudio())
+	test.Tap(a.form.testB)
+	q.until(t, "the test's result", func() bool {
+		r := a.form.stepRows[engine.ChatTestTools]
+		return r != nil && r.step.State == engine.ChatTestPass && !a.form.testB.Disabled()
+	})
+	if r := a.form.stepRows[engine.ChatTestHTTP]; r.detail.color != colorStatusWarning || r.detail.text != "Passed: HTTP 200, plain http to another machine" {
+		t.Errorf("HTTP: %q in %s", r.detail.text, r.detail.color)
+	}
+	if r := a.form.stepRows[engine.ChatTestAuth]; r.detail.color != colorStatusOK {
+		t.Errorf("Auth drawn in %s", r.detail.color)
+	}
+	if !a.form.testWarn.Visible() || a.form.testWarn.text != engine.ChatPlainHTTPWarning || a.form.testWarn.color != colorStatusWarning {
+		t.Errorf("the test's warning: shown %v, %q", a.form.testWarn.Visible(), a.form.testWarn.text)
+	}
+	ch.testSteps = testSteps(true)
+	test.Tap(a.form.testB)
+	q.until(t, "the second test", func() bool {
+		return a.form.stepRows[engine.ChatTestAuth].step.State == engine.ChatTestFail && !a.form.testB.Disabled()
+	})
+	if a.form.testWarn.Visible() {
+		t.Error("a test without a warning keeps the earlier one")
+	}
+}
+
 // TestAgentPreferencesValidation: a form without a name or with a base URL that is no http(s)
 // address is not saved and says why.
 func TestAgentPreferencesValidation(t *testing.T) {
@@ -336,22 +474,40 @@ func TestAgentPreferencesNotACommand(t *testing.T) {
 	}
 }
 
-func renderAgentPreferences(t *testing.T, mode ThemeMode) {
+func renderAgentPreferences(t *testing.T, mode ThemeMode, name string, conn engine.ChatConnection, steps [][]engine.ChatTestStep) {
 	sh, w, q, ch := agentPrefsShell(t, mode)
-	ch.testSteps = testSteps(true)
+	ch.mu.Lock()
+	ch.conns = append(ch.conns, lanStudio())
+	ch.testSteps = steps
+	ch.mu.Unlock()
 	a := sh.settings.agent
-	a.edit(litellm())
+	a.load()
+	q.until(t, "the list", func() bool { return len(a.conns) == 3 })
+	a.edit(conn)
 	test.Tap(a.form.testB)
 	q.until(t, "the test's result", func() bool { return !a.form.testB.Disabled() && len(a.form.steps.Objects) > 0 })
 	w.Canvas().Unfocus()
-	w.Resize(fyne.NewSize(1440, 1360)) // the list, the whole form and the test without scrolling
-	savePNG(t, w, "preferences_agent_"+string(mode)+".png")
+	w.Resize(fyne.NewSize(1440, 1640)) // the list, the whole form and the test without scrolling
+	savePNG(t, w, name+"_"+string(mode)+".png")
 }
 
-// TestRenderAgentPreferences: the connections, the form of one and a finished test whose third
-// layer failed and whose fourth was not reached.
+// TestRenderAgentPreferences: the connections (the LAN one marked plain http), the form of an
+// https one with its CA file, and a finished test whose third layer failed and whose fourth was
+// not reached.
 func TestRenderAgentPreferences(t *testing.T) {
+	conn := litellm()
+	conn.CAFile = "/Users/you/certs/team-ca.pem"
 	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
-		t.Run(string(mode), func(t *testing.T) { renderAgentPreferences(t, mode) })
+		t.Run(string(mode), func(t *testing.T) { renderAgentPreferences(t, mode, "preferences_agent", conn, testSteps(true)) })
+	}
+}
+
+// TestRenderAgentPreferencesPlainHTTP: the form of an LM Studio on another machine over plain http
+// with the warning under its base URL, and a passed test whose HTTP layer warns (H-95).
+func TestRenderAgentPreferencesPlainHTTP(t *testing.T) {
+	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
+		t.Run(string(mode), func(t *testing.T) {
+			renderAgentPreferences(t, mode, "preferences_agent_plainhttp", lanStudio(), plainSteps())
+		})
 	}
 }

@@ -490,6 +490,14 @@ linters:
         text: G304
         source: os\.Open\(path\)
         linters: [gosec]
+      # G304: an LLM connection's CA file, the path the user named for that connection in
+      # Preferences › Agent (no command or MCP tool reaches the connections); read as at most 1 MiB
+      # of a regular file, only its CERTIFICATE blocks taken, its content never logged or quoted
+      # (docs/security/trust-boundaries.md, H-104).
+      - path: ^internal/agent/cafile\.go$
+        text: G304
+        source: os\.Open\(path\)
+        linters: [gosec]
       # G304: --cpuprofile names the file, on the user's own command line.
       - path: ^cmd/cogpit/main\.go$
         text: G304

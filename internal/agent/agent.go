@@ -43,7 +43,11 @@ var (
 	ErrNotConnected     = errors.New("no cluster is connected: connect the conversation's context to go on")
 	ErrEmptyMessage     = errors.New("the message is empty")
 	ErrConnectionFields = errors.New("a connection needs a name, a kind and a base URL")
-	ErrNoModel          = errors.New("the connection has no model: choose one in the chat's settings")
+	// ErrCAFileScheme: a CA file is checked against an https server's certificate only.
+	ErrCAFileScheme = errors.New("a CA file is for an https base URL: plain http checks no certificate")
+	// ErrCAFilePath: the CA file is named by an absolute path.
+	ErrCAFilePath = errors.New("the CA file must be an absolute path")
+	ErrNoModel    = errors.New("the connection has no model: choose one in the chat's settings")
 	// ErrKeyMissing: the connection was saved with an API key that is not stored (any more): a key
 	// kept in the macOS keychain before 2026-10-15, which Cogpit no longer reads, or a key file
 	// removed by hand.
@@ -88,7 +92,8 @@ type Agent struct {
 	conns     []engine.ChatConnection // as stored: HasKey says a key was given (keyLost: not stored)
 	keyLost   map[string]bool         // connections saved with a key the key store does not hold
 	convs     map[string]*conversation
-	noOptions map[string]bool // connections whose endpoint refused stream_options
+	noOptions map[string]bool     // connections whose endpoint refused stream_options
+	caClients map[string]caClient // a connection's client with its CA file, by id and path
 
 	saveMu sync.Mutex // serialises the files' writes
 }
@@ -119,7 +124,7 @@ func New(opts Options) *Agent {
 		opts.NotifyEvery = 75 * time.Millisecond
 	}
 	a := &Agent{s: opts.Session, opts: opts, log: opts.Logger, keys: opts.Keys, hc: opts.HTTPClient,
-		keyLost: map[string]bool{}, convs: map[string]*conversation{}, noOptions: map[string]bool{}}
+		keyLost: map[string]bool{}, convs: map[string]*conversation{}, noOptions: map[string]bool{}, caClients: map[string]caClient{}}
 	a.loadConnections()
 	a.checkKeys()
 	a.loadConversations()
@@ -218,6 +223,15 @@ func normalize(c engine.ChatConnection) (engine.ChatConnection, error) {
 		return c, err
 	}
 	c.BaseURL = u.String()
+	if c.CAFile = strings.TrimSpace(c.CAFile); c.CAFile != "" {
+		switch {
+		case u.Scheme != schemeHTTPS:
+			return c, ErrCAFileScheme
+		case !filepath.IsAbs(c.CAFile):
+			return c, ErrCAFilePath
+		}
+		c.CAFile = filepath.Clean(c.CAFile)
+	}
 	if c.Limits.RepeatStop < 0 || c.Limits.MaxToolCalls < 0 || c.Limits.MaxTokens < 0 || c.Limits.MaxDuration < 0 {
 		return c, errors.New("a connection's limits cannot be negative")
 	}
@@ -306,6 +320,12 @@ func (a *Agent) DeleteConnection(id string) error {
 		a.conns[0].Default = true
 	}
 	delete(a.keyLost, id)
+	for key, cc := range a.caClients {
+		if strings.HasPrefix(key, id+"\x00") {
+			cc.hc.CloseIdleConnections()
+			delete(a.caClients, key)
+		}
+	}
 	a.mu.Unlock()
 	err := a.keys.Delete(id)
 	a.saveConnections()
@@ -356,13 +376,17 @@ func (a *Agent) keyFor(c engine.ChatConnection) (string, error) {
 	return k, err
 }
 
-// clientFor returns a client for a connection with key.
+// clientFor returns a client for a connection with key: the connection's CA file read now.
 func (a *Agent) clientFor(c engine.ChatConnection, key string) (*client, error) {
 	ep, err := endpointFor(c.Kind, c.BaseURL)
 	if err != nil {
 		return nil, err
 	}
-	return &client{hc: a.hc, ep: ep, key: key}, nil
+	hc, err := a.httpClientFor(c)
+	if err != nil {
+		return nil, err
+	}
+	return &client{hc: hc, ep: ep, key: key}, nil
 }
 
 // Models implements engine.ChatAgent.

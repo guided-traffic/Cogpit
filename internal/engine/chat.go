@@ -2,6 +2,9 @@ package engine
 
 import (
 	"context"
+	"net"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -102,6 +105,11 @@ type ChatConnection struct {
 	// two meta-tools that find and run the rest. The rules are the same either way (D-2, the
 	// confirmations, the Secret filter); only the user sets it, in the window.
 	AllTools bool `json:"allTools,omitempty"`
+	// CAFile names a PEM file of CA certificates for an https base URL whose server has a private
+	// CA (the owner's decision of 2026-10-15): trusted for this connection beside the system's roots
+	// (on macOS its trust store), read whenever a request is sent. An absolute path, not secret;
+	// empty: the system's roots only.
+	CAFile string `json:"caFile,omitempty"`
 	// HasKey reports whether an API key for the connection is stored. A connection saved with a
 	// key that is not stored (one kept in the macOS keychain before 2026-10-15) reports false.
 	HasKey  bool       `json:"hasKey,omitempty"`
@@ -173,10 +181,36 @@ const (
 
 // ChatTestStep is one layer's result.
 type ChatTestStep struct {
-	Layer    ChatTestLayer `json:"layer"`
-	State    ChatTestState `json:"state"`
-	Detail   string        `json:"detail,omitempty"` // the reason of a failure, or what passed ("HTTP 200, TLS 1.3")
+	Layer  ChatTestLayer `json:"layer"`
+	State  ChatTestState `json:"state"`
+	Detail string        `json:"detail,omitempty"` // the reason of a failure, or what passed ("HTTP 200, TLS 1.3")
+	// Warning is a caution about a layer that passed, shown in the warning colour: plain http to
+	// another machine (ChatPlainHTTPWarning).
+	Warning  string        `json:"warning,omitempty"`
 	Duration time.Duration `json:"duration,omitempty"`
+}
+
+// ChatPlainHTTPWarning is what the window and the connection test say about a connection over plain
+// http to another machine (the owner's decision of 2026-10-15, H-95).
+const ChatPlainHTTPWarning = "Plain http to another machine: not only the API key but the whole conversation, and every " +
+	"Secret or other secret the agent reads, travel unencrypted over the network."
+
+// ChatPlainHTTPRemote reports whether a connection's base URL is plain http to another machine: the
+// http scheme and a host other than localhost or a loopback address (127.0.0.0/8, ::1), which the
+// owner exempted (2026-10-15). Not a URL, or https: false.
+func ChatPlainHTTPRemote(baseURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || !strings.EqualFold(u.Scheme, "http") || u.Host == "" {
+		return false
+	}
+	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if host == "localhost" {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return false
+	}
+	return true
 }
 
 // ChatConversationInfo is a conversation as the history lists it.
