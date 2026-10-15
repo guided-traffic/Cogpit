@@ -97,8 +97,8 @@ func refKeys(refs []model.ObjectRef) []string {
 
 // TestRowCheckboxes: every row starts with a checkbox; a checkbox toggles its row without the
 // drawer, ⇧ adds the rows from the last one checked, ⌘-click on a row toggles it, a plain click
-// opens the drawer and checks nothing (A73); from two selected objects the header shows the
-// selection's count, Delete and a clear button.
+// opens the drawer and checks nothing (A73); from one selected object the header shows the
+// selection's count, Delete (greyed while the connection is interrupted, D-58) and a clear button.
 func TestRowCheckboxes(t *testing.T) {
 	f := connectedFake(t, 200)
 	sh, w, q := newTestShell(t, f, Options{})
@@ -126,6 +126,13 @@ func TestRowCheckboxes(t *testing.T) {
 	if !tv.check.bar.root.Visible() || tv.check.bar.count.text != "1 selected" { // from one row (owner, 2026-10-15)
 		t.Errorf("selection bar for one object: visible %v, %q", tv.check.bar.root.Visible(), tv.check.bar.count.text)
 	}
+	if tv.check.bar.del.Disabled() {
+		t.Error("Delete greyed while connected")
+	}
+	f.update(func(u *engine.UIState) { u.Connection.State = engine.Interrupted })
+	q.until(t, "Delete greyed while interrupted", func() bool { return tv.check.bar.del.Disabled() })
+	f.update(func(u *engine.UIState) { u.Connection.State = engine.Connected })
+	q.until(t, "Delete back", func() bool { return !tv.check.bar.del.Disabled() })
 
 	// ⇧ on another checkbox adds the rows between.
 	release := heldKeys(t, fyne.KeyModifierShift)

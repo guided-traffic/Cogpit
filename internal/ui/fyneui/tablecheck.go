@@ -349,6 +349,15 @@ func (b *selectionBar) update(n int) {
 		b.count.SetText(formatCount(int64(n)) + " selected")
 		b.root.Show()
 	}
+	// Delete waits for a working connection: while it is interrupted the engine refuses every write
+	// (D-58), so the button says so by being greyed rather than by a refusal after the click.
+	if live := b.tv.sh.ui.Connection.State == engine.Connected; live == b.del.Disabled() {
+		if live {
+			b.del.Enable()
+		} else {
+			b.del.Disable()
+		}
+	}
 	b.tv.showHeadingCount()
 }
 

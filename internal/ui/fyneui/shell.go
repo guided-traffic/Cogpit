@@ -536,6 +536,7 @@ func (sh *shell) connectionChanged(st, old engine.UIState) {
 	sh.dock.connectionChanged() // its shells' Reconnect (dockreconnect.go)
 	sh.side.updateHeader()
 	sh.view.updatePlaceholder()
+	sh.view.checksChanged() // the selection bar's Delete follows the connection (D-58)
 	if st.Connection.State == engine.Connected && (sh.kindsFor != st.Context) {
 		sh.loadKinds()
 		sh.loadNamespaces()
