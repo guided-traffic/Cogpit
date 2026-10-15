@@ -7,6 +7,7 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/fyne-io/oksvg v0.2.1-0.20260918172519-a9af55fa95d9
 	github.com/fyne-io/terminal v0.0.0-20261009134031-46cd12724ff3
+	github.com/go-logr/logr v1.4.4
 	github.com/google/jsonschema-go v0.4.3
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
@@ -25,6 +26,7 @@ require (
 	k8s.io/kubectl v0.37.1
 	k8s.io/metrics v0.37.1
 	k8s.io/streaming v0.37.1
+	sigs.k8s.io/controller-runtime v0.25.2
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -71,7 +73,6 @@ require (
 	github.com/go-gl/gl v0.0.0-20260331235117-4566fea9a276 // indirect
 	github.com/go-gl/glfw/v3.4/glfw v0.1.0-pre.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
-	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v1.0.1 // indirect
 	github.com/go-openapi/errors v0.22.9 // indirect
@@ -205,7 +206,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20260821135717-be32def86098 // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 	oras.land/oras-go/v2 v2.6.3 // indirect
-	sigs.k8s.io/controller-runtime v0.25.2 // indirect
 	sigs.k8s.io/json v0.0.0-20260909141634-11ed52e25bc5 // indirect
 	sigs.k8s.io/kustomize/api v0.21.2 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.2 // indirect

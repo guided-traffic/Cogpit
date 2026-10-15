@@ -311,7 +311,11 @@ jobs "Vulnerability Check" and "GoSec Security Scan" in
   repository runs code in those jobs. Live for every release run.
 - **What Renovate cannot see:** sigstore's trusted root, refreshed by hand
   ([trust boundaries › H-35](trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search)),
-  and the terminal widget's copy in `third_party/`, which moves to a new upstream commit by hand
-  ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)).
+  the terminal widget's copy in `third_party/`, which moves to a new upstream commit by hand
+  ([PATCHES.md](../../third_party/fyne-terminal/PATCHES.md)), and, since 2026-10-16, the envtest
+  binaries (etcd and kube-apiserver of Kubernetes 1.37.0), pinned in the `Makefile` by version
+  and SHA-512 and moved by hand ([D-64](../developer/decisions.md#d-64-envtest-a-real-api-server-in-ci-without-docker)).
+  They run only in tests, never ship: a changed archive fails `make envtest-bin`; the archive the
+  pin names runs in CI's envtest job, which holds no secret beyond the read-only `GITHUB_TOKEN`.
 - **A release names no inputs.** It carries no SBOM and no provenance attestation of the build
   (none in the workflows, checked 2026-10-15).

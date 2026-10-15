@@ -1,7 +1,7 @@
 # Cogpit — developer targets. CI (.github/workflows/release.yml) runs the same ones, one job each:
 # lint, parity, gosec, vuln, cyclo, test-unit-coverage, test-race-ui (sharded), test-race-rest,
-# kind-up with test-kind, kind-drain-up with test-kind-drain, coverage-report, and test-darwin with
-# app on macOS (docs/developer/releasing.md#ci).
+# kind-up with test-kind, kind-drain-up with test-kind-drain, envtest-bin with test-envtest,
+# coverage-report, and test-darwin with app on macOS (docs/developer/releasing.md#ci).
 #
 # Go: go.mod declares go 1.27.2; GOTOOLCHAIN=auto fetches it when the local Go is older.
 # Kubeconfig safety: every target that talks to a cluster uses KIND_KUBECONFIG, a separate file;
@@ -357,6 +357,44 @@ test-kind-drain-compile: ## Compile the drain tests without a cluster or a run
 kind-drain-down: ## Delete the drain cluster and its kubeconfig file
 	kind delete cluster --name $(KIND_DRAIN_CLUSTER) --kubeconfig $(KIND_DRAIN_KUBECONFIG)
 	rm -f $(KIND_DRAIN_KUBECONFIG)
+
+# envtest (D-64; docs/developer/testing.md): a real kube-apiserver and etcd, no Docker and no
+# kubelet, for the tests tagged envtest (internal/testkit/envtest starts them through
+# controller-runtime's envtest). The binaries are envtest's release archive of Kubernetes
+# ENVTEST_K8S_VERSION from controller-tools' release store, the one setup-envtest downloads, pinned
+# by version and the SHA-512 its index publishes per platform, kept in .cache/envtest/<version>
+# (hack/envtest/fetch.sh). Both SHA-512 were pinned 2026-10-16 from the index
+# (https://raw.githubusercontent.com/kubernetes-sigs/controller-tools/HEAD/envtest-releases.yaml),
+# agree with the downloads, whose SHA-256 agree with GitHub's digests of the assets. A new version
+# is pinned by hand, both SHA-512 from that index. 1.37.0: kind's Kubernetes in CI; client-go v0.37.1.
+ENVTEST_K8S_VERSION := 1.37.0
+ENVTEST_SHA512_Darwin_arm64   := fb38cfacdd71b5e97a4d4cceac861af5f55069cf783f0e49cf181bfc32eb3e557c2091a534dc5d38f1b92c5ba142bc1979f215a5385b3630ea6a661be6fa161b
+ENVTEST_PLATFORM_Darwin_arm64 := darwin-arm64
+ENVTEST_SHA512_Linux_x86_64   := 1d1c453633b72c161a5d5a886cde7ac850be1a2ac796a9e1d4ffacacc64868295bdd2d57aa66cd0c158f5ce510f5dfe3fbc61ac21bd3dcfb875bd70658aa663a
+ENVTEST_PLATFORM_Linux_x86_64 := linux-amd64
+ENVTEST_HOST     = $(shell uname -s)_$(shell uname -m)
+ENVTEST_DIR     := $(CACHE)/envtest/$(ENVTEST_K8S_VERSION)
+ENVTEST_PKGS     = $(sort $(addprefix ./,$(dir $(shell grep -rl --include='*_test.go' '^//go:build envtest' cmd internal))))
+ENVTEST_RUN     ?= ^TestEnvtest
+
+.PHONY: envtest-bin envtest-key test-envtest test-envtest-compile
+
+envtest-bin: $(ENVTEST_DIR)/.verified ## Download the pinned envtest binaries (etcd, kube-apiserver) into .cache/envtest (checksum verified)
+
+$(ENVTEST_DIR)/.verified:
+	hack/envtest/fetch.sh '$(ENVTEST_K8S_VERSION)' '$(ENVTEST_PLATFORM_$(ENVTEST_HOST))' \
+		'$(ENVTEST_SHA512_$(ENVTEST_HOST))' '$(ENVTEST_DIR)'
+
+envtest-key: ## The CI cache key of the envtest binaries: version, platform and pinned SHA-512
+	@echo 'envtest-$(ENVTEST_K8S_VERSION)-$(ENVTEST_PLATFORM_$(ENVTEST_HOST))-$(ENVTEST_SHA512_$(ENVTEST_HOST))'
+
+test-envtest-compile: ## Compile the envtest tests without binaries or a run (CI does it while they download)
+	$(GO) test -race -tags envtest -covermode=atomic -coverpkg=./... -run '^$$' $(ENVTEST_PKGS)
+
+test-envtest: envtest-bin ## The TestEnvtest* tests against envtest's kube-apiserver and etcd, race detector on, with coverage (.cache/coverage/envtest.out)
+	@mkdir -p $(COVERAGE_DIR)
+	$(TEST_ENV) COGPIT_ENVTEST_ASSETS=$(ENVTEST_DIR) $(GO) test -race -tags envtest -timeout 10m -run '$(ENVTEST_RUN)' \
+		-covermode=atomic -coverpkg=./... -coverprofile=$(COVERAGE_DIR)/envtest.out $(ENVTEST_PKGS)
 
 $(FYNE):
 	GOBIN=$(BIN) $(GO) install fyne.io/tools/cmd/fyne@$(FYNE_TOOLS)

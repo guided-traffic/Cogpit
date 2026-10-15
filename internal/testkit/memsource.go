@@ -1,5 +1,8 @@
-// Package testkit holds test fixtures: an in-memory cache.Source, object builders, and helpers for
-// kind and envtest clusters. It is imported by tests only.
+// Package testkit holds test fixtures: an in-memory cache.Source, object builders, a fake API
+// server over HTTPS (RBAC, label selectors, a service proxy, logs) and a proxy in front of it that
+// can go silent, and fakes of Helm repositories and kubectl releases. A real control plane (envtest's
+// etcd and kube-apiserver) is in testkit/envtest; the kind tests connect to the cluster make kind-up
+// made. It is imported by tests only.
 package testkit
 
 import (

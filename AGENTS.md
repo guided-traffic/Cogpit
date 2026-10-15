@@ -169,7 +169,7 @@ CI ([`release.yml`](.github/workflows/release.yml), one job per check, none long
 minutes: [releasing › CI](docs/developer/releasing.md#ci)) runs on every push what used to run
 here, each with its own make target: lint (depguard layering included), parity, GoSec,
 govulncheck, cyclomatic complexity, the unit tests, the UI's race tests in eight shards and the
-other packages' race tests, the kind and drain cluster tests, the macOS-only tests and the app, the
+other packages' race tests, the kind and drain cluster tests, the envtest tests, the macOS-only tests and the app, the
 Windows compile, and the combined coverage. Read its result when you next push (`gh run list`, then
 `gh run view <id> --log-failed`) and fix what is red first. Once every job on `main` is green,
 semantic-release publishes a release for the `feat:` and `fix:` commits since the last one and
