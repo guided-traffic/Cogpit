@@ -234,10 +234,10 @@ func (d *drawer) copyHovered() {
 	d.sh.copyText(h.text, h.secret)
 	d.confirmCopy()
 	if h.secret {
-		d.sh.toast("info", fmt.Sprintf("Copied. The clipboard is cleared in %s.", ttlText(d.sh.secretClipTTL)))
+		d.sh.copyToast("info", fmt.Sprintf("Copied. The clipboard is cleared in %s.", ttlText(d.sh.secretClipTTL)))
 		return
 	}
-	d.sh.toast("info", copiedToast)
+	d.sh.copyToast("info", copiedToast)
 }
 
 // copiedToast is the toast after a copy that is no Secret's value, from the drawer and the lists.

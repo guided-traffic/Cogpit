@@ -161,7 +161,7 @@ func (e *secretEntry) TypedShortcut(s fyne.Shortcut) {
 		return
 	}
 	e.sh.copyText(text, true)
-	e.sh.toast("info", fmt.Sprintf("Copied. The clipboard is cleared in %s.", ttlText(e.sh.secretClipTTL)))
+	e.sh.copyToast("info", fmt.Sprintf("Copied. The clipboard is cleared in %s.", ttlText(e.sh.secretClipTTL)))
 	if isCut { // the entry removes the selection; its own copy goes nowhere
 		e.Entry.TypedShortcut(&fyne.ShortcutCut{Clipboard: discardClipboard{}})
 	}

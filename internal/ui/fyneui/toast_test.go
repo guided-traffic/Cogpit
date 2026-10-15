@@ -73,7 +73,7 @@ func TestToastSurfaceWidth(t *testing.T) {
 
 func renderToasts(t *testing.T, mode ThemeMode, name string) {
 	sh, w, _, _ := podDrawerScene(t, mode)
-	sh.toast("info", "Copied to the clipboard")
+	sh.copyToast("info", copiedToast)
 	sh.toast("warning", "Context demo lost its credentials; reconnect to read the cluster again")
 	sh.toast("error", "pods.delete: pods \"checkout-api-7d9f8b6c5-x2k4p\" is forbidden: User cannot delete resource \"pods\" in namespace \"shop\"")
 	savePNG(t, w, name)

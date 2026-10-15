@@ -30,9 +30,9 @@ func copyName(sh *shell, res any) {
 		Name string `json:"name"`
 	}
 	if err := decode(res, &r); err != nil || r.Name == "" {
-		sh.toast("error", "Nothing to copy")
+		sh.copyToast("error", "Nothing to copy")
 		return
 	}
 	sh.app.Clipboard().SetContent(r.Name)
-	sh.toast("info", "Copied "+r.Name)
+	sh.copyToast("info", "Copied "+r.Name)
 }

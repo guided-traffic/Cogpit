@@ -731,6 +731,11 @@ func (sh *shell) toast(level, msg string) {
 	sh.showToast(level, msg, sh.recordToast(level, msg))
 }
 
+// copyToast shows a copy's confirmation as a toast only: copying is not worth a place in the
+// notification history (the owner's F5, 2026-10-15), so nothing is recorded and the bell does not
+// count it.
+func (sh *shell) copyToast(level, msg string) { sh.showToast(level, msg, 0) }
+
 // showToast shows a message in the bottom-right corner: a card on a strong surface with a bar,
 // border and icon in the level's colour, a bold title, the text and a close button, which marks
 // its notification (id, 0 for none) read.

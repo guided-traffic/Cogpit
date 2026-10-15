@@ -70,7 +70,7 @@ func titleScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue) 
 	s.Emit(engine.Event{Type: engine.EventToast, Level: engine.LevelWarning,
 		Message: "Node worker-2: the eviction of pod checkout-api-7d9f8b6c5-x2k4p waits: Cannot evict pod as it would violate the pod's disruption budget."})
 	sh.toast("error", "pods.delete: pods \"checkout-api-7d9f8b6c5-x2k4p\" is forbidden: User cannot delete resource \"pods\" in namespace \"shop\"")
-	sh.toast("info", "Copied to the clipboard")
+	sh.toast("info", "Port forward started: http://127.0.0.1:8080 → checkout-api:8080")
 	until("four unread", func() bool { return sh.ui.Notifications.Unread == 4 })
 	for _, c := range toastCards(sh) { // they went by: only the bell remembers them
 		sh.dismissToast(c)

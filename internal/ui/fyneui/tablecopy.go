@@ -326,5 +326,5 @@ func (tc *tableCopy) copyCell() {
 	}
 	tc.tv.sh.copyText(text, false)
 	tc.btn.confirm(&tc.done)
-	tc.tv.sh.toast("info", copiedToast)
+	tc.tv.sh.copyToast("info", copiedToast)
 }
