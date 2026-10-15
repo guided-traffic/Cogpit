@@ -321,6 +321,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		st.logs.add(name, LogWarn, line) // insecure-skip-tls-verify (tlswarning.go)
 	}
 	st.logs.add(name, LogInfo, "Connected to "+name)
+	b.watch = newConnWatch(s, b, seq) // nil for the demo cluster (connwatch.go, D-58)
 	st.backend = b
 	st.diagStop = make(chan struct{})
 	diagStop := st.diagStop
@@ -335,12 +336,15 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		}
 		u.Context = b.Context
 		u.Connection = Connection{State: Connected, Demo: b.Demo, TLSUnchecked: tlsUnchecked(b)} // tlswarning.go
+		// The connection's watch writes Connection from now on (connwatch.go).
+		u.connGen = seq
 		u.View = view
 		u.Sort = sort
 		u.Selected = nil
 		u.Drawer = nil
 		u.Filter = ""
 	})
+	b.watch.start()                   // nil-safe
 	s.settleGoneConnect(b.Context, b) // its file went or its source was removed meanwhile (connect_gone.go)
 	return nil
 }

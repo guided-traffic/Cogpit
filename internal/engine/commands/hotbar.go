@@ -200,7 +200,7 @@ func registerHotbar(g *registrar) {
 			if err != nil {
 				return nil, err
 			}
-			if u := s.UIState(); u.Context == t.Context && (u.Connection.State == engine.Connected || u.Connection.State == engine.Connecting) {
+			if u := s.UIState(); u.Context == t.Context && (u.Connection.State.Live() || u.Connection.State == engine.Connecting) {
 				return ConnectResult{Context: u.Context, State: u.Connection.State, TLSUnchecked: u.Connection.TLSUnchecked}, nil
 			}
 			err = s.Connect(ctx, t.Context)

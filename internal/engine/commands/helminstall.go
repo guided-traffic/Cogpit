@@ -394,7 +394,7 @@ func runInstall(ctx context.Context, s *engine.Session, p installParams) (any, e
 		Chart: src.repository + "/" + src.chart, ChartVersion: src.version, Started: s.Now().UTC(), StartedBy: startedBy(ctx),
 	}
 	var revision int
-	err = runHelmOp(s, op, fmt.Sprintf("Installing release %s from %s/%s %s…", p.Name, src.repository, src.chart, src.version), src.text, func() (err error) {
+	err = runHelmOp(ctx, s, op, fmt.Sprintf("Installing release %s from %s/%s %s…", p.Name, src.repository, src.chart, src.version), src.text, func(ctx context.Context) (err error) {
 		defer func() {
 			if r := recover(); r != nil { // scrubbed here: helmSafely would quote the panic as it is
 				err = helm.Scrubbed(fmt.Errorf("internal error: %v", r), scrub)

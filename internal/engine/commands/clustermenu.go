@@ -33,7 +33,7 @@ func registerClusterMenu(g *registrar) {
 			"cluster: Cogpit stops watching it, its port forwards stop as when switching clusters, and the workspace shows " +
 			"the welcome page. The cluster's tabs close with it. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ struct{}) error {
-			if st := s.UIState().Connection.State; st != engine.Connected && st != engine.Connecting {
+			if st := s.UIState().Connection.State; !st.Live() && st != engine.Connecting {
 				return engine.ErrNotConnected
 			}
 			return nil

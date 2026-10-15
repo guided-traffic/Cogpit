@@ -205,6 +205,39 @@ func (a *accessReviews) refresh() []string {
 	return namespaces
 }
 
+// forgetFailures drops the answers that failed and lifts "no more until refreshed": the reviews
+// sent while the connection was interrupted failed for that reason alone (D-58). The answers that
+// came are kept; the rules of the namespaces Cogpit was told about are asked again at once, the
+// other questions when they come up.
+func (a *accessReviews) forgetFailures() {
+	a.mu.Lock()
+	if a.stopped || a.s == nil {
+		a.mu.Unlock()
+		return
+	}
+	changed := a.failing
+	a.failing = false
+	for ns, r := range a.rules {
+		if r.done && r.err != nil {
+			delete(a.rules, ns)
+			changed = true
+		}
+	}
+	for q, c := range a.checks {
+		if c.done && !c.known {
+			delete(a.checks, q)
+			changed = true
+		}
+	}
+	if changed {
+		a.prefetchLocked()
+	}
+	a.mu.Unlock()
+	if changed {
+		signal(a.wake)
+	}
+}
+
 // prefetchLocked starts the rules reviews of the default namespace and the namespace filter.
 func (a *accessReviews) prefetchLocked() []string {
 	namespaces := a.seenLocked(a.filter)

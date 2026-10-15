@@ -63,6 +63,13 @@ type Backend struct {
 	// and the API server decides.
 	Access Access
 
+	// Health is what the connection watch asks (connwatch.go, D-58). Nil means Conn; without either
+	// (the demo cluster) the connection has no watch.
+	Health HealthProber
+
+	// watch is the connection's watch; the Session sets it before it publishes the backend.
+	watch *connWatch
+
 	// custom is the custom kinds watch (customkinds.go); the Session sets it before it publishes
 	// the backend, nil without CustomResources.
 	custom *customKinds
@@ -109,7 +116,8 @@ func (b *Backend) close(log *slog.Logger) {
 	if b == nil {
 		return
 	}
-	b.ns.stop() // the session's replan loop (accessiblens_plan.go)
+	b.watch.stop() // the connection watch (connwatch.go); nil-safe
+	b.ns.stop()    // the session's replan loop (accessiblens_plan.go)
 	if b.custom != nil {
 		b.custom.stop()
 	}

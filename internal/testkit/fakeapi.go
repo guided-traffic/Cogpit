@@ -77,6 +77,7 @@ type FakeAPIServer struct {
 	requests  map[string]int64
 	proxies   map[string]http.Handler // "namespace/name:port" -> the service behind the proxy
 	scoped    map[string]int64        // resource reads by "verb resource" and namespace (nsrefusing.go)
+	logs      fakeLogs                // the containers' logs (fakelogs.go)
 }
 
 type apiWatcher struct {
@@ -491,6 +492,10 @@ func (s *FakeAPIServer) serveResource(w http.ResponseWriter, r *http.Request, pa
 	req.key = resource
 	if req.sub == "proxy" {
 		s.serveProxy(w, r, req)
+		return
+	}
+	if req.sub == "log" && req.res.GVR == PodsGVR { // fakelogs.go
+		s.serveLog(w, r, req)
 		return
 	}
 	watching := q.Get("watch") == "true" || q.Get("watch") == "1"

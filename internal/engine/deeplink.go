@@ -265,7 +265,7 @@ func (s *Session) OpenDeepLink(ctx context.Context, raw string) (res DeepLinkRes
 	}
 	res.Link = link
 	u := s.UIState()
-	connected := u.Connection.State == Connected
+	connected := u.Connection.State.Live() // an interrupted connection is still the one a link navigates (D-58)
 	ctxID := link.Context
 	if ctxID == "" {
 		if !connected || u.Context == "" {
@@ -348,7 +348,7 @@ func (s *Session) askLinkConnect(ctx context.Context, link DeepLink, ctxID strin
 		return fmt.Errorf("the link would connect %s: %w", kubeconfig.DisplayText(ctxID, 200), ErrConfirmationUnavailable)
 	}
 	from := "no cluster is connected"
-	if u.Connection.State == Connected && u.Context != "" {
+	if u.Connection.State.Live() && u.Context != "" {
 		from = "you are working in " + kubeconfig.DisplayText(u.Context, 200) + ", whose tabs stay"
 	}
 	what := "its overview"

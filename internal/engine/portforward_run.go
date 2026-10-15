@@ -131,6 +131,12 @@ func (r *forwardRun) run(ctx context.Context) {
 			}
 			continue
 		}
+		// No dial while the connection is interrupted; at once when it is back (D-58, S7).
+		if waited, ok := r.awaitConnection(ctx, t); !ok {
+			return
+		} else if waited {
+			backoff = forwardRetryFirst
+		}
 		phase := ForwardStarting
 		if connected {
 			phase = ForwardReconnecting
@@ -225,14 +231,39 @@ func (r *forwardRun) sleep(ctx context.Context, d time.Duration) bool {
 	}
 }
 
+// awaitConnection waits while the cluster's connection is interrupted or its login expired,
+// saying so in the forward's state. It reports whether it waited, and false for ok once ctx ended.
+func (r *forwardRun) awaitConnection(ctx context.Context, t forwardTarget) (waited, ok bool) {
+	back, _ := r.b.watch.usable()
+	select {
+	case <-back:
+		return false, true
+	default:
+	}
+	r.set(ForwardReconnecting, forwardInterrupted, t.pod, t.port)
+	select {
+	case <-back:
+		return true, true
+	case <-ctx.Done():
+		return true, false
+	}
+}
+
+// forwardInterrupted is a forward's message while its cluster's connection is interrupted.
+const forwardInterrupted = "the connection to the cluster is interrupted; the forward connects again once it is back"
+
 // serve carries local connections over tun until ctx ends, the connection is lost (lost true:
 // dial again after the backoff) or the cache says the pod is no longer the one to use (lost
-// false: dial the next one at once). why says which.
+// false: dial the next one at once). why says which. A connection to the cluster that is
+// interrupted ends the tunnel too (lost false): the loop waits for it, then dials at once.
 func (r *forwardRun) serve(ctx context.Context, tun cluster.PortTunnel, t forwardTarget, watch *forwardWatch, conns <-chan net.Conn) (why string, lost bool) {
+	_, broken := r.b.watch.usable()
 	for {
 		select {
 		case <-ctx.Done():
 			return "", false
+		case <-broken:
+			return forwardInterrupted, false
 		case <-tun.Done():
 			why = "lost the connection to pod " + t.pod
 			r.mu.Lock()

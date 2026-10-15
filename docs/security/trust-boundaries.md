@@ -300,6 +300,29 @@ Content binding is narrower than "everything the plugin runs", by decision (owne
 A link in the folder that points to a file outside is bound by its target path; a tool manager that
 repoints it (a Homebrew upgrade of a linked `aws`) asks once again.
 
+### H-101: A credential plugin runs again during a connection without being checked again
+
+Live since credential plugins run in Cogpit (2026-10-11), found and narrowed while building
+[D-58](../developer/decisions.md#d-58-standby-and-lost-connections) (2026-10-15/16). The approval
+binds a plugin's program ([D-26](../developer/decisions.md#d-26-binding-a-credential-plugins-approval-to-its-program))
+and is checked when a connection is made: the files are read again right before client-go starts
+the program (H-1). During the connection, client-go's exec authenticator runs the program again by
+itself, by its path as it is then: when the credential it returned expires (its
+`expirationTimestamp`; a cloud token after an hour, a login after a night's sleep), and on a 401
+Unauthorized. None of these runs is checked against the approval: a program inside the kubeconfig's
+folder that a writer of a synced folder replaced after the connect runs at the next renewal without
+the dialog a new connect would show. What stands in the way since D-58: Cogpit's own renewals check
+the approval first and run no changed plugin (the check at wake, the reconnect after an
+interruption, Log in again; they make the login expired and ask for a new connect instead, which
+shows the plugin, `Connection.NeedsApproval`); the login
+guard lets client-go answer only the first 401 after a request that worked with a run, where before
+every 401 could start one ([`cluster/health.go`](../../internal/cluster/health.go)); and the
+replacement needs write access to the kubeconfig's folder while the user is connected. Not covered:
+client-go's run at a credential's expiry and at that first 401, while connected. Closing it needs
+Cogpit to run the plugin itself (client-go's exec authenticator re-done for tokens and client
+certificates) or a check of the program before each of client-go's runs, for which client-go offers
+no hook.
+
 ### H-34: The plugin approval shows the kubeconfig's proxy, not Cogpit's
 
 The approval of a credential plugin binds, and its dialog shows, the kubeconfig's own `proxy-url`

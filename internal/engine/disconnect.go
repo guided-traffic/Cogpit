@@ -16,7 +16,7 @@ import (
 // A connect started after Disconnect wins: Disconnect then leaves the new connection alone.
 func (s *Session) Disconnect() error {
 	u := s.UIState()
-	if u.Connection.State != Connected && u.Connection.State != Connecting {
+	if !activeConnection(u.Connection.State) {
 		return ErrNotConnected
 	}
 	st := s.state

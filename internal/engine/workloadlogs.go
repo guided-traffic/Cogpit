@@ -90,6 +90,7 @@ type workloadBounds struct {
 // ends every container's stream and releases the cache handles.
 type workloadLogs struct {
 	s        *Session
+	watch    *connWatch // the connection's: a stream that broke with it resumes once it is back (D-58)
 	tabID    string
 	ref      model.ObjectRef
 	noun     string // "Deployment web"
@@ -183,7 +184,7 @@ func (s *Session) newWorkloadLogs(ctx context.Context, tab DockTab, ref model.Ob
 		noun = p.Kind + " " + ref.Name
 	}
 	wl := &workloadLogs{
-		s: s, tabID: tab.ID, ref: ref, noun: noun, opts: tab.Logs, streamer: streamer, uid: string(obj.GetUID()),
+		s: s, watch: b.watch, tabID: tab.ID, ref: ref, noun: noun, opts: tab.Logs, streamer: streamer, uid: string(obj.GetUID()),
 		name: name, bounds: bounds, sink: sink, previousDone: previousDone,
 		wake: make(chan struct{}, 1), stop: make(chan struct{}), started: map[string]bool{},
 		streaming: map[string]streamEntry{}, cursors: map[string]logCursor{}, sel: selectionOf(tab),
@@ -532,6 +533,18 @@ func (wl *workloadLogs) stream(ctx context.Context, t logTarget, tail int64, cur
 		}
 		if cur.last.IsZero() && cur.lines > 0 {
 			return // lines without timestamps: a resumption could not tell which it has
+		}
+		// Broken with the connection: wait until it is back, mark the gap and go on at once (D-58).
+		from, to, werr := wl.watch.await(ctx, wl.s.Now())
+		if werr != nil {
+			return
+		}
+		if !from.IsZero() {
+			if !wl.write(NoticePrefix, []byte(prefix+": "+wl.s.interruptedMarker(from, to))) {
+				return
+			}
+			drops = 0
+			continue
 		}
 		if fresh > 0 || time.Since(opened) >= workloadLogSteady {
 			drops = 0

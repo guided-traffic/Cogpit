@@ -153,7 +153,9 @@ func (u *UIState) lastUsedTab(contextID string) int {
 	return best
 }
 
-func (u *UIState) connected() bool { return u.Connection.State == Connected }
+// connected reports whether a cluster is connected, interrupted or with an expired login (D-58):
+// the tabs follow it either way.
+func (u *UIState) connected() bool { return u.Connection.State.Live() }
 
 // touch marks a tab as the most recently active one.
 func (u *UIState) touch(i int) {
@@ -259,7 +261,7 @@ func (u *UIState) syncTabs(old UIState, viewTitle func(string) string) {
 		u.ActiveTab = ""
 	}
 	if u.connected() {
-		becameConnected := old.Connection.State != Connected || old.Context != u.Context
+		becameConnected := !old.Connection.State.Live() || old.Context != u.Context
 		i := u.activeIndex()
 		switch {
 		case becameConnected && i >= 0 && u.Tabs[i].View != "":

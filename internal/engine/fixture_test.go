@@ -141,6 +141,7 @@ type fakeConnector struct {
 	profiles []*model.KindProfile
 	actions  Actions
 	conn     *cluster.Conn
+	health   HealthProber // the connection watch's probes (connwatch_test.go); nil: none
 
 	mu       sync.Mutex
 	connects int
@@ -164,7 +165,7 @@ func (f *fakeConnector) Connect(ctx context.Context, name string) (*Backend, err
 	c := cache.New(f.src, cache.Options{WarmPeriod: time.Minute})
 	return &Backend{
 		Context: name, Namespace: "default", Cache: c, Profiles: f.profiles,
-		Actions: f.actions, Conn: f.conn, Close: c.Close,
+		Actions: f.actions, Conn: f.conn, Close: c.Close, Health: f.health,
 	}, nil
 }
 

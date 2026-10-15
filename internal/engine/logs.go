@@ -99,7 +99,7 @@ func (s *Session) openLogs(ctx context.Context, tab DockTab, b *Backend, streame
 	if tab.Ref.Kind != logKindPods {
 		return s.openWorkloadLogs(ctx, tab, b, streamer)
 	}
-	return streamer.StreamLogs(ctx, podLogOptions(tab))
+	return s.openResumingLog(ctx, b, streamer, podLogOptions(tab)) // goes on after an interruption (logsresume.go)
 }
 
 // podLogOptions is the log request of a pod's tab: the last 1,000 lines, then follow; the

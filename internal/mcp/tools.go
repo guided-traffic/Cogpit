@@ -135,7 +135,12 @@ func (s *Server) handler(cmd *engine.Command, schema json.RawMessage) sdk.ToolHa
 		if err != nil {
 			return failure(cmd, schema, err), nil
 		}
-		return success(out), nil
+		res = success(out)
+		// A read while the connection is interrupted: the data is the cache's as of then (D-58).
+		if note := s.session.StaleNote(); note != "" && cmd.Danger == engine.DangerRead && !res.IsError {
+			res.Content = append(res.Content, &sdk.TextContent{Text: note})
+		}
+		return res, nil
 	}
 }
 

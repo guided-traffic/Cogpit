@@ -278,7 +278,7 @@ func (d *Drafts) uiChanged(u *UIState) {
 	}
 	d.lastDock = open
 	prevConn, prevCtx := d.lastConn, d.lastCtx
-	d.lastConn, d.lastCtx = u.Connection.State, u.Context
+	d.lastConn, d.lastCtx = u.Connection.State.asConnected(), u.Context // an interruption is no new connect (D-58)
 	s := d.s
 	d.mu.Unlock()
 
@@ -291,7 +291,7 @@ func (d *Drafts) uiChanged(u *UIState) {
 			}
 		})
 	}
-	if u.Connection.State == prevConn && u.Context == prevCtx {
+	if u.Connection.State.asConnected() == prevConn && u.Context == prevCtx {
 		return
 	}
 	switch {

@@ -522,7 +522,7 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 		}
 	}
 	u := s.UIState()
-	v.Connected = u.Context == context && u.Connection.State == Connected
+	v.Connected = u.Context == context && u.Connection.State.Live()
 	v.MetricsSource = MetricsSourceName(cs.MetricsSource)
 	if b := s.Backend(); v.Connected && b != nil && b.Context == context {
 		v.MetricsInUse = metricsInUse(b.Metrics)

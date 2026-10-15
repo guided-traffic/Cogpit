@@ -27,7 +27,7 @@ func (u *UIState) syncWelcome() {
 	switch u.Connection.State {
 	case Connecting:
 		u.Welcome = false
-	case Connected:
+	case Connected, Interrupted, LoginExpired:
 		u.Welcome = u.ActiveTab == "" // syncTabs leaves no tab active only while no view is open
 	default:
 		u.Welcome = true
@@ -55,7 +55,7 @@ func (s *Session) OpenWelcome() (UIState, error) {
 			return
 		}
 		u.Settings, u.Palette = nil, false
-		if u.Connection.State == Connected {
+		if u.Connection.State.Live() {
 			u.ActiveTab = ""
 			u.View, u.Filter = "", ""
 			u.Selected, u.Drawer = nil, nil

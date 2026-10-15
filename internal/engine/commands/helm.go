@@ -273,7 +273,7 @@ func runRollback(ctx context.Context, s *engine.Session, p rollbackParams) (any,
 		Context: ref.Context, Namespace: ref.Namespace, Release: ref.Name, Action: engine.HelmRollback,
 		Revision: p.Revision, FromRevision: cur, Started: s.Now().UTC(), StartedBy: startedBy(ctx),
 	}
-	err = runHelmOp(s, op, fmt.Sprintf("Rolling back release %s to revision %d…", ref.Name, p.Revision), "", func() error {
+	err = runHelmOp(ctx, s, op, fmt.Sprintf("Rolling back release %s to revision %d…", ref.Name, p.Revision), "", func(ctx context.Context) error {
 		return w.RollbackRelease(ctx, ref.Namespace, ref.Name, helm.ReleaseStorage(obj), p.Revision, cur)
 	})
 	if err != nil {
@@ -292,7 +292,7 @@ func runUninstall(ctx context.Context, s *engine.Session, p refParams) (any, err
 		Context: ref.Context, Namespace: ref.Namespace, Release: ref.Name, Action: engine.HelmUninstall,
 		FromRevision: helm.ReleaseRevision(obj), Started: s.Now().UTC(), StartedBy: startedBy(ctx),
 	}
-	err = runHelmOp(s, op, fmt.Sprintf("Uninstalling release %s…", ref.Name), "", func() error {
+	err = runHelmOp(ctx, s, op, fmt.Sprintf("Uninstalling release %s…", ref.Name), "", func(ctx context.Context) error {
 		return w.UninstallRelease(ctx, ref.Namespace, ref.Name, helm.ReleaseStorage(obj))
 	})
 	if err != nil {
@@ -314,8 +314,9 @@ func movedErr(err error) error {
 }
 
 // inline is the values text the action was given (an install's or upgrade's), removed from the
-// failure's text for callers outside the window (A19).
-func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting, inline string, run func() error) error {
+// failure's text for callers outside the window (A19). run gets ctx bounded by the connection: an
+// interruption stops the action, and its journal entry stays for the banner (D-58, S8).
+func runHelmOp(ctx context.Context, s *engine.Session, op engine.PendingHelmOp, starting, inline string, run func(context.Context) error) error {
 	ops := s.HelmOps()
 	if ops == nil {
 		return engine.ErrNoHelmJournal
@@ -324,7 +325,12 @@ func runHelmOp(s *engine.Session, op engine.PendingHelmOp, starting, inline stri
 		return err
 	}
 	userToast(s, engine.LevelInfo, starting)
-	opErr := helmSafely(s, op, run)
+	octx, cancel := s.OperationContext(ctx)
+	opErr := helmSafely(s, op, func() error { return run(octx) })
+	if errors.Is(context.Cause(octx), engine.ErrConnectionLost) && opErr != nil {
+		opErr = fmt.Errorf("%w: %w", engine.ErrConnectionLost, opErr)
+	}
+	cancel()
 	recorded := opErr
 	if errors.Is(opErr, helm.ErrUnchanged) {
 		recorded = nil // refused before it changed the release: nothing to finish or roll back

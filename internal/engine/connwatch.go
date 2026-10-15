@@ -1,0 +1,759 @@
+package engine
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/guided-traffic/cogpit/internal/cache"
+	"github.com/guided-traffic/cogpit/internal/cluster"
+	"github.com/guided-traffic/cogpit/internal/kubeconfig"
+)
+
+// The connection watch (D-58, standby and lost connections; owner, 2026-10-15). A computer that
+// sleeps drops every connection, and nothing told the user: the connection said Connected while
+// the views stood still. Each connection to a real cluster now has a watch that finds out, says
+// so, and reconnects:
+//
+//   - Three signals check the connection at once: macOS's wake (NoteWake), a change of the network
+//     (NoteNetworkChange), and a list or watch of the cache that broke (cache.OnStreamError); and
+//     while connected a heartbeat (GET /version with the connection's credentials, every 15 s, 5 s
+//     to answer) checks it anyway. Two failed checks in a row (the second 2 s after the first; one
+//     at wake) make the connection Interrupted.
+//   - Interrupted: the views keep the cache's last state, every mutating command is disabled
+//     ("connection interrupted", writeBlocked), the gates of package cluster hold the informers'
+//     lists and watches and refuse every other request at once, and the connection's network
+//     connections are closed so that nothing waits on a dead one. Cogpit tries to reach the
+//     cluster at once on wake and on a network change, and after 1, 2, 4, 8, 16, then every 30
+//     seconds, without end; cluster.reconnect (Reconnect now) tries at once and starts the
+//     backoff again. A try asks without credentials (Reachable), so it never runs a credential
+//     plugin; once the server answers, one heartbeat checks the login and the connection is back:
+//     the held requests go out, the informers relist or watch on by themselves, and the cache,
+//     the tabs and the views stay.
+//   - A login the API server rejects: the first 401 reaches client-go's credential plugin, which
+//     runs once to renew it (an approved plugin only: one whose program changed since it was
+//     allowed is not run, D-26); a second check that is rejected too, or a plugin that has not
+//     answered within 30 s (it may wait for a browser login), makes it LoginExpired: no request
+//     reaches the plugin until the user logs in again (cluster.login), so no plugin runs in the
+//     background and no browser tabs pile up.
+type connWatch struct {
+	s   *Session
+	b   *Backend
+	p   HealthProber
+	o   ConnWatchOptions
+	gen uint64 // the connect's number, as UIState.connGen holds it
+
+	ctx    context.Context // ends with stop: a login waiting for its plugin is abandoned
+	cancel context.CancelFunc
+	kicks  chan connKick
+	done   chan struct{}
+	once   sync.Once
+
+	mu            sync.Mutex
+	state         ConnectionState // Connected, Interrupted or LoginExpired
+	since         time.Time
+	next          time.Time     // when the next attempt is due, on the session's clock (shown)
+	delay         time.Duration // the wait before it (waited)
+	attempt       int
+	reason        string
+	loggingIn     bool
+	needsApproval bool
+	lastFrom      time.Time     // the last interruption that ended: when it began
+	lastTo        time.Time     // and when it ended
+	back          chan struct{} // closed while Connected; a new one at each interruption
+	broken        chan struct{} // closed while not Connected; a new one at each reconnect
+	waiters       []chan struct{}
+	sessions      map[*trackedSession]struct{} // pod shells, node shells, attach (connwatch_streams.go)
+	pending       chan error                   // a heartbeat that has not returned yet (its plugin runs)
+}
+
+// ConnWatchOptions tune the connection watch; zero fields are the owner's values.
+type ConnWatchOptions struct {
+	// Heartbeat is the time between two heartbeats while connected (15 s).
+	Heartbeat time.Duration
+	// ProbeTimeout bounds one heartbeat or reconnect attempt (5 s).
+	ProbeTimeout time.Duration
+	// Confirm is the time before the second check after one that failed (2 s).
+	Confirm time.Duration
+	// LoginWait is how long a credential plugin that renews a login may take before the login
+	// counts as expired (30 s).
+	LoginWait time.Duration
+	// BackoffFirst and BackoffMax bound the waits between reconnect attempts (1 s doubling to 30 s).
+	BackoffFirst, BackoffMax time.Duration
+}
+
+// The owner's values (D-58).
+const (
+	DefaultHeartbeat    = 15 * time.Second
+	DefaultProbeTimeout = 5 * time.Second
+	DefaultConfirm      = 2 * time.Second
+	DefaultLoginWait    = 30 * time.Second
+	DefaultBackoffFirst = time.Second
+	DefaultBackoffMax   = 30 * time.Second
+)
+
+func (o ConnWatchOptions) withDefaults() ConnWatchOptions {
+	def := func(d *time.Duration, v time.Duration) {
+		if *d <= 0 {
+			*d = v
+		}
+	}
+	def(&o.Heartbeat, DefaultHeartbeat)
+	def(&o.ProbeTimeout, DefaultProbeTimeout)
+	def(&o.Confirm, DefaultConfirm)
+	def(&o.LoginWait, DefaultLoginWait)
+	def(&o.BackoffFirst, DefaultBackoffFirst)
+	def(&o.BackoffMax, DefaultBackoffMax)
+	return o
+}
+
+// HealthProber is what the watch asks of a connection: *cluster.Conn, or a fake in tests.
+type HealthProber interface {
+	// Heartbeat asks the API server with the connection's credentials; an error wrapping
+	// cluster.ErrLoginRejected when it rejects them.
+	Heartbeat(ctx context.Context) error
+	// Reachable asks without credentials: nil when the server answers at all.
+	Reachable(ctx context.Context) error
+	// SetHealth holds or lets go the connection's requests.
+	SetHealth(cluster.Health)
+	// ResetConnections closes the connection's network connections.
+	ResetConnections()
+	// ArmLogin lets the next 401 reach the credential plugin.
+	ArmLogin()
+}
+
+// Why writes are disabled (S4): the reason the window and agents read.
+var (
+	errConnInterrupted = errors.New("connection interrupted")
+	errConnLoginGone   = errors.New("login expired: log in again first")
+)
+
+type connKick int
+
+const (
+	kickWake    connKick = iota + 1 // the computer woke
+	kickNetwork                     // the network changed
+	kickStream                      // a list, a watch or a stream broke
+	kickNow                         // Reconnect now
+	kickLogin                       // Log in again
+)
+
+// loginWaitReason is LoginExpired's reason when the credential plugin did not answer in time.
+const loginWaitReason = "the login program has not answered for %s; it may wait for you to log in, in a browser or a terminal"
+
+// newConnWatch makes the watch of a backend that is about to be published; start runs it.
+func newConnWatch(s *Session, b *Backend, gen uint64) *connWatch {
+	p := b.Health
+	if p == nil && b.Conn != nil && b.Conn.Probed() {
+		p = b.Conn
+	}
+	if p == nil {
+		return nil // the demo cluster: nothing to lose
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	back := make(chan struct{})
+	close(back)
+	return &connWatch{
+		s: s, b: b, p: p, o: s.opts.ConnWatch.withDefaults(), gen: gen, ctx: ctx, cancel: cancel,
+		kicks: make(chan connKick, 8), done: make(chan struct{}), state: Connected,
+		back: back, broken: make(chan struct{}), sessions: map[*trackedSession]struct{}{},
+	}
+}
+
+// start runs the watch and follows the cache's broken streams.
+func (w *connWatch) start() {
+	if w == nil {
+		return
+	}
+	if w.b.Cache != nil {
+		w.b.Cache.OnStreamError(func(cache.Scope, error) { w.kick(kickStream) })
+	}
+	go w.run()
+}
+
+// stop ends the watch, waiting a bounded time for its loop. Nil-safe.
+func (w *connWatch) stop() {
+	if w == nil {
+		return
+	}
+	w.once.Do(func() {
+		w.cancel()
+		if w.b.Cache != nil {
+			w.b.Cache.OnStreamError(nil)
+		}
+	})
+	select {
+	case <-w.done:
+	case <-time.After(5 * time.Second):
+		w.s.log.Warn("engine: the connection watch did not stop in time", "context", w.b.Context)
+	}
+	w.mu.Lock()
+	sessions := w.takeSessionsLocked()
+	w.mu.Unlock()
+	for _, t := range sessions {
+		t.untrack() // the backend closes; the window closes its tabs' sessions itself
+	}
+}
+
+// kick asks the loop to look now; a kick already queued covers it.
+func (w *connWatch) kick(k connKick) {
+	if w == nil {
+		return
+	}
+	select {
+	case w.kicks <- k:
+	default:
+	}
+}
+
+// current returns the watch's state.
+func (w *connWatch) current() ConnectionState {
+	if w == nil {
+		return Connected
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.state
+}
+
+func (w *connWatch) run() {
+	defer close(w.done)
+	defer w.s.recoverTo("the connection watch")
+	var fails, rejects int
+	for {
+		var ok bool
+		switch w.current() {
+		case Interrupted:
+			ok = w.interrupted()
+		case LoginExpired:
+			ok = w.expired()
+		default:
+			ok = w.healthy(&fails, &rejects)
+		}
+		if !ok {
+			return
+		}
+	}
+}
+
+// wait waits d, or for a kick that accept takes; false once the watch stops.
+func (w *connWatch) wait(d time.Duration, accept func(connKick) bool) (connKick, bool) {
+	t := time.NewTimer(max(d, 0))
+	defer t.Stop()
+	for {
+		select {
+		case <-w.ctx.Done():
+			return 0, false
+		case <-t.C:
+			return 0, true
+		case k := <-w.kicks:
+			if accept(k) {
+				return k, true
+			}
+		}
+	}
+}
+
+// healthy is one step while connected: the next heartbeat, or a signal.
+func (w *connWatch) healthy(fails, rejects *int) bool {
+	d := w.o.Heartbeat
+	if *fails > 0 || *rejects > 0 {
+		d = w.o.Confirm
+	}
+	k, ok := w.wait(d, func(connKick) bool { return true })
+	if !ok {
+		return false
+	}
+	// At wake the check may renew a login that expired in the night: an approved plugin only (D-26).
+	if k == kickWake && w.approvalChanged() {
+		w.expire("the login program of this context changed since you allowed it; log in again to review it", true)
+		return true
+	}
+	res, err := w.check(w.o.LoginWait)
+	switch res {
+	case checkQuit:
+		return false
+	case checkOK:
+		*fails, *rejects = 0, 0
+		w.verdict()
+	case checkDown:
+		*fails++
+		if *fails >= 2 || k == kickWake { // after a sleep one failure says enough
+			*fails, *rejects = 0, 0
+			w.interrupt(err)
+		}
+	case checkRejected:
+		*rejects++
+		if *rejects >= 2 { // the first 401 renewed the login once (the guard); this one did not help
+			*fails, *rejects = 0, 0
+			w.expire(rejectedReason(err), false)
+		}
+	case checkWaiting:
+		*fails, *rejects = 0, 0
+		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
+	}
+	return true
+}
+
+// interrupted is one step while interrupted: the next attempt, at its time or at once on a wake, a
+// network change or Reconnect now.
+func (w *connWatch) interrupted() bool {
+	w.mu.Lock()
+	d := w.delay
+	w.mu.Unlock()
+	k, ok := w.wait(d, func(k connKick) bool { return k == kickWake || k == kickNetwork || k == kickNow })
+	if !ok {
+		return false
+	}
+	if k != 0 {
+		w.mu.Lock()
+		w.attempt = 0 // at once, and the backoff starts again
+		w.mu.Unlock()
+	}
+	w.attempting()
+	ctx, cancel := context.WithTimeout(w.ctx, w.o.ProbeTimeout)
+	err := w.p.Reachable(ctx)
+	cancel()
+	if w.ctx.Err() != nil {
+		return false
+	}
+	if err != nil {
+		w.retryLater(err)
+		return true
+	}
+	// The server answers: one check of the login, which may renew it once.
+	if w.approvalChanged() {
+		w.expire("the login program of this context changed since you allowed it; log in again to review it", true)
+		return true
+	}
+	return w.afterReach()
+}
+
+// afterReach checks the login of a cluster that answers again and decides.
+func (w *connWatch) afterReach() bool {
+	res, err := w.check(w.o.LoginWait)
+	if res == checkRejected { // the guard handed this 401 to the plugin, which ran once: ask again
+		res, err = w.check(w.o.LoginWait)
+	}
+	switch res {
+	case checkQuit:
+		return false
+	case checkOK:
+		w.reconnect()
+	case checkDown:
+		w.retryLater(err)
+	case checkRejected:
+		w.expire(rejectedReason(err), false)
+	case checkWaiting:
+		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
+	}
+	return true
+}
+
+// expired is one step while the login is expired: a login the user asks for, or the answer of a
+// heartbeat whose plugin still ran (the user logged in in the browser after all).
+func (w *connWatch) expired() bool {
+	w.mu.Lock()
+	pending := w.pending
+	w.mu.Unlock()
+	for {
+		select {
+		case <-w.ctx.Done():
+			return false
+		case <-pending: // nil blocks
+			w.mu.Lock()
+			w.pending = nil
+			w.mu.Unlock()
+			return w.afterReach() // the plugin answered: what does the login say now
+		case k := <-w.kicks:
+			if k == kickLogin {
+				w.login()
+				return true
+			}
+		}
+	}
+}
+
+// login renews an expired login: the credential plugin may run once, with its browser, for as
+// long as the user takes.
+func (w *connWatch) login() {
+	if w.approvalChanged() {
+		w.expire("the login program of this context changed since you allowed it; connect again to review it", true)
+		return
+	}
+	w.setLoggingIn(true)
+	defer w.setLoggingIn(false)
+	w.p.ArmLogin()
+	w.mu.Lock()
+	ch := w.pending
+	w.pending = nil
+	w.mu.Unlock()
+	if ch == nil { // else the plugin runs already: its answer is this login's
+		ch = make(chan error, 1)
+		w.heartbeat(w.ctx, ch)
+	}
+	select {
+	case <-w.ctx.Done():
+		return
+	case <-ch:
+	}
+	// Whatever the first answer was, it came with or before the plugin's run: ask again.
+	switch res, err := w.check(w.o.LoginWait); res {
+	case checkOK:
+		w.reconnect()
+	case checkDown:
+		w.interrupt(err)
+	case checkRejected:
+		w.expire("the API server still rejects the login ("+rejectedReason(err)+")", false)
+	case checkWaiting:
+		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
+	}
+}
+
+type checkResult int
+
+const (
+	checkOK checkResult = iota
+	checkDown
+	checkRejected
+	checkWaiting // no answer while the credential plugin runs
+	checkQuit
+)
+
+// heartbeat runs one heartbeat on its own goroutine and sends its error to ch.
+func (w *connWatch) heartbeat(ctx context.Context, ch chan<- error) {
+	go func() {
+		var err error
+		defer func() {
+			if r := recover(); r != nil {
+				w.s.log.Error("engine: a heartbeat panicked", "panic", fmt.Sprint(r))
+				err = fmt.Errorf("internal error: %v", r)
+			}
+			ch <- err
+		}()
+		err = w.p.Heartbeat(ctx)
+	}()
+}
+
+// probeSlack is how much longer than its own deadline a heartbeat may take before it counts as
+// waiting for its credential plugin, which client-go runs outside the request.
+const probeSlack = time.Second
+
+// check runs a heartbeat bounded by ProbeTimeout. One that does not return although its request's
+// deadline passed waits for its credential plugin: check waits for it up to bound, and asks again
+// once it returned (its own answer came after its deadline); past bound the heartbeat is kept as
+// pending and the result is checkWaiting.
+func (w *connWatch) check(bound time.Duration) (checkResult, error) {
+	ch := make(chan error, 1)
+	ctx, cancel := context.WithTimeout(w.ctx, w.o.ProbeTimeout)
+	w.heartbeat(ctx, ch)
+	first := time.NewTimer(w.o.ProbeTimeout + probeSlack)
+	defer first.Stop()
+	select {
+	case err := <-ch:
+		cancel()
+		return classifyCheck(err), err
+	case <-first.C:
+	case <-w.ctx.Done():
+		cancel()
+		return checkQuit, nil
+	}
+	rest := time.NewTimer(max(bound-w.o.ProbeTimeout-probeSlack, 0))
+	defer rest.Stop()
+	select {
+	case <-ch:
+		cancel()
+		// The plugin answered within the bound; this heartbeat's own request ran out of time.
+		again := make(chan error, 1)
+		ctx2, cancel2 := context.WithTimeout(w.ctx, w.o.ProbeTimeout)
+		defer cancel2()
+		w.heartbeat(ctx2, again)
+		select {
+		case err := <-again:
+			return classifyCheck(err), err
+		case <-w.ctx.Done():
+			return checkQuit, nil
+		}
+	case <-rest.C:
+		w.mu.Lock()
+		w.pending = ch
+		w.mu.Unlock()
+		go func() { <-w.ctx.Done(); cancel() }() // the request ends with the watch; the plugin runs on
+		return checkWaiting, nil
+	case <-w.ctx.Done():
+		cancel()
+		return checkQuit, nil
+	}
+}
+
+func classifyCheck(err error) checkResult {
+	switch {
+	case err == nil:
+		return checkOK
+	case errors.Is(err, cluster.ErrLoginRejected):
+		return checkRejected
+	}
+	return checkDown
+}
+
+// rejectedReason is LoginExpired's reason for a rejected login.
+func rejectedReason(err error) string {
+	if err == nil {
+		return "the API server rejects the login"
+	}
+	return "the API server rejects the login (401 Unauthorized)"
+}
+
+// downReason is Interrupted's reason, without credentials and on one line.
+func downReason(err error) string {
+	if err == nil {
+		return "the cluster does not answer"
+	}
+	msg := kubeconfig.SafeError(err).Error()
+	switch {
+	case errors.Is(err, context.DeadlineExceeded) || strings.Contains(msg, "context deadline exceeded") ||
+		strings.Contains(msg, "Client.Timeout") || errors.Is(err, cluster.ErrNoAnswer):
+		return "no answer from the API server"
+	}
+	return oneLine(kubeconfig.DisplayText(msg, 300))
+}
+
+// approvalChanged reports whether the context's credential plugin may no longer run as it is now:
+// not allowed, or its program changed since it was (D-26). A context without a plugin, or a session
+// without kubeconfig sources, has nothing to check.
+func (w *connWatch) approvalChanged() bool {
+	info, err := w.s.ExecPlugin(w.b.Context)
+	if err != nil {
+		return false
+	}
+	return info.State != ExecApproved
+}
+
+// verdict ends the waits for a check (await): the connection answered.
+func (w *connWatch) verdict() {
+	w.mu.Lock()
+	w.releaseWaitersLocked()
+	w.mu.Unlock()
+}
+
+func (w *connWatch) releaseWaitersLocked() {
+	for _, ch := range w.waiters {
+		close(ch)
+	}
+	w.waiters = nil
+}
+
+// interrupt makes the connection Interrupted: the gates hold, the network connections close, the
+// shells end, the long operations stop, the window says so.
+func (w *connWatch) interrupt(cause error) {
+	now := w.s.Now()
+	w.mu.Lock()
+	if w.state == Connected {
+		close(w.broken)
+		w.back = make(chan struct{})
+	}
+	w.state, w.since, w.reason = Interrupted, now, downReason(cause)
+	w.attempt = 1
+	w.delay = w.o.BackoffFirst
+	w.next = now.Add(w.delay)
+	w.needsApproval = false
+	w.releaseWaitersLocked()
+	sessions := w.takeSessionsLocked()
+	reason := w.reason
+	w.mu.Unlock()
+	w.p.SetHealth(cluster.HealthInterrupted)
+	w.p.ResetConnections()
+	w.s.state.logs.add(w.b.Context, LogWarn, "Connection interrupted: "+reason+"; Cogpit is reconnecting")
+	w.s.log.Warn("engine: connection interrupted", "context", w.b.Context, "reason", reason)
+	w.publish()
+	w.s.endSessions(w, sessions, now) // after the state: the tabs' Reconnect waits for the connection
+}
+
+// expire makes the login LoginExpired. Coming from an interruption, its time stays: the views show
+// the state of then.
+func (w *connWatch) expire(reason string, needsApproval bool) {
+	now := w.s.Now()
+	w.mu.Lock()
+	if w.state == Connected {
+		close(w.broken)
+		w.back = make(chan struct{})
+		w.since = now
+	} else if w.since.IsZero() {
+		w.since = now
+	}
+	w.state, w.reason, w.needsApproval = LoginExpired, reason, needsApproval
+	w.next = time.Time{}
+	w.releaseWaitersLocked()
+	w.mu.Unlock()
+	w.p.SetHealth(cluster.HealthLoginExpired)
+	w.s.state.logs.add(w.b.Context, LogWarn, "Login expired: "+reason)
+	w.s.log.Warn("engine: login expired", "context", w.b.Context, "reason", reason)
+	w.publish()
+}
+
+// reconnect makes the connection Connected again: the held requests go out, the streams waiting
+// for it go on.
+func (w *connWatch) reconnect() {
+	now := w.s.Now()
+	w.mu.Lock()
+	from := w.since
+	w.lastFrom, w.lastTo = from, now
+	w.state, w.since, w.reason, w.next, w.needsApproval = Connected, time.Time{}, "", time.Time{}, false
+	w.attempt = 0
+	close(w.back)
+	w.broken = make(chan struct{})
+	w.releaseWaitersLocked()
+	w.mu.Unlock()
+	w.p.SetHealth(cluster.HealthOK)
+	if a, ok := w.b.Access.(*accessReviews); ok {
+		a.forgetFailures() // the reviews the interruption failed are asked again
+	}
+	away := now.Sub(from).Round(time.Second)
+	w.s.state.logs.add(w.b.Context, LogInfo, fmt.Sprintf("Reconnected to %s after %s", w.b.Context, away))
+	w.s.log.Info("engine: reconnected", "context", w.b.Context, "after", away)
+	w.publish()
+	w.s.emit(Event{Type: EventToast, Level: LevelInfo, Message: fmt.Sprintf("Reconnected to %s (interrupted %s–%s)",
+		kubeconfig.DisplayText(w.b.Context, 200), w.s.clockText(from), w.s.clockText(now))})
+}
+
+// attempting says an attempt runs now.
+func (w *connWatch) attempting() {
+	w.mu.Lock()
+	w.next = time.Time{}
+	w.mu.Unlock()
+	w.publish()
+}
+
+// retryLater schedules the next attempt after the backoff: 1, 2, 4, 8, 16, then every 30 seconds.
+func (w *connWatch) retryLater(err error) {
+	w.mu.Lock()
+	w.delay = min(w.o.BackoffFirst<<min(w.attempt, 16), w.o.BackoffMax)
+	w.attempt++
+	w.next = w.s.Now().Add(w.delay)
+	w.reason = downReason(err)
+	w.mu.Unlock()
+	w.publish()
+}
+
+func (w *connWatch) setLoggingIn(on bool) {
+	w.mu.Lock()
+	w.loggingIn = on
+	w.mu.Unlock()
+	w.publish()
+}
+
+// connection is the UI state's Connection as the watch sees it, its Demo and TLS fields kept.
+func (w *connWatch) connection(old Connection) Connection {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return Connection{
+		State: w.state, Demo: old.Demo, TLSUnchecked: old.TLSUnchecked,
+		Since: w.since, NextAttempt: w.next, Reason: w.reason, LoggingIn: w.loggingIn, NeedsApproval: w.needsApproval,
+	}
+}
+
+// publish writes the watch's state into the UI state, unless another connect took over.
+func (w *connWatch) publish() {
+	if w.s.Backend() != w.b {
+		return
+	}
+	w.s.UpdateUI(func(u *UIState) {
+		if u.connGen != w.gen || u.Context != w.b.Context || !u.Connection.State.Live() {
+			return
+		}
+		u.Connection = w.connection(u.Connection)
+	})
+}
+
+// connWatch returns the connected backend's watch; nil without one (the demo cluster, no cluster).
+func (s *Session) connWatch() *connWatch {
+	if b := s.Backend(); b != nil {
+		return b.watch
+	}
+	return nil
+}
+
+// NoteWake tells the session that the computer woke from sleep (macOS's
+// NSWorkspaceDidWakeNotification): the connection is checked at once, and an interrupted one tried
+// at once.
+func (s *Session) NoteWake() { s.connWatch().kick(kickWake) }
+
+// NoteNetworkChange tells the session that the computer's network changed (an interface came or
+// went, a VPN): as NoteWake, but a single failed check does not interrupt the connection.
+func (s *Session) NoteNetworkChange() { s.connWatch().kick(kickNetwork) }
+
+// writeBlocked is the reason a command of danger d cannot start: a write on a connection that is
+// interrupted or whose login expired (S4). Reads and UI commands run on.
+func (s *Session) writeBlocked(d Danger) error {
+	if s == nil || (d != DangerMutating && d != DangerDestructive) {
+		return nil
+	}
+	switch s.connWatch().current() {
+	case Interrupted:
+		return errConnInterrupted
+	case LoginExpired:
+		return errConnLoginGone
+	}
+	return nil
+}
+
+// errNotInterrupted refuses cluster.reconnect on a connection that works.
+var errNotInterrupted = errors.New("the connection is not interrupted")
+
+// Reconnect tries to reach an interrupted cluster at once and starts the backoff again
+// (cluster.reconnect, the banner's Reconnect now).
+func (s *Session) Reconnect() error {
+	w := s.connWatch()
+	if w.current() != Interrupted {
+		return errNotInterrupted
+	}
+	w.kick(kickNow)
+	return nil
+}
+
+// ErrNeedsNewConnect refuses cluster.login when the context's credential plugin changed since it
+// was allowed: only a new connect, which asks the user first, may run it (D-26).
+var ErrNeedsNewConnect = errors.New("the login program of this context changed since you allowed it: connect to the context again, which asks you first")
+
+// errNotExpired refuses cluster.login on a connection whose login works.
+var errNotExpired = errors.New("the login has not expired")
+
+// Login renews an expired login (cluster.login, the banner's Log in again): the context's
+// credential plugin may run once, with its browser if it needs one.
+func (s *Session) Login() error {
+	w := s.connWatch()
+	if w.current() != LoginExpired {
+		return errNotExpired
+	}
+	if w.approvalChanged() {
+		return ErrNeedsNewConnect
+	}
+	w.kick(kickLogin)
+	return nil
+}
+
+// StaleNote is what an agent's read is told while the connection is interrupted or its login expired
+// (D-58): the cache's data is the cluster's state as of then, and writes are refused. "" otherwise.
+// The MCP server and the built-in agent add it to the results of read commands.
+func (s *Session) StaleNote() string {
+	u := s.UIState()
+	since := u.Connection.Since.UTC().Format(time.RFC3339)
+	name := kubeconfig.DisplayText(u.Context, 200)
+	switch u.Connection.State {
+	case Interrupted:
+		return fmt.Sprintf("Note from Cogpit: the connection to %s is interrupted since %s and Cogpit is reconnecting by itself; "+
+			"this is data from %s, the cluster's state as Cogpit's cache last saw it. Writes are refused until the connection is back "+
+			"(ui_state's connection.state is then connected again).", name, since, since)
+	case LoginExpired:
+		return fmt.Sprintf("Note from Cogpit: the login to %s expired (since %s); this is data from %s or later, as Cogpit's cache "+
+			"last saw it. Writes are refused until the user logs in again in Cogpit's window.", name, since, since)
+	}
+	return ""
+}
+
+// clockText writes t as the time of day in the user's zone and format, without seconds ("14:03",
+// D-31).
+func (s *Session) clockText(t time.Time) string { return s.TimeFormat().FormatClock(t) }

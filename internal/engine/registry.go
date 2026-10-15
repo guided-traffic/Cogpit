@@ -309,6 +309,11 @@ func Register[P any](r *Registry, spec Spec[P]) error {
 				return own
 			}
 		}
+		// No write starts on a connection that does not answer: its outcome would be unknown
+		// (D-58, connwatch.go). The reason is the window's and the agents' alike.
+		if err := s.writeBlocked(c.Danger); err != nil {
+			return err
+		}
 		if err := s.permitted(c, p); err != nil {
 			return err
 		}

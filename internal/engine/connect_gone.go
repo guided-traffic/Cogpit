@@ -84,7 +84,7 @@ func (s *Session) goneReason(id string) string {
 // connect lock: a Connected UI is then stale), and that a reason the UI shows already stays.
 func (s *Session) forgetGoneContext(id, errText string, closed bool) {
 	stays := func(u UIState) bool {
-		return u.Context != id || u.Connection.State == Connecting || (u.Connection.State == Connected && !closed)
+		return u.Context != id || u.Connection.State == Connecting || (u.Connection.State.Live() && !closed)
 	}
 	if stays(s.UIState()) {
 		return

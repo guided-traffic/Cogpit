@@ -103,7 +103,17 @@ func (w *viewWorker) unsettled() bool {
 	if last == nil {
 		return true
 	}
-	return last.Synced != w.synced() || last.Error != errText(w.handle.Err())
+	return last.Synced != w.synced() || last.Error != w.shownErr()
+}
+
+// shownErr is the informer's error the view shows: none while the connection is interrupted or
+// its login expired (D-58): the rows are the cache's state as of then, and the connection's banner
+// says what is wrong.
+func (w *viewWorker) shownErr() string {
+	if w.backend.watch.current() != Connected {
+		return ""
+	}
+	return errText(w.handle.Err())
 }
 
 // synced reports whether the view's kind and the kinds of its related-objects indexes finished
@@ -136,7 +146,7 @@ func (w *viewWorker) rebuild() {
 	w.mu.Unlock()
 
 	herr := w.handle.Err()
-	errMsg := errText(herr)
+	errMsg := w.shownErr()
 	w.followRefusal(herr) // a cluster-wide watch refused: read namespace by namespace (accessiblens_plan.go)
 	rel, relGen := w.related.view()
 	snap := w.rows.buildWith(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen, usage)

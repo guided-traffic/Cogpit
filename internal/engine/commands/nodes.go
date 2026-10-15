@@ -311,7 +311,10 @@ func runDrain(ctx context.Context, s *engine.Session, p drainParams) (any, error
 
 	var last cluster.DrainProgress // calls come one at a time; read after the drain returned
 	left := ""
-	drainErr := drainSafely(ctx, s, w, ref.Name, p.ClusterOptions(), func(pr cluster.DrainProgress) {
+	// An interruption of the connection stops the drain, which stays in the journal (D-58, S8).
+	octx, ocancel := s.OperationContext(ctx)
+	defer ocancel()
+	drainErr := drainSafely(octx, s, w, ref.Name, p.ClusterOptions(), func(pr cluster.DrainProgress) {
 		last = pr
 		d.Progress(ref.Context, pr)
 		switch pr.Step {
@@ -322,6 +325,9 @@ func runDrain(ctx context.Context, s *engine.Session, p drainParams) (any, error
 			userToast(s, "warning", fmt.Sprintf("Node %s: the eviction of pod %s waits: %s", ref.Name, pr.Pod, pr.Message))
 		}
 	})
+	if errors.Is(context.Cause(octx), engine.ErrConnectionLost) && drainErr != nil {
+		drainErr = fmt.Errorf("%w: %w", engine.ErrConnectionLost, drainErr)
+	}
 	if err := d.End(entry, drainErr); err != nil {
 		s.Logger().Error("node.drain: recording the drain's end", "node", ref.Name, "err", err)
 		userToast(s, "error", "Cogpit could not record the end of the drain of node "+ref.Name+": "+err.Error())

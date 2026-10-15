@@ -330,7 +330,15 @@ func (s *Session) openNodeShell(ctx context.Context, tab DockTab, b *Backend) (t
 	go func() {
 		defer s.recoverGoroutine("node shell")
 		<-sess.Done()
-		s.endNodeShell(tab.ID) // the shell ended or the tab closed: the pod goes
+		// The shell ended or the tab closed: the pod goes. One the connection's interruption ended
+		// stays for the tab's Reconnect (D-58, S7); it ends by its deadline or with its tab.
+		if b.watch.settle(nodeShellSettleWait) != Connected {
+			return
+		}
+		if t, ok := s.UIState().DockTab(tab.ID); ok && !t.Interrupted.IsZero() {
+			return
+		}
+		s.endNodeShell(tab.ID)
 	}()
 	return sess, nil
 }

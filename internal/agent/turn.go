@@ -68,7 +68,7 @@ func (a *Agent) send(id string, cut int, msg engine.ChatUserMessage) error {
 	case c.turn != nil:
 		a.mu.Unlock()
 		return ErrTurnRunning
-	case ui.Context == "" || ui.Connection.State != engine.Connected:
+	case ui.Context == "" || !ui.Connection.State.Live(): // an interrupted connection reads on (D-58)
 		a.mu.Unlock()
 		return ErrNotConnected
 	case ui.Context != c.info.Context:
@@ -359,7 +359,7 @@ func (a *Agent) runCall(st *turnState, call toolCall) bool {
 		stop = errRepeat
 	case st.calls >= st.limits.MaxToolCalls:
 		stop = errMaxCalls
-	case ui.Context != c.info.Context || ui.Connection.State != engine.Connected:
+	case ui.Context != c.info.Context || !ui.Connection.State.Live(): // reads go on while interrupted, writes are refused (D-58)
 		stop = errSwitched
 	}
 	if stop != nil {
@@ -405,6 +405,9 @@ func (a *Agent) runCall(st *turnState, call toolCall) bool {
 		}
 		var shown string
 		content, shown = frameResult(call.Function.Name, data)
+		if note := a.s.StaleNote(); note != "" && r.cmd.Danger == engine.DangerRead { // the cache's data as of an interruption (D-58)
+			content += "\n" + note
+		}
 		tc = a.toolDone(c, idx, func(t *engine.ChatToolCall) { t.State, t.Result = engine.ChatToolDone, shown })
 	}
 	a.keepTool(st, idx, tc, call, content)

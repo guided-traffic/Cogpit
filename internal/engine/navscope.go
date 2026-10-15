@@ -58,8 +58,9 @@ func ParseNavScope(scope string) (string, error) {
 	return "", fmt.Errorf("%w, not %q", ErrNavScope, scope)
 }
 
-// activeConnection reports whether a connection state holds a cluster: connected, or connecting.
-func activeConnection(c ConnectionState) bool { return c == Connected || c == Connecting }
+// activeConnection reports whether a connection state holds a cluster: connected (interrupted or
+// with an expired login included, D-58), or connecting.
+func activeConnection(c ConnectionState) bool { return c.Live() || c == Connecting }
 
 // Scope returns the navigator's scope. A state that holds none (the zero UIState) reads as the
 // engine would set it: the connected or connecting cluster, else the section.

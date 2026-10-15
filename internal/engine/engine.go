@@ -152,6 +152,9 @@ type Options struct {
 	// LoginItem is the operating system's start at login for Cogpit's app (loginitem.go): the
 	// desktop binary wires in macOS's; nil: the platform has none, and it is not offered.
 	LoginItem LoginItem
+	// ConnWatch tunes the connection watch (connwatch.go, D-58); the zero value is the owner's
+	// values (a heartbeat every 15 s, reconnect attempts after 1 to 30 s). Tests shorten them.
+	ConnWatch ConnWatchOptions
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -377,6 +380,10 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		}
 		if !ok {
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrDeclined)
+		}
+		// The connection may have broken while the user read the dialog (D-58).
+		if err := s.writeBlocked(danger); err != nil {
+			return nil, &DisabledError{Command: cmd.ID, Reason: err.Error()}
 		}
 		ctx = context.WithValue(ctx, confirmedKey{}, req)
 		auditContext = req.Context

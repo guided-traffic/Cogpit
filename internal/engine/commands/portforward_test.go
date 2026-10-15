@@ -114,9 +114,10 @@ func (t *fakeTunnel) Close() error {
 // forwardConnector connects "test" and "other" over one source with the test profiles, the port
 // forwards' local kind and the fake forwarder; a demo connector has neither connection nor writer.
 type forwardConnector struct {
-	src  *testkit.MemorySource
-	fw   engine.Actions
-	demo bool
+	src    *testkit.MemorySource
+	fw     engine.Actions
+	demo   bool
+	health engine.HealthProber // the connection watch's probes (connection_test.go); nil: no watch
 }
 
 func (c *forwardConnector) Contexts() ([]engine.ContextInfo, error) {
@@ -127,7 +128,7 @@ func (c *forwardConnector) Connect(_ context.Context, name string) (*engine.Back
 	ch := cache.New(c.src, cache.Options{WarmPeriod: time.Minute})
 	b := &engine.Backend{Context: name, Namespace: "default", Cache: ch, Profiles: append(testProfiles(), kinds.Local()...), Close: ch.Close, Demo: c.demo}
 	if !c.demo {
-		b.Conn, b.Actions = &cluster.Conn{}, c.fw
+		b.Conn, b.Actions, b.Health = &cluster.Conn{}, c.fw, c.health
 	}
 	return b, nil
 }

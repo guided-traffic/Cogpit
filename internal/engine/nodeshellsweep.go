@@ -74,7 +74,7 @@ func (s *Session) followNodeShellSweep(ev Event) {
 	prev := n.sweepConn
 	n.sweepConn = u.Connection.State
 	n.mu.Unlock()
-	if u.Connection.State != Connected || prev == Connected || u.Connection.Demo {
+	if u.Connection.State != Connected || prev.Live() || u.Connection.Demo { // a reconnect after an interruption is no connect (D-58)
 		return
 	}
 	ctxName := u.Context

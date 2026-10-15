@@ -753,7 +753,7 @@ func (h *HelmRepos) onEvent(ev Event) {
 	}
 	h.lastRev = u.Revision
 	s := h.s
-	wanted := u.Connection.State == Connected && (u.View == kinds.HelmChartsKey || slices.ContainsFunc(u.Dock, func(t DockTab) bool { return t.Type == DockHelmInstall }))
+	wanted := u.Connection.State.Live() && (u.View == kinds.HelmChartsKey || slices.ContainsFunc(u.Dock, func(t DockTab) bool { return t.Type == DockHelmInstall }))
 	var stop chan struct{}
 	start := false
 	switch {
@@ -768,7 +768,7 @@ func (h *HelmRepos) onEvent(ev Event) {
 	if s == nil {
 		return
 	}
-	if b := s.Backend(); b != nil && u.Connection.State == Connected && h.needsPublish(b) {
+	if b := s.Backend(); b != nil && u.Connection.State.Live() && h.needsPublish(b) {
 		s.goSafe("Helm charts", func() {
 			if err := h.ensureLoaded(); err != nil {
 				s.log.Warn("helm: repositories", "err", err)

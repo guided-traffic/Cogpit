@@ -73,6 +73,7 @@ type fakeConnector struct {
 	src    *testkit.MemorySource
 	writer *fakeWriter
 	demo   bool
+	health engine.HealthProber // the connection watch's probes (connection_test.go); nil: no watch
 }
 
 func (f *fakeConnector) Contexts() ([]engine.ContextInfo, error) {
@@ -88,6 +89,7 @@ func (f *fakeConnector) Connect(_ context.Context, name string) (*engine.Backend
 	if !f.demo {
 		b.Conn = &cluster.Conn{}
 		b.Actions = f.writer
+		b.Health = f.health
 	}
 	return b, nil
 }

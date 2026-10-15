@@ -83,6 +83,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerUpdates(g)
 	registerChat(g)
 	registerRestartMany(g)
+	registerConnection(g)
 	return g.err
 }
 

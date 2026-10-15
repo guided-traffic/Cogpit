@@ -123,6 +123,7 @@ type UIState struct {
 	ActiveTab string    `json:"activeTab,omitempty"`
 	tabSeq    uint64    // the number of the last tab id handed out
 	tabClock  uint64    // counts tab activations, for ViewTab.used
+	connGen   uint64    // the connect that made the connection Connected: its watch writes Connection (connwatch.go)
 }
 
 // Connection is the state of the active cluster connection.
@@ -134,6 +135,21 @@ type Connection struct {
 	// (insecure-skip-tls-verify in its kubeconfig), from the connection's own configuration: the
 	// status bar says "TLS not checked" beside the context (A29, owner 2026-10-14 evening; H-37).
 	TLSUnchecked bool `json:"tlsUnchecked,omitempty"`
+	// Since is when the connection was interrupted, or the login expired; zero otherwise
+	// (connwatch.go, D-58). The views show the cache's state as of then.
+	Since time.Time `json:"since,omitzero"`
+	// NextAttempt is when Cogpit next tries to reach the cluster while Interrupted; zero while an
+	// attempt runs and in the other states. cluster.reconnect tries at once.
+	NextAttempt time.Time `json:"nextAttempt,omitzero"`
+	// Reason says, in a sentence without credentials, why the connection is Interrupted or the
+	// login LoginExpired ("no answer from the API server within 5s").
+	Reason string `json:"reason,omitempty"`
+	// LoggingIn is set while a login cluster.login started runs (its credential plugin may wait for
+	// the user in a browser).
+	LoggingIn bool `json:"loggingIn,omitempty"`
+	// NeedsApproval is set in LoginExpired when the context's credential plugin is not allowed as it
+	// is now (its program changed, D-26): logging in again connects anew, which asks first.
+	NeedsApproval bool `json:"needsApproval,omitempty"`
 }
 
 // ConnectionState is a connection's lifecycle state.
@@ -145,7 +161,29 @@ const (
 	Connecting   ConnectionState = "connecting"
 	Connected    ConnectionState = "connected"
 	ConnectError ConnectionState = "error"
+	// Interrupted: the connected cluster stopped answering (the computer slept, the network or a
+	// VPN went away). The views keep the cache's last state, writes are disabled, and Cogpit
+	// reconnects by itself (connwatch.go, D-58).
+	Interrupted ConnectionState = "interrupted"
+	// LoginExpired: the API server rejects the connection's login and renewing it once did not
+	// help. Writes are disabled until the user logs in again (cluster.login).
+	LoginExpired ConnectionState = "loginExpired"
 )
+
+// Live reports whether the state holds a connected cluster: connected, interrupted or with an
+// expired login. Its backend, cache, tabs and views stay; only Connected can write.
+func (c ConnectionState) Live() bool {
+	return c == Connected || c == Interrupted || c == LoginExpired
+}
+
+// asConnected is Connected for every Live state: for what follows connects, an interruption and
+// its end are no connect.
+func (c ConnectionState) asConnected() ConnectionState {
+	if c.Live() {
+		return Connected
+	}
+	return c
+}
 
 // SortSpec is a table's sort order.
 type SortSpec struct {
@@ -189,6 +227,13 @@ type DockTab struct {
 	AgentReadUntil   time.Time `json:"agentReadUntil,omitzero"`
 	AgentReadExpired bool      `json:"agentReadExpired,omitempty"`
 	AgentReadCapped  bool      `json:"agentReadCapped,omitempty"`
+	// Interrupted is when a shell, node shell or attach tab's session ended because the connection
+	// was interrupted (D-58); zero otherwise. The tab says so and offers Reconnect (dock.reconnect),
+	// which clears it.
+	Interrupted time.Time `json:"interrupted,omitzero"`
+	// Session counts the sessions dock.reconnect opened in the tab after the first: the window
+	// opens a new session in the tab when it changes.
+	Session int `json:"session,omitempty"`
 }
 
 // HelmUpgradeTab is what a Helm Upgrade tab shows beside its values editor (Lens's "Helm Upgrade:

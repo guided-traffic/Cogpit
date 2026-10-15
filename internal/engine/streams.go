@@ -66,30 +66,46 @@ func (s *Session) OpenTerminal(ctx context.Context, tabID string) (terminal.Sess
 	if err != nil {
 		return nil, err
 	}
+	if tab.Type != DockTerminal {
+		// A session in the cluster ends when the connection is interrupted (D-58, S7).
+		if err := s.writeBlocked(DangerMutating); err != nil {
+			return nil, err
+		}
+		cctx, cancel := context.WithCancel(ctx)
+		sess, err := s.openClusterSession(cctx, tab, b)
+		if err != nil {
+			cancel()
+			return nil, err
+		}
+		return b.watch.trackSession(tab.ID, sess, cancel), nil
+	}
+	ns := b.Namespace
+	if u := s.UIState(); len(u.Namespaces) == 1 {
+		ns = u.Namespaces[0]
+	}
+	opts, err := s.LocalTerminalOptions(b.Context, terminal.LocalOptions{
+		KubeconfigPaths: b.Conn.KubeconfigPaths(), Context: b.Conn.Context(), Namespace: ns, // the name in the file, not a source's id
+	})
+	if err != nil {
+		return nil, err
+	}
+	check, first := s.checkKubectl(ctx, b.Conn.ServerVersion()) // D-3 (kubectl.go)
+	s.setKubectlCheck(tab.ID, check)
+	opts.Kubectl = first
+	if p, err := s.Preferences(); err == nil {
+		opts.EnforceKubectl = p.KubectlEnforce // A27
+	}
+	return terminal.StartLocal(opts)
+}
+
+// openClusterSession starts the session of a shell, attach or node shell tab: a stream through the
+// API server.
+func (s *Session) openClusterSession(ctx context.Context, tab DockTab, b *Backend) (terminal.Session, error) {
 	switch tab.Type {
 	case DockAttach:
 		return s.openAttach(ctx, tab, b)
 	case DockNodeShell:
 		return s.openNodeShell(ctx, tab, b) // nodeshell.go
-	}
-	if tab.Type == DockTerminal {
-		ns := b.Namespace
-		if u := s.UIState(); len(u.Namespaces) == 1 {
-			ns = u.Namespaces[0]
-		}
-		opts, err := s.LocalTerminalOptions(b.Context, terminal.LocalOptions{
-			KubeconfigPaths: b.Conn.KubeconfigPaths(), Context: b.Conn.Context(), Namespace: ns, // the name in the file, not a source's id
-		})
-		if err != nil {
-			return nil, err
-		}
-		check, first := s.checkKubectl(ctx, b.Conn.ServerVersion()) // D-3 (kubectl.go)
-		s.setKubectlCheck(tab.ID, check)
-		opts.Kubectl = first
-		if p, err := s.Preferences(); err == nil {
-			opts.EnforceKubectl = p.KubectlEnforce // A27
-		}
-		return terminal.StartLocal(opts)
 	}
 	return terminal.StartPodExec(ctx, b.Conn.RESTConfig(), b.Conn.Kube(), terminal.ExecOptions{
 		Namespace: tab.Ref.Namespace, Pod: tab.Ref.Name, Container: tab.Container,
