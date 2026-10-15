@@ -41,14 +41,12 @@ func Find(name string) (Version, bool) {
 // docs/developer/assets/logo/helm-glow.json): a blue C with a white core, glowing over a pale wheel,
 // white handles, on a petrol plate darkening downwards.
 var HelmGlow = Look{
-	C: rgb(0x4fb6ff), CWeight: 7.3, Handle: rgb(0xeef6ff), Glow: 1, GlowRadius: 4.5, Core: 1, Halo: .35,
-	Accent: rgb(0xbfe9ff), SpokeWeight: .8, Outer: 1,
-	PlateTop: rgb(0x03293a), PlateBottom: rgb(0x00141d), Rim: .16,
+	C: rgb(0x4f, 0xb6, 0xff), CWeight: 7.3, Handle: rgb(0xee, 0xf6, 0xff), Glow: 1, GlowRadius: 4.5, Core: 1, Halo: .35,
+	Accent: rgb(0xbf, 0xe9, 0xff), SpokeWeight: .8, Outer: 1,
+	PlateTop: rgb(0x03, 0x29, 0x3a), PlateBottom: rgb(0x00, 0x14, 0x1d), Rim: .16,
 }
 
-func rgb(v uint32) color.NRGBA {
-	return color.NRGBA{R: uint8(v >> 16), G: uint8(v >> 8), B: uint8(v), A: 0xff}
-}
+func rgb(r, g, b uint8) color.NRGBA { return color.NRGBA{R: r, G: g, B: b, A: 0xff} }
 
 // Draw paints the version onto img, which it does not clear: the box's point (x, y) lands on the
 // pixel (ox + x·scale, oy + y·scale); the plate is the box's 2…98.

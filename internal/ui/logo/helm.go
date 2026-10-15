@@ -7,9 +7,9 @@ import "math"
 // the C and the plate's edge line on the plate's edge. The icon lab's "D-24 heute" comes close but
 // paints the wheel under the C and the rim inside the edge.
 var (
-	helmPlate  = rgb(0x002b36) // base03
-	helmFrame  = rgb(0x93a1a1) // base1: the C, the handles and the outer ring
-	helmAccent = rgb(0x2aa198) // cyan: the inner ring, the spokes, the needle and the hub
+	helmPlate  = rgb(0x00, 0x2b, 0x36) // base03
+	helmFrame  = rgb(0x93, 0xa1, 0xa1) // base1: the C, the handles and the outer ring
+	helmAccent = rgb(0x2a, 0xa1, 0x98) // cyan: the inner ring, the spokes, the needle and the hub
 )
 
 // helmLayers are D-24's shapes back to front, as its reference SVG paints them.
