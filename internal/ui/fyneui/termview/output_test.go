@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"fyne.io/fyne/v2"
+
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
