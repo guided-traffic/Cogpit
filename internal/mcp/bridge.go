@@ -105,8 +105,9 @@ func DialApp(ctx context.Context, opts BridgeOptions) (*Bridge, error) {
 }
 
 // dial reads the endpoint and connects to it. A token the server refuses is read again a few
-// times: the app writes a new token and endpoint on every start, and the bridge may have read
-// the files of two starts.
+// times: the app writes the endpoint at every start and a new token when the user regenerates it
+// (writing the file before the server refuses the old one), and the bridge may have read the files
+// of two moments.
 func (b *Bridge) dial(ctx context.Context) (*upstream, error) {
 	const attempts = 4
 	for i := 0; ; i++ {
@@ -228,22 +229,21 @@ func unavailable(tool *sdk.Tool, err error) string {
 		"check before retrying.", tool.Title, err)
 }
 
-// call forwards one call. A call the app never received (nothing listened, or the server refused
-// the token: the app restarted with a new port and token, or its server was switched off) is
-// sent once more after reading the endpoint again; a call the app did receive is never repeated.
+// call forwards one call. It goes to the endpoint the files name now (followed): a Cogpit that
+// stopped, moved to another port or got a new token is followed before anything is sent. A call
+// the app never received all the same (nothing listened, or the server refused the token: the
+// files changed in between) is sent once more after reading the endpoint again; a call the app did
+// receive is never repeated.
 func (b *Bridge) call(ctx context.Context, name string, args json.RawMessage) (*sdk.CallToolResult, error) {
 	params := &sdk.CallToolParams{Name: name}
 	if len(args) > 0 {
 		params.Arguments = args
 	}
-	up := b.current()
+	up, err := b.followed(ctx)
+	if err != nil {
+		return nil, err
+	}
 	for attempt := 0; ; attempt++ {
-		if up == nil {
-			var err error
-			if up, err = b.reconnect(ctx, nil); err != nil {
-				return nil, err
-			}
-		}
 		d := &delivery{}
 		res, err := up.sess.CallTool(context.WithValue(ctx, deliveryKey{}, d), params)
 		if err == nil || ctx.Err() != nil || attempt > 0 || !d.undelivered() {
@@ -260,6 +260,24 @@ func (b *Bridge) current() *upstream {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.up
+}
+
+// followed returns the connection to the endpoint and token the files name now, connecting anew
+// when they changed. Since the token is kept across Cogpit's starts (F6), the old URL must not get
+// it: after Cogpit stopped or moved to another port, whatever listens there now is not Cogpit
+// (agents-and-mcp H-98). Without an endpoint file no Cogpit serves MCP, and nothing is sent.
+func (b *Bridge) followed(ctx context.Context) (*upstream, error) {
+	up := b.current()
+	ep, err := ReadEndpoint(b.tokenPath)
+	switch {
+	case errors.Is(err, ErrNoEndpoint):
+		return nil, fmt.Errorf("%w: %v", ErrAppNotRunning, err)
+	case err != nil:
+		return nil, err
+	case up != nil && up.ep == ep:
+		return up, nil
+	}
+	return b.reconnect(ctx, up)
 }
 
 // reconnect replaces failed (nil: none) with a connection to the endpoint the files name now,

@@ -13,11 +13,12 @@ import (
 )
 
 // TestStopEndsTheEndpointAndStartBringsItBack: the user's switch in the status bar. Stop removes
-// the token file and the listener goes away; Start serves again, with a new token.
+// the endpoint file and the listener goes away; Start serves again, with the same token and port
+// (F6), so a client registered before the switch works again.
 func TestStopEndsTheEndpointAndStartBringsItBack(t *testing.T) {
 	f := newFixture(t, nil, Options{})
 	endpoint, token := f.start(t)
-	path := f.server.TokenPath()
+	path := endpointFile(f.server.TokenPath())
 	cs := connectHTTP(t, endpoint, token, "")
 	t.Cleanup(func() { _ = cs.Close() })
 	withToken := func(tok string) func(*http.Request) {
@@ -31,7 +32,10 @@ func TestStopEndsTheEndpointAndStartBringsItBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
-		t.Errorf("token file still there after Stop: %v", err)
+		t.Errorf("endpoint file still there after Stop: %v", err)
+	}
+	if data, err := os.ReadFile(f.server.TokenPath()); err != nil || strings.TrimSpace(string(data)) != token {
+		t.Errorf("token file after Stop: %v, want it kept", err)
 	}
 	if f.server.URL() != "" || f.server.ClaudeAddCommand() != "" || f.server.ClientConfigJSON() != "" {
 		t.Error("a stopped server still hands out its endpoint or command")
@@ -46,14 +50,14 @@ func TestStopEndsTheEndpointAndStartBringsItBack(t *testing.T) {
 	}
 
 	endpoint2, token2 := f.start(t)
-	if token2 == token {
-		t.Error("the token did not change on restart")
+	if token2 != token || endpoint2 != endpoint {
+		t.Errorf("the switch changed the endpoint %s → %s or the token (changed: %v)", endpoint, endpoint2, token2 != token)
 	}
-	if cmd := f.server.ClaudeAddCommand(); !strings.Contains(cmd, token2) || strings.Contains(cmd, token) {
-		t.Errorf("the registration command carries the wrong token: %q", cmd)
+	if f.server.PortTaken() != 0 {
+		t.Errorf("the kept port reads as taken: %d", f.server.PortTaken())
 	}
-	if code, _ := post(t, endpoint2, withToken(token)); code == http.StatusOK {
-		t.Error("the old token is accepted after restart")
+	if code, _ := post(t, endpoint2, withToken(token)); code != http.StatusOK {
+		t.Errorf("the kept token is refused after the switch: status %d", code)
 	}
 	cs2 := connectHTTP(t, endpoint2, token2, "")
 	t.Cleanup(func() { _ = cs2.Close() })

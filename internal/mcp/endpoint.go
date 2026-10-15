@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -15,9 +14,16 @@ import (
 )
 
 // EndpointFileName is the endpoint file's name, next to the token file: the URL of the running
-// server, which the stdio bridge (cogpit-cli mcp) needs besides the token, because the port is
-// new on every start. It is written owner-only like the token and removed with it.
+// server, which the stdio bridge (cogpit-cli mcp) needs besides the token. It is written
+// owner-only like the token while the server listens and removed when it stops, so that it also
+// says whether Cogpit serves MCP now: the token stays (F6), the endpoint goes.
 const EndpointFileName = "mcp-endpoint"
+
+// PortFileName is the port file's name, next to the token file: the port the server listened on
+// last, which the next start binds again, so that a client registered once with the port and the
+// token keeps working across Cogpit's starts (F6). It is written owner-only like the token and
+// kept when the server stops.
+const PortFileName = "mcp-port"
 
 // maxEndpointFile bounds what ReadEndpoint reads of each file: a URL or a token is one short line.
 const maxEndpointFile = 4 << 10
@@ -42,6 +48,25 @@ func endpointFile(tokenPath string) string {
 	return filepath.Join(filepath.Dir(tokenPath), EndpointFileName)
 }
 
+// portFile is the port file that belongs to a token file.
+func portFile(tokenPath string) string {
+	return filepath.Join(filepath.Dir(tokenPath), PortFileName)
+}
+
+// readPort returns the port the port file at path keeps, 0 for none: no file, or one that does not
+// hold a port (a start then binds a free one and keeps that).
+func readPort(path string) int {
+	line, err := readLine(path)
+	if err != nil {
+		return 0
+	}
+	p, err := strconv.ParseUint(line, 10, 16)
+	if err != nil || p == 0 {
+		return 0
+	}
+	return int(p)
+}
+
 // ReadEndpoint reads the endpoint and token files of the server whose token file is tokenPath.
 // Either file missing is ErrNoEndpoint. It accepts only what Start writes: an http URL on a
 // loopback address with the path /mcp, and a token of 32 hex-encoded bytes, each from a regular
@@ -60,7 +85,7 @@ func ReadEndpoint(tokenPath string) (Endpoint, error) {
 	if err := checkEndpointURL(rawURL); err != nil {
 		return Endpoint{}, err
 	}
-	if b, err := hex.DecodeString(token); err != nil || len(b) != tokenBytes {
+	if !validToken(token) {
 		return Endpoint{}, fmt.Errorf("mcp: the token file %s does not hold a token Cogpit wrote", tokenPath)
 	}
 	return Endpoint{URL: rawURL, Token: token}, nil

@@ -61,8 +61,9 @@ func TestTokenFileLifecycle(t *testing.T) {
 	if err := f.server.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Lstat(path); !os.IsNotExist(err) {
-		t.Errorf("token file still there after Close: %v", err)
+	// F6: the token stays for the next start; only the user's Regenerate token replaces it.
+	if data, err := os.ReadFile(path); err != nil || strings.TrimSpace(string(data)) != token {
+		t.Errorf("token file after Close: %v (holds the token: %v)", err, strings.TrimSpace(string(data)) == token)
 	}
 	if err := f.server.Close(); err != nil {
 		t.Errorf("second Close: %v", err)
@@ -72,12 +73,71 @@ func TestTokenFileLifecycle(t *testing.T) {
 	}
 }
 
-func TestTokenIsNewOnEveryStart(t *testing.T) {
+// TestTokenKeptAcrossStarts (F6): a later start, of the same server or of the next Cogpit, serves
+// the token the token file keeps, so that a client registered once keeps working.
+func TestTokenKeptAcrossStarts(t *testing.T) {
 	path := filepath.Join(privateDir(t), "mcp-token")
-	_, first := newFixture(t, nil, Options{TokenFile: path}).start(t)
-	_, second := newFixture(t, nil, Options{TokenFile: path}).start(t)
-	if first == second {
-		t.Error("two starts produced the same token")
+	first := newFixture(t, nil, Options{TokenFile: path})
+	_, token := first.start(t)
+	if err := first.server.Close(); err != nil {
+		t.Fatal(err)
+	}
+	next := newFixture(t, nil, Options{TokenFile: path})
+	endpoint, again := next.start(t)
+	if again != token || next.server.Token() != token {
+		t.Error("the next start made a new token")
+	}
+	cs := connectHTTP(t, endpoint, token, "")
+	defer func() { _ = cs.Close() }()
+	if _, err := cs.ListTools(context.Background(), nil); err != nil {
+		t.Errorf("the kept token is refused: %v", err)
+	}
+}
+
+// TestTokenFileNotKept: a token file that holds no token Cogpit wrote, or that other users may
+// read, is replaced by a new token at the next start (owner-only again); a symlink is refused
+// (TestStartRefusesSymlinks).
+func TestTokenFileNotKept(t *testing.T) {
+	kept := strings.Repeat("ab", tokenBytes)
+	cases := map[string]struct {
+		content string
+		mode    os.FileMode
+	}{
+		"not a token": {"not-a-token", 0o600},
+		"short":       {kept[:32], 0o600},
+	}
+	if runtime.GOOS != "windows" {
+		cases["readable by others"] = struct {
+			content string
+			mode    os.FileMode
+		}{kept, 0o644}
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(privateDir(t), "mcp-token")
+			if err := os.WriteFile(path, []byte(c.content+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(path, c.mode); err != nil {
+				t.Fatal(err)
+			}
+			f := newFixture(t, nil, Options{TokenFile: path})
+			_, token := f.start(t)
+			if token == c.content || !validToken(token) {
+				t.Error("the start kept a token it should not")
+			}
+			if runtime.GOOS != "windows" {
+				if m := mode(t, path); m != 0o600 {
+					t.Errorf("token file mode %#o, want 0600", m)
+				}
+			}
+			if !strings.Contains(f.logs.String(), "MCP token not kept") {
+				t.Error("the replacement was not logged")
+			}
+			if strings.Contains(f.logs.String(), token) || strings.Contains(f.logs.String(), kept) {
+				t.Error("a token reached the logs")
+			}
+		})
 	}
 }
 
@@ -146,21 +206,5 @@ func TestTokenDirectoryMustBeOwnerOnly(t *testing.T) {
 	}
 	if m := mode(t, open); m != 0o700 {
 		t.Errorf("own directory mode %#o, want 0700", m)
-	}
-}
-
-func TestCloseKeepsAnotherInstancesToken(t *testing.T) {
-	path := filepath.Join(privateDir(t), "mcp-token")
-	f := newFixture(t, nil, Options{TokenFile: path})
-	f.start(t)
-	// A second Cogpit started later and wrote its own token.
-	if err := writeTokenFile(path, "other", false); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.server.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if data, err := os.ReadFile(path); err != nil || strings.TrimSpace(string(data)) != "other" {
-		t.Errorf("the other instance's token file: %q, %v", data, err)
 	}
 }

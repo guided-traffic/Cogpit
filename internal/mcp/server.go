@@ -37,12 +37,15 @@ const (
 
 // Options configure the server.
 type Options struct {
-	// Addr is the listen address; it must be a loopback address. Empty means 127.0.0.1:0
-	// (a free port).
+	// Addr is the listen address; it must be a loopback address. Empty means 127.0.0.1:0. Port 0
+	// binds the port the last start kept in PortFileName, and a free port when there is none or it
+	// is taken (PortTaken), which is kept then; a port given here binds that port or fails, and is
+	// not kept.
 	Addr string
-	// TokenFile is where the bearer token is written, owner-only (0600) in an owner-only (0700)
-	// directory. Empty means <user config dir>/Cogpit/mcp-token. The endpoint's URL is written
-	// beside it, in EndpointFileName, for the stdio bridge.
+	// TokenFile is where the bearer token is kept, owner-only (0600) in an owner-only (0700)
+	// directory, across starts until the user regenerates it (F6). Empty means
+	// <user config dir>/Cogpit/mcp-token. The endpoint's URL is written beside it while the server
+	// listens, in EndpointFileName, for the stdio bridge, and the port in PortFileName.
 	TokenFile string
 	// Version is reported to clients; empty means "dev".
 	Version string
@@ -59,15 +62,16 @@ const (
 )
 
 // Server is the MCP endpoint for one engine session. Create it with New, call Start, and Close it
-// on exit. Stop ends the endpoint like Close does but lets Start bring it back, with a new token
-// and a new port (the user's switch in the status bar); a closed server cannot be started again.
+// on exit. Stop ends the endpoint like Close does but lets Start bring it back, with the same token
+// and port (the user's switch in the status bar); a closed server cannot be started again.
+// RegenerateToken replaces the token, the one way it changes (F6).
 type Server struct {
 	session *engine.Session
 	opts    Options
 	log     *slog.Logger
 
-	// ctl serialises Start, Stop and Close as wholes, so that a Start right after a Stop finds the
-	// port free again and the old run's token file gone.
+	// ctl serialises Start, Stop, Close and RegenerateToken as wholes, so that a Start right after
+	// a Stop finds the port free again and the old run's endpoint file gone.
 	ctl sync.Mutex
 
 	mu sync.Mutex
@@ -82,7 +86,10 @@ type Server struct {
 	tokenPath string
 	url       string
 	httpSrv   *http.Server
+	guard     *guard        // the running server's guard, which RegenerateToken gives the new token
 	served    chan struct{} // closed when http.Serve has returned
+	// portTaken is the kept port the last Start found taken, 0 when it was free or none was kept.
+	portTaken int
 }
 
 // New prepares a server for the session's registry. Nothing listens until Start. It refuses a
@@ -111,10 +118,11 @@ func New(session *engine.Session, opts Options) (*Server, error) {
 	}, nil
 }
 
-// Start generates a fresh token, writes it to the token file and the URL to the endpoint file
-// beside it, builds one MCP tool per registered command and starts listening. It returns once the
-// listener is bound; ctx bounds only that start-up, and Close stops the server. Commands
-// registered after Start are not tools until the next start.
+// Start brings the endpoint up with the token kept in the token file, or a new one written there
+// when there is none Cogpit can keep using (loadToken), on the port kept beside it (Options.Addr),
+// writes the URL to the endpoint file beside the token, builds one MCP tool per registered command
+// and starts listening. It returns once the listener is bound; ctx bounds only that start-up, and
+// Close stops the server. Commands registered after Start are not tools until the next start.
 func (s *Server) Start(ctx context.Context) error {
 	s.ctl.Lock()
 	defer s.ctl.Unlock()
@@ -127,44 +135,40 @@ func (s *Server) Start(ctx context.Context) error {
 		return errors.New("mcp: server closed; create a new one")
 	}
 
-	tokenPath, ownDir := s.opts.TokenFile, false
-	if tokenPath == "" {
-		p, err := defaultTokenPath()
-		if err != nil {
+	tokenPath, ownDir, err := s.paths()
+	if err != nil {
+		return err
+	}
+	token, dropped, err := loadToken(tokenPath)
+	if err != nil {
+		return err
+	}
+	fresh := token == ""
+	if fresh {
+		if token, err = newToken(); err != nil {
 			return err
 		}
-		// The default directory is Cogpit's own, so Start may tighten its mode (writeTokenFile).
-		tokenPath, ownDir = p, true
 	}
-	token, err := newToken()
+	ln, tcp, taken, err := s.listen(ctx, tokenPath)
 	if err != nil {
 		return err
 	}
-	addr, err := listenAddr(s.opts.Addr)
-	if err != nil {
-		return err
-	}
-	var lc net.ListenConfig
-	ln, err := lc.Listen(ctx, "tcp", addr)
-	if err != nil {
-		return fmt.Errorf("mcp: listen on %s: %w", addr, err)
-	}
-	tcp, ok := ln.Addr().(*net.TCPAddr)
-	if !ok {
-		_ = ln.Close()
-		return fmt.Errorf("mcp: unexpected listener address %v", ln.Addr())
-	}
-	if err := writeTokenFile(tokenPath, token, ownDir); err != nil {
-		_ = ln.Close()
-		return err
+	if fresh {
+		if err := writeTokenFile(tokenPath, token, ownDir); err != nil {
+			_ = ln.Close()
+			return err
+		}
+		if dropped != "" {
+			s.log.Warn("MCP token not kept; Cogpit made a new one, which clients need", "reason", dropped)
+		}
 	}
 	// The endpoint file beside the token tells the stdio bridge (cogpit-cli mcp) where to forward.
 	url := "http://" + net.JoinHostPort(tcp.IP.String(), strconv.Itoa(tcp.Port)) + endpointPath
 	if err := writePrivateLine(endpointFile(tokenPath), url, "endpoint", ownDir); err != nil {
 		_ = ln.Close()
-		_ = removeTokenFile(tokenPath, token)
 		return err
 	}
+	s.keepPort(tokenPath, tcp.Port, ownDir)
 
 	life := s.lifetime
 	srv, tools := s.newMCPServer()
@@ -182,8 +186,9 @@ func (s *Server) Start(ctx context.Context) error {
 	mux := http.NewServeMux()
 	mux.Handle(endpointPath, sdkHandler)
 
+	s.guard = newGuard(tcp, token, s.log, mux)
 	s.httpSrv = &http.Server{
-		Handler:           newGuard(tcp, token, s.log, mux),
+		Handler:           s.guard,
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		ErrorLog:          slog.NewLogLogger(s.log.Handler(), slog.LevelWarn),
@@ -196,9 +201,148 @@ func (s *Server) Start(ctx context.Context) error {
 	s.token = token
 	s.tokenPath = tokenPath
 	s.url = url
+	s.portTaken = taken
 	s.state = stateRunning
-	s.log.Info("MCP server listening", "url", s.url, "tokenFile", tokenPath, "tools", tools)
+	s.log.Info("MCP server listening", "url", s.url, "tokenFile", tokenPath, "newToken", fresh, "tools", tools)
 	return nil
+}
+
+// paths resolves the token file: Options.TokenFile, or the default in Cogpit's own directory,
+// whose mode Cogpit may tighten (ownDir, writePrivateLine).
+func (s *Server) paths() (tokenPath string, ownDir bool, err error) {
+	if s.opts.TokenFile != "" {
+		return s.opts.TokenFile, false, nil
+	}
+	p, err := defaultTokenPath()
+	if err != nil {
+		return "", false, err
+	}
+	return p, true, nil
+}
+
+// keepsPort reports whether the server keeps its port across starts: Options.Addr asks for any
+// port (0), not a given one.
+func (s *Server) keepsPort() bool {
+	addr, err := listenAddr(s.opts.Addr)
+	if err != nil {
+		return false
+	}
+	_, port, err := net.SplitHostPort(addr)
+	return err == nil && port == "0"
+}
+
+// listen binds the listen address. With any port asked for (keepsPort) it binds the port the last
+// start kept, so that a registration made once keeps working, and a free port when that one is not
+// free: taken is the kept port then, 0 otherwise.
+func (s *Server) listen(ctx context.Context, tokenPath string) (ln net.Listener, tcp *net.TCPAddr, taken int, err error) {
+	addr, err := listenAddr(s.opts.Addr)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	var lc net.ListenConfig
+	if s.keepsPort() {
+		if p := readPort(portFile(tokenPath)); p > 0 {
+			host, _, _ := net.SplitHostPort(addr)
+			ln, err = lc.Listen(ctx, "tcp", net.JoinHostPort(host, strconv.Itoa(p)))
+			if err == nil {
+				return checkListener(ln)
+			}
+			if ctx.Err() != nil {
+				return nil, nil, 0, fmt.Errorf("mcp: listen on port %d: %w", p, err)
+			}
+			s.log.Warn("the MCP server's port is not free; listening on another", "port", p, "err", err)
+			taken = p
+		}
+	}
+	ln, err = lc.Listen(ctx, "tcp", addr)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("mcp: listen on %s: %w", addr, err)
+	}
+	ln, tcp, _, err = checkListener(ln)
+	return ln, tcp, taken, err
+}
+
+// checkListener returns ln with its TCP address.
+func checkListener(ln net.Listener) (net.Listener, *net.TCPAddr, int, error) {
+	tcp, ok := ln.Addr().(*net.TCPAddr)
+	if !ok {
+		_ = ln.Close()
+		return nil, nil, 0, fmt.Errorf("mcp: unexpected listener address %v", ln.Addr())
+	}
+	return ln, tcp, 0, nil
+}
+
+// keepPort writes the port to the port file for the next start, when the server keeps its port
+// and the file does not hold it already. A port that cannot be kept is logged: the server runs,
+// and the next start may listen on another port.
+func (s *Server) keepPort(tokenPath string, port int, ownDir bool) {
+	if !s.keepsPort() || readPort(portFile(tokenPath)) == port {
+		return
+	}
+	if err := writePrivateLine(portFile(tokenPath), strconv.Itoa(port), "port", ownDir); err != nil {
+		s.log.Warn("MCP port not kept; the next start may listen on another port", "err", err)
+	}
+}
+
+// RegenerateToken replaces the bearer token with a new one and writes it to the token file: the
+// user's click in the window (F6), the one way the token changes besides a token file Cogpit cannot
+// keep (loadToken). A running server keeps listening on its port, refuses the old token at once and
+// ends every request it admitted, a tool call waiting for the user's confirmation included (its
+// command does not run); a stopped server starts with the new token. The file is written first, so
+// that a client refused the old token reads the new one there (the stdio bridge does, on a 401).
+// Like Stop it is the window's alone: no tool reaches it, so that no agent can cut the other
+// clients off.
+func (s *Server) RegenerateToken() error {
+	s.ctl.Lock()
+	defer s.ctl.Unlock()
+	s.mu.Lock()
+	closed := s.state == stateClosed
+	s.mu.Unlock()
+	if closed {
+		return errors.New("mcp: server closed")
+	}
+	tokenPath, ownDir, err := s.paths()
+	if err != nil {
+		return err
+	}
+	token, err := newToken()
+	if err != nil {
+		return err
+	}
+	if err := writeTokenFile(tokenPath, token, ownDir); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	g, srv := s.guard, s.httpSrv
+	if s.state == stateRunning {
+		s.token = token
+	}
+	s.tokenPath = tokenPath
+	s.mu.Unlock()
+	if g != nil {
+		g.rotate(token)
+		// Idle connections go too; a client's next request opens a new one with the new token.
+		srv.SetKeepAlivesEnabled(false)
+		srv.SetKeepAlivesEnabled(true)
+	}
+	s.log.Info("MCP token regenerated; clients need the new one", "tokenFile", tokenPath)
+	return nil
+}
+
+// PortTaken returns the kept port the last Start found taken, which then listened on another port
+// and kept that one; 0 when the kept port was free or none was kept.
+func (s *Server) PortTaken() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.portTaken
+}
+
+// Token returns the bearer token while the server runs, "" otherwise. It is a credential: the
+// window shows it masked and copies it on request; it never goes to a log, an error or a
+// notification.
+func (s *Server) Token() string {
+	_, token := s.endpoint()
+	return token
 }
 
 // serve runs the HTTP server until Close. A panic is logged rather than ending the app.
@@ -254,11 +398,12 @@ func (s *Server) TokenPath() string {
 //	claude mcp remove --scope user cogpit >/dev/null 2>&1; claude mcp add --scope user --transport http cogpit http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"
 //
 // It returns "" when the server is not running. The command contains the token: print it to the
-// user's terminal, never to a log. The port and the token change on every start, so the
-// registration must be repeated after Cogpit restarts; a client that registers the stdio bridge
-// instead (`cogpit-cli mcp`, architecture §7; ClaudeAddStdioCommand, which the app offers when its
-// bundle carries cogpit-cli) registers once, since the bridge reads the endpoint and token files
-// itself. The syntax is POSIX shell (macOS, Linux).
+// user's terminal, never to a log. The port and the token are kept across starts (F6), so the
+// registration is made once and repeated only after the user regenerates the token or a start
+// found the kept port taken (PortTaken); a client that registers the stdio bridge instead
+// (`cogpit-cli mcp`, architecture §7; ClaudeAddStdioCommand, which the app offers when its bundle
+// carries cogpit-cli) follows both by itself, since the bridge reads the endpoint and token files.
+// The syntax is POSIX shell (macOS, Linux).
 func (s *Server) ClaudeAddCommand() string {
 	url, token := s.endpoint()
 	if url == "" {
@@ -276,8 +421,8 @@ func (s *Server) ClaudeAddCommand() string {
 //
 //	{"mcpServers": {"cogpit": {"type": "http", "url": "...", "headers": {"Authorization": "Bearer ..."}}}}
 //
-// It returns "" when the server is not running. Like ClaudeAddCommand it contains the token,
-// which changes on every start: write it to an owner-only file and never log it.
+// It returns "" when the server is not running. Like ClaudeAddCommand it contains the token, which
+// stays valid until the user regenerates it: write it to an owner-only file and never log it.
 func (s *Server) ClientConfigJSON() string {
 	url, token := s.endpoint()
 	if url == "" {
@@ -317,14 +462,14 @@ func (s *Server) life() context.Context {
 }
 
 // Close stops the server for good, ends pending tool calls (a call waiting for a confirmation fails
-// and its command does not run) and removes the token file if it still holds this server's token.
-// It is safe to call more than once.
+// and its command does not run) and removes the endpoint file if it still names this server. The
+// token and port files stay for the next start (F6). It is safe to call more than once.
 func (s *Server) Close() error { return s.halt(true) }
 
 // Stop ends the endpoint as Close does: it stops listening, ends every connection and pending tool
-// call, and removes the token file. Unlike Close it leaves the server startable: Start brings the
-// endpoint back with a new token and a new listener. Stopping a server that is not running does
-// nothing. The user's switch in the status bar is the one caller; no tool can reach it.
+// call, and removes the endpoint file. Unlike Close it leaves the server startable: Start brings the
+// endpoint back with the same token and port. Stopping a server that is not running does nothing.
+// The user's switch in the status bar is the one caller; no tool can reach it.
 func (s *Server) Stop() error { return s.halt(false) }
 
 func (s *Server) halt(final bool) error {
@@ -336,8 +481,8 @@ func (s *Server) halt(final bool) error {
 		return nil
 	}
 	wasRunning := s.state == stateRunning
-	srv, served, path, token, url, stop := s.httpSrv, s.served, s.tokenPath, s.token, s.url, s.stop
-	s.token, s.httpSrv, s.url = "", nil, ""
+	srv, served, path, url, stop, g := s.httpSrv, s.served, s.tokenPath, s.url, s.stop, s.guard
+	s.token, s.httpSrv, s.url, s.guard = "", nil, "", nil
 	switch {
 	case final:
 		s.state = stateClosed
@@ -354,6 +499,7 @@ func (s *Server) halt(final bool) error {
 	if !wasRunning {
 		return nil
 	}
+	g.close()
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
 	defer cancel()
 	var errs []error
@@ -363,9 +509,8 @@ func (s *Server) halt(final bool) error {
 		}
 	}
 	<-served
-	if err := removeTokenFile(path, token); err != nil {
-		errs = append(errs, err)
-	}
+	// The token and the port stay for the next start; the endpoint file says the server listens,
+	// and it no longer does.
 	if err := removeIfHolds(endpointFile(path), url, "endpoint"); err != nil {
 		errs = append(errs, err)
 	}

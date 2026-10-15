@@ -16,9 +16,10 @@ import (
 	"github.com/guided-traffic/cogpit/internal/mcp"
 )
 
-// TestMCPControlSwitch: the window's switch stops the server (token file gone, port closed),
-// starts it again with a new token, hands the window the new command, prints it to the terminal and
-// records the user's switches, but not the start at launch, in the audit log.
+// TestMCPControlSwitch: the window's switch stops the server (endpoint file gone, port closed, the
+// token kept), starts it again with the same token and port (F6), hands the window the command,
+// prints it to the terminal and records the user's switches, but not the start at launch, in the
+// audit log.
 func TestMCPControlSwitch(t *testing.T) {
 	var audit, terminal bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -50,8 +51,11 @@ func TestMCPControlSwitch(t *testing.T) {
 	if err := c.Stop(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Lstat(tokenFile); !os.IsNotExist(err) {
-		t.Errorf("token file after Stop: %v", err)
+	if _, err := os.Lstat(filepath.Join(filepath.Dir(tokenFile), mcp.EndpointFileName)); !os.IsNotExist(err) {
+		t.Errorf("endpoint file after Stop: %v", err)
+	}
+	if _, err := os.Lstat(tokenFile); err != nil {
+		t.Errorf("token file after Stop: %v, want it kept", err)
 	}
 	if conn, err := net.DialTimeout("tcp", addr, time.Second); err == nil {
 		_ = conn.Close()
@@ -62,8 +66,8 @@ func TestMCPControlSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ep2.Command == ep.Command {
-		t.Error("the command (token) did not change on restart")
+	if ep2.Command != ep.Command {
+		t.Error("the switch changed the registration: the token and the port are kept (F6)")
 	}
 
 	var lines []engine.AuditEntry

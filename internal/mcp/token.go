@@ -16,6 +16,10 @@ import (
 // tokenBytes is the token's entropy: 32 random bytes, 64 hex characters.
 const tokenBytes = 32
 
+// goosWindows is runtime.GOOS on Windows, where file modes do not express access: the user's
+// profile ACLs apply instead.
+const goosWindows = "windows"
+
 // newToken returns a fresh bearer token. Hex keeps it safe to paste inside double quotes in any
 // shell.
 func newToken() (string, error) {
@@ -64,7 +68,7 @@ func writePrivateLine(path, line, what string, ownDir bool) error {
 		return fmt.Errorf("mcp: %s directory %s is a symlink; refusing to write it through it", what, dir)
 	case !fi.IsDir():
 		return fmt.Errorf("mcp: %s directory %s is not a directory", what, dir)
-	case runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0:
+	case runtime.GOOS != goosWindows && fi.Mode().Perm()&0o077 != 0:
 		if !ownDir {
 			return fmt.Errorf("mcp: %s directory %s is accessible by other users (mode %#o); it must be 0700", what, dir, fi.Mode().Perm())
 		}
@@ -94,7 +98,7 @@ func writePrivateLine(path, line, what string, ownDir bool) error {
 			_ = os.Remove(tmp)
 		}
 	}()
-	if err := f.Chmod(0o600); err != nil && runtime.GOOS != "windows" {
+	if err := f.Chmod(0o600); err != nil && runtime.GOOS != goosWindows {
 		return fmt.Errorf("mcp: %s file: %w", what, err)
 	}
 	if _, err := f.WriteString(line + "\n"); err != nil {
@@ -114,15 +118,44 @@ func writePrivateLine(path, line, what string, ownDir bool) error {
 	return nil
 }
 
-// removeTokenFile removes the token file if it still holds token. Another Cogpit started later
-// may have replaced it with its own token, which must survive this one's exit; a symlink is not
-// Cogpit's either.
-func removeTokenFile(path, token string) error {
-	return removeIfHolds(path, token, "token")
+// loadToken returns the token kept in the token file at path, so that a client registered once
+// keeps working across Cogpit's starts (F6). It returns "" with the reason in dropped when the file
+// holds nothing Cogpit can keep using: no token Cogpit wrote, or a file other users may read (a
+// token they may have read is not kept); a missing file is "" without a reason. A symlink, or
+// anything but a regular file, is an error, as writeTokenFile refuses to write through one.
+func loadToken(path string) (token, dropped string, err error) {
+	fi, err := os.Lstat(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return "", "", nil
+	case err != nil:
+		return "", "", fmt.Errorf("mcp: token file: %w", err)
+	case fi.Mode()&fs.ModeSymlink != 0:
+		return "", "", fmt.Errorf("mcp: token file %s is a symlink; refusing to read a token through it", path)
+	case !fi.Mode().IsRegular():
+		return "", "", fmt.Errorf("mcp: token file %s is not a regular file", path)
+	case runtime.GOOS != goosWindows && fi.Mode().Perm()&0o077 != 0:
+		return "", fmt.Sprintf("the token file was accessible by other users (mode %#o)", fi.Mode().Perm()), nil
+	}
+	line, err := readLine(path)
+	if err != nil {
+		return "", "", err
+	}
+	if !validToken(line) {
+		return "", "the token file did not hold a token Cogpit wrote", nil
+	}
+	return line, "", nil
 }
 
-// removeIfHolds removes path if it is a regular file that holds line, as removeTokenFile
-// describes; what names the file in errors.
+// validToken reports whether s is a token newToken makes: 32 hex-encoded bytes.
+func validToken(s string) bool {
+	b, err := hex.DecodeString(s)
+	return err == nil && len(b) == tokenBytes
+}
+
+// removeIfHolds removes path if it is a regular file that still holds line: another Cogpit
+// started later may have replaced it with its own, which must survive this one's exit, and a
+// symlink is not Cogpit's either. what names the file in errors.
 func removeIfHolds(path, line, what string) error {
 	if path == "" || line == "" {
 		return nil

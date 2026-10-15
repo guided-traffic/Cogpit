@@ -13,14 +13,15 @@ import (
 )
 
 const mcpAbout = `Serves Cogpit's MCP tools over stdin and stdout, for agents that speak MCP only over stdio:
-register "cogpit-cli mcp" as an MCP server once, instead of the URL and token that change with
-every start of Cogpit.
+register "cogpit-cli mcp" as an MCP server once, instead of the URL and token, which change when
+the user regenerates the token in Cogpit's window or Cogpit finds its port taken.
 
 While Cogpit runs with its MCP server switched on (its token and endpoint files in Cogpit's
 configuration directory), every call is forwarded to it: the agent drives the window the user
-sees, and mutating and destructive commands wait for the user's confirmation there. When Cogpit
-restarts, the bridge follows it to its new port and token; a call is sent again only if it never
-reached Cogpit.
+sees, and mutating and destructive commands wait for the user's confirmation there. The bridge
+reads the endpoint and token files before every call, so it follows a restart of Cogpit, a new
+port and a regenerated token by itself and never sends the token to where Cogpit no longer
+listens; a call is sent again only if it never reached Cogpit.
 
 Without a running Cogpit (or with --headless) the bridge runs an engine of its own, without a
 window: read and UI commands run (connect a context with cluster_connect first), and commands

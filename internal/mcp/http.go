@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // requestContextKey carries the HTTP request's own context into the tool handler (callContext).
@@ -21,13 +22,20 @@ type requestContextKey struct{}
 type guard struct {
 	hosts   map[string]bool // allowed Host values: "127.0.0.1:<port>", "localhost:<port>", "[::1]:<port>"
 	origins map[string]bool // allowed Origin values: "http://" + each allowed host
-	token   []byte
 	log     *slog.Logger
 	next    http.Handler
+
+	mu    sync.Mutex
+	token []byte
+	// epoch ends when the token is replaced (rotate) or the server stops (close): every request
+	// the token admitted runs under it and ends with it. Guarded by mu.
+	epoch context.Context
+	end   context.CancelFunc
 }
 
 func newGuard(addr *net.TCPAddr, token string, log *slog.Logger, next http.Handler) *guard {
 	g := &guard{hosts: map[string]bool{}, origins: map[string]bool{}, token: []byte(token), log: log, next: next}
+	g.epoch, g.end = context.WithCancel(context.Background())
 	port := strconv.Itoa(addr.Port)
 	for _, name := range []string{"127.0.0.1", "localhost", "::1", addr.IP.String()} {
 		hp := net.JoinHostPort(name, port)
@@ -35,6 +43,26 @@ func newGuard(addr *net.TCPAddr, token string, log *slog.Logger, next http.Handl
 		g.origins["http://"+hp] = true
 	}
 	return g
+}
+
+// rotate replaces the token (the user's Regenerate token, F6): from now on only the new one is
+// admitted, and every request the old one admitted ends, so a tool call waiting for the user's
+// confirmation fails and its command does not run. The listener stays.
+func (g *guard) rotate(token string) {
+	g.mu.Lock()
+	end := g.end
+	g.token = []byte(token)
+	g.epoch, g.end = context.WithCancel(context.Background())
+	g.mu.Unlock()
+	end()
+}
+
+// close ends every request the guard admitted; the server is stopping.
+func (g *guard) close() {
+	g.mu.Lock()
+	end := g.end
+	g.mu.Unlock()
+	end()
 }
 
 func (g *guard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -48,31 +76,38 @@ func (g *guard) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		g.reject(w, r, http.StatusForbidden, "Origin not allowed", "forbidden: requests from web pages are not allowed")
 		return
 	}
-	presented, ok := g.authorized(r)
+	presented, epoch, ok := g.authorized(r)
 	if !ok {
 		reason := "missing bearer token"
 		if presented {
 			reason = "wrong bearer token"
 		}
 		g.reject(w, r, http.StatusUnauthorized, reason,
-			"unauthorized: a valid bearer token is required. Cogpit makes a new token on every start; "+
-				"register the endpoint again with the command Cogpit prints at start-up")
+			"unauthorized: a valid bearer token is required. The user may have regenerated Cogpit's MCP token; "+
+				"copy the registration command again from the MCP details (the gear of the MCP item in Cogpit's status bar)")
 		return
 	}
 	// The token has done its job; nothing behind the guard needs it, so it cannot leak from there.
 	r.Header.Del("Authorization")
-	g.next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestContextKey{}, r.Context())))
+	// The request runs under the token that admitted it: a new token ends it (rotate).
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	defer context.AfterFunc(epoch, cancel)()
+	g.next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, requestContextKey{}, ctx)))
 }
 
 // authorized reports whether the request carries a bearer token (presented) and whether it is
-// this server's token, compared in constant time.
-func (g *guard) authorized(r *http.Request) (presented, ok bool) {
+// this server's token, compared in constant time, and the epoch of the token it checked against.
+func (g *guard) authorized(r *http.Request) (presented bool, epoch context.Context, ok bool) {
 	scheme, token, found := strings.Cut(r.Header.Get("Authorization"), " ")
 	if !found || !strings.EqualFold(scheme, "Bearer") {
-		return false, false
+		return false, nil, false
 	}
 	token = strings.TrimSpace(token)
-	return token != "", subtle.ConstantTimeCompare([]byte(token), g.token) == 1
+	g.mu.Lock()
+	want, epoch := g.token, g.epoch
+	g.mu.Unlock()
+	return token != "", epoch, subtle.ConstantTimeCompare([]byte(token), want) == 1
 }
 
 // reject answers with status and logs why, never with a header value: the Authorization header
@@ -80,7 +115,7 @@ func (g *guard) authorized(r *http.Request) (presented, ok bool) {
 func (g *guard) reject(w http.ResponseWriter, r *http.Request, status int, reason, body string) {
 	level := slog.LevelWarn // a foreign Host or Origin is a web page probing the endpoint
 	if status == http.StatusUnauthorized {
-		level = slog.LevelInfo // usually a client holding the token of an earlier start
+		level = slog.LevelInfo // usually a client holding a token the user regenerated since
 		w.Header().Set("WWW-Authenticate", `Bearer realm="cogpit"`)
 	}
 	g.log.Log(r.Context(), level, "MCP request rejected", "status", status, "reason", reason,

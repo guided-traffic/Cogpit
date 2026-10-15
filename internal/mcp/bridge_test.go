@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -47,8 +48,8 @@ func TestEndpointFileLifecycle(t *testing.T) {
 	}
 
 	url2, token2 := f.start(t)
-	if ep, err := ReadEndpoint(tokenPath); err != nil || ep.URL != url2 || ep.Token != token2 || token2 == token {
-		t.Errorf("after a restart: %+v, %v", ep, err)
+	if ep, err := ReadEndpoint(tokenPath); err != nil || ep.URL != url2 || ep.Token != token2 || token2 != token || url2 != url {
+		t.Errorf("after a restart: %s, %v; want %s and the same token (F6)", ep.URL, err, url)
 	}
 	if err := f.server.Close(); err != nil {
 		t.Fatal(err)
@@ -200,9 +201,10 @@ func TestBridgeForwardsToTheApp(t *testing.T) {
 	}
 }
 
-// TestBridgeFollowsARestart: the app's next start has a new port and token; a call that the old
-// endpoint did not take is sent to the new one. With the server switched off, calls fail and say
-// so.
+// TestBridgeFollowsARestart: the app's next start keeps its port and token (F6) and the bridge's
+// calls go on; a start that found the kept port taken listens on another, and the bridge follows
+// it there without sending anything, the kept token least of all, to whatever holds the old port
+// (H-98). With the server switched off, calls fail and say so.
 func TestBridgeFollowsARestart(t *testing.T) {
 	tokenPath := filepath.Join(privateDir(t), TokenFileName)
 	app := newFixture(t, nil, Options{TokenFile: tokenPath})
@@ -219,12 +221,37 @@ func TestBridgeFollowsARestart(t *testing.T) {
 	if err := app.server.Stop(); err != nil {
 		t.Fatal(err)
 	}
-	url2, _ := app.start(t)
-	if url1 == url2 {
-		t.Logf("the restart reused the port %s", url2)
+	if url, _ := app.start(t); url != url1 {
+		t.Errorf("the restart moved from %s to %s", url1, url)
 	}
 	if res := call(t, cs, "ui_state", nil); res.IsError {
 		t.Fatalf("ui_state after the app restarted: %s", text(res))
+	}
+
+	// Another program takes the port while the server is off.
+	if err := app.server.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	var squatted atomic.Int32
+	squatter := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		squatted.Add(1)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}), ReadHeaderTimeout: time.Second}
+	ln, err := net.Listen("tcp", strings.TrimSuffix(strings.TrimPrefix(url1, "http://"), endpointPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = squatter.Serve(ln) }()
+	t.Cleanup(func() { _ = squatter.Close() })
+	url2, _ := app.start(t)
+	if url2 == url1 || app.server.PortTaken() == 0 {
+		t.Fatalf("the start did not move off the taken port: %s, taken %d", url2, app.server.PortTaken())
+	}
+	if res := call(t, cs, "ui_state", nil); res.IsError {
+		t.Fatalf("ui_state after the app moved: %s", text(res))
+	}
+	if squatted.Load() != 0 {
+		t.Errorf("the bridge sent %d requests to the program on the old port", squatted.Load())
 	}
 
 	if err := app.server.Stop(); err != nil {
@@ -236,8 +263,62 @@ func TestBridgeFollowsARestart(t *testing.T) {
 	}
 }
 
-// TestBridgeReconnectsOnceForConcurrentCalls: calls that find the old endpoint gone at the same
-// time reconnect once between them and all reach the restarted app.
+// TestBridgeFollowsARegenerate (F6): after the user regenerated the token, a running bridge's next
+// call reaches the app with the new token, read from the token file, without the agent doing
+// anything; the old token is refused.
+func TestBridgeFollowsARegenerate(t *testing.T) {
+	tokenPath := filepath.Join(privateDir(t), TokenFileName)
+	app := newFixture(t, nil, Options{TokenFile: tokenPath})
+	url, oldToken := app.start(t)
+	b, err := DialApp(context.Background(), BridgeOptions{TokenFile: tokenPath, Logger: discardLogger()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs := bridgeClient(t, b)
+	if res := call(t, cs, "ui_state", nil); res.IsError {
+		t.Fatalf("ui_state: %s", text(res))
+	}
+	old := b.current()
+
+	if err := app.server.RegenerateToken(); err != nil {
+		t.Fatal(err)
+	}
+	if res := call(t, cs, "ui_state", nil); res.IsError {
+		t.Fatalf("ui_state after the regenerate: %s", text(res))
+	}
+	if up := b.current(); up == old || up.ep.Token == oldToken || up.ep.URL != url {
+		t.Errorf("the bridge did not take the new token at the same URL (%s, token changed %v)", up.ep.URL, up.ep.Token != oldToken)
+	}
+	if code, _ := post(t, url, func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+oldToken) }); code != http.StatusUnauthorized {
+		t.Errorf("the old token: status %d, want 401", code)
+	}
+
+	// The race the file check cannot see: the server refuses the token the bridge just read, and
+	// the new one reaches the file a moment later. The refused call reads the files again (401)
+	// and is sent once more.
+	newer, err := newToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.server.mu.Lock()
+	g := app.server.guard
+	app.server.mu.Unlock()
+	g.rotate(newer)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		_ = writeTokenFile(tokenPath, newer, false)
+	}()
+	if res := call(t, cs, "ui_state", nil); res.IsError {
+		t.Fatalf("ui_state after a refused token: %s", text(res))
+	}
+	if b.current().ep.Token != newer {
+		t.Error("the bridge did not read the newer token after the 401")
+	}
+}
+
+// TestBridgeReconnectsOnceForConcurrentCalls: calls that find the old token refused at the same
+// time (the user regenerated it while the app's server was off) reconnect once between them and
+// all reach the restarted app.
 func TestBridgeReconnectsOnceForConcurrentCalls(t *testing.T) {
 	tokenPath := filepath.Join(privateDir(t), TokenFileName)
 	app := newFixture(t, nil, Options{TokenFile: tokenPath})
@@ -248,6 +329,9 @@ func TestBridgeReconnectsOnceForConcurrentCalls(t *testing.T) {
 	}
 	cs := bridgeClient(t, b)
 	if err := app.server.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.server.RegenerateToken(); err != nil {
 		t.Fatal(err)
 	}
 	app.start(t)
