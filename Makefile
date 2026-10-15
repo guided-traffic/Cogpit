@@ -463,7 +463,7 @@ DIST            := $(CURDIR)/dist
 DIST_LDFLAGS     = -s -w -X github.com/guided-traffic/cogpit/internal/buildinfo.version=$(VERSION)
 MACOS_SIGN      ?=
 
-.PHONY: dist-app dist-macos dist-checksums
+.PHONY: dist-app dist-macos dist-macos-sign dist-macos-notarize dist-checksums
 
 dist-app: ## The macOS app with cogpit-cli inside, zipped, in dist/ (macOS only); VERSION=x.y.z
 	@test "$$($(GO) env GOOS)" = darwin || { echo "dist-app runs on macOS only"; exit 1; }
@@ -475,6 +475,12 @@ dist-app: ## The macOS app with cogpit-cli inside, zipped, in dist/ (macOS only)
 
 dist-macos: ## The macOS download in dist/macos from dist-app's zip: the disk image, the app and its cogpit-cli signed and notarized with the release secrets, MACOS_SIGN=adhoc for a local check, else the zip unsigned (macOS only); VERSION=x.y.z
 	MACOS_SIGN='$(MACOS_SIGN)' hack/macos/release.sh '$(VERSION)' '$(DIST)' '$(DIST)/macos'
+
+dist-macos-sign: ## The release pipeline's first macOS job: dist-macos's signing and disk image, the disk image submitted to Apple's notary service without waiting, the submission recorded in dist/macos/notary-submission.json; VERSION=x.y.z
+	MACOS_SIGN='$(MACOS_SIGN)' hack/macos/release.sh sign '$(VERSION)' '$(DIST)' '$(DIST)/macos'
+
+dist-macos-notarize: ## The release pipeline's second macOS job: Apple's verdict on the submission dist-macos-sign recorded (a re-run waits for the same one), the ticket stapled and checked; VERSION=x.y.z
+	hack/macos/release.sh notarize '$(VERSION)' '$(DIST)/macos'
 
 # Sparkle's appcast (D-4; docs/developer/releasing.md#the-appcast): the release pipeline's three
 # appcast jobs. appcast-draft drafts the feed with the release's item in dist/appcast (no secret),

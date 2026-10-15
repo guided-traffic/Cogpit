@@ -5,11 +5,20 @@
 # pipeline's job "Sign and notarize (macOS)" runs it through `make dist-macos`; on a Mac it runs
 # the same, signed ad-hoc.
 #
-#   hack/macos/release.sh <version> <in dir> <out dir>
+#   hack/macos/release.sh <version> <in dir> <out dir>        everything (make dist-macos)
+#   hack/macos/release.sh sign <version> <in dir> <out dir>   the pipeline's first job
+#   hack/macos/release.sh notarize <version> <dir>            the pipeline's second job
 #   hack/macos/release.sh cleanup
 #
-# <in dir> holds Cogpit_<version>_darwin_<arch>.zip; <out dir> receives the download. What happens
-# depends on the environment:
+# <in dir> holds Cogpit_<version>_darwin_<arch>.zip; <out dir> receives the download. The pipeline
+# splits the course in two jobs: `sign` signs the app and the disk image, submits the disk image to
+# Apple's notary service without waiting and records the submission in
+# <out dir>/notary-submission.json (its id, the disk image's name and SHA-256); `notarize` waits
+# for Apple's verdict on exactly that submission, staples the ticket, checks the result and removes
+# the record. A re-run of a `notarize` that ran out of time waits for the same submission: signing
+# and submitting again makes a new disk image that starts Apple's queue over (v0.9.0 to v0.12.0,
+# 2026-10-15: every re-run a new submission, none finished within the 45 minutes the one job
+# waited). What happens depends on the environment:
 #
 #   Developer ID  MACOS_SIGN_P12 (the .p12, base64), MACOS_SIGN_P12_PASSWORD, APPLE_API_KEY_P8 (the
 #                 App Store Connect key, base64), APPLE_API_KEY_ID and APPLE_API_ISSUER_ID all set,
@@ -43,8 +52,9 @@ secrets="MACOS_SIGN_P12 MACOS_SIGN_P12_PASSWORD APPLE_API_KEY_P8 APPLE_API_KEY_I
 # The cogpit-cli in Contents/MacOS: its name and code-signing identifier (the Makefile's CLI_ID).
 cli_name="cogpit-cli"
 cli_identifier="io.guided-traffic.cogpit.cli"
-# How long to wait for Apple's notary service.
+# How long to wait for Apple's notary service, and how often to ask it.
 notary_minutes="${NOTARY_TIMEOUT_MINUTES:-45}"
+poll_seconds="${NOTARY_POLL_SECONDS:-60}"
 
 log() { printf '%s\n' "$*"; }
 err() {
@@ -279,64 +289,119 @@ notary() {
 	xcrun notarytool "$@" --key "$work/notary.p8" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID"
 }
 
-# await <id> <what>: waits for Apple's verdict on a submission until the deadline and prints its
-# log (the files Apple checked and any issue); fails unless Apple accepted it. Called with ||, so
-# errexit is off in here: every step checks its own result.
+# notary_key writes the team API key where notarytool reads it: given as base64, or as the .p8
+# file's PEM text itself.
+notary_key() {
+	case "$APPLE_API_KEY_P8" in
+	-----BEGIN*) (umask 077 && printf '%s\n' "$APPLE_API_KEY_P8" >"$work/notary.p8") ;;
+	*) (umask 077 && printf '%s' "$APPLE_API_KEY_P8" | base64 --decode >"$work/notary.p8") ;;
+	esac
+}
+
+# submit hands the disk image, with the app and its nested code (Sparkle, cogpit-cli) inside, to
+# Apple's notary service without waiting, and records the submission beside it in
+# notary-submission.json: its id, the disk image's name and its SHA-256.
+submit() {
+	local id sum
+	notary_key
+	group "Submit to Apple's notary service"
+	notary submit "$dmg" --no-wait --output-format json >"$work/submit-dmg.json"
+	rm -f "$work/notary.p8"
+	id="$(plutil -extract id raw -o - "$work/submit-dmg.json")"
+	[[ "$id" =~ ^[0-9a-f-]{36}$ ]] || die "Apple's notary service answered the submission with an unexpected id: $id"
+	sum="$(shasum -a 256 "$dmg" | cut -d' ' -f1)"
+	printf '{"id":"%s","file":"%s","sha256":"%s"}\n' "$id" "$(basename "$dmg")" "$sum" >"$out/notary-submission.json"
+	log "$(basename "$dmg"): submission $id"
+	summary "\`$(basename "$dmg")\` submitted to Apple's notary service: submission \`$id\`."
+	endgroup
+}
+
+# notary_history prints the team's latest submissions as Apple lists them (dates, states, names,
+# ids; no secret): how long Apple is taking these days.
+notary_history() {
+	local i field line
+	group "Apple's latest submissions"
+	if notary history --output-format json >"$work/history.json" 2>/dev/null; then
+		for i in 0 1 2 3 4 5 6 7 8 9; do
+			plutil -extract "history.$i" json -o - "$work/history.json" >/dev/null 2>&1 || break
+			line=""
+			for field in createdDate status name id; do
+				line="$line  $(plutil -extract "history.$i.$field" raw -o - "$work/history.json" 2>/dev/null || true)"
+			done
+			log "${line#  }"
+		done
+	else
+		log "no history from Apple's notary service"
+	fi
+	endgroup
+}
+
+# await <id> <what>: asks Apple for its verdict on a submission every poll_seconds until it is in or
+# the deadline has passed, then prints its log (the files Apple checked and any issue); fails unless
+# Apple accepted it. A question Apple does not answer is asked again. Called with ||, so errexit is
+# off in here: every step checks its own result.
 await() {
-	local id=$1 what=$2 left status
+	local id=$1 what=$2 status said=0 now
 	group "Notarization of $what (submission $id)"
-	left=$((deadline - $(date +%s)))
-	[ "$left" -gt 60 ] || left=60
-	notary wait "$id" --timeout "$left" || log "notarytool wait ended with an error; asking for the submission's status"
-	if ! notary info "$id" --output-format json >"$work/info.json" ||
-		! status="$(plutil -extract status raw -o - "$work/info.json")"; then
+	while :; do
+		status=""
+		if notary info "$id" --output-format json >"$work/info.json" 2>"$work/info.err"; then
+			status="$(plutil -extract status raw -o - "$work/info.json" 2>/dev/null)" || status=""
+		fi
+		[ -n "$status" ] || log "no status for submission $id this time: $(tr '\n' ' ' <"$work/info.err" | cut -c1-200)"
+		case "$status" in "" | "In Progress") ;; *) break ;; esac
+		now=$(date +%s)
+		[ "$now" -lt "$deadline" ] || break
+		if [ $((now - said)) -ge 600 ]; then
+			log "$(date -u '+%H:%M') UTC: ${status:-no answer}; asking again every ${poll_seconds} s until $(date -u -r "$deadline" '+%H:%M') UTC"
+			said=$now
+		fi
+		sleep "$poll_seconds"
+	done
+	summary "| $what | \`$id\` | ${status:-no answer} |"
+	case "$status" in
+	"" | "In Progress")
 		endgroup
-		err "$what: cannot read the status of submission $id from Apple's notary service"
+		err "$what: Apple has not finished notarizing submission $id within $notary_minutes minutes (last answer: ${status:-none}) and keeps working on it. Re-run the failed job \"Notarize and staple (macOS)\": it waits for this same submission and submits nothing new (docs/developer/releasing.md#when-signing-or-notarization-fails)"
 		return 1
-	fi
-	summary "| $what | \`$id\` | $status |"
-	if [ "$status" = "In Progress" ]; then
-		endgroup
-		err "$what: Apple has not finished notarizing submission $id within $notary_minutes minutes and keeps working on it. Check it with xcrun notarytool info $id (or history), then re-run the failed jobs (docs/developer/releasing.md#when-signing-or-notarization-fails)"
-		return 1
-	fi
+		;;
+	esac
 	notary log "$id" || log "no log for submission $id"
 	endgroup
 	if [ "$status" != Accepted ]; then
-		err "$what: Apple's notary service says $status for submission $id; its log is above"
+		err "$what: Apple's notary service says $status for submission $id; its log is above. This disk image cannot be notarized: fix the cause and release again"
 		return 1
 	fi
 	log "$what: Accepted (submission $id)"
 }
 
-# notarize submits the disk image, with the app and its nested code (Sparkle, cogpit-cli) inside,
-# waits for Apple's verdict, staples the disk image's ticket and checks it as Gatekeeper does.
-notarize() {
-	local dmg_id failed=0
-	# The key as base64, or as the .p8 file's PEM text itself.
-	case "$APPLE_API_KEY_P8" in
-	-----BEGIN*) (umask 077 && printf '%s\n' "$APPLE_API_KEY_P8" >"$work/notary.p8") ;;
-	*) (umask 077 && printf '%s' "$APPLE_API_KEY_P8" | base64 --decode >"$work/notary.p8") ;;
-	esac
-
-	group "Submit to Apple's notary service"
-	notary submit "$dmg" --no-wait --output-format json >"$work/submit-dmg.json"
-	dmg_id="$(plutil -extract id raw -o - "$work/submit-dmg.json")"
-	log "$(basename "$dmg"): submission $dmg_id"
-	endgroup
-
+# verdict waits for Apple's verdict on the submission recorded in notary-submission.json, made of
+# exactly this disk image, staples the disk image's ticket, checks it as Gatekeeper does and removes
+# the record, which is no part of the download.
+verdict() {
+	local record="$out/notary-submission.json" id file sum failed=0
+	id="$(plutil -extract id raw -o - "$record")"
+	file="$(plutil -extract file raw -o - "$record")"
+	sum="$(plutil -extract sha256 raw -o - "$record")"
+	[[ "$id" =~ ^[0-9a-f-]{36}$ ]] || die "$record: no submission id"
+	[ "$file" = "$(basename "$dmg")" ] || die "$record is about $file, not $(basename "$dmg")"
+	[ "$(shasum -a 256 "$dmg" | cut -d' ' -f1)" = "$sum" ] ||
+		die "$(basename "$dmg") is not the disk image submission $id was made of (SHA-256 differs)"
+	notary_key
+	notary_history
 	summary "| Notarized | Submission | Status |"
 	summary "|---|---|---|"
 	deadline=$(($(date +%s) + notary_minutes * 60))
-	await "$dmg_id" "$(basename "$dmg")" || failed=1
+	await "$id" "$file" || failed=1
 	rm -f "$work/notary.p8"
 	[ "$failed" = 0 ] || exit 1
 
 	group "Staple and check $(basename "$dmg")"
-	retry 3 xcrun stapler staple "$dmg"
+	retry 5 xcrun stapler staple "$dmg"
 	xcrun stapler validate "$dmg"
 	gatekeeper "$dmg" -t open --context context:primary-signature
 	endgroup
+	rm -f "$record"
 }
 
 # gatekeeper <path> <spctl options...>: Gatekeeper's verdict, which must be a notarized Developer ID.
@@ -355,7 +420,8 @@ gatekeeper() {
 		die "Gatekeeper accepts $path, but not as notarized: $verdict"
 }
 
-# check_dmg mounts the disk image and checks what opening it shows: the app and the link.
+# check_dmg [gatekeeper] mounts the disk image and checks what opening it shows: the app and the
+# link; with gatekeeper (once notarized) also Gatekeeper's verdict on the app in it.
 check_dmg() {
 	group "Check the contents of $(basename "$dmg")"
 	local mnt="$work/mnt" entries
@@ -369,39 +435,44 @@ check_dmg() {
 	codesign --verify --strict --verbose=2 "$mnt/Cogpit.app/Contents/MacOS/$cli_name"
 	[ "$(plutil -extract CFBundleShortVersionString raw "$mnt/Cogpit.app/Contents/Info.plist")" = "$version" ] ||
 		die "the app in $(basename "$dmg") is not version $version"
-	if [ "$mode" = developer-id ]; then gatekeeper "$mnt/Cogpit.app" -t execute; fi
+	if [ "${1:-}" = gatekeeper ] && [ "$mode" = developer-id ]; then gatekeeper "$mnt/Cogpit.app" -t execute; fi
 	hdiutil detach -quiet "$mnt"
 	endgroup
 }
 
-main() {
-	[ "$#" -eq 3 ] || die "usage: $0 <version> <in dir> <out dir> | $0 cleanup"
-	version=$1
-	local in=$2
-	out=$3
-
-	mode="$(signing_mode)"
-	log "signing: $mode"
-
-	local zips=() archive
-	for archive in "$in"/Cogpit_"$version"_darwin_*.zip; do [ ! -f "$archive" ] || zips+=("$archive"); done
-	[ "${#zips[@]}" -eq 1 ] || die "expected one Cogpit_${version}_darwin_<arch>.zip in $in (make dist-app), found ${#zips[@]}"
-	mkdir -p "$out"
-
-	if [ "$mode" = unsigned ]; then
-		cp "${zips[0]}" "$out/"
-		output signed false
-		summary "macOS download **unsigned**: the signing secrets are not set (a fork, or a run outside the environment \`release\`)."
-		return
-	fi
-
+# workdir makes a fresh work directory, deleted on exit with the keychain and the key files.
+workdir() {
 	case "$work" in */cogpit-macos-release) ;; *) die "unexpected work directory $work" ;; esac
 	cleanup
 	trap cleanup EXIT
 	trap 'exit 130' INT
 	trap 'exit 143' TERM
 	mkdir -m 700 "$work"
+}
 
+# sign_cmd <version> <in dir> <out dir>: with the Developer ID, the app signed in its signed disk
+# image, checked, and submitted to Apple's notary service; ad-hoc, the same without the
+# submission; unsigned, the zip as it is. Says the mode as the output mode.
+sign_cmd() {
+	version=$1
+	local in=$2 zips=() archive arch
+	out=$3
+
+	mode="$(signing_mode)"
+	log "signing: $mode"
+	for archive in "$in"/Cogpit_"$version"_darwin_*.zip; do [ ! -f "$archive" ] || zips+=("$archive"); done
+	[ "${#zips[@]}" -eq 1 ] || die "expected one Cogpit_${version}_darwin_<arch>.zip in $in (make dist-app), found ${#zips[@]}"
+	mkdir -p "$out"
+	rm -f "$out/notary-submission.json"
+
+	if [ "$mode" = unsigned ]; then
+		cp "${zips[0]}" "$out/"
+		output mode unsigned
+		summary "macOS download **unsigned**: the signing secrets are not set (a fork, or a run outside the environment \`release\`)."
+		return
+	fi
+
+	workdir
 	if [ "$mode" = developer-id ]; then setup_keychain; fi
 
 	ditto -x -k "${zips[0]}" "$work/app"
@@ -410,34 +481,90 @@ main() {
 	[ "$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")" = "$version" ] ||
 		die "${zips[0]}: the app is not version $version"
 	exe="$(plutil -extract CFBundleExecutable raw "$app/Contents/Info.plist")"
-	local arch
 	arch="$(lipo -archs "$app/Contents/MacOS/$exe")"
 	case "$arch" in *" "*) arch=universal ;; esac
 	dmg="$out/Cogpit-$version-macos-$arch.dmg"
 
 	sign_app
 	build_dmg
-	if [ "$mode" = developer-id ]; then notarize; fi
 	check_dmg
+	if [ "$mode" = developer-id ]; then submit; fi
+	output mode "$mode"
+	ls -l "$out"
+}
 
-	if [ "$mode" = developer-id ]; then
-		local authority
-		authority="$(codesign --display --verbose=2 "$app" 2>&1 | sed -n 's/^Authority=\(Developer ID Application: .*\)$/\1/p')"
-		output signed true
-		output identity "$authority"
-		summary ""
-		summary "\`$(basename "$dmg")\`, the app and its cogpit-cli signed by **$authority**, notarized; the disk image's ticket stapled."
-	else
+# notarize_cmd <version> <dir>: waits for Apple's verdict on the submission sign_cmd made of the
+# disk image in <dir>, staples its ticket and checks the disk image and the app in it as Gatekeeper
+# does. Needs the team API key only, no certificate. Without a submission (a run without the
+# signing secrets) the unsigned download passes on. Says signed and identity as outputs.
+notarize_cmd() {
+	version=$1
+	out=$2
+	local dmgs=() file name
+	if [ ! -f "$out/notary-submission.json" ]; then
+		output signed false
+		log "no notarization submission in $out: the download is not signed"
+		return
+	fi
+	for name in APPLE_API_KEY_P8 APPLE_API_KEY_ID APPLE_API_ISSUER_ID APPLE_TEAM_ID; do
+		[ -n "${!name:-}" ] || die "the notarization needs $name"
+	done
+	mode=developer-id
+	for file in "$out"/Cogpit-"$version"-macos-*.dmg; do [ ! -f "$file" ] || dmgs+=("$file"); done
+	[ "${#dmgs[@]}" -eq 1 ] || die "expected one Cogpit-${version}-macos-<arch>.dmg in $out, found ${#dmgs[@]}"
+	dmg=${dmgs[0]}
+
+	workdir
+	verdict
+	check_dmg gatekeeper
+	say_signed
+	ls -l "$out"
+}
+
+# say_signed says the outcome of a notarized download: the output signed, the identity and the summary.
+say_signed() {
+	local authority
+	authority="$(codesign --display --verbose=2 "$dmg" 2>&1 | sed -n 's/^Authority=\(Developer ID Application: .*\)$/\1/p')"
+	output signed true
+	output identity "$authority"
+	summary ""
+	summary "\`$(basename "$dmg")\`, the app and its cogpit-cli signed by **$authority**, notarized; the disk image's ticket stapled."
+}
+
+# main <version> <in dir> <out dir>: the whole course in one run (make dist-macos).
+main() {
+	sign_cmd "$@"
+	case "$mode" in
+	developer-id)
+		verdict
+		check_dmg gatekeeper
+		say_signed
+		;;
+	adhoc)
 		output signed false
 		log "ad-hoc signed, not notarized: a local check of the steps, not a download to publish"
-	fi
-	ls -l "$out"
+		;;
+	*) output signed false ;;
+	esac
 }
 
 # Sourced (to try a function with stubs in PATH): the functions only.
 if [ "${BASH_SOURCE[0]}" != "$0" ]; then return 0; fi
-if [ "${1:-}" = cleanup ]; then
+case "${1:-}" in
+cleanup)
 	cleanup
 	exit 0
-fi
-main "$@"
+	;;
+sign)
+	[ "$#" -eq 4 ] || die "usage: $0 sign <version> <in dir> <out dir>"
+	sign_cmd "$2" "$3" "$4"
+	;;
+notarize)
+	[ "$#" -eq 3 ] || die "usage: $0 notarize <version> <dir>"
+	notarize_cmd "$2" "$3"
+	;;
+*)
+	[ "$#" -eq 3 ] || die "usage: $0 <version> <in dir> <out dir> | $0 sign <version> <in dir> <out dir> | $0 notarize <version> <dir> | $0 cleanup"
+	main "$@"
+	;;
+esac

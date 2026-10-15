@@ -1368,7 +1368,7 @@ agent CLIBUNDLE on 2026-10-14 with these decisions, each for the owner to confir
   `bin/cogpit-cli` as before.
 - **The release job runs the bundled CLI, the signing job does not** (agent CLIBUNDLE): "Cogpit.app
   (macOS arm64)" checks `cogpit-cli version` against the release's version, its architecture and
-  its identifier; "Sign and notarize (macOS)" signs it without running it, so no code of Cogpit's or
+  its identifier; "Sign and submit (macOS)" (until 2026-10-15 "Sign and notarize (macOS)") signs it without running it, so no code of Cogpit's or
   its dependencies' runs beside the identity.
 - **The app offers the stdio registration of its own `cogpit-cli`** (the lead's default):
   [D-2](#d-2-agent-interface-scope).

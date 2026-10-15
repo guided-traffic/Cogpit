@@ -1,9 +1,10 @@
 # Release Build: what a release holds. Semantic Release (release.yml) creates the tag and the GitHub
 # release with the GitHub App's token once every gate on main is green; the release's "published"
 # event starts this workflow on the tag (github.ref is refs/tags/v<version>), which builds the app,
-# signs and notarizes it, and attaches it to the release with SHA256SUMS; then the release's item
-# joins Sparkle's appcast, signed in the environment sparkle and deployed to GitHub Pages. A release
-# made with GITHUB_TOKEN would start no workflow, hence the App.
+# signs it, has Apple notarize it (two jobs, so that a re-run waits for the same submission) and
+# attaches it to the release with SHA256SUMS; then the release's item joins Sparkle's appcast, signed
+# in the environment sparkle and deployed to GitHub Pages. A release made with GITHUB_TOKEN would
+# start no workflow, hence the App.
 # A release holds the complete product only (owner, 2026-10-14, D-16): today the macOS app in its
 # disk image, with cogpit-cli inside the app, and SHA256SUMS; no cogpit-cli archives for any
 # platform. What vouches for it: docs/developer/releasing.md#the-release-pipeline,
@@ -84,25 +85,23 @@ jobs:
 
   # The app, with Sparkle and cogpit-cli signed inside-out before it, in the disk image
   # Cogpit-<version>-macos-<arch>.dmg, signed with the Developer ID (hardened runtime, Apple's
-  # timestamp), notarized, the disk image's ticket stapled, and checked as Gatekeeper checks them
-  # (make dist-macos: hack/macos/release.sh).
+  # timestamp), checked, and submitted to Apple's notary service without waiting
+  # (make dist-macos-sign: hack/macos/release.sh sign). The signed disk image and the record of its
+  # submission (notary-submission.json: the id and the disk image's SHA-256) go on as the artifact
+  # macos-signed to the next job, which waits for Apple.
   #
-  # The only job in the environment `release`, whose secrets only a tag v* may use. It builds
-  # nothing and runs no Go, not even the bundled cogpit-cli, so no code of Cogpit's or its
-  # dependencies' shares a job with the signing identity. Without the secrets (a fork) the app zip
-  # passes through unsigned. With some of them, or when a signature, the notarization or a check
-  # fails, the job fails and the release gets no files until the failed jobs are re-run, never
+  # One of the two jobs in the environment `release`, whose secrets only a tag v* may use, and the
+  # only one with the certificate. It builds nothing and runs no Go, not even the bundled cogpit-cli,
+  # so no code of Cogpit's or its dependencies' shares a job with the signing identity. Without the
+  # secrets (a fork) the app zip passes through unsigned. With some of them, or when a signature or a
+  # check fails, the job fails and the release gets no files until the failed jobs are re-run, never
   # unsigned files under a signed note (docs/developer/releasing.md#when-signing-or-notarization-fails).
   macos-sign:
-    name: Sign and notarize (macOS)
+    name: Sign and submit (macOS)
     needs: [macos-app]
     runs-on: macos-latest
     environment: release
-    # Apple's notary service usually answers within minutes; the script waits 45 at most.
-    timeout-minutes: 70
-    outputs:
-      signed: ${{ steps.sign.outputs.signed }}
-      identity: ${{ steps.sign.outputs.identity }}
+    timeout-minutes: 30
     steps:
       - name: Checkout the release's tag
         uses: actions/checkout@v7
@@ -113,8 +112,7 @@ jobs:
           name: macos-app
           path: dist
 
-      - name: Sign, notarize and staple
-        id: sign
+      - name: Sign and submit to Apple's notary service
         env:
           MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
           MACOS_SIGN_P12_PASSWORD: ${{ secrets.MACOS_SIGN_P12_PASSWORD }}
@@ -126,10 +124,61 @@ jobs:
           # its SHA-256: the runner's keychain needs it beside the .p12, or the identity is not valid.
           MACOS_SIGN_CA_URL: https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
           MACOS_SIGN_CA_SHA256: f16cd3c54c7f83cea4bf1a3e6a0819c8aaa8e4a1528fd144715f350643d2df3a
-        run: make dist-macos VERSION="${GITHUB_REF_NAME#v}"
+        run: make dist-macos-sign VERSION="${GITHUB_REF_NAME#v}"
 
       # The script deletes them itself; this covers a cancelled run.
       - name: Delete the signing keychain and the key files
+        if: always()
+        run: hack/macos/release.sh cleanup
+
+      - name: Upload the signed disk image and its submission
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-signed
+          path: dist/macos/
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+
+  # Apple's verdict on that very submission, the disk image's ticket stapled, and the disk image and
+  # the app in it checked as Gatekeeper checks them (make dist-macos-notarize: hack/macos/release.sh
+  # notarize). A job of its own so that its re-run waits for the same submission: when the signing
+  # and the waiting were one job, every re-run signed a new disk image and submitted it again, which
+  # started Apple's queue over, and v0.9.0 to v0.12.0 (2026-10-15) got no download after five
+  # attempts of 45 minutes each. It waits up to 330 minutes (a GitHub-hosted job ends at 360); if
+  # Apple takes longer, re-running this failed job waits on. macOS minutes cost nothing here (the
+  # repository is public). In the environment `release` for the team API key only: no certificate,
+  # and it runs nothing of Cogpit's either. Without a submission (no secrets) the unsigned zip passes.
+  macos-notarize:
+    name: Notarize and staple (macOS)
+    needs: [macos-sign]
+    runs-on: macos-latest
+    environment: release
+    timeout-minutes: 345
+    outputs:
+      signed: ${{ steps.notarize.outputs.signed }}
+      identity: ${{ steps.notarize.outputs.identity }}
+    steps:
+      - name: Checkout the release's tag
+        uses: actions/checkout@v7
+
+      - name: Download the signed disk image and its submission
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-signed
+          path: dist/macos
+
+      - name: Wait for Apple's notarization, staple and check
+        id: notarize
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          NOTARY_TIMEOUT_MINUTES: 330
+        run: make dist-macos-notarize VERSION="${GITHUB_REF_NAME#v}"
+
+      - name: Delete the key file
         if: always()
         run: hack/macos/release.sh cleanup
 
@@ -140,10 +189,11 @@ jobs:
           path: dist/macos/
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
 
   publish:
     name: Attach to the release
-    needs: [macos-sign]
+    needs: [macos-notarize]
     runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
     timeout-minutes: 15
     permissions:
@@ -165,13 +215,13 @@ jobs:
       - name: Checksums
         run: make dist-checksums
 
-      # Exactly the files the signing job's verdict promises, and nothing else (D-16: the complete
+      # Exactly the files the notarization job's verdict promises, and nothing else (D-16: the complete
       # product only): with the signature the disk image, without it the app zip; and SHA256SUMS.
       - name: Check the files and write the note
         id: files
         env:
-          SIGNED: ${{ needs.macos-sign.outputs.signed }}
-          IDENTITY: ${{ needs.macos-sign.outputs.identity }}
+          SIGNED: ${{ needs.macos-notarize.outputs.signed }}
+          IDENTITY: ${{ needs.macos-notarize.outputs.identity }}
         run: |
           set -euo pipefail
           cd dist
@@ -235,8 +285,8 @@ jobs:
   # files back: whatever happens here, the release keeps them.
   appcast-draft:
     name: Appcast (draft)
-    needs: [macos-sign, publish]
-    if: needs.macos-sign.outputs.signed == 'true'
+    needs: [macos-notarize, publish]
+    if: needs.macos-notarize.outputs.signed == 'true'
     runs-on: macos-latest
     timeout-minutes: 15
     outputs:

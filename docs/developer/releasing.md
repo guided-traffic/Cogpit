@@ -1,6 +1,6 @@
 # Releasing
 
-> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-15 · **Change:** minor (Sparkle: steps 1 and 2 set up 2026-10-15, the environment `sparkle` and Pages; the repository renamed back to `cogpit`, the feed URL with its spelling, Pages being case-sensitive, H-97); minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app; Renovate: sigstore's trusted root refreshed by make sigstore-root, D-50) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-13 · **Last updated:** 2026-10-15 · **Change:** major (notarization in a job of its own: "Sign and submit (macOS)" submits the disk image and records the submission, "Notarize and staple (macOS)" waits up to 330 minutes for that submission and a re-run waits for the same one, after v0.9.0 to v0.12.0 got no download); minor (Sparkle: steps 1 and 2 set up 2026-10-15, the environment `sparkle` and Pages; the repository renamed back to `cogpit`, the feed URL with its spelling, Pages being case-sensitive, H-97); minor (the version a build reports: one variable for both binaries, `internal/buildinfo`, set by `DIST_LDFLAGS`; development builds say `dev` and their commit; `make dist-app` needs `VERSION`); major (D-16 revised by the owner: a release carries only the complete product, the disk image with `cogpit-cli` inside the app (`Contents/MacOS`), and `SHA256SUMS`; the `cogpit-cli` job, its archives and `make dist-cli` removed; the signing job signs the bundled `cogpit-cli` inside-out and submits only the disk image; agent CLIBUNDLE); major (Sparkle 2: the framework in the app, pinned by version and SHA-256, Sparkle's parts signed inside-out, the appcast's three jobs (drafted, signed in the environment `sparkle`, deployed to GitHub Pages) and the owner's steps to set them up; no update key yet); major (the release pipeline signs the macOS app and `cogpit-cli` with the Developer ID, puts the app into a disk image, notarizes both and staples the disk image's ticket, in a job of its own in the environment `release`; a failed signature or notarization fails that job and the release gets no files until it is re-run, the lead's decision for the owner to confirm); minor (the Apple signing and notarization material set up in the environment `release`); minor (Renovate: the node shell's default image, D-37); earlier major (CI split into parallel jobs of at most ten minutes, the UI's race tests sharded; semantic-release live, D-16 revised; the release pipeline attaches `cogpit-cli` and the unsigned app; Renovate: sigstore's trusted root refreshed by make sigstore-root, D-50) · **Target:** Lens Desktop 2026.10.51501
 
 Every push to `main` and every pull request runs the checks, each a job of its own with a make
 target that runs the same on a laptop. Since 2026-10-13 ([D-16](decisions.md#d-16-the-first-real-release))
@@ -298,8 +298,9 @@ its `v`:
 | Job | Runner | Make target | Builds |
 |---|---|---|---|
 | Cogpit.app (macOS arm64) | `macos-latest` | `make dist-app` | `Cogpit_<v>_darwin_arm64.zip`: `make app` (`fyne package`, the version in `Info.plist` as both versions and in the binary, Sparkle 2 in `Contents/Frameworks` with the update key's public half from the repository variable `SPARKLE_PUBLIC_ED_KEY`, `cogpit-cli` in `Contents/MacOS`, an ad-hoc signature) zipped with `ditto`. The bundled `cogpit-cli` is `make build`'s, pure Go (`CGO_ENABLED=0`), `-s -w`, the version set with `-X …/internal/buildinfo.version` as in the app's binary ([the version a build reports](#the-version-a-build-reports)) ([D-16](decisions.md#d-16-the-first-real-release)). The job checks the bundle's versions, the framework, that its `SUPublicEDKey` is the variable (none while it is unset), its signature seal with the nested code, its architecture, and that `cogpit-cli` has the app's architecture, the identifier `io.guided-traffic.cogpit.cli` and says the release's version (`cogpit-cli version`; this job runs it, the signing job never does). No secret reaches it. |
-| Sign and notarize (macOS) | `macos-latest`, after the app, environment `release` | `make dist-macos` | `Cogpit-<v>-macos-arm64.dmg`: the app with Sparkle and `cogpit-cli` signed inside-out with the Developer ID, in a signed disk image, notarized and stapled ([below](#signing-and-notarization)); without the secrets, the app zip unchanged |
-| Attach to the release | self-hosted, after the signing | `make dist-checksums` | `SHA256SUMS` over the download; checks that the release gets exactly the files the signing job's verdict promises and nothing else (signed: the disk image; unsigned: the app zip; with `SHA256SUMS`); attaches them (`softprops/action-gh-release@v3`) and appends a note to the release text: what the download is, that `cogpit-cli` comes inside the app and where, and that the app, its `cogpit-cli` and the disk image are signed and notarized, naming the certificate the signature carries, or else that they are unsigned and how macOS lets the user start the app anyway; Cogpit for Linux and Windows with M11 |
+| Sign and submit (macOS) | `macos-latest`, after the app, environment `release` | `make dist-macos-sign` | `Cogpit-<v>-macos-arm64.dmg`: the app with Sparkle and `cogpit-cli` signed inside-out with the Developer ID, in a signed disk image, submitted to Apple's notary service without waiting; the artifact `macos-signed` carries it with `notary-submission.json`, the submission's id and the disk image's SHA-256 ([below](#signing-and-notarization)); without the secrets, the app zip unchanged |
+| Notarize and staple (macOS) | `macos-latest`, after the signing, environment `release` (the team API key only) | `make dist-macos-notarize` | Apple's verdict on that submission, asked every minute for up to 330 minutes; the ticket stapled, the disk image and the app in it checked as Gatekeeper checks them; the record removed. A re-run waits for the same submission ([when it fails](#when-signing-or-notarization-fails)); without a submission, the unsigned zip passes |
+| Attach to the release | self-hosted, after the notarization | `make dist-checksums` | `SHA256SUMS` over the download; checks that the release gets exactly the files the signing job's verdict promises and nothing else (signed: the disk image; unsigned: the app zip; with `SHA256SUMS`); attaches them (`softprops/action-gh-release@v3`) and appends a note to the release text: what the download is, that `cogpit-cli` comes inside the app and where, and that the app, its `cogpit-cli` and the disk image are signed and notarized, naming the certificate the signature carries, or else that they are unsigned and how macOS lets the user start the app anyway; Cogpit for Linux and Windows with M11 |
 | Appcast (draft), Appcast (sign), Appcast (deploy to Pages) | `macos-latest`, `macos-latest` in the environment `sparkle`, self-hosted in `github-pages` | `make appcast-draft`, `appcast-sign`, `appcast-verify` | the release's item in Sparkle's appcast, signed and deployed to GitHub Pages ([the appcast](#the-appcast)); without the update key nothing is signed or deployed and the release is complete without them |
 
 The release jobs build without a build cache (`cache: none`): an artifact never comes from objects
@@ -308,9 +309,11 @@ the build (5:30). Measured for v0.1.0 (run 38447771669): the `cogpit-cli` job (r
 2026-10-14) 11.7 minutes with that save, the app 2.0, attaching 0.8; for v0.1.1 without caches
 (run 38452933957): `cogpit-cli` 6.5, the app 4.5, attaching 0.8. The bundled `cogpit-cli` adds
 one pure-Go link to the app's job, whose packages `make build` compiles anyway (not measured on CI
-yet). The signing job is not measured on CI yet: its steps took 22 s locally (ad-hoc, without
-notarization), and Apple's notary service adds its own time, at most 45 minutes before the job
-gives up (the job's timeout is 70).
+yet). Signing took 22 s locally (ad-hoc, without notarization). Apple's notary service takes its
+own time: v0.8.0's whole run took 11 minutes, while on 2026-10-15 Apple kept every submission of
+v0.9.0 to v0.12.0 in progress for more than the 45 minutes the one signing job then waited, five
+attempts in all, each a new submission. Since then the notarization job waits 330 minutes (its
+timeout 345, a GitHub-hosted job's limit 360) on the one submission the signing job made.
 
 `make dist-app VERSION=0.0.99`, `make dist-macos VERSION=0.0.99` and `make dist-checksums` run the
 same locally into `dist/` (gitignored; [running the signing locally](#running-the-signing-locally)).
@@ -325,9 +328,11 @@ SBOM; signed checksums.
 
 ### Signing and notarization
 
-[`hack/macos/release.sh`](../../hack/macos/release.sh) (`make dist-macos`) runs in the job "Sign
-and notarize (macOS)", the only job in the environment `release` and so the only one that sees its
-secrets. It builds nothing and runs no Go, not even the bundled `cogpit-cli`: the app comes from
+[`hack/macos/release.sh`](../../hack/macos/release.sh) runs in the jobs "Sign and submit (macOS)"
+(`make dist-macos-sign`, steps 1 to 4's submission) and "Notarize and staple (macOS)" (`make
+dist-macos-notarize`, the rest), the two jobs in the environment `release` and so the only ones that
+see its secrets; the second gets the team API key only, no certificate. `make dist-macos` runs
+the whole course in one go. It builds nothing and runs no Go, not even the bundled `cogpit-cli`: the app comes from
 the build job as an artifact, so no code of Cogpit's or its dependencies' runs in a job that holds
 the signing identity. In order:
 
@@ -360,9 +365,14 @@ the signing identity. In order:
    AppleScript on the runner). Signed with the timestamp.
 4. **Notarization** with `notarytool` and the team API key (`--key`, `--key-id`, `--issuer`; the
    `.p8` written owner-only into the work directory and deleted after use). The disk image is the
-   one submission, the app and its nested code (Sparkle, `cogpit-cli`) inside it; the script waits
-   45 minutes at most and prints the submission's id and Apple's log (the files Apple checked and
-   any issue; no secret in it). Anything but `Accepted` fails the job.
+   one submission, the app and its nested code (Sparkle, `cogpit-cli`) inside it. The signing job
+   submits it without waiting and records the submission in `notary-submission.json` (its id, the
+   disk image's name and SHA-256). The notarization job checks that the disk image is the one
+   submitted (the SHA-256), lists the team's latest submissions and their states, asks Apple for
+   the verdict every minute (`notarytool info`; a question Apple does not answer is asked again)
+   for up to 330 minutes (`NOTARY_TIMEOUT_MINUTES`; 45 for `make dist-macos`), then prints Apple's
+   log (the files Apple checked and any issue; no secret in it). Anything but `Accepted` fails the
+   job.
 5. **Stapling and Gatekeeper.** The disk image's ticket is stapled (`stapler staple`, `stapler
    validate`), so it opens without a network. `spctl -a -t open --context
    context:primary-signature -vv` must say `source=Notarized Developer ID` for the disk image.
@@ -412,34 +422,37 @@ a job of its own whose environment holds the update key and needs the owner's ap
 ### When signing or notarization fails
 
 **Decided (lead, 2026-10-14, for the owner to confirm):** with the secrets present, a failed
-signature, notarization or check fails the job "Sign and notarize (macOS)" visibly; nothing falls
+signature, notarization or check fails the job "Sign and submit (macOS)" or "Notarize and staple
+(macOS)" visibly; nothing falls
 back to an unsigned download under a release that should be signed. Some of the secrets but not
 all fail it too. Without any of them (a fork, a run outside the environment) the release gets the
 unsigned app zip and its note says so.
 
 **What a failure leaves:** the release exists (semantic-release created it with its notes) but
-has **no files**: "Attach to the release" needs the signing job, and nothing is half attached.
+has **no files**: "Attach to the release" needs the notarization job, and nothing is half attached.
 
 **What to do:**
 
 1. Read the job's log: the error line names what failed; for the notarization it names the
    submission, Apple's status and Apple's log.
-2. **Still in progress** after 45 minutes: Apple keeps working on the submission (a new team's
-   first submissions can take hours). Check it with `xcrun notarytool history` or `xcrun
-   notarytool info <id>` and the team key on a Mac. Once Apple accepted it, re-run the failed jobs:
-   `gh run rerun <run id> --failed` (or "Re-run failed jobs" on the run's page). The re-run signs
-   and submits again, a new submission, since the new signature's timestamp changes the disk
-   image; after the team's first submissions Apple usually answers in minutes.
+2. **Still in progress** after 330 minutes: Apple keeps working on the submission. Re-run the
+   failed jobs: `gh run rerun <run id> --failed` (or "Re-run failed jobs" on the run's page). Only
+   "Notarize and staple (macOS)" runs again; it takes the signed disk image and the record from the
+   artifact `macos-signed` and waits for the same submission, so a verdict Apple gave meanwhile is
+   there at once. Never re-run "Sign and submit (macOS)" for this: a new signature's timestamp makes
+   a new disk image, a new submission at the end of Apple's queue (what happened to v0.9.0 to
+   v0.12.0, when signing and waiting were one job). The artifact is kept seven days.
 3. **Invalid** (Apple rejected it): its log lists each issue with its file. Fix the cause in a
    commit, which makes a new release; the failed release stays without files, to delete with its
    tag or to leave.
 4. **Keychain or identity** ("0 valid identities", a wrong password, an expired certificate): fix
    the secret in the environment `release`, then re-run the failed jobs.
 
-A re-run of the failed jobs runs "Sign and notarize (macOS)" and "Attach to the release" again on
-the same tag, with the artifact the app's job uploaded (kept seven days). Not verified: that a
-re-run downloads the artifacts an earlier attempt of the same run uploaded, as GitHub's artifacts
-belong to the run; no re-run of this pipeline has happened yet.
+A re-run of the failed jobs runs the failed job and the ones after it again on the same tag, with
+the artifacts the earlier jobs uploaded (kept seven days): a re-run downloads what an earlier
+attempt of the same run uploaded (seen 2026-10-15: the third attempt of run 38704721283 took
+`macos-app` from the first). The uploads overwrite an artifact of the same name from an earlier
+attempt.
 
 ### Running the signing locally
 
@@ -471,7 +484,8 @@ the copy in the disk image; `cogpit-cli version` run from the mounted disk image
 (signed, unsigned, a stray archive refused) run locally; `actionlint` 1.7.12 and `shellcheck`
 0.11.0 on the workflow and the script.
 
-**What the first signed release must show** in the log of "Sign and notarize (macOS)": `1 valid
+**What the first signed release must show** in the logs of "Sign and submit (macOS)" and "Notarize
+and staple (macOS)": `1 valid
 identities found` with "Developer ID Application: Hans Fischer (6L57P2HXN6)"; each signature with
 `flags=0x10000(runtime)`, the Developer ID authority, `TeamIdentifier=6L57P2HXN6` and a
 `Timestamp=`, `cogpit-cli`'s with `Identifier=io.guided-traffic.cogpit.cli`; the disk image's
@@ -506,7 +520,7 @@ and nothing here can take a release's files back:
 
 | Job | Runner | Make target | What it does |
 |---|---|---|---|
-| Appcast (draft) | `macos-latest`, after "Sign and notarize (macOS)" signed and "Attach to the release" | `make appcast-draft` | reads the app in the stapled disk image (`CFBundleVersion`, the short version, `LSMinimumSystemVersion`, `SUFeedURL`, `SUPublicEDKey`); an app without the key gets no item (`drafted=false`, the jobs after are skipped). Otherwise: the key must be the repository variable, the disk image's release asset must be downloadable, the feed is fetched from Pages past its cache (404: the first item starts it) and must carry a valid signature by that key, the release's notes and dates come from `gh release view`, and [`hack/appcast`](../../hack/appcast/main.go) drafts the feed with a placeholder for the disk image's signature. No secret, Go and the standard library only |
+| Appcast (draft) | `macos-latest`, after "Notarize and staple (macOS)" signed and "Attach to the release" | `make appcast-draft` | reads the app in the stapled disk image (`CFBundleVersion`, the short version, `LSMinimumSystemVersion`, `SUFeedURL`, `SUPublicEDKey`); an app without the key gets no item (`drafted=false`, the jobs after are skipped). Otherwise: the key must be the repository variable, the disk image's release asset must be downloadable, the feed is fetched from Pages past its cache (404: the first item starts it) and must carry a valid signature by that key, the release's notes and dates come from `gh release view`, and [`hack/appcast`](../../hack/appcast/main.go) drafts the feed with a placeholder for the disk image's signature. No secret, Go and the standard library only |
 | Appcast (sign) | `macos-latest`, environment `sparkle` | `make appcast-sign` | without `SPARKLE_ED_PRIVATE_KEY`: a notice, `signed=false`, nothing deployed, never a failure. With it: refuses unless the environment `sparkle` has a required reviewer and admits tags `v*` only (read from the API; GitHub creates an environment a workflow names without any rule, [H-92](../security/updates.md#h-92-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)); then Sparkle's own `sign_update` from the pinned archive (`make sparkle`) signs the disk image (the one the draft names, by its SHA-256), the signature takes the placeholder's place, `sign_update` signs the feed and verifies both. The key reaches `sign_update` on its standard input only, never a command line or a file; GitHub masks it; the job runs no Go and no dependency's code; its work files are removed with `if: always()` |
 | Appcast (deploy to Pages) | self-hosted, environment `github-pages`, `pages: write`, `id-token: write` | `make appcast-verify` | checks with the public key what is about to be served: the feed's signature, every item, and that the release's item names this disk image by its length with a signature over its bytes; then `actions/upload-pages-artifact@v5` and `actions/deploy-pages@v5` replace the site with `appcast.xml`. One deploy at a time (`concurrency: pages`) |
 
@@ -658,9 +672,9 @@ Security perspective: [updates](../security/updates.md).
 | Secret | For | Where | Without it |
 |---|---|---|---|
 | `APP_CLIENT_ID`, `APP_PRIVATE_KEY` (the organisation's GitHub App) | Semantic Release's tag, release and release commit; Renovate | organisation secrets, exist | no release (the job fails) |
-| `MACOS_SIGN_P12` (the Developer ID Application certificate with its key, base64), `MACOS_SIGN_P12_PASSWORD` | signing the app with its `cogpit-cli`, and the disk image | GitHub environment `release` (created 2026-10-13, deployment rule "tags `v*`"): exist since 2026-10-14, the certificate "Developer ID Application: Hans Fischer (6L57P2HXN6)" from Apple's G2 sub-CA, valid to 2027-11-13, its key also in the owner's login keychain; checked locally by a signature with the hardened runtime and Apple's timestamp. Used since 2026-10-14 by the job "Sign and notarize (macOS)" only, imported into a temporary keychain with Apple's intermediate `DeveloperIDG2CA.cer`, which the workflow pins ([signing and notarization](#signing-and-notarization)); not yet used by a tag run | all of the Apple secrets missing: unsigned app zip, and the release page says so; some of them missing: the job fails ([when it fails](#when-signing-or-notarization-fails)) |
+| `MACOS_SIGN_P12` (the Developer ID Application certificate with its key, base64), `MACOS_SIGN_P12_PASSWORD` | signing the app with its `cogpit-cli`, and the disk image | GitHub environment `release` (created 2026-10-13, deployment rule "tags `v*`"): exist since 2026-10-14, the certificate "Developer ID Application: Hans Fischer (6L57P2HXN6)" from Apple's G2 sub-CA, valid to 2027-11-13, its key also in the owner's login keychain; checked locally by a signature with the hardened runtime and Apple's timestamp. Used since 2026-10-14 by the job "Sign and notarize (macOS)" only, since 2026-10-15 "Sign and submit (macOS)" only, imported into a temporary keychain with Apple's intermediate `DeveloperIDG2CA.cer`, which the workflow pins ([signing and notarization](#signing-and-notarization)); not yet used by a tag run | all of the Apple secrets missing: unsigned app zip, and the release page says so; some of them missing: the job fails ([when it fails](#when-signing-or-notarization-fails)) |
 | `APPLE_TEAM_ID` (a variable) | the signing identity: the script signs only with a Developer ID of this team and checks every signature for it | environment `release`, exists since 2026-10-14 (`6L57P2HXN6`, not a secret: every signed app shows it) | the job fails when the secrets are there |
-| `APPLE_API_KEY_P8` (an App Store Connect team API key, role Developer, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID` | notarization with `notarytool` | environment `release`, exist since 2026-10-14; checked locally: `notarytool` accepts the key and a submission with the role Developer. Used since 2026-10-14 by the same job; the `.p8` (base64, or its PEM text as is) lives in a file of the job's temporary directory until the disk image's submission is answered | as for `MACOS_SIGN_P12` |
+| `APPLE_API_KEY_P8` (an App Store Connect team API key, role Developer, base64), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID` | notarization with `notarytool` | environment `release`, exist since 2026-10-14; checked locally: `notarytool` accepts the key and a submission with the role Developer. Used since 2026-10-14 by the same job, since 2026-10-15 by "Sign and submit (macOS)" for the submission and "Notarize and staple (macOS)" for the verdict; the `.p8` (base64, or its PEM text as is) lives in a file of each job's temporary directory, in the first until the disk image is submitted, in the second until Apple's verdict is in | as for `MACOS_SIGN_P12` |
 | Windows code-signing certificate or signing service credentials | Authenticode | planned (M11) | SmartScreen warns |
 | `SPARKLE_ED_PRIVATE_KEY` (Sparkle's EdDSA update key, the base64 of its seed as `generate_keys -x` exports it) | signing each release's disk image and the appcast at `https://guided-traffic.github.io/cogpit/appcast.xml` (D-4, owner, 2026-10-14), in the job "Appcast (sign)" only, through `sign_update`'s standard input ([the appcast](#the-appcast)) | decided (owner, 2026-10-13): a secret of the GitHub environment `sparkle`, the owner its required reviewer, deployment rule tags `v*`; generated by the owner with Sparkle's `generate_keys`, never seen by an agent ([setting up Sparkle](#setting-up-sparkle)). Not created yet (2026-10-14); the job refuses to use it while the environment lacks its reviewer or its tag rule | that release's item is not added and Pages keeps the feed it has (a notice, never a failure) |
 | `SPARKLE_PUBLIC_ED_KEY` (a repository variable) | the app's `SUPublicEDKey` (`make dist-app`), and the appcast jobs' checks with the public key | to be set by the owner after the key ([setting up Sparkle](#setting-up-sparkle)); not a secret: every installed copy shows it | the app has no updater ("this build has no update key"), and the release gets no appcast item |
