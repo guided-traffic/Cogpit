@@ -72,6 +72,10 @@ type Options struct {
 	// ConnectTimeout bounds Connect's reachability check only; later requests are not bounded
 	// by it, because watches stay open. Zero means DefaultConnectTimeout.
 	ConnectTimeout time.Duration
+	// RequestTimeout bounds every later request that is not a stream (health.go, D-58): a read
+	// without an answer ends with ErrNoAnswer, a write as an OutcomeUnknownError. Watches, logs,
+	// exec, attach and port forwards are not bounded. Zero means DefaultRequestTimeout.
+	RequestTimeout time.Duration
 	// ExecPolicy, when set, is asked before a context whose user runs an exec credential plugin
 	// gets a client. It receives the plugin as client-go will run it (taken from the very
 	// configuration the client is built from, so a file changed meanwhile cannot slip another
@@ -227,6 +231,7 @@ type Conn struct {
 
 	objects objectMapper // the REST mapper of the generic object writes (objects.go)
 	access  reviewClient // the access reviews' client, with their own budget (access.go)
+	health  *health      // the gate, the login guard, the tracked dialer and the probe's client (health.go); nil in tests' bare Conns
 
 	closed atomic.Bool
 }
@@ -298,16 +303,25 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 	// The API server's warnings, logged once per connection, not once per request (warnings.go).
 	warnings := newWarningLog(name)
 	cfg.WarningHandlerWithContext = warnings
-	// No cfg.Timeout: it would end every watch after that long.
+	// No cfg.Timeout: it would end every watch after that long. A request that is not a stream is
+	// bounded by RequestTimeout instead (health.go).
 	server := kubeconfig.StripUserInfo(cfg.Host)
 	counter := NewRequestCounter()
 	counter.prefix = serverPathPrefix(cfg.Host)
 	cfg.Wrap(counter.Wrap)
+	// The request timeout, the login guard and the gate, in every transport built from cfg; the
+	// probe's anonymous client of its own (D-58).
+	health := installHealth(cfg, counter.prefix, opts.RequestTimeout)
+	if err := health.anonymousProbe(cfg, counter); err != nil {
+		return nil, &ConnectError{Context: name, Problem: "cannot build the client: " + kubeconfig.SafeError(err).Error(), Err: err}
+	}
 
 	httpClient, err := rest.HTTPClientFor(cfg)
 	if err != nil {
 		return nil, &ConnectError{Context: name, Problem: "cannot build the client: " + kubeconfig.SafeError(err).Error(), Err: err}
 	}
+	// The gate in front of client-go's credential plugin: a request it holds never runs the plugin.
+	httpClient.Transport = health.gate.outer(httpClient.Transport)
 	// One HTTP client for both clientsets: one connection pool (one HTTP/2 connection) per
 	// cluster, not one per client.
 	kube, err := kubernetes.NewForConfigAndClient(cfg, httpClient)
@@ -348,6 +362,7 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 		disco:       disco,
 		counter:     counter,
 		warnings:    warnings,
+		health:      health,
 	}
 	if err := c.checkReachable(ctx, opts.ConnectTimeout); err != nil {
 		c.Close()

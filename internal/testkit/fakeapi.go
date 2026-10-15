@@ -210,11 +210,25 @@ func (s *FakeAPIServer) OpenWatchesBy() map[string]int {
 	return out
 }
 
+// SetToken changes the bearer token the server accepts: the token a client holds stops working, as
+// when a cluster rotates or revokes it.
+func (s *FakeAPIServer) SetToken(token string) {
+	s.mu.Lock()
+	s.opts.Token = token
+	s.mu.Unlock()
+}
+
+func (s *FakeAPIServer) token() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.opts.Token
+}
+
 // Kubeconfig returns a kubeconfig document whose one context, contextName, points at the server
 // (trusting its certificate) with the server's token and the given default namespace (empty:
 // none).
 func (s *FakeAPIServer) Kubeconfig(contextName, namespace string) []byte {
-	return s.KubeconfigWithToken(contextName, namespace, s.opts.Token)
+	return s.KubeconfigWithToken(contextName, namespace, s.token())
 }
 
 // KubeconfigWithToken is Kubeconfig with another bearer token (empty: none), for tests of
@@ -289,7 +303,7 @@ func (req fakeRequest) render(o *unstructured.Unstructured) map[string]any {
 }
 
 func (s *FakeAPIServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	if s.opts.Token != "" && r.Header.Get("Authorization") != "Bearer "+s.opts.Token {
+	if token := s.token(); token != "" && r.Header.Get("Authorization") != "Bearer "+token {
 		s.count("other", "")
 		writeStatus(w, http.StatusUnauthorized, "Unauthorized", "Unauthorized")
 		return

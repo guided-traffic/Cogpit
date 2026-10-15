@@ -89,4 +89,9 @@ func Service(namespace, name, clusterIP string) *unstructured.Unstructured {
 	})
 }
 
+// Namespace builds a Namespace.
+func Namespace(name string) *unstructured.Unstructured {
+	return Object("v1", "Namespace", "", name, nil)
+}
+
 func afterTick() <-chan time.Time { return time.After(5 * time.Millisecond) }

@@ -2119,6 +2119,38 @@ data, Secrets included, at rest on the disk.
   kubeconfig and does not use it.
 - **Streams:** logs (follow, previous container, timestamps), exec and attach, port-forward. Local
   port-forward listeners bind to `127.0.0.1` only.
+- **A connection that stops answering** (built 2026-10-15/16, [D-58](decisions.md#d-58-standby-and-lost-connections),
+  [`health.go`](../../internal/cluster/health.go)). Measured first (S1, a kind cluster of its own whose
+  node `docker pause` froze, the window driven offscreen): the connection said Connected for the whole
+  freeze, its watch streams ended together after about 40 s (HTTP/2's health check, "http2: client
+  connection lost", the owner's log line), new requests waited 10 s for a TLS handshake, and a pod
+  shell's WebSocket dial hung in its handshake for as long as the freeze lasted. Since then every
+  connection carries, besides the counter: **a request timeout** (`Options.RequestTimeout`, default
+  `DefaultRequestTimeout` 30 s) for every request that is not a stream (watches, logs, exec, attach,
+  port forwards and upgrades are not bounded): a read without an answer ends with `ErrNoAnswer`, a
+  write whose request may have reached the server as an `OutcomeUnknownError` ("outcome unknown: …
+  the view shows the object's state once reconnected"), one whose connection could not even be
+  opened with its own error (`TestARequestWithoutAnAnswerEndsAfterTheTimeout`,
+  `TestAWatchIsNotBoundedByTheRequestTimeout`); **a gate**, twice: around the connection's HTTP client,
+  in front of client-go's credential plugin, and inside every transport built from its configuration
+  (Helm, exec, attach, port forwards): while the engine says the connection is interrupted or its
+  login expired (`Conn.SetHealth`), the informers' lists and watches wait at the outer gate and go out
+  the moment it is healthy (no client-go backoff of up to a minute to wait out), every other request is
+  refused at once with `ErrInterrupted` or `ErrLoginExpired`, and only the probes pass
+  (`TestTheGateHoldsListsAndWatchesAndRefusesTheRest`); **a login guard** below the plugin: the first
+  401 after a request that worked reaches client-go's exec authenticator, which then runs the plugin
+  once, later ones end as `ErrLoginRejected`, which client-go does not answer with another run, until
+  a request works again or `ArmLogin` (`TestTheLoginGuardHandsOnOneUnauthorizedAfterAWorkingRequest`);
+  **a dialer that tracks its connections**: `ResetConnections` closes them all, those in use included,
+  so a watch on a dead connection ends at once instead of after the health check
+  (`TestResetConnectionsEndsAWatchOnADeadConnection`). The probes: `Heartbeat` (GET `/version` with
+  the connection's credentials, through the gates; it may make the plugin run) and `Reachable` (GET
+  `/version` on an anonymous client of its own, `rest.AnonymousClientConfig`: the server's trust and
+  proxy, no credentials; a 401 or 403 counts as an answer), so probing a cluster that does not answer
+  never runs a plugin (`TestHeartbeatAndReachable`, `TestHeartbeatSaysTheLoginIsRejected`). The tests
+  run against the fake API server behind `testkit.FreezableProxy`, a TCP proxy that goes silent
+  (accepts, forwards nothing) and on thawing resets what it froze. The engine's connection watch
+  drives all of it ([D-58](decisions.md#d-58-standby-and-lost-connections)).
 - **The API server's warnings** (built 2026-10-11, [`warnings.go`](../../internal/cluster/warnings.go)):
   every client of a connection hands them to one handler that logs each distinct warning once per
   connection and keeps them (`Conn.Warnings`: at most 64, and how many arrived). client-go's

@@ -172,7 +172,8 @@ type Cache struct {
 	closed    bool
 	entries   uint64 // entries made so far: each entry's seq (peek.go)
 
-	refused atomic.Pointer[func(Scope)] // told of every refused list or watch (OnRefused, nsscope.go)
+	refused   atomic.Pointer[func(Scope)]        // told of every refused list or watch (OnRefused, nsscope.go)
+	streamErr atomic.Pointer[func(Scope, error)] // told of every list or watch that broke (OnStreamError, streamerr.go)
 }
 
 // New returns a cache over src. No informer runs until the first Acquire.
@@ -616,6 +617,9 @@ func (r *runner) watchError(err error) {
 	r.setErr(err)
 	r.log.Warn("cache: list or watch failed; retrying", "err", err)
 	r.refusedIf(err)
+	if !isRefused(err) {
+		r.tellStreamError(err) // the engine checks the connection at once (D-58)
+	}
 }
 
 // stripManagedFields is the informer transform: managedFields are large and only the editor's
