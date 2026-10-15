@@ -12,10 +12,10 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
-// TestConnectionsKeepTheKeyInTheKeychain: a connection's key goes to the key store, never to the
+// TestConnectionsKeepTheKeyInTheKeyStore: a connection's key goes to the key store, never to the
 // connections file (0600); nil keeps it, "" removes it, Delete removes it; one connection is the
 // default; a new agent reads the file back.
-func TestConnectionsKeepTheKeyInTheKeychain(t *testing.T) {
+func TestConnectionsKeepTheKeyInTheKeyStore(t *testing.T) {
 	h := newHarness(t, engine.ChatLimits{})
 	const key = "sk-cogpit-test-9f8e7d6c5b4a"
 	second, err := h.a.SaveConnection(engine.ChatConnection{Name: "LiteLLM", Kind: engine.ChatLiteLLM, BaseURL: "https://llm.example/",
@@ -111,19 +111,5 @@ func TestConnectionsKeepTheKeyInTheKeychain(t *testing.T) {
 	data, _ = os.ReadFile(path)
 	if err := json.Unmarshal(data, &f); err != nil || len(f.Connections) != 1 {
 		t.Errorf("file %s %v", data, err)
-	}
-}
-
-// TestNoKeychainRefusesAKey: where the platform has no keychain, a key is refused and nothing is
-// written.
-func TestNoKeychainRefusesAKey(t *testing.T) {
-	h := newHarness(t, engine.ChatLimits{})
-	a := New(Options{Session: h.s, Dir: t.TempDir(), Keys: unavailableKeyStore{}})
-	if _, err := a.SaveConnection(engine.ChatConnection{Name: "x", Kind: engine.ChatOpenAI, BaseURL: "https://h/v1", Model: "m"},
-		ptr("sk-abc")); !errors.Is(err, ErrNoKeychain) {
-		t.Errorf("err %v", err)
-	}
-	if conns, _ := a.Connections(); len(conns) != 0 {
-		t.Errorf("connections %+v", conns)
 	}
 }

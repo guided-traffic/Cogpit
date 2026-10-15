@@ -24,11 +24,12 @@ import (
 // Errors carry no credential and no API key.
 type ChatAgent interface {
 	// Connections returns the configured LLM connections, the default one first. A connection
-	// never carries its API key: the key lives in the operating system's keychain.
+	// never carries its API key: the key lives in an owner-only file of its own in Cogpit's
+	// configuration directory, apart from the connections (no keychain: the owner, 2026-10-15).
 	Connections() ([]ChatConnection, error)
 	// SaveConnection adds a connection (empty ID) or changes one. apiKey nil leaves the stored key
-	// as it is; a pointer to "" removes it; any other value replaces it in the keychain. Returns
-	// the connection as stored (with its ID and HasKey).
+	// as it is; a pointer to "" removes it; any other value replaces the stored one. Returns the
+	// connection as stored (with its ID and HasKey).
 	SaveConnection(c ChatConnection, apiKey *string) (ChatConnection, error)
 	// DeleteConnection removes a connection and its key. Conversations that used it keep their
 	// history and pick another connection on their next turn.
@@ -95,7 +96,8 @@ type ChatConnection struct {
 	// then reads what the window shows (Invocation.ReadsLikeUser). Off: the external agents' read
 	// rules. Only the user sets it, in the window.
 	Private bool `json:"private,omitempty"`
-	// HasKey reports whether an API key for the connection is in the keychain.
+	// HasKey reports whether an API key for the connection is stored. A connection saved with a
+	// key that is not stored (one kept in the macOS keychain before 2026-10-15) reports false.
 	HasKey  bool       `json:"hasKey,omitempty"`
 	Default bool       `json:"default,omitempty"`
 	Limits  ChatLimits `json:"limits"`

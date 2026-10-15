@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -19,8 +20,11 @@ import (
 // Files the agent keeps in Cogpit's configuration directory, owner-only (0600 in 0700).
 const (
 	// ConnectionsFile holds the LLM connections: name, kind, base URL, model, limits, the private
-	// mark, whether a key is in the keychain. Never a key.
+	// mark, whether a key was given. Never a key.
 	ConnectionsFile = "llm-connections.json"
+	// KeysFile holds the connections' API keys, the connection's id to its key (FileKeyStore): the
+	// owner's decision of 2026-10-15, no keychain (D-10).
+	KeysFile = "llm-keys.json"
 	// ConversationsFile holds the last MaxConversations conversations per context, scrubbed; never
 	// a private one (H-96).
 	ConversationsFile = "chat-conversations.json"
@@ -40,16 +44,21 @@ var (
 	ErrEmptyMessage     = errors.New("the message is empty")
 	ErrConnectionFields = errors.New("a connection needs a name, a kind and a base URL")
 	ErrNoModel          = errors.New("the connection has no model: choose one in the chat's settings")
+	// ErrKeyMissing: the connection was saved with an API key that is not stored (any more): a key
+	// kept in the macOS keychain before 2026-10-15, which Cogpit no longer reads, or a key file
+	// removed by hand.
+	ErrKeyMissing = errors.New("the connection's API key is missing: enter it again in the chat's settings")
 )
 
 // Options configure the agent.
 type Options struct {
 	// Session is the engine the chat's tool calls are dispatched to.
 	Session *engine.Session
-	// Dir is Cogpit's configuration directory (app.Dirs.Config), where ConnectionsFile and
-	// ConversationsFile are kept; empty keeps both in memory only.
+	// Dir is Cogpit's configuration directory (app.Dirs.Config), where ConnectionsFile,
+	// ConversationsFile and KeysFile are kept; empty keeps them in memory only.
 	Dir string
-	// Keys keeps the API keys; nil means NewSystemKeyStore().
+	// Keys keeps the API keys; nil means the owner-only KeysFile in Dir (NewFileKeyStore), or
+	// memory when Dir is empty.
 	Keys KeyStore
 	// HTTPClient sends the requests; nil means a client without redirects (newHTTPClient).
 	HTTPClient *http.Client
@@ -76,7 +85,8 @@ type Agent struct {
 	toolsErr  error
 
 	mu        sync.Mutex
-	conns     []engine.ChatConnection
+	conns     []engine.ChatConnection // as stored: HasKey says a key was given (keyLost: not stored)
+	keyLost   map[string]bool         // connections saved with a key the key store does not hold
 	convs     map[string]*conversation
 	noOptions map[string]bool // connections whose endpoint refused stream_options
 
@@ -89,14 +99,18 @@ var _ engine.ChatAgent = (*Agent)(nil)
 // cannot be read is logged and left alone (the agent starts empty and does not overwrite it until
 // something changes).
 func New(opts Options) *Agent {
+	if opts.Logger == nil {
+		opts.Logger = opts.Session.Logger()
+	}
 	if opts.Keys == nil {
-		opts.Keys = NewSystemKeyStore()
+		if opts.Dir != "" {
+			opts.Keys = NewFileKeyStore(filepath.Join(opts.Dir, KeysFile), opts.Logger)
+		} else {
+			opts.Keys = NewMemoryKeyStore()
+		}
 	}
 	if opts.HTTPClient == nil {
 		opts.HTTPClient = newHTTPClient()
-	}
-	if opts.Logger == nil {
-		opts.Logger = opts.Session.Logger()
 	}
 	if opts.Now == nil {
 		opts.Now = opts.Session.Now
@@ -105,10 +119,33 @@ func New(opts Options) *Agent {
 		opts.NotifyEvery = 75 * time.Millisecond
 	}
 	a := &Agent{s: opts.Session, opts: opts, log: opts.Logger, keys: opts.Keys, hc: opts.HTTPClient,
-		convs: map[string]*conversation{}, noOptions: map[string]bool{}}
+		keyLost: map[string]bool{}, convs: map[string]*conversation{}, noOptions: map[string]bool{}}
 	a.loadConnections()
+	a.checkKeys()
 	a.loadConversations()
 	return a
+}
+
+// checkKeys marks the connections saved with a key the key store does not hold: a key kept in the
+// macOS keychain before 2026-10-15, which Cogpit no longer reads (D-10: reading it would ask for
+// the login password), or a key file removed by hand. They show "no API key" (Connections), and a
+// turn asks for the key again (ErrKeyMissing). Called by New, before anything else can run.
+func (a *Agent) checkKeys() {
+	for _, c := range a.conns {
+		if !c.HasKey {
+			continue
+		}
+		switch _, err := a.keys.Get(c.ID); {
+		case errors.Is(err, ErrNoKey):
+			a.keyLost[c.ID] = true
+		case err != nil:
+			a.log.Warn("the chat's API keys could not be read", "err", err)
+			return
+		}
+	}
+	if n := len(a.keyLost); n > 0 {
+		a.log.Info("connections of the chat whose API key is not stored: enter it again in the chat's settings", "connections", n)
+	}
 }
 
 // toolset returns the tools, built on first use (the registry is complete by then).
@@ -126,11 +163,23 @@ func newID() string {
 
 // --- connections ---
 
-// Connections implements engine.ChatAgent: the default connection first, then by name.
+// Connections implements engine.ChatAgent: the default connection first, then by name; HasKey
+// only for a connection whose key is stored.
 func (a *Agent) Connections() ([]engine.ChatConnection, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return a.connectionsLocked(), nil
+	out := a.connectionsLocked()
+	for i := range out {
+		out[i] = a.shownLocked(out[i])
+	}
+	return out, nil
+}
+
+// shownLocked is a stored connection as the window sees it: a key that was given but is not
+// stored is no key. a.mu is held.
+func (a *Agent) shownLocked(c engine.ChatConnection) engine.ChatConnection {
+	c.HasKey = c.HasKey && !a.keyLost[c.ID]
+	return c
 }
 
 func (a *Agent) connectionsLocked() []engine.ChatConnection {
@@ -198,7 +247,8 @@ func (a *Agent) SaveConnection(c engine.ChatConnection, apiKey *string) (engine.
 	}
 	a.mu.Unlock()
 
-	// The key goes to the keychain first: a connection never claims a key it does not have.
+	// The key goes to the key store first: a connection never claims a key it does not have. nil
+	// keeps what is stored, a key that went missing included (the chat's model menu saves with nil).
 	if apiKey != nil {
 		if *apiKey == "" {
 			if err := a.keys.Delete(c.ID); err != nil {
@@ -215,7 +265,7 @@ func (a *Agent) SaveConnection(c engine.ChatConnection, apiKey *string) (engine.
 
 	a.mu.Lock()
 	if i >= 0 {
-		// The list may have changed while the keychain was asked: find it again.
+		// The list may have changed while the key store was written: find it again.
 		if i = slices.IndexFunc(a.conns, func(x engine.ChatConnection) bool { return x.ID == c.ID }); i < 0 {
 			a.mu.Unlock()
 			_ = a.keys.Delete(c.ID)
@@ -232,6 +282,10 @@ func (a *Agent) SaveConnection(c engine.ChatConnection, apiKey *string) (engine.
 		c.Default = true
 	}
 	delete(a.noOptions, c.ID) // the endpoint may have changed
+	if apiKey != nil {
+		delete(a.keyLost, c.ID)
+	}
+	c = a.shownLocked(c)
 	a.mu.Unlock()
 	a.saveConnections()
 	a.s.NotifyChat("", 0)
@@ -251,6 +305,7 @@ func (a *Agent) DeleteConnection(id string) error {
 	if wasDefault && len(a.conns) > 0 {
 		a.conns[0].Default = true
 	}
+	delete(a.keyLost, id)
 	a.mu.Unlock()
 	err := a.keys.Delete(id)
 	a.saveConnections()
@@ -288,14 +343,15 @@ func (a *Agent) connectionLocked(id string) (engine.ChatConnection, bool) {
 	return engine.ChatConnection{}, false
 }
 
-// keyFor returns the stored key of a connection that has one.
+// keyFor returns the stored key of a connection (as stored) that was given one: ErrKeyMissing
+// when the key is not stored.
 func (a *Agent) keyFor(c engine.ChatConnection) (string, error) {
 	if !c.HasKey {
 		return "", nil
 	}
 	k, err := a.keys.Get(c.ID)
 	if errors.Is(err, ErrNoKey) {
-		return "", errors.New("the connection's API key is no longer in the keychain: enter it again in the chat's settings")
+		return "", ErrKeyMissing
 	}
 	return k, err
 }

@@ -63,7 +63,7 @@ func (f *fakeConfirmer) Confirm(ctx context.Context, req engine.ConfirmRequest) 
 
 // harness is a real engine session over an in-memory cluster ("test": pods, a Deployment and a
 // Secret in namespace shop), Cogpit's whole registry, a fake confirmer, the agent with a memory
-// keychain and a temporary config directory, and the fake LLM endpoint.
+// key store and a temporary config directory, and the fake LLM endpoint.
 type harness struct {
 	s     *engine.Session
 	a     *Agent
