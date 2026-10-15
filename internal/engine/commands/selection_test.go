@@ -192,7 +192,7 @@ func TestDeleteManyOneConfirmation(t *testing.T) {
 		!slices.Equal(req.UIDs, []string{"uid-shop-a", "uid-shop-b", "uid-shop-c"}) {
 		t.Errorf("confirmation %+v", req)
 	}
-	if msg := req.Message(); msg != "Delete 3 objects: services a, services b, services c in namespace shop (context test)?" {
+	if msg := req.Message(); msg != "Delete 3 objects: Service a, Service b, Service c in namespace shop (context test)?" {
 		t.Errorf("message %q", msg)
 	}
 	srv.mu.Lock()

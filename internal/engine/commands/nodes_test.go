@@ -110,7 +110,7 @@ func TestNodeCommandsConfirmationPerOrigin(t *testing.T) {
 		req.Context != "test" || len(req.Namespaces) != 0 || len(req.Objects) != 1 || req.Objects[0].Name != "worker-1" {
 		t.Errorf("drain confirmation %+v", req)
 	}
-	if msg := req.Message(); !strings.Contains(msg, "nodes worker-1") || !strings.Contains(msg, "context test") || !strings.Contains(msg, "An agent asks") {
+	if msg := req.Message(); !strings.Contains(msg, "Drain Node worker-1") || !strings.Contains(msg, "context test") || !strings.Contains(msg, "An agent asks") {
 		t.Errorf("confirmation message %q", msg)
 	}
 

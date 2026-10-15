@@ -20,6 +20,10 @@ type ConfirmRequest struct {
 	Context    string            `json:"context"`
 	Namespaces []string          `json:"namespaces,omitempty"`
 	Objects    []model.ObjectRef `json:"objects"`
+	// Kinds name the objects' kinds as the user reads them ("Pod", "Role Binding", "Release"), in
+	// the order of Objects, as the dialog lists them; Message names each object with its kind,
+	// else with its kind key.
+	Kinds []string `json:"kinds,omitempty"`
 	// UIDs are the objects' UIDs as Cogpit's cache held them when the user was asked, in the order
 	// of Objects ("" for an object not in the cache): destructive commands act on exactly those
 	// objects, never on one created again under the same name while the dialog was open. Only
@@ -49,10 +53,10 @@ type ConfirmRequest struct {
 // the rest ("and 12 more"); the dialog lists every object below it (a selection's Delete).
 const ConfirmNamed = 10
 
-// Message is the confirmation text: "Delete pod web-0 in namespace default (context kind-cogpit)?"
+// Message is the confirmation text: "Delete Pod web-0 in namespace default (context kind-cogpit)?"
 // with the origin named when an agent asked. Several objects are counted first and named up to
-// ConfirmNamed: "Delete 3 objects: configmaps a, configmaps b, configmaps c in namespace shop
-// (context kind-cogpit)?".
+// ConfirmNamed: "Delete 3 objects: Config Map a, Config Map b, Config Map c in namespace shop
+// (context kind-cogpit)?". An object whose kind has no name in Kinds is named by its kind key.
 func (r ConfirmRequest) Message() string {
 	var b strings.Builder
 	if r.Origin.IsAgent() {
@@ -64,8 +68,12 @@ func (r ConfirmRequest) Message() string {
 		fmt.Fprintf(&b, "%d objects: ", len(r.Objects))
 	}
 	names := make([]string, 0, min(len(r.Objects), ConfirmNamed))
-	for _, o := range r.Objects[:min(len(r.Objects), ConfirmNamed)] {
-		names = append(names, o.Kind+" "+o.Name)
+	for i, o := range r.Objects[:min(len(r.Objects), ConfirmNamed)] {
+		kind := o.Kind
+		if i < len(r.Kinds) && r.Kinds[i] != "" {
+			kind = r.Kinds[i]
+		}
+		names = append(names, kind+" "+o.Name)
 	}
 	b.WriteString(strings.Join(names, ", "))
 	if more := len(r.Objects) - ConfirmNamed; more > 0 {
@@ -115,6 +123,44 @@ func newConfirmRequest(cmd *Command, danger Danger, origin Origin, uiContext str
 		}
 	}
 	return req
+}
+
+// kindNames are the targets' kinds as the user reads them, for ConfirmRequest.Kinds: the drawer's
+// singular title where the kind has one ("Release", "Chart"), else its view's title in the
+// singular ("Pods" → "Pod", "Network Policies" → "Network Policy"; a custom kind's title is its
+// Kind already). Without the kind's profile the name is left empty. A real cluster's confirmations
+// read "Drain nodes worker-1" and "Delete helmreleases web" before (2026-10-16).
+func (s *Session) kindNames(targets []model.ObjectRef) []string {
+	b := s.Backend()
+	if b == nil || len(targets) == 0 {
+		return nil
+	}
+	out := make([]string, len(targets))
+	for i, t := range targets {
+		p, ok := b.Profile(t.Kind)
+		switch {
+		case !ok:
+		case p.DetailTitle != "":
+			out[i] = p.DetailTitle
+		default:
+			out[i] = singularTitle(p.Title)
+		}
+	}
+	return out
+}
+
+// singularTitle turns a view's title into the singular: "Ingress Classes" → "Ingress Class",
+// "Network Policies" → "Network Policy", "Pods" → "Pod"; a title without a plural ending stays.
+func singularTitle(title string) string {
+	switch {
+	case strings.HasSuffix(title, "sses"):
+		return strings.TrimSuffix(title, "es")
+	case strings.HasSuffix(title, "ies"):
+		return strings.TrimSuffix(title, "ies") + "y"
+	case strings.HasSuffix(title, "s"):
+		return strings.TrimSuffix(title, "s")
+	}
+	return title
 }
 
 // originKey is the context key under which Dispatch hands a command its origin.

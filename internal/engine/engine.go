@@ -353,6 +353,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrConfirmationUnavailable)
 		}
 		req := newConfirmRequest(cmd, danger, inv.Origin, uiContext, targets)
+		req.Kinds = s.kindNames(targets)
 		req.AgentsAsk = agentsAsk
 		if cmd.detail != nil {
 			if err := s.safeCall(cmd.ID, func() error { req.Detail = cmd.detail(s, p); return nil }); err != nil {

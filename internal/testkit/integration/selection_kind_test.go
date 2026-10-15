@@ -145,7 +145,7 @@ func TestKindDeleteSelection(t *testing.T) {
 			t.Errorf("%s confirmed with UID %q, the server's is %q", o.Name, req.UIDs[i], uids[o.Name])
 		}
 	}
-	if !strings.HasPrefix(req.Message(), "Delete 3 objects: configmaps ") {
+	if !strings.HasPrefix(req.Message(), "Delete 3 objects: Config Map ") {
 		t.Errorf("message %q", req.Message())
 	}
 	for _, name := range []string{"sel-one", "sel-two", "sel-three"} {

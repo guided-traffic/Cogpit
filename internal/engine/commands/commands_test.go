@@ -485,7 +485,7 @@ func TestDestructiveCommandsNeedConfirmation(t *testing.T) {
 		len(req.Objects) != 1 || req.Objects[0].Name != "web-0" || req.Objects[0].Context != "test" {
 		t.Errorf("confirmation request %+v", req)
 	}
-	if msg := req.Message(); !strings.Contains(msg, "pods web-0") || !strings.Contains(msg, "shop") || !strings.Contains(msg, "test") {
+	if msg := req.Message(); !strings.Contains(msg, "Delete Pod web-0") || !strings.Contains(msg, "shop") || !strings.Contains(msg, "test") {
 		t.Errorf("confirmation message %q", msg)
 	}
 

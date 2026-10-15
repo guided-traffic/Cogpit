@@ -103,8 +103,12 @@ func (c *guiConfirmer) show(req engine.ConfirmRequest, reply func(bool)) *confir
 		rows.Objects = append(rows.Objects, newTextLine(name, colorMuted, theme.SizeNameText, fyne.TextStyle{}), v)
 	}
 	objects := make([]string, 0, len(req.Objects))
-	for _, o := range req.Objects {
-		objects = append(objects, singular(c.sh.kindTitle(o.Kind))+" "+o.Name)
+	for i, o := range req.Objects {
+		kind := singular(c.sh.kindTitle(o.Kind))
+		if i < len(req.Kinds) && req.Kinds[i] != "" { // the engine's name, as the message above says it
+			kind = req.Kinds[i]
+		}
+		objects = append(objects, kind+" "+o.Name)
 	}
 	name, value := confirmObjects(objects, width-th.Size(sizeDrawerLabel)-2*th.Size(theme.SizeNamePadding)) // every object, a long list scrolling (tablecheck_confirm.go)
 	rows.Objects = append(rows.Objects, name, value)

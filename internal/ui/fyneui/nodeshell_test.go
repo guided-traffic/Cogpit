@@ -120,7 +120,7 @@ func TestRenderNodeShellLight(t *testing.T) {
 func nodeShellRequest(origin engine.Origin) engine.ConfirmRequest {
 	ref := model.ObjectRef{Context: "demo", Kind: "nodes", Name: busyNode}
 	return engine.ConfirmRequest{Command: engine.NodeShellCommand, Label: "Shell", Danger: engine.DangerDestructive, Origin: origin,
-		Context: "demo", Objects: []model.ObjectRef{ref}, Undoable: true, // as the engine sets it (A101)
+		Context: "demo", Objects: []model.ObjectRef{ref}, Kinds: []string{"Node"}, Undoable: true, // as the engine sets them (A101)
 		Detail: engine.NodeShellDetail(busyNode, engine.NodeShellConfig{Image: engine.DefaultNodeShellImage, Deadline: engine.DefaultNodeShellDeadline})}
 }
 

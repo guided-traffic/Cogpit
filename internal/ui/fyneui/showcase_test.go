@@ -765,7 +765,7 @@ func TestShowcaseAgents(t *testing.T) {
 			_, _ = sh.confirmer.Confirm(context.Background(), engine.ConfirmRequest{
 				Command: "deployment.restart", Label: "Restart", Danger: engine.DangerMutating,
 				Origin: engine.OriginExternalAgent, Context: "demo",
-				Namespaces: []string{dep.Namespace}, Objects: []model.ObjectRef{dep},
+				Namespaces: []string{dep.Namespace}, Objects: []model.ObjectRef{dep}, Kinds: []string{"Deployment"},
 			})
 		}()
 		q.until(t, "the dialog", func() bool { return sh.confirmer.current != nil })

@@ -104,7 +104,7 @@ func TestNodeShellPodAndConfirmation(t *testing.T) {
 	}
 	msg := req.Message()
 	at := strings.LastIndex(engine.DefaultNodeShellImage, "@") // Renovate moves the default: the test follows it
-	for _, want := range []string{"Shell nodes worker-1 (context test)?", "privileged pod in namespace kube-system on node worker-1",
+	for _, want := range []string{"Shell Node worker-1 (context test)?", "privileged pod in namespace kube-system on node worker-1",
 		"root access to the node", "Image: " + engine.DefaultNodeShellImage[:at] + ", pinned by digest " + engine.DefaultNodeShellImage[at+1:] + ".",
 		"ends by itself after 2 hours, its maximum duration."} {
 		if !strings.Contains(msg, want) {

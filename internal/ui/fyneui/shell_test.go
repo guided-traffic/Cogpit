@@ -483,8 +483,8 @@ func TestConfirmationShowsTheReviewText(t *testing.T) {
 	values := "controller:\n  image: registry.example/evil:latest\n" + strings.Repeat("  extra: line\n", 60)
 	req := engine.ConfirmRequest{Command: "helm.release.upgrade", Label: "Upgrade", Danger: engine.DangerMutating,
 		Origin: engine.OriginExternalAgent, Context: "demo", Namespaces: []string{"apps"},
-		Objects: []model.ObjectRef{{Kind: "helmreleases", Namespace: "apps", Name: "web"}},
-		Detail:  "The release is upgraded to chart web 1.0.0 with the values below.", Review: values}
+		Objects: []model.ObjectRef{{Kind: "helmreleases", Namespace: "apps", Name: "web"}}, Kinds: []string{"Release"},
+		Detail: "The release is upgraded to chart web 1.0.0 with the values below.", Review: values}
 	go func() { _, _ = sh.confirmer.Confirm(context.Background(), req) }()
 	q.until(t, "the dialog", func() bool { return sh.confirmer.current != nil })
 	var shown *widget.Label

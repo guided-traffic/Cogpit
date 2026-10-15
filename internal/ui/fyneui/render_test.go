@@ -130,7 +130,7 @@ func TestRenderConfirm(t *testing.T) {
 		_, _ = sh.confirmer.Confirm(context.Background(), engine.ConfirmRequest{
 			Command: "object.delete", Label: "Delete", Danger: engine.DangerDestructive,
 			Origin: engine.OriginExternalAgent, Context: "demo",
-			Namespaces: []string{row.Ref.Namespace}, Objects: []model.ObjectRef{row.Ref},
+			Namespaces: []string{row.Ref.Namespace}, Objects: []model.ObjectRef{row.Ref}, Kinds: []string{"Pod"},
 		})
 	}()
 	q.until(t, "the dialog", func() bool { return sh.confirmer.current != nil })

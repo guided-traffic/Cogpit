@@ -261,7 +261,7 @@ func TestCreateDialogsAgentsNeedAcceptance(t *testing.T) {
 		req.Detail != "Grants these rights immediately, in namespace shop: the permissions of ClusterRole admin to ServiceAccount shop/ci." {
 		t.Errorf("confirmation %+v", req)
 	}
-	if !strings.Contains(req.Message(), "An agent asks to run: Create Role Binding rolebindings ci-admin in namespace shop (context test)? Grants these rights immediately") {
+	if !strings.Contains(req.Message(), "An agent asks to run: Create Role Binding Role Binding ci-admin in namespace shop (context test)? Grants these rights immediately") {
 		t.Errorf("message %q", req.Message())
 	}
 	answer = true
