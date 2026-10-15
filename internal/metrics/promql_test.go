@@ -43,7 +43,7 @@ func FuzzQuoteLabel(f *testing.F) {
 }
 
 func TestQueries(t *testing.T) {
-	pod := podPlan("web", "a", rangeRate(30*time.Second))
+	pod := podPlan("web", "a", rangeRate(30*time.Second), QuerySettings{})
 	for name, tc := range map[string]struct{ got, want string }{
 		"cpu":    {pod.cpu, `sum by (container) (rate(container_cpu_usage_seconds_total{namespace="web",pod="a",container!="",container!="POD"}[4m]))`},
 		"mem":    {pod.mem, `sum by (container) (container_memory_working_set_bytes{namespace="web",pod="a",container!="",container!="POD"})`},
@@ -51,21 +51,21 @@ func TestQueries(t *testing.T) {
 		"tx":     {pod.tx, `sum(rate(container_network_transmit_bytes_total{namespace="web",pod="a"}[4m]))`},
 		"fs":     {pod.fsUsage, `sum by (container) (container_fs_usage_bytes{namespace="web",pod="a",container!="",container!="POD"})`},
 		"fsr":    {pod.fsReads, `sum by (container) (rate(container_fs_reads_bytes_total{namespace="web",pod="a",container!="",container!="POD"}[4m]))`},
-		"list":   {podListRate(metricCPU, ""), `sum by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD"}[4m]))`},
-		"week":   {podPlan("web", "a", rangeRate(605*time.Second)).rx, `sum(rate(container_network_receive_bytes_total{namespace="web",pod="a"}[665s]))`},
-		"listns": {podListGauge(metricMemory, "web"), `sum by (namespace, pod, container) (container_memory_working_set_bytes{namespace="web",container!="",container!="POD"})`},
+		"list":   {podListRate(metricCPU, "", containerMatchers), `sum by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!="",container!="POD"}[4m]))`},
+		"week":   {podPlan("web", "a", rangeRate(605*time.Second), QuerySettings{}).rx, `sum(rate(container_network_receive_bytes_total{namespace="web",pod="a"}[665s]))`},
+		"listns": {podListGauge(metricMemory, "web", containerMatchers), `sum by (namespace, pod, container) (container_memory_working_set_bytes{namespace="web",container!="",container!="POD"})`},
 	} {
 		if tc.got != tc.want {
 			t.Errorf("%s:\n got %s\nwant %s", name, tc.got, tc.want)
 		}
 	}
 
-	evil := podPlan(`ns"} or up{a="`, `p\"`, rateWindow)
+	evil := podPlan(`ns"} or up{a="`, `p\"`, rateWindow, QuerySettings{})
 	if !strings.Contains(evil.cpu, `namespace="ns\"} or up{a=\""`) || !strings.Contains(evil.cpu, `pod="p\\\""`) {
 		t.Errorf("names were not quoted: %s", evil.cpu)
 	}
 
-	node := nodePlan("n1.example", nil, rangeRate(30*time.Second))
+	node := nodePlan("n1.example", nil, rangeRate(30*time.Second), QueryAuto)
 	want := `sum(rate(container_cpu_usage_seconds_total{id="/",node="n1.example"}[4m])) or ` +
 		`sum(rate(container_cpu_usage_seconds_total{id="/",instance=~"n1\\.example(:[0-9]+)?"}[4m]))`
 	if node.cpu != want {
@@ -75,7 +75,7 @@ func TestQueries(t *testing.T) {
 	// node-exporter's (A43): the node label, else the instance by the node's name or addresses
 	// (kube-prometheus-stack's exporter, scraped under its host-network address), an IPv6 address
 	// also in brackets; every exporter counted once.
-	node = nodePlan("n1.example", []string{"10.0.0.7", "fd00::7"}, rangeRate(30*time.Second))
+	node = nodePlan("n1.example", []string{"10.0.0.7", "fd00::7"}, rangeRate(30*time.Second), QueryAuto)
 	inst := `instance=~"(n1\\.example|10\\.0\\.0\\.7|fd00::7|\\[fd00::7\\])(:[0-9]+)?"`
 	for name, tc := range map[string]struct{ got, want string }{
 		"exporter cpu": {node.exporterCPU,
@@ -93,7 +93,7 @@ func TestQueries(t *testing.T) {
 			t.Errorf("%s:\n got %s\nwant %s", name, tc.got, tc.want)
 		}
 	}
-	evilNode := nodePlan(`n"} or up{a="`, []string{`1.2.3.4"} or vector(1) #`}, rateWindow)
+	evilNode := nodePlan(`n"} or up{a="`, []string{`1.2.3.4"} or vector(1) #`}, rateWindow, QueryAuto)
 	if !strings.Contains(evilNode.exporterMem, `{node="n\"} or up{a=\""}`) || !strings.Contains(evilNode.exporterMem, `1\\.2\\.3\\.4\"\\} or vector\\(1\\) #)(:[0-9]+)?"}`) {
 		t.Errorf("a node's name or address was not quoted: %s", evilNode.exporterMem)
 	}

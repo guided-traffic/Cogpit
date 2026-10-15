@@ -20,34 +20,73 @@ type rangePlan struct {
 	// sumWhole: the whole object's usage is the sum of its containers' (a pod); false when the
 	// queries already give the whole (a node).
 	sumWhole bool
+	// ownWhole: the queries keep the pod's own cgroup (the empty-container filter off), whose
+	// series without a container name is the pod's line where it has one.
+	ownWhole bool
+	// node: a node's plan, whose CPU and memory come from node-exporter or the root cgroup
+	// (nodeSource); either query may be empty when the query format leaves that source out.
+	node bool
 }
 
-// podPlan is a pod's queries, the counters' rates over win (rangeRate).
-func podPlan(namespace, pod string, win time.Duration) rangePlan {
+// podPlan is a pod's queries, the counters' rates over win (rangeRate), with the cluster's
+// empty-container filter.
+func podPlan(namespace, pod string, win time.Duration, q QuerySettings) rangePlan {
+	f := q.filter()
 	return rangePlan{
-		cpu: podRate(metricCPU, namespace, pod, win), mem: podGauge(metricMemory, namespace, pod),
+		cpu: podRate(metricCPU, namespace, pod, f, win), mem: podGauge(metricMemory, namespace, pod, f),
 		rx: podNetwork(metricNetRx, namespace, pod, win), tx: podNetwork(metricNetTx, namespace, pod, win),
-		fsUsage: podGauge(metricFSUsage, namespace, pod),
-		fsReads: podRate(metricFSReads, namespace, pod, win), fsWrites: podRate(metricFSWrites, namespace, pod, win),
-		sumWhole: true,
+		fsUsage: podGauge(metricFSUsage, namespace, pod, f),
+		fsReads: podRate(metricFSReads, namespace, pod, f, win), fsWrites: podRate(metricFSWrites, namespace, pod, f, win),
+		sumWhole: true, ownWhole: q.KeepEmptyContainers,
 	}
 }
 
 // nodePlan reads a node's CPU and memory from node-exporter where this Prometheus has its series,
 // else from cAdvisor's root cgroup (A43, D-43: kube-prometheus-stack drops the root cgroup), and
-// the network and the filesystem from the root cgroup. The series are matched to the node by the
-// node label, else by the instance: the node's name or one of its addresses (addrs), which is how
-// kube-prometheus-stack's node-exporter, scraped under its host-network address, is found.
-func nodePlan(node string, addrs []string, win time.Duration) rangePlan {
+// since 2026-10-16 the network and the filesystem the same way: node-exporter's interfaces
+// (nodeInterfaces) and block devices, else the root cgroup's. The series are matched to the node by
+// the node label, else by the instance: the node's name or one of its addresses (addrs), which is
+// how kube-prometheus-stack's node-exporter, scraped under its host-network address, is found.
+//
+// The network's and the filesystem's sources are joined in one query each by "or" (node-exporter's
+// first), not tried one after the other as CPU and memory are (nodeSource): they are asked at every
+// step while a chart shows them, and a remembered source would cost the discovery's extra queries
+// for nothing the window reports. At a time both have a point, node-exporter's is taken; the
+// two count interfaces differently, so a chart that spans an exporter's start may step there.
+//
+// A query format that fixes the source (QueryOperator: node-exporter; QueryCAdvisor: the root
+// cgroup) leaves the other out of every query, CPU and memory included.
+func nodePlan(node string, addrs []string, win time.Duration, format QueryFormat) rangePlan {
 	m := matchNode(node, addrs)
-	return rangePlan{
-		cpu: nodeSum(metricCPU, m, win), mem: nodeSum(metricMemory, m, 0),
-		exporterCPU: exporterOf(func(x string) string { return exporterCPU(x, win) }, m),
-		exporterMem: exporterOf(exporterMemory, m),
-		rx:          nodeSum(metricNetRx, m, win), tx: nodeSum(metricNetTx, m, win),
-		fsUsage: nodeSumWhere(metricFSUsage, nodeDisks, m, 0),
-		fsReads: nodeSum(metricFSReads, m, win), fsWrites: nodeSum(metricFSWrites, m, win),
+	exporter, cadvisor := format != QueryCAdvisor, format != QueryOperator
+	either := func(e, c string) string {
+		switch {
+		case !exporter:
+			return c
+		case !cadvisor:
+			return e
+		}
+		return e + " or " + c
 	}
+	rate := func(metric, extra string) string {
+		return exporterOf(func(x string) string { return exporterRate(metric, extra, x, win) }, m)
+	}
+	p := rangePlan{
+		node:     true,
+		rx:       either(rate(metricNodeNetRx, nodeInterfaces), nodeSum(metricNetRx, m, win)),
+		tx:       either(rate(metricNodeNetTx, nodeInterfaces), nodeSum(metricNetTx, m, win)),
+		fsUsage:  either(exporterOf(exporterFSUsage, m), nodeSumWhere(metricFSUsage, nodeDisks, m, 0)),
+		fsReads:  either(rate(metricNodeDiskRead, nodeBlockDevices), nodeSum(metricFSReads, m, win)),
+		fsWrites: either(rate(metricNodeDiskWritten, nodeBlockDevices), nodeSum(metricFSWrites, m, win)),
+	}
+	if exporter {
+		p.exporterCPU = exporterOf(func(x string) string { return exporterCPU(x, win) }, m)
+		p.exporterMem = exporterOf(exporterMemory, m)
+	}
+	if cadvisor {
+		p.cpu, p.mem = nodeSum(metricCPU, m, win), nodeSum(metricMemory, m, 0)
+	}
+	return p
 }
 
 // The sources of an object's CPU and memory history (ObjectSeries.UsageSource, A43).
@@ -72,9 +111,16 @@ const (
 // attempt reports whether its answer had a series. The answer is remembered for the provider's
 // life (one detection, 10 minutes): a Prometheus whose nodes come from cAdvisor (the prometheus
 // chart without node-exporter) is not asked for node-exporter at every poll; once node-exporter
-// answered, a node it has no series of is still asked of cAdvisor. Neither is UsageNone.
+// answered, a node it has no series of is still asked of cAdvisor. Neither is UsageNone. A query
+// format that fixes the source (QuerySettings.Format) asks that one alone.
 func (p *Prometheus) nodeSource(exporter, cadvisor func() (bool, error)) (string, error) {
-	if p.nodeMode.Load() != nodeCAdvisor {
+	switch p.opts.Query.Format {
+	case QueryOperator:
+		cadvisor = nil
+	case QueryCAdvisor:
+		exporter = nil
+	}
+	if exporter != nil && p.nodeMode.Load() != nodeCAdvisor {
 		found, err := exporter()
 		if err != nil {
 			return "", err
@@ -83,6 +129,9 @@ func (p *Prometheus) nodeSource(exporter, cadvisor func() (bool, error)) (string
 			p.nodeMode.Store(nodeExporter)
 			return UsageNodeExporter, nil
 		}
+	}
+	if cadvisor == nil {
+		return UsageNone, nil
 	}
 	found, err := cadvisor()
 	if err != nil {
@@ -107,7 +156,7 @@ func (p *Prometheus) rangeUsage(plan rangePlan, run func(string) ([]promSeries, 
 		return hasPoints(cpu) || hasPoints(mem), nil
 	}
 	cadvisor := func() (bool, error) { return pair(plan.cpu, plan.mem) }
-	if plan.exporterCPU == "" { // a pod
+	if !plan.node {
 		found, err := cadvisor()
 		if err != nil {
 			return nil, nil, "", err
@@ -192,9 +241,9 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 	var plan rangePlan
 	switch q.Kind {
 	case KindPods:
-		plan = podPlan(q.Namespace, q.Name, rangeRate(q.Step))
+		plan = podPlan(q.Namespace, q.Name, rangeRate(q.Step), p.opts.Query)
 	case KindNodes:
-		plan = nodePlan(q.Name, q.Addresses, rangeRate(q.Step))
+		plan = nodePlan(q.Name, q.Addresses, rangeRate(q.Step), p.opts.Query.Format)
 	default:
 		return nil, fmt.Errorf("kind %q has no metrics", q.Kind)
 	}
@@ -250,9 +299,8 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 	}
 
 	cpuBy, memBy := groupByContainer(cpu), groupByContainer(mem)
-	if plan.sumWhole {
-		cpuBy[""], memBy[""] = sumPoints(cpuBy), sumPoints(memBy)
-	}
+	plan.whole(cpuBy)
+	plan.whole(memBy)
 	for _, name := range unionKeys(cpuBy, memBy) {
 		if u := mergeUsage(cpuBy[name], memBy[name]); len(u) > 0 {
 			target(name).Usage = u
@@ -273,12 +321,8 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 		} else {
 			a, b = groupByContainer(fs.reads), groupByContainer(fs.writes)
 		}
-		if plan.sumWhole {
-			a[""] = sumPoints(a)
-			if b != nil {
-				b[""] = sumPoints(b)
-			}
-		}
+		plan.whole(a)
+		plan.whole(b)
 		for _, name := range unionKeys(a, b) {
 			if f := mergeFilesystem(fs.source, a[name], b[name]); len(f) > 0 {
 				target(name).Filesystem = f
@@ -286,6 +330,16 @@ func (p *Prometheus) ObjectRange(ctx context.Context, q RangeQuery) (*ObjectSeri
 		}
 	}
 	return out, nil
+}
+
+// whole puts a pod's whole under "": the sum of its containers' series, or, with the empty-container
+// filter off (ownWhole), the pod's own cgroup's series where the answer has one. A node's answer is
+// its whole already.
+func (r rangePlan) whole(by map[string][]point) {
+	if by == nil || !r.sumWhole || r.ownWhole && len(by[""]) > 0 {
+		return
+	}
+	by[""] = sumPoints(by)
 }
 
 // groupByContainer groups a result by its container label; a series without one (the pod's

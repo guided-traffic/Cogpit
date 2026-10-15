@@ -45,19 +45,26 @@ type Target struct {
 	// Prefix is the route prefix Prometheus serves under (--web.route-prefix), "" or "/"
 	// for the root.
 	Prefix string
+	// Scheme is the service proxy's scheme: "https" asks the service over TLS
+	// (QuerySettings.HTTPS), "" over http.
+	Scheme string
 }
 
 // String is "namespace/service", the name the source line shows.
 func (t Target) String() string { return t.Namespace + "/" + t.Service }
 
 // Where is "namespace/service:port" with the route prefix if one is set, as the status line and
-// Lens's settings write it.
+// Lens's settings write it, and " (https)" when the service is asked over TLS.
 func (t Target) Where() string {
 	w := t.String()
 	if t.Port != "" {
 		w += ":" + t.Port
 	}
-	return w + t.prefix()
+	w += t.prefix()
+	if t.Scheme == "https" {
+		w += " (https)"
+	}
+	return w
 }
 
 func (t Target) prefix() string {
@@ -79,7 +86,7 @@ type proxy interface {
 type kubeProxy struct{ kube kubernetes.Interface }
 
 func (k kubeProxy) get(ctx context.Context, t Target, path string, params map[string]string, limit int64) ([]byte, error) {
-	body, err := k.kube.CoreV1().Services(t.Namespace).ProxyGet("", t.Service, t.Port, t.prefix()+path, params).Stream(ctx)
+	body, err := k.kube.CoreV1().Services(t.Namespace).ProxyGet(t.Scheme, t.Service, t.Port, t.prefix()+path, params).Stream(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +106,9 @@ type PrometheusOptions struct {
 	MaxResponseBytes int64
 	QueryTimeout     time.Duration
 	Logger           *slog.Logger
+	// Query is the cluster's settings of how its Prometheus is asked (promquery.go): the query
+	// format, the empty-container filter, HTTPS. The detector sets it on the providers it makes.
+	Query QuerySettings
 }
 
 // Prometheus is the provider that reads a cluster's Prometheus through the API server's service
@@ -151,8 +161,14 @@ func newPrometheus(px proxy, target Target, opts PrometheusOptions) *Prometheus 
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
+	if target.Scheme == "" {
+		target.Scheme = opts.Query.scheme()
+	}
 	return &Prometheus{px: px, target: target, opts: opts}
 }
+
+// Query returns the settings the provider asks its Prometheus with.
+func (p *Prometheus) Query() QuerySettings { return p.opts.Query }
 
 // ID implements Provider.
 func (p *Prometheus) ID() string { return PrometheusID }
@@ -364,7 +380,8 @@ func seconds2milli(v float64) int64 { return int64(math.Round(v * 1000)) }
 
 // ListPods implements Provider with two instant queries: CPU and memory per container.
 func (p *Prometheus) ListPods(ctx context.Context, namespace string) ([]model.PodUsage, error) {
-	cpu, mem, err := p.instantPair(ctx, podListRate(metricCPU, namespace), podListGauge(metricMemory, namespace))
+	f := p.opts.Query.filter()
+	cpu, mem, err := p.instantPair(ctx, podListRate(metricCPU, namespace, f), podListGauge(metricMemory, namespace, f))
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +390,8 @@ func (p *Prometheus) ListPods(ctx context.Context, namespace string) ([]model.Po
 
 // GetPod implements Provider.
 func (p *Prometheus) GetPod(ctx context.Context, namespace, name string) (model.PodUsage, error) {
-	cpu, mem, err := p.instantPair(ctx, podRate(metricCPU, namespace, name, rateWindow), podGauge(metricMemory, namespace, name))
+	f := p.opts.Query.filter()
+	cpu, mem, err := p.instantPair(ctx, podRate(metricCPU, namespace, name, f, rateWindow), podGauge(metricMemory, namespace, name, f))
 	if err != nil {
 		return model.PodUsage{}, err
 	}
@@ -502,6 +520,12 @@ func podUsages(cpu, mem []promSeries) []model.PodUsage {
 	}
 	out := make([]model.PodUsage, 0, len(pods))
 	for k, pu := range pods {
+		// With the empty-container filter off a pod's own cgroup comes as a container without a
+		// name: beside named containers it would count them twice; alone (cAdvisor series without
+		// container names) it is the pod's usage.
+		if len(cont[k]) > 1 {
+			delete(cont[k], "")
+		}
 		names := make([]string, 0, len(cont[k]))
 		for n := range cont[k] {
 			names = append(names, n)

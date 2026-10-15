@@ -20,8 +20,8 @@ import (
 // own (owner, 2026-10-14): Maximum duration, how long the pod lives at most (its
 // activeDeadlineSeconds; engine/nodeshell_duration.go), with a line under it saying it in words.
 // Only the user sets them (cluster.settings.setNodeShell refuses agents anything but the
-// defaults). Its place after Metrics follows Lens's order without the pages Cogpit lacks (Lens
-// Metrics, Cost).
+// defaults). Its place after Metrics and Cogpit Metrics follows Lens's order without the page
+// Cogpit lacks (Cost).
 
 const (
 	nodeShellSectionLabel       = "Node Shell"

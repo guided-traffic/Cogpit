@@ -58,6 +58,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerKubeconfigs(g)
 	registerMetrics(g)
 	registerMetricsRange(g)
+	registerMetricsStack(g)
 	registerDrawerTables(g)
 	registerHotbar(g)
 	registerCreateDialogs(g)

@@ -74,8 +74,23 @@ const (
 )
 
 // containerMatchers keeps the series of real containers: the pod-level cgroup has container=""
-// and the pause container "POD", and counting them would double every sum.
+// and the pause container "POD", and counting them would double every sum. It is Lens's "filter
+// empty containers", on by default (captured); keepEmptyMatchers is the filter off.
 const containerMatchers = `container!="",container!="POD"`
+
+// keepEmptyMatchers is the container matcher with the empty-container filter off (Cluster Settings
+// › Metrics, QuerySettings.KeepEmptyContainers): the series without a container name stay in the
+// answer, where the pod-level cgroup is the pod's own line and, on a Prometheus whose cAdvisor
+// series carry no container name, the only one. The pause container stays out.
+const keepEmptyMatchers = `container!="POD"`
+
+// containerFilter is the container matcher of a cluster's settings.
+func containerFilter(keepEmpty bool) string {
+	if keepEmpty {
+		return keepEmptyMatchers
+	}
+	return containerMatchers
+}
 
 // podMatchers selects a pod; namespace "" selects the pod in any namespace (never used for a
 // named pod), name "" every pod of the namespace.
@@ -90,22 +105,22 @@ func podMatchers(namespace, pod string) string {
 	return strings.Join(m, ",")
 }
 
-// withContainers builds {matchers,container!="",container!="POD"}.
-func withContainers(matchers string) string {
+// withContainers builds {matchers,<filter>}: the filter is containerMatchers or keepEmptyMatchers.
+func withContainers(matchers, filter string) string {
 	if matchers == "" {
-		return "{" + containerMatchers + "}"
+		return "{" + filter + "}"
 	}
-	return "{" + matchers + "," + containerMatchers + "}"
+	return "{" + matchers + "," + filter + "}"
 }
 
 // podRate is the per-container rate of a counter over win: sum by (container) (rate(metric{...}[4m])).
-func podRate(metric, namespace, pod string, win time.Duration) string {
-	return fmt.Sprintf("sum by (container) (rate(%s%s[%s]))", metric, withContainers(podMatchers(namespace, pod)), promDuration(win))
+func podRate(metric, namespace, pod, filter string, win time.Duration) string {
+	return fmt.Sprintf("sum by (container) (rate(%s%s[%s]))", metric, withContainers(podMatchers(namespace, pod), filter), promDuration(win))
 }
 
 // podGauge is the per-container value of a gauge.
-func podGauge(metric, namespace, pod string) string {
-	return fmt.Sprintf("sum by (container) (%s%s)", metric, withContainers(podMatchers(namespace, pod)))
+func podGauge(metric, namespace, pod, filter string) string {
+	return fmt.Sprintf("sum by (container) (%s%s)", metric, withContainers(podMatchers(namespace, pod), filter))
 }
 
 // podNetwork is the pod's traffic: network metrics belong to the pod's network namespace, so they
@@ -116,12 +131,12 @@ func podNetwork(metric, namespace, pod string, win time.Duration) string {
 
 // podListRate and podListGauge are the list forms: one series per container of every pod of a
 // namespace (or of every namespace).
-func podListRate(metric, namespace string) string {
-	return fmt.Sprintf("sum by (namespace, pod, container) (rate(%s%s[%s]))", metric, withContainers(podMatchers(namespace, "")), promDuration(rateWindow))
+func podListRate(metric, namespace, filter string) string {
+	return fmt.Sprintf("sum by (namespace, pod, container) (rate(%s%s[%s]))", metric, withContainers(podMatchers(namespace, ""), filter), promDuration(rateWindow))
 }
 
-func podListGauge(metric, namespace string) string {
-	return fmt.Sprintf("sum by (namespace, pod, container) (%s%s)", metric, withContainers(podMatchers(namespace, "")))
+func podListGauge(metric, namespace, filter string) string {
+	return fmt.Sprintf("sum by (namespace, pod, container) (%s%s)", metric, withContainers(podMatchers(namespace, ""), filter))
 }
 
 // nodeMatch is how the series of one node, or of a set of nodes (the cluster's control plane), are
@@ -251,8 +266,50 @@ const nodeBusy = `mode!~"idle|iowait|steal"`
 // counted once however many jobs scrape it (max by node and instance, as the disks' query); an
 // empty matcher is every exporter.
 func exporterCPU(matcher string, win time.Duration) string {
+	return exporterRate(metricNodeCPU, nodeBusy, matcher, win)
+}
+
+// exporterRate is the rate over win of a node-exporter counter, summed over the series that match
+// matcher and extra (a node's CPUs, interfaces or disks) and each exporter counted once however many
+// jobs scrape it.
+func exporterRate(metric, extra, matcher string, win time.Duration) string {
 	return fmt.Sprintf("sum(max by (node, instance) (sum by (node, instance, job) (rate(%s[%s]))))",
-		selector(metricNodeCPU, matcher, nodeBusy), promDuration(win))
+		selector(metric, matcher, extra), promDuration(win))
+}
+
+// node-exporter's network and disk metrics, which a node's Network and Filesystem charts read
+// where the cluster's Prometheus has them (G12, 2026-10-16), as its CPU and memory do (A43):
+// kube-prometheus-stack drops cAdvisor's root cgroup, so those charts stayed empty there. The
+// filesystem's usage reads the disks' gauges (metricFSSize, metricFSAvail in disk.go).
+const (
+	metricNodeNetRx       = "node_network_receive_bytes_total"
+	metricNodeNetTx       = "node_network_transmit_bytes_total"
+	metricNodeDiskRead    = "node_disk_read_bytes_total"
+	metricNodeDiskWritten = "node_disk_written_bytes_total"
+)
+
+// nodeInterfaces keeps a node's own network interfaces: the loopback and the virtual interfaces
+// the container runtimes, the network plugins and the kernel create (the pods' veth and lxc ends,
+// the plugins' bridges, overlays and tunnels, the kernel's fallback tunnel devices, WireGuard) are
+// left out, since the same bytes pass them and the node's own interface, and a sum over all of
+// them counts the traffic several times (a real cluster with Cilium, 2026-10-16: 34 interfaces on
+// one node, the overlay, WireGuard and the physical interface each carrying the pods' traffic).
+// The names are the plugins' and the kernel's defaults; one not listed is counted (not guarded),
+// and so are a bond and its members (counted twice, not guarded).
+const nodeInterfaces = `device!~"lo|veth.+|lxc.+|cali.+|cilium_.+|flannel.+|cni.+|cbr.+|docker.+|br-.+|virbr.+|vxlan.+|genev.+|tunl.+|tun.+|wg.+|kube-.+|weave.*|nodelocaldns|antrea-.+|ovs-.+|ovn-.+|gre.+|erspan.+|ip6gre.+|ip6tnl.+|ip_vti.+|ip6_vti.+|sit.+|dummy.+|nerdctl.+|[a-f0-9]{15}"`
+
+// nodeBlockDevices keeps the disks among node-exporter's disk statistics: device-mapper and
+// software RAID devices repeat the disks they sit on, network block devices (Ceph's rbd, nbd) are
+// network traffic, and loop, RAM and optical devices are no disks. node-exporter itself leaves the
+// partitions out.
+const nodeBlockDevices = `device!~"(dm-|md|rbd|nbd|loop|ram|zram|sr|fd).*"`
+
+// exporterFSUsage is the bytes used on a node's block devices from node-exporter: each device's
+// size less what is available to an unprivileged process (the disks' rule, D-43), each device
+// counted once however often it is mounted (bind mounts repeat it), each exporter once.
+func exporterFSUsage(matcher string) string {
+	return fmt.Sprintf("sum(max by (node, instance) (sum by (node, instance, job) (max by (node, instance, job, device) (%s - %s))))",
+		selector(metricFSSize, matcher, nodeDisks), selector(metricFSAvail, matcher, nodeDisks))
 }
 
 // exporterMemory is the memory in use the node-exporter series that match give: the total less the

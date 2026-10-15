@@ -171,12 +171,13 @@ func TestObjectRangeOfANode(t *testing.T) {
 	if len(got.Targets) != 1 || len(u) != 2 || u[1].CPUMilli != 4000 || u[1].MemoryBytes != 4 {
 		t.Errorf("node usage = %+v (targets %d)", u, len(got.Targets))
 	}
-	// CPU and memory from node-exporter (A43), the network and the filesystem from the root cgroup.
+	// CPU and memory from node-exporter (A43); the network and the filesystem from node-exporter or
+	// else the root cgroup, both in one query each (2026-10-16).
 	if got.UsageSource != metrics.UsageNodeExporter || c.prom.queryCount("node_cpu_seconds_total") != 1 || c.prom.queryCount("container_cpu_usage_seconds_total") != 0 {
 		t.Errorf("usage source %q", got.UsageSource)
 	}
-	if n := c.prom.queryCount(`id="/"`); n != 3 {
-		t.Errorf("%d node queries use the root cgroup, want 3 (received, transmitted, filesystem)", n)
+	if n, e := c.prom.queryCount(`id="/"`), c.prom.queryCount("node_network_"); n != 3 || e != 2 {
+		t.Errorf("%d node queries ask the root cgroup and %d node-exporter's network, want 3 (received, transmitted, filesystem) and 2", n, e)
 	}
 }
 

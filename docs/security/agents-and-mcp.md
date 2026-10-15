@@ -570,7 +570,10 @@ still asks (since 2026-10-14, the owner's decision;
 audit log records each command. Decided (owner, 2026-10-14 evening, A1 and A2) and built the same
 night: under the allowance, an agent's create or change of any of the four RBAC kinds (Roles and
 ClusterRoles too) and every Helm install or upgrade of an agent ask as well ([rules](#rules);
-`TestAgentRoleBindingsAlwaysAsk`, `TestHelmInstallAgents`, `TestHelmUpgradeAgents`). Two other
+`TestAgentRoleBindingsAlwaysAsk`, `TestHelmInstallAgents`, `TestHelmUpgradeAgents`); since
+2026-10-16 so does an agent's `cluster.setMetricsStack`, which installs Helm releases with
+cluster-wide roles (Cogpit Metrics, [D-61](../developer/decisions.md#d-61-cogpit-metrics-the-bundled-metrics-stack),
+`TestMetricsStackApply`). Two other
 answers of that evening made commands writes with a confirmation: `cluster.setPrometheus` from an
 agent (A16, [H-26](privilege-footprint.md#h-26-prometheus-is-found-by-name)) and an agent setting a
 proxy (A20, [rules](#rules)); the answers did not say whether the allowance covers them, and as

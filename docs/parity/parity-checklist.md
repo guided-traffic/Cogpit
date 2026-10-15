@@ -14,7 +14,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 |---|---|---|---|---|---|
 | Resource views (free) | 64 | 64 | 1 | 63 | 0 |
 | Resource actions (free; exist = registered commands) | 42 | 42 | – | – | 0 |
-| Interface rows, free plan | 121 | 117 | 9 | 108 | 4 |
+| Interface rows, free plan | 121 | 118 | 9 | 109 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
 | Beyond Lens (not in feature breadth) | 52 | 50 | 41 | 9 | 2 |
@@ -229,7 +229,7 @@ Not counted: 7 interface rows that are not a target, 5 platform rows that are pa
 | Accessible namespaces (for users who may not list namespaces): a field that adds one namespace at a time (capture) | partial | [Cluster settings](ui-parity.md#cluster-settings) |
 | Metrics provider: auto-detect or Helm 14.x, Helm, Lens, Prometheus Operator, StackLight, VictoriaMetrics, VictoriaMetrics single; service a… | partial | [Cluster settings](ui-parity.md#cluster-settings) |
 | Hide metrics from the UI: a multi-select of metrics, "Hide all metrics" and "Reset" buttons, and a line saying all metrics are visible when… | partial | [Cluster settings](ui-parity.md#cluster-settings) |
-| Lens Metrics: install a bundled Prometheus, kube-state-metrics and node-exporter into the cluster on request; captured as three switches (a… | missing | [Cluster settings](ui-parity.md#cluster-settings) |
+| Lens Metrics: install a bundled Prometheus, kube-state-metrics and node-exporter into the cluster on request; captured as three switches (a… | partial | [Cluster settings](ui-parity.md#cluster-settings) |
 | Node shell: image (the default, shown as the field's placeholder, is the tag docker.io/alpine:3.19), an optional image pull secret in kube-… | partial | [Cluster settings](ui-parity.md#cluster-settings) |
 | Cost: the source as a choice of Automatic (showing which source it uses), Kubecost, OpenCost, an estimate from node types and list prices (… | missing | [Cluster settings](ui-parity.md#cluster-settings) |
 | CPU, memory and pod usage against requests, limits, allocatable and capacity | partial | [Cluster overview and charts](ui-parity.md#cluster-overview-and-charts) |

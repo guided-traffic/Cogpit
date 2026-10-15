@@ -302,8 +302,12 @@ func TestPrometheusSettingsDialog(t *testing.T) {
 	q.until(t, "the dialog", func() bool { return findButton(sh.win, "Save") != nil })
 	overlay := sh.win.Canvas().Overlays().Top()
 	checks, entries := findAll[*widget.Check](overlay), findAll[*widget.Entry](overlay)
-	if len(checks) != 1 || len(entries) != 2 || !checks[0].Checked || !entries[0].Disabled() {
-		t.Fatalf("dialog: %d checks (auto %v), %d entries", len(checks), len(checks) > 0 && checks[0].Checked, len(entries))
+	selects := findAll[*widget.Select](overlay)
+	// Auto detect, then Lens's provider settings since 2026-10-16: empty containers filtered (on)
+	// and HTTPS (off), the query format at Auto detect.
+	if len(checks) != 3 || len(entries) != 2 || !checks[0].Checked || !entries[0].Disabled() || !checks[1].Checked || checks[2].Checked ||
+		len(selects) != 1 || selects[0].Selected != metrics.QueryFormats[0].Label {
+		t.Fatalf("dialog: %d checks, %d entries, %d selects", len(checks), len(entries), len(selects))
 	}
 	if texts := overlayTexts(sh.win); !slices.Contains(texts, "Prometheus for demo") {
 		t.Errorf("dialog texts %q", texts)
@@ -311,12 +315,20 @@ func TestPrometheusSettingsDialog(t *testing.T) {
 	checks[0].SetChecked(false)
 	entries[0].SetText("observability/thanos-query:9090")
 	entries[1].SetText("/prometheus")
+	selects[0].SetSelected(metrics.QueryOperator.Label())
+	checks[1].SetChecked(false)
+	checks[2].SetChecked(true)
 	settle(sh.win)
 	findButton(sh.win, "Save").OnTapped()
 	q.until(t, "cluster.setPrometheus", func() bool { return len(f.callsOf("cluster.setPrometheus")) == 1 })
-	var params struct{ Address, Prefix string }
+	var params struct {
+		Address, Prefix, Format string
+		FilterEmptyContainers   bool
+		HTTPS                   bool
+	}
 	if err := json.Unmarshal(normalize(f.callsOf("cluster.setPrometheus")[0].Params), &params); err != nil ||
-		params.Address != "observability/thanos-query:9090" || params.Prefix != "/prometheus" {
+		params.Address != "observability/thanos-query:9090" || params.Prefix != "/prometheus" || params.Format != "prometheus-operator" ||
+		params.FilterEmptyContainers || !params.HTTPS {
 		t.Errorf("params %+v (%v)", params, err)
 	}
 

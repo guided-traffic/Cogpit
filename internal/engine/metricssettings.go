@@ -29,22 +29,25 @@ const MetricsSettingsFile = "metrics.json"
 // maxMetricsSettingsSize bounds the file Cogpit reads back.
 const maxMetricsSettingsSize = 1 << 20
 
-// MetricsSettings keeps each context's Prometheus override. Safe for concurrent use. A nil
-// MetricsSettings keeps nothing: an override then lasts for the connection.
+// MetricsSettings keeps each context's Prometheus override and its query settings (the query
+// format, the empty-container filter, HTTPS; metrics.QuerySettings, since 2026-10-16). Safe for
+// concurrent use. A nil MetricsSettings keeps nothing: a setting then lasts for the connection.
 type MetricsSettings struct {
-	mu   sync.Mutex
-	path string
-	by   map[string]metrics.Override
+	mu    sync.Mutex
+	path  string
+	by    map[string]metrics.Override
+	query map[string]metrics.QuerySettings
 }
 
 type metricsSettingsFile struct {
-	Prometheus map[string]metrics.Override `json:"prometheus"`
+	Prometheus map[string]metrics.Override      `json:"prometheus"`
+	Query      map[string]metrics.QuerySettings `json:"query,omitempty"`
 }
 
 // NewMetricsSettings reads the overrides kept in dir (MetricsSettingsFile). A file that cannot be
 // read is left alone and starts empty; err says why.
 func NewMetricsSettings(dir string) (*MetricsSettings, error) {
-	m := &MetricsSettings{path: filepath.Join(dir, MetricsSettingsFile), by: map[string]metrics.Override{}}
+	m := &MetricsSettings{path: filepath.Join(dir, MetricsSettingsFile), by: map[string]metrics.Override{}, query: map[string]metrics.QuerySettings{}}
 	var f metricsSettingsFile
 	if err := readPrivateJSON(m.path, maxMetricsSettingsSize, &f); err != nil {
 		return m, err
@@ -54,7 +57,22 @@ func NewMetricsSettings(dir string) (*MetricsSettings, error) {
 			m.by[ctx] = o
 		}
 	}
+	for ctx, q := range f.Query {
+		if _, err := metrics.ParseQueryFormat(q.Format.Name()); err == nil {
+			m.query[ctx] = q
+		}
+	}
 	return m, nil
+}
+
+// Query returns the query settings kept for a context: Lens's defaults when none are.
+func (m *MetricsSettings) Query(context string) metrics.QuerySettings {
+	if m == nil {
+		return metrics.QuerySettings{}
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.query[context]
 }
 
 // Override returns the override kept for a context, or nil.
@@ -71,27 +89,42 @@ func (m *MetricsSettings) Override(context string) *metrics.Override {
 	return &o
 }
 
-// SetOverride keeps (or, with nil, forgets) a context's override and writes the file.
+// SetOverride keeps (or, with nil, forgets) a context's override and writes the file; the
+// context's query settings stay.
 func (m *MetricsSettings) SetOverride(context string, o *metrics.Override) error {
+	return m.Set(context, o, m.Query(context))
+}
+
+// Set keeps a context's override (nil: detection) and its query settings (the zero value: Lens's
+// defaults, kept as no entry) and writes the file.
+func (m *MetricsSettings) Set(context string, o *metrics.Override, q metrics.QuerySettings) error {
 	if m == nil {
 		return nil
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	next := maps.Clone(m.by)
+	next, nextQ := maps.Clone(m.by), maps.Clone(m.query)
+	if nextQ == nil {
+		nextQ = map[string]metrics.QuerySettings{}
+	}
 	if o == nil {
 		delete(next, context)
 	} else {
 		next[context] = *o
 	}
-	data, err := json.MarshalIndent(metricsSettingsFile{Prometheus: next}, "", "  ")
+	if q == (metrics.QuerySettings{}) {
+		delete(nextQ, context)
+	} else {
+		nextQ[context] = q
+	}
+	data, err := json.MarshalIndent(metricsSettingsFile{Prometheus: next, Query: nextQ}, "", "  ")
 	if err != nil {
 		return err
 	}
 	if err := writePrivateFile(m.path, data); err != nil {
 		return fmt.Errorf("keep the Prometheus setting: %w", err)
 	}
-	m.by = next
+	m.by, m.query = next, nextQ
 	return nil
 }
 
@@ -148,7 +181,8 @@ func ParsePrometheusAddress(s string) (namespace, service, port string, err erro
 }
 
 // PrometheusSetting is the Prometheus a connected cluster's metrics come from: the override, or
-// detection by name (Auto).
+// detection by name (Auto), and how it is asked (since 2026-10-16: Lens's query format,
+// empty-container filter and HTTPS, Cluster Settings › Metrics).
 type PrometheusSetting struct {
 	// Context is the connected context the setting belongs to.
 	Context string `json:"context"`
@@ -157,13 +191,23 @@ type PrometheusSetting struct {
 	// Address is the override as Lens writes it, "namespace/service:port"; Prefix its route prefix.
 	Address string `json:"address,omitempty"`
 	Prefix  string `json:"prefix,omitempty"`
+	// Format is the query format's name (metrics.QueryFormats): auto, prometheus-operator,
+	// cadvisor; FormatLabel the settings' label for it.
+	Format      string `json:"format"`
+	FormatLabel string `json:"formatLabel"`
+	// FilterEmptyContainers is Lens's checkbox, on by default: the pod queries leave the series
+	// without a container name out.
+	FilterEmptyContainers bool `json:"filterEmptyContainers"`
+	// HTTPS asks the Prometheus service over TLS through the service proxy.
+	HTTPS bool `json:"https"`
 	// Kept says whether the setting is in Cogpit's preferences (it outlives the connection); false
 	// when Cogpit has no configuration directory.
 	Kept bool `json:"kept"`
 }
 
-func settingOf(context string, o *metrics.Override, kept bool) PrometheusSetting {
-	s := PrometheusSetting{Context: context, Auto: o == nil, Kept: kept}
+func settingOf(context string, o *metrics.Override, q metrics.QuerySettings, kept bool) PrometheusSetting {
+	s := PrometheusSetting{Context: context, Auto: o == nil, Kept: kept, Format: q.Format.Name(), FormatLabel: q.Format.Label(),
+		FilterEmptyContainers: !q.KeepEmptyContainers, HTTPS: q.HTTPS}
 	if o != nil {
 		s.Address, s.Prefix = o.Namespace+"/"+o.Service+":"+o.Port, o.Prefix
 	}
@@ -179,14 +223,25 @@ func (s *Session) PrometheusSetting() (PrometheusSetting, error) {
 	if b.PrometheusDetector == nil {
 		return PrometheusSetting{}, fmt.Errorf("%w: %s has no Prometheus detection (the demo cluster's metrics are its own)", ErrNotApplicable, b.Context)
 	}
-	return settingOf(b.Context, b.PrometheusDetector.Override(), b.MetricsSettings != nil), nil
+	d := b.PrometheusDetector
+	return settingOf(b.Context, d.Override(), d.Query(), b.MetricsSettings != nil), nil
 }
 
-// SetPrometheusOverride sets the connected cluster's Prometheus (nil: detect by name again),
-// keeps it in Cogpit's preferences for that context, and makes the next poll that needs
-// Prometheus detect again: a drawer that is open asks the new one for its history at once. It
-// writes nothing to the cluster or the kubeconfig and sends no request itself.
+// SetPrometheusOverride sets the connected cluster's Prometheus (nil: detect by name again) and
+// keeps its query settings: SetPrometheusSetting with them.
 func (s *Session) SetPrometheusOverride(o *metrics.Override) (PrometheusSetting, error) {
+	b := s.Backend()
+	if b == nil || b.PrometheusDetector == nil {
+		return s.SetPrometheusSetting(o, metrics.QuerySettings{})
+	}
+	return s.SetPrometheusSetting(o, b.PrometheusDetector.Query())
+}
+
+// SetPrometheusSetting sets the connected cluster's Prometheus (nil: detect by name again) and how
+// it is asked (q), keeps both in Cogpit's preferences for that context, and makes the next poll that
+// needs Prometheus detect again with them: a drawer that is open asks the new one for its history at
+// once. It writes nothing to the cluster or the kubeconfig and sends no request itself.
+func (s *Session) SetPrometheusSetting(o *metrics.Override, q metrics.QuerySettings) (PrometheusSetting, error) {
 	b := s.Backend()
 	if b == nil {
 		return PrometheusSetting{}, ErrNotConnected
@@ -205,11 +260,16 @@ func (s *Session) SetPrometheusOverride(o *metrics.Override) (PrometheusSetting,
 		}
 		o = &c
 	}
-	if err := b.MetricsSettings.SetOverride(b.Context, o); err != nil {
+	if _, err := metrics.ParseQueryFormat(q.Format.Name()); err != nil {
 		return PrometheusSetting{}, err
 	}
-	b.PrometheusDetector.SetOverride(o)
+	if err := b.MetricsSettings.Set(b.Context, o, q); err != nil {
+		return PrometheusSetting{}, err
+	}
+	d := b.PrometheusDetector
+	d.SetOverride(o)
+	d.SetQuery(q)
 	b.Metrics.Forget()
 	s.emit(Event{Type: EventMetrics})
-	return settingOf(b.Context, b.PrometheusDetector.Override(), b.MetricsSettings != nil), nil
+	return settingOf(b.Context, d.Override(), d.Query(), b.MetricsSettings != nil), nil
 }

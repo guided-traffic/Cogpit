@@ -29,7 +29,8 @@ import (
 // clustersettings_namespaces.go), Metrics (the Prometheus setting, the
 // existing dialog of cluster.setPrometheus, and the hidden metrics, clustersettings_metrics.go).
 // Node Shell (the node shells' image and pull secret, clustersettings_nodeshell.go, 2026-10-13).
-// Lens's Lens Metrics and Cost pages are not built and not listed. Cogpit's own: the row of
+// Lens's Lens Metrics page is Cogpit Metrics (clustersettings_metricsstack.go, 2026-10-16, D-61);
+// its Cost page is not built and not listed. Cogpit's own: the row of
 // colour swatches under the icon, which picks a colour in one click (the menu's Pick Icon Color
 // does the same).
 
@@ -121,6 +122,8 @@ func (p *settingsPage) clusterSection(section string) fyne.CanvasObject {
 		return p.clusterAgentsSection() // clustersettings_agents.go
 	case engine.SectionNodeShell:
 		return p.clusterNodeShellSection() // clustersettings_nodeshell.go
+	case engine.SectionMetricsStack:
+		return p.clusterMetricsStackSection() // clustersettings_metricsstack.go
 	}
 	return p.clusterGeneralSection()
 }
@@ -334,9 +337,9 @@ func (p *settingsPage) requestPrometheus() {
 			line.SetText(err.Error())
 		case decode(res, &set) != nil:
 		case set.Auto:
-			line.SetText("Auto detect: Prometheus is found among the cluster's services by name.")
+			line.SetText("Auto detect: Prometheus is found among the cluster's services by name." + queryLine(set))
 		default:
-			line.SetText("Set: " + set.Address + set.Prefix)
+			line.SetText("Set: " + set.Address + set.Prefix + "." + queryLine(set))
 		}
 	})
 }

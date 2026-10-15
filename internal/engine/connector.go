@@ -181,6 +181,7 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	} else {
 		be.Metrics, be.PrometheusDetector, be.MetricsSettings = metrics.NewHubFor(src, c.metricsOptions()), prom, c.MetricsSettings
 		prom.SetOverride(c.MetricsSettings.Override(ctxName)) // the user's Prometheus for this context, if set
+		prom.SetQuery(c.MetricsSettings.Query(ctxName))       // and how it is asked (format, filter, HTTPS)
 	}
 	return be, nil
 }

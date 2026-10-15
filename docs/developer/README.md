@@ -8,7 +8,8 @@ this page.
 1. **A local MVP is built** (2026-10-11) and grew in the runs since: every view and action of
    Lens's list at least in part, the custom resource views from the cache, Helm, Flux CD and
    Argo CD, logs, terminals and shells, CI and releases, and MCP control through
-   [202 commands](commands.md) (2026-10-16); it doubled as the [Fyne spike](spike-fyne.md#results). What exists and
+   [204 commands](commands.md) (2026-10-16); it doubled as the [Fyne spike](spike-fyne.md#results). What exists and
+   [197 commands](commands.md) (2026-10-16); it doubled as the [Fyne spike](spike-fyne.md#results). What exists and
    where it differs from the plan: [architecture › Current state](architecture.md#current-state-2026-10-15).
 2. **Go and Fyne.** The engine is Go on client-go, the kubectl libraries and the Helm SDK. The UI
    is Fyne: the [spike](spike-fyne.md) passed and D-1 is decided; re-checks on Windows and Linux

@@ -388,6 +388,7 @@ func (sh *shell) onEvent(ev engine.Event) {
 		sh.drains.request()
 	case engine.EventHelm:
 		sh.helm.request()
+		sh.do(sh.settings.metricsStackChanged) // Cluster Settings › Cogpit Metrics, when open
 	case engine.EventHelmRepos:
 		sh.helmHTTP.request() // a repository waiting to send credentials over http (H-40)
 	case engine.EventDrafts:

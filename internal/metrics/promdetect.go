@@ -61,6 +61,7 @@ type Candidate struct {
 // Detection of Prometheus by well-known Service names, observed from the documentation of the
 // charts and of Lens's metrics providers (clean-room, D-12):
 //
+//	score 110  cogpit-prometheus-server in cogpit-metrics  Cogpit's own install (D-61)
 //	score 100  <release>-kube-prometheus-prometheus      kube-prometheus-stack
 //	            <release>-kube-prometheus-stack-prometheus
 //	            kube-prometheus-stack-prometheus
@@ -71,6 +72,8 @@ type Candidate struct {
 //	           hand-written install)
 //	score  40  prometheus in any other namespace
 //
+// Cogpit's own install (Cluster Settings › Cogpit Metrics) ranks first: the user installed it for
+// Cogpit's charts, beside a Prometheus of the cluster's own that may label its series otherwise.
 // Ties go to the namespaces named in preferredNamespaces, then by name. A name that is not one of
 // these is never tried: probing every Service of a cluster would send a request each.
 var promNames = []struct {
@@ -86,6 +89,13 @@ var promNames = []struct {
 	{regexp.MustCompile(`^prometheus-operated$`), 90},
 	{regexp.MustCompile(`^prometheus-server$`), 80},
 }
+
+// Cogpit's own install of Prometheus (D-61; the engine checks that internal/helm's bundle names
+// the same): the release cogpit-prometheus of the prometheus chart in the namespace cogpit-metrics.
+const (
+	CogpitPrometheusNamespace = "cogpit-metrics"
+	CogpitPrometheusService   = "cogpit-prometheus-server"
+)
 
 const (
 	nsMonitoring = "monitoring"
@@ -129,6 +139,9 @@ func Candidates(services []Service) []Candidate {
 }
 
 func scoreName(namespace, name string) int {
+	if namespace == CogpitPrometheusNamespace && name == CogpitPrometheusService {
+		return 110
+	}
 	for _, n := range promNames {
 		if n.re.MatchString(name) {
 			return n.score
@@ -227,6 +240,22 @@ func (d *PrometheusDetector) SetOverride(o *Override) {
 	d.override = o
 }
 
+// SetQuery sets how the Prometheus found is asked (the query format, the empty-container filter,
+// HTTPS; promquery.go). Like SetOverride it takes effect at the next detection: call Hub.Forget to
+// run it at once, which makes a new provider with these settings.
+func (d *PrometheusDetector) SetQuery(q QuerySettings) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.opts.Query = q
+}
+
+// Query returns the settings the detector's providers ask with.
+func (d *PrometheusDetector) Query() QuerySettings {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.opts.Query
+}
+
 // Override returns the override in effect, or nil when Prometheus is detected.
 func (d *PrometheusDetector) Override() *Override {
 	d.mu.Lock()
@@ -244,7 +273,7 @@ const probePath = "/api/v1/status/buildinfo"
 // Detect implements Detector.
 func (d *PrometheusDetector) Detect(ctx context.Context) (Provider, State) {
 	d.mu.Lock()
-	ov := d.override
+	ov, opts := d.override, d.opts
 	d.mu.Unlock()
 
 	var cands []Candidate
@@ -260,6 +289,9 @@ func (d *PrometheusDetector) Detect(ctx context.Context) (Provider, State) {
 		}
 		cands = Candidates(svcs)
 	}
+	for i := range cands {
+		cands[i].Target.Scheme = opts.Query.scheme()
+	}
 	if len(cands) == 0 {
 		return nil, State{Status: StatusNotServed, Message: "no Prometheus found (no service named like one in the cluster)"}
 	}
@@ -271,7 +303,7 @@ func (d *PrometheusDetector) Detect(ctx context.Context) (Provider, State) {
 	for _, c := range cands {
 		err := d.probe(ctx, c.Target)
 		if err == nil {
-			prov := newPrometheus(d.px, c.Target, d.opts)
+			prov := newPrometheus(d.px, c.Target, opts)
 			return prov, State{Status: StatusAvailable, Provider: PrometheusID, Label: prov.Label()}
 		}
 		if ctx.Err() != nil {
