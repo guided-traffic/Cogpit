@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/theme"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
@@ -59,13 +60,24 @@ func copyScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, m
 	return sh, w, q, ref
 }
 
-// TestCopyPutsTheNameOnTheClipboard: the drawer's first action is Copy; it puts the object's name
-// on the clipboard and says so.
+// TestCopyPutsTheNameOnTheClipboard: Copy sits right after the object's name, not among the
+// actions at the header's right end (F4); it puts the name on the clipboard and says so.
 func TestCopyPutsTheNameOnTheClipboard(t *testing.T) {
 	sh, _, q, ref := copyScene(t, ThemeDark)
-	b := sh.drawer.actions.Objects[0].(*tipButton)
-	if b.tip != "Copy" {
-		t.Fatalf("first action %q", b.tip)
+	b := sh.drawer.nameCopy
+	if !b.Visible() || b.tip != "Copy" {
+		t.Fatalf("the name's copy icon: visible %v, tip %q", b.Visible(), b.tip)
+	}
+	for _, o := range sh.drawer.actions.Objects {
+		if tb, ok := o.(*tipButton); ok && tb.tip == "Copy" {
+			t.Error("Copy is still among the actions at the right")
+		}
+	}
+	title := fyne.CurrentApp().Driver().AbsolutePositionForObject(sh.drawer.title)
+	icon := fyne.CurrentApp().Driver().AbsolutePositionForObject(b)
+	textW := fyne.MeasureText(ref.Name, sh.app.Settings().Theme().Size(sh.drawer.title.size), sh.drawer.title.style).Width
+	if gap := icon.X - (title.X + textW); gap < 0 || gap > 3*sh.app.Settings().Theme().Size(theme.SizeNamePadding) {
+		t.Errorf("the copy icon is %v after the name's end, want right after it", gap)
 	}
 	sh.app.Clipboard().SetContent("")
 	toasts := len(sh.toasts.Objects)
@@ -79,14 +91,14 @@ func TestCopyPutsTheNameOnTheClipboard(t *testing.T) {
 
 func TestRenderCopyDark(t *testing.T) {
 	sh, w, q, _ := copyScene(t, ThemeDark)
-	test.Tap(sh.drawer.actions.Objects[0].(*tipButton))
+	test.Tap(sh.drawer.nameCopy)
 	q.until(t, "the toast", func() bool { return len(sh.toasts.Objects) > 0 })
 	savePNG(t, w, "drawer_copy_dark.png")
 }
 
 func TestRenderCopyLight(t *testing.T) {
 	sh, w, q, _ := copyScene(t, ThemeLight)
-	test.Tap(sh.drawer.actions.Objects[0].(*tipButton))
+	test.Tap(sh.drawer.nameCopy)
 	q.until(t, "the toast", func() bool { return len(sh.toasts.Objects) > 0 })
 	savePNG(t, w, "drawer_copy_light.png")
 }

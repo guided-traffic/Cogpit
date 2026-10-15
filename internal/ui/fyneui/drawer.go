@@ -49,6 +49,8 @@ type drawer struct {
 	lead     *fyne.Container // a kind's own part left of the title (drawerHeaderParts); hidden without
 	extra    *fyne.Container // a kind's own part under the title (drawerHeaderParts); hidden without
 	actions  *fyne.Container // the action icons in the title bar
+	nameCopy *tipButton      // Copy, right after the title (drawertitlecopy.go)
+	titleBox *fyne.Container // the title and nameCopy
 	tabs     *container.AppTabs
 	body     *fyne.Container // the tabs, or for a plain drawer (Lens's release drawer) the details alone
 	pane     *fyne.Container // the details' place in the first tab
@@ -79,6 +81,9 @@ func newDrawer(sh *shell) *drawer {
 	d.missing = newTextLine("This object is no longer in the cluster.", colorStatusWarning, theme.SizeNameCaptionText, fyne.TextStyle{})
 	d.missing.Hide()
 	d.actions = container.NewHBox()
+	d.nameCopy = newTipButton(sh, commandIcon(copyNameID), "Copy", nil)
+	d.nameCopy.Hide()
+	d.titleBox = box(&titleCopyLayout{title: d.title}, d.title, d.nameCopy)
 
 	closeB := newTipButton(sh, theme.CancelIcon(), "Close", sh.closeDrawer)
 
@@ -100,7 +105,8 @@ func newDrawer(sh *shell) *drawer {
 	d.lead.Hide()
 	d.extra.Hide()
 	titleRow := container.NewBorder(nil, nil, d.lead,
-		container.NewHBox(container.NewCenter(d.status), d.actions, newDivider(true), closeB), d.title)
+		container.NewHBox(container.NewCenter(d.status), d.actions, newDivider(true), closeB),
+		d.titleBox)
 	header := container.NewStack(newSurface(colorDrawerHeader),
 		inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding,
 			container.NewVBox(d.kind, titleRow, d.extra, d.missing)))
@@ -204,11 +210,12 @@ func (d *drawer) showLoading(ref model.ObjectRef) {
 	d.resetCopy()
 	d.setPlain(ref.Kind == helm.ReleaseKind)
 	d.kind.SetText(singular(d.sh.kindTitle(ref.Kind)))
-	d.title.SetText(ref.Name)
+	d.setTitle(ref.Name)
 	d.status.Hide()
 	d.missing.Hide()
 	d.actions.Objects = nil
 	d.actions.Refresh()
+	d.nameCopy.Hide()
 	d.details.Objects = []fyne.CanvasObject{newTextLine("Loading…", colorMuted, theme.SizeNameText, fyne.TextStyle{})}
 	d.details.Refresh()
 	d.setYAML("", false)
@@ -257,9 +264,9 @@ func (d *drawer) show(ref model.ObjectRef, m *engine.DetailModel, err error, act
 		kind = singular(d.sh.kindTitle(ref.Kind))
 	}
 	d.kind.SetText(kind)
-	d.title.SetText(name)
+	d.setTitle(name)
 	if m.Plain {
-		d.title.SetText(m.Title) // "Release: web" on one line
+		d.setTitle(m.Title) // "Release: web" on one line
 	}
 	if label := statusLabel(m); label != "" && m.Status != model.StatusNone && !m.Plain {
 		d.status.Set(label, statusColorName(m.Status))
@@ -335,7 +342,12 @@ func (d *drawer) showActions(ref model.ObjectRef, acts []actionState) {
 	}
 	d.acts = acts
 	d.actions.Objects = d.actions.Objects[:0]
+	d.nameCopy.Hide()
 	for _, a := range acts {
+		if a.cmd.ID == copyNameID {
+			d.showNameCopy(ref, a)
+			continue
+		}
 		b := newTipButton(d.sh, commandIcon(a.cmd.ID), actionTip(a), nil)
 		b.OnTapped = func() { d.run(ref, a, b) }
 		if a.reason != "" {

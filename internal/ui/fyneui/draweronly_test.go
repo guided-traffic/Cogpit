@@ -9,8 +9,8 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// TestDrawerOnlyActionsStayOutOfRowMenus: a drawer-only command (Copy) is the drawer's first icon
-// and not in the row menu, which Lens's captured row menus show without it.
+// TestDrawerOnlyActionsStayOutOfRowMenus: a drawer-only command (Copy) is in the drawer, right after
+// the name since F4, and not in the row menu, which Lens's captured row menus show without it.
 func TestDrawerOnlyActionsStayOutOfRowMenus(t *testing.T) {
 	f := kindsFake(t, "nodes")
 	registerProbes(t, f)
@@ -21,12 +21,12 @@ func TestDrawerOnlyActionsStayOutOfRowMenus(t *testing.T) {
 	ref := model.ObjectRef{Context: "demo", Kind: "nodes", Name: cordonedNode}
 	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{ref}, &ref
 	sh, _, q := newTestShell(t, f, Options{})
-	q.until(t, "the toolbar", func() bool { return len(sh.drawer.actions.Objects) == 6 })
+	q.until(t, "the toolbar", func() bool { return len(sh.drawer.actions.Objects) == 5 && sh.drawer.nameCopy.Visible() })
 	var tips []string
 	for _, o := range sh.drawer.actions.Objects {
 		tips = append(tips, o.(*tipButton).tip)
 	}
-	if want := "Copy|Shell|Uncordon|Drain|Edit|Delete"; strings.Join(tips, "|") != want {
+	if want := "Shell|Uncordon|Drain|Edit|Delete"; strings.Join(tips, "|") != want || sh.drawer.nameCopy.tip != "Copy" {
 		t.Errorf("toolbar %q, want %q", tips, want)
 	}
 	got := labels(sh.rowMenu(ref, sh.evaluateActions(ref, nil)))
