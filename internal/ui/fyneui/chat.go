@@ -67,6 +67,7 @@ type chatPanel struct {
 	expanded  map[string]bool // the tool rows the user opened, by call id
 	width     float32
 	sending   bool                  // a message is on its way to the agent
+	editing   *chatUserView         // the user's message open in the editor (F9, chat_edit.go)
 	loaded    bool                  // the connections and a conversation were loaded since the column showed
 	stale     bool                  // the lists changed while the column was hidden
 	requested bool                  // the user's ⌘I asked to show the column: the input takes the focus
@@ -272,6 +273,7 @@ func (c *chatPanel) setConversation(id string) {
 	clear(c.parsed)
 	c.parseMu.Unlock()
 	c.views = nil
+	c.editing = nil
 	c.list.set(nil)
 	c.pin.Hide()
 	c.scroll.ScrollToTop()
@@ -419,6 +421,9 @@ func (c *chatPanel) renderItems(items []engine.ChatItem, blocks [][]mdBlock) {
 		changed = true
 	}
 	if len(c.views) > len(items) {
+		if c.editing != nil && c.editing.idx >= len(items) {
+			c.editing = nil // its message was cut
+		}
 		c.views = c.views[:len(items)]
 	}
 	if changed {

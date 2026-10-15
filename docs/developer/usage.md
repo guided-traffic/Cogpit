@@ -408,6 +408,15 @@ kept in `llm-connections.json` (its key apart in `llm-keys.json`, [naming](#nami
 Test Connection checks the form's values layer by layer (TCP, HTTP and TLS, authentication, tool
 use) without saving them and without cluster data.
 
+In the chat column, the pencil at the end of the line under each of your messages opens it for
+editing (since 2026-10-15, F9): Enter or Send sends it again, and that message and everything after
+it are gone from the chat, from what the model is sent and from the kept conversation (the audit
+log keeps it); sent unchanged, it retries a failed or stopped turn. The resent message attaches the
+view and selection the input's chip shows then. While a turn runs the pencil is dimmed: stop the
+turn first. The model is not told what was cut, so where you allowed agent writes for the cluster,
+a write of the cut part can run again unasked
+([H-100](../security/agents-and-mcp.md#h-100-a-cut-parts-tool-calls-leave-the-models-view)).
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,

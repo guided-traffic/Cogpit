@@ -67,6 +67,14 @@ type ChatAgent interface {
 	// a turn of the conversation is running or the conversation's context is not the connected
 	// one.
 	Send(conversationID string, msg ChatUserMessage) error
+	// Resend edits the user's message at item and sends it again (F9, the owner's choice of
+	// 2026-10-15, ChatGPT's form): that message and everything after it leave the conversation,
+	// the history the model is sent and the kept conversations file (the audit log keeps
+	// everything), msg takes its place and a turn starts as with Send, with the window's state of
+	// now. The model is told nothing of what was cut. A failed or stopped turn is retried this way.
+	// It fails as Send does, and when item is not a user's message; a Resend that fails leaves the
+	// conversation as it was.
+	Resend(conversationID string, item int, msg ChatUserMessage) error
 	// Stop is the kill switch: it cancels the conversation's running turn, the model's stream and
 	// a running tool call, and returns once nothing the turn started keeps running.
 	Stop(conversationID string)

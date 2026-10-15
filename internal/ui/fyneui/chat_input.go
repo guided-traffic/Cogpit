@@ -314,6 +314,7 @@ func (in *chatInput) refresh() {
 		}
 	}
 	in.root.Refresh()
+	c.refreshEditable() // what the input may do, a sent message's pencil may (F9)
 }
 
 // pickConnection is the connection pill's menu: another connection for the conversation, another

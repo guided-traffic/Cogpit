@@ -161,17 +161,20 @@ func (r *chatChipRenderer) Destroy()                     {}
 // --- the user's message ---
 
 // chatUserView is the user's message: a rounded card, a chip with what it attached above the text,
-// and under the card the line of what its turn sent, which opens the request body.
+// and under the card the line of what its turn sent, which opens the request body, and the pencil
+// that opens the message in an editor to send it again (F9, chat_edit.go).
 type chatUserView struct {
 	widget.BaseWidget
-	c     *chatPanel
-	idx   int
-	item  engine.ChatItem
-	card  *surface
-	chip  *chatChip
-	text  *mdText
-	sent  *chatSentLine
-	width float32
+	c      *chatPanel
+	idx    int
+	item   engine.ChatItem
+	card   *surface
+	chip   *chatChip
+	text   *mdText
+	sent   *chatSentLine
+	editB  *chatIconTap
+	editor *chatEditor // the open editor; nil: the message is shown
+	width  float32
 }
 
 func newChatUserView(c *chatPanel, idx int) *chatUserView {
@@ -181,6 +184,8 @@ func newChatUserView(c *chatPanel, idx int) *chatUserView {
 	v.chip = newChatChip(iconTarget, nil)
 	v.text = newMDText(theme.ColorNameForeground, c.openLink)
 	v.sent = newChatSentLine(func() { c.showPayload(v.idx) })
+	v.editB = newChatIconTap(c.sh, theme.DocumentCreateIcon(), editTip, func() { v.startEdit() })
+	v.editB.reason = c.editReason()
 	v.ExtendBaseWidget(v)
 	return v
 }
@@ -203,10 +208,14 @@ func (v *chatUserView) pad() float32 { return v.Theme().Size(theme.SizeNameInner
 func (v *chatUserView) setWidth(w float32) {
 	v.width = w
 	v.text.setWidth(w - 2*v.pad())
+	v.sizeEditor()
 }
 
 func (v *chatUserView) cardHeight() float32 {
 	pad := v.pad()
+	if v.editor != nil {
+		return 2*pad + v.editor.field.MinSize().Height
+	}
 	h := 2*pad + v.text.MinSize().Height
 	if v.item.Attached != "" {
 		h += v.chip.MinSize().Height + pad
@@ -214,19 +223,24 @@ func (v *chatUserView) cardHeight() float32 {
 	return h
 }
 
+// footerHeight is the row under the card: what was sent and the pencil, or the editor's buttons
+// with why the last Send failed.
+func (v *chatUserView) footerHeight() float32 {
+	if e := v.editor; e != nil {
+		return max(e.sendB.MinSize().Height, e.cancelB.MinSize().Height)
+	}
+	return max(v.sent.MinSize().Height, v.editB.MinSize().Height)
+}
+
 // MinSize implements fyne.CanvasObject.
 func (v *chatUserView) MinSize() fyne.Size {
 	v.ExtendBaseWidget(v)
-	h := v.cardHeight()
-	if v.item.Sent != nil {
-		h += v.Theme().Size(theme.SizeNamePadding) + v.sent.MinSize().Height
-	}
-	return fyne.NewSize(0, h)
+	return fyne.NewSize(0, v.cardHeight()+v.Theme().Size(theme.SizeNamePadding)+v.footerHeight())
 }
 
 // CreateRenderer implements fyne.Widget.
 func (v *chatUserView) CreateRenderer() fyne.WidgetRenderer {
-	return &chatUserRenderer{v: v, objs: []fyne.CanvasObject{v.card, v.chip, v.text, v.sent}}
+	return &chatUserRenderer{v: v, objs: []fyne.CanvasObject{v.card, v.chip, v.text, v.sent, v.editB}}
 }
 
 type chatUserRenderer struct {
@@ -240,6 +254,11 @@ func (r *chatUserRenderer) Layout(size fyne.Size) {
 	ch := v.cardHeight()
 	v.card.Move(fyne.NewPos(0, 0))
 	v.card.Resize(fyne.NewSize(size.Width, ch))
+	v.card.fill, v.card.stroke = colorDrawerHeader, theme.ColorNameInputBorder
+	if v.editor != nil {
+		r.layoutEditor(size, ch)
+		return
+	}
 	y := pad
 	if v.item.Attached != "" {
 		v.chip.Show()
@@ -252,15 +271,44 @@ func (r *chatUserRenderer) Layout(size fyne.Size) {
 	} else {
 		v.chip.Hide()
 	}
+	v.text.Show()
 	v.text.Move(fyne.NewPos(pad, y))
 	v.text.Resize(fyne.NewSize(size.Width-2*pad, v.text.MinSize().Height))
+	fy, fh := ch+v.Theme().Size(theme.SizeNamePadding), v.footerHeight()
+	es := v.editB.MinSize()
+	v.editB.Show()
+	v.editB.Move(fyne.NewPos(size.Width-es.Width, fy+(fh-es.Height)/2))
+	v.editB.Resize(es)
 	if v.item.Sent != nil {
 		v.sent.Show()
-		v.sent.Move(fyne.NewPos(0, ch+v.Theme().Size(theme.SizeNamePadding)))
-		v.sent.Resize(fyne.NewSize(size.Width, v.sent.MinSize().Height))
+		v.sent.Move(fyne.NewPos(0, fy+(fh-v.sent.MinSize().Height)/2))
+		v.sent.Resize(fyne.NewSize(max(size.Width-es.Width-pad, 0), v.sent.MinSize().Height))
 	} else {
 		v.sent.Hide()
 	}
+}
+
+// layoutEditor lays out an open editor: the entry in the card, outlined as the focused input is,
+// and under it why the last Send failed, Cancel and Send.
+func (r *chatUserRenderer) layoutEditor(size fyne.Size, ch float32) {
+	v, e := r.v, r.v.editor
+	pad := v.pad()
+	v.card.fill, v.card.stroke = theme.ColorNameInputBackground, theme.ColorNamePrimary
+	v.chip.Hide()
+	v.text.Hide()
+	v.sent.Hide()
+	v.editB.Hide()
+	e.field.Move(fyne.NewPos(pad, pad))
+	e.field.Resize(fyne.NewSize(size.Width-2*pad, e.field.MinSize().Height))
+	fy, fh := ch+v.Theme().Size(theme.SizeNamePadding), v.footerHeight()
+	ss, cs := e.sendB.MinSize(), e.cancelB.MinSize()
+	e.sendB.Move(fyne.NewPos(size.Width-ss.Width, fy))
+	e.sendB.Resize(fyne.NewSize(ss.Width, fh))
+	e.cancelB.Move(fyne.NewPos(size.Width-ss.Width-pad-cs.Width, fy))
+	e.cancelB.Resize(fyne.NewSize(cs.Width, fh))
+	lh := e.errLine.MinSize().Height
+	e.errLine.Move(fyne.NewPos(0, fy+(fh-lh)/2))
+	e.errLine.Resize(fyne.NewSize(max(size.Width-ss.Width-cs.Width-2*pad, 0), lh))
 }
 
 func (r *chatUserRenderer) MinSize() fyne.Size { return r.v.MinSize() }
@@ -269,8 +317,15 @@ func (r *chatUserRenderer) Refresh() {
 	r.v.card.Refresh()
 	canvas.Refresh(r.v)
 }
-func (r *chatUserRenderer) Objects() []fyne.CanvasObject { return r.objs }
-func (r *chatUserRenderer) Destroy()                     {}
+
+// Objects implements fyne.WidgetRenderer: the message's, and an open editor's.
+func (r *chatUserRenderer) Objects() []fyne.CanvasObject {
+	if e := r.v.editor; e != nil {
+		return append(r.objs[:len(r.objs):len(r.objs)], e.field, e.errLine, e.cancelB, e.sendB)
+	}
+	return r.objs
+}
+func (r *chatUserRenderer) Destroy() {}
 
 // chatSentLine is "Sent: 2 requests · 14.2 KiB · llm.example.com" with a lock for a private
 // connection; a click shows the exact request body (chat.go, showPayload).

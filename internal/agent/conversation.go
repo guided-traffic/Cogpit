@@ -58,6 +58,44 @@ type turn struct {
 	done   chan struct{}
 }
 
+// cut drops the user's message at item, which is a user item, and everything after it (F9, the
+// owner's decision of 2026-10-15): from the items and their kept copies, from the history the model
+// is sent (the user message the item stands for, which is the history's user message of the same
+// rank, and what followed it) and from the request bodies; cutting the first message takes the
+// title too, so that the new one names the conversation. Nothing tells the model about the cut
+// part: its tool calls, writes included, leave the model's view (H-100); the audit log keeps
+// them. The full slice expressions make the next append allocate, never reuse the cut part's
+// memory. Agent.mu is held.
+func (c *conversation) cut(item int) {
+	users := 0
+	for _, it := range c.items[:item] {
+		if it.Kind == engine.ChatItemUser {
+			users++
+		}
+	}
+	h := len(c.history)
+	for i, m := range c.history {
+		if m.Role != roleUser {
+			continue
+		}
+		if users == 0 {
+			h = i
+			break
+		}
+		users--
+	}
+	c.items, c.kept = c.items[:item:item], c.kept[:item:item]
+	c.history, c.keptHistory = c.history[:h:h], c.keptHistory[:h:h]
+	for i := range c.payloads {
+		if i >= item {
+			delete(c.payloads, i)
+		}
+	}
+	if item == 0 {
+		c.info.Title, c.keptTitle = "", ""
+	}
+}
+
 // bump records a change and returns the new revision.
 func (c *conversation) bump() uint64 {
 	c.rev++

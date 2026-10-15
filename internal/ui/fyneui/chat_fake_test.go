@@ -29,6 +29,7 @@ type fakeChat struct {
 
 	// What the window did.
 	sends    []fakeSend
+	resends  []fakeResend
 	stops    []string
 	saves    []fakeSave
 	deleted  []string
@@ -46,6 +47,12 @@ type fakeChat struct {
 type fakeSend struct {
 	id  string
 	msg engine.ChatUserMessage
+}
+
+type fakeResend struct {
+	id   string
+	item int
+	msg  engine.ChatUserMessage
 }
 
 type fakeSave struct {
@@ -344,6 +351,37 @@ func (c *fakeChat) Send(id string, msg engine.ChatUserMessage) error {
 		cv.Running = true
 	})
 	return nil
+}
+
+// Resend drops the user's item and everything after it and adds the message, as the agent does
+// (ErrNotUserMessage's text for an item that is no user's message); sendErr fails it.
+func (c *fakeChat) Resend(id string, item int, msg engine.ChatUserMessage) error {
+	c.mu.Lock()
+	err := c.sendErr
+	c.resends = append(c.resends, fakeResend{id: id, item: item, msg: msg})
+	cv := c.convs[id]
+	if err == nil && (cv == nil || item < 0 || item >= len(cv.Items) || cv.Items[item].Kind != engine.ChatItemUser) {
+		err = errors.New("only a message of yours can be edited and sent again")
+	}
+	c.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	c.change(id, func(cv *engine.ChatConversation) {
+		attached := ""
+		if msg.AttachSelection {
+			attached = "attached"
+		}
+		cv.Items = append(cv.Items[:item:item], engine.ChatItem{Kind: engine.ChatItemUser, Text: msg.Text, Attached: attached})
+		cv.Running = true
+	})
+	return nil
+}
+
+func (c *fakeChat) resendsOf() []fakeResend {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.resends)
 }
 
 func (c *fakeChat) Stop(id string) {

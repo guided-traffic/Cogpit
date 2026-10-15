@@ -35,13 +35,15 @@ const MaxConversations = 20
 
 // Errors of the chat. They carry no key and no cluster data.
 var (
-	ErrNoConnection     = errors.New("no LLM connection: add one in the chat's settings")
-	ErrUnknownConn      = errors.New("no such LLM connection")
-	ErrUnknownConv      = errors.New("no such conversation")
-	ErrTurnRunning      = errors.New("a turn of this conversation is still running: stop it or wait for it")
-	ErrOtherContext     = errors.New("this conversation belongs to another cluster than the connected one: connect its context to go on, or start a new conversation")
-	ErrNotConnected     = errors.New("no cluster is connected: connect the conversation's context to go on")
-	ErrEmptyMessage     = errors.New("the message is empty")
+	ErrNoConnection = errors.New("no LLM connection: add one in the chat's settings")
+	ErrUnknownConn  = errors.New("no such LLM connection")
+	ErrUnknownConv  = errors.New("no such conversation")
+	ErrTurnRunning  = errors.New("a turn of this conversation is still running: stop it or wait for it")
+	ErrOtherContext = errors.New("this conversation belongs to another cluster than the connected one: connect its context to go on, or start a new conversation")
+	ErrNotConnected = errors.New("no cluster is connected: connect the conversation's context to go on")
+	ErrEmptyMessage = errors.New("the message is empty")
+	// ErrNotUserMessage: Resend names an item that is not a message of the user's.
+	ErrNotUserMessage   = errors.New("only a message of yours can be edited and sent again")
 	ErrConnectionFields = errors.New("a connection needs a name, a kind and a base URL")
 	// ErrCAFileScheme: a CA file is checked against an https server's certificate only.
 	ErrCAFileScheme = errors.New("a CA file is for an https base URL: plain http checks no certificate")

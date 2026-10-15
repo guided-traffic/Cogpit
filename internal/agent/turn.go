@@ -25,6 +25,9 @@ var (
 	errTokenLimit = errors.New("the turn reached its token limit")
 )
 
+// roleUser is the role of the user's messages in the history.
+const roleUser = "user"
+
 // keepTimeout bounds the scrubbing of what a turn keeps once the turn's own context ended (a stop).
 const keepTimeout = 5 * time.Second
 
@@ -32,7 +35,21 @@ const keepTimeout = 5 * time.Second
 const withheldText = "<withheld: not kept, the cluster's Secrets could not be read to scrub it>"
 
 // Send implements engine.ChatAgent.
-func (a *Agent) Send(id string, msg engine.ChatUserMessage) error {
+func (a *Agent) Send(id string, msg engine.ChatUserMessage) error { return a.send(id, -1, msg) }
+
+// Resend implements engine.ChatAgent: the user's message at item and everything after it are cut
+// (conversation.cut), and msg starts a turn in its place (F9).
+func (a *Agent) Resend(id string, item int, msg engine.ChatUserMessage) error {
+	if item < 0 {
+		return ErrNotUserMessage
+	}
+	return a.send(id, item, msg)
+}
+
+// send adds the user's message and starts a turn; with cut >= 0 the user's message at that item
+// and everything after it go first. Every check comes before anything changes, so a refused
+// message leaves the conversation as it was.
+func (a *Agent) send(id string, cut int, msg engine.ChatUserMessage) error {
 	text := strings.TrimSpace(msg.Text)
 	if text == "" {
 		return ErrEmptyMessage
@@ -57,6 +74,9 @@ func (a *Agent) Send(id string, msg engine.ChatUserMessage) error {
 	case ui.Context != c.info.Context:
 		a.mu.Unlock()
 		return ErrOtherContext
+	case cut >= 0 && (cut >= len(c.items) || c.items[cut].Kind != engine.ChatItemUser):
+		a.mu.Unlock()
+		return ErrNotUserMessage
 	}
 	conn, ok := a.connectionLocked(c.info.ConnectionID)
 	if !ok {
@@ -72,6 +92,9 @@ func (a *Agent) Send(id string, msg engine.ChatUserMessage) error {
 		a.mu.Unlock()
 		return err
 	}
+	if cut >= 0 {
+		c.cut(cut)
+	}
 	limits := conn.Limits.WithDefaults()
 	c.info.ConnectionID = conn.ID
 	item := engine.ChatItem{Kind: engine.ChatItemUser, Text: text, Sent: &engine.ChatSent{Endpoint: ep.host, Private: conn.Private}}
@@ -82,7 +105,7 @@ func (a *Agent) Send(id string, msg engine.ChatUserMessage) error {
 	userIdx := len(c.items)
 	c.items = append(c.items, item)
 	c.kept = append(c.kept, nil)
-	c.history = append(c.history, message{Role: "user", Content: userContent(newUIFrame(ui, msg.AttachSelection), text)})
+	c.history = append(c.history, message{Role: roleUser, Content: userContent(newUIFrame(ui, msg.AttachSelection), text)})
 	c.keptHistory = append(c.keptHistory, nil)
 	if c.info.Title == "" {
 		c.info.Title = conversationTitle(text)
@@ -99,8 +122,10 @@ func (a *Agent) Send(id string, msg engine.ChatUserMessage) error {
 	c.turn = t
 	c.bump()
 	a.mu.Unlock()
-	if unkeep {
-		a.save() // the turns kept so far go too: the file never holds part of a private conversation
+	if unkeep || cut >= 0 {
+		// A private turn: the turns kept so far go too, the file never holds part of a private
+		// conversation. A cut: the file holds what came before the edited message only, at once.
+		a.save()
 	}
 	a.notify(c, true)
 	a.s.NotifyChat("", 0) // the history's list: its title and order
