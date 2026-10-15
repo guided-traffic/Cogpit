@@ -26,7 +26,7 @@ import (
 const configMapDataNamespace = "cogpit-cmdata"
 
 // TestKindConfigMapDataSave walks the drawer's Save of a Config Map's values (the owner's F3,
-// D-53) against the kind cluster, in its own namespace: configMap.readData reads the values whole
+// D-55) against the kind cluster, in its own namespace: configMap.readData reads the values whole
 // from the cache, configMap.reviewData diffs a change and the API server accepts its dry run,
 // configMap.saveData writes it (the other keys and a final newline kept); another client changes
 // the Config Map and a save based on the old version writes nothing and reports the conflict with

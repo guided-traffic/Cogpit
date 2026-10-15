@@ -12,7 +12,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// A Config Map's values edited in the drawer (the owner's F3, decided 2026-10-15; decisions D-53).
+// A Config Map's values edited in the drawer (the owner's F3, decided 2026-10-15; decisions D-55).
 // The drawer shows each key of the data with its value in an editor and a Save at the end, as
 // Lens's drawer does. configMap.readData hands the drawer the values whole from the cache (the
 // drawer model's are cut for agents and the YAML has them all), with the resourceVersion they are

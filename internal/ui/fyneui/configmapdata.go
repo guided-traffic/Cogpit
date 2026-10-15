@@ -21,7 +21,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/ui/fyneui/yamlview"
 )
 
-// A Config Map's Data in the drawer (the owner's F3, decided 2026-10-15; decisions D-53): each key
+// A Config Map's Data in the drawer (the owner's F3, decided 2026-10-15; decisions D-55): each key
 // on a line of its own and its value below it in an editor at the details' full width, as Lens's
 // ConfigMap drawer shows them (captured 2026-10-15: line numbers, colours by the value's type,
 // about five lines high, a resize handle), in Cogpit's own drawing: yamlview with plain scalars

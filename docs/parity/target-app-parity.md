@@ -1,6 +1,6 @@
 # Cogpit vs Lens Desktop: target-app parity
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (Sparkle 2 and the signed appcast built, no update key yet, D-4: interface 114 of 120, platforms and packages 6 of 13, weighted 84.2%, breadth ~84%); minor (paid features 3 of 11 with the Flux CD and Argo CD sections, partial: weighted 82.4%, breadth ~82%; the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%; beyond Lens re-estimated at ~20–42 h after the built-in agent's engine side) · **Target:** Lens Desktop 2026.10.51501
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-14 · **Change:** minor (Resource actions 41 / 41: the Config Maps row names the drawer's Save, `configMap.saveData`, the owner's F3; breadth not moved); minor (Sparkle 2 and the signed appcast built, no update key yet, D-4: interface 114 of 120, platforms and packages 6 of 13, weighted 84.2%, breadth ~84%); minor (paid features 3 of 11 with the Flux CD and Argo CD sections, partial: weighted 82.4%, breadth ~82%; the node shell and Cluster Settings › Node Shell partial: actions 39 of 39, interface 113 of 120, weighted 80.6%, breadth ~81%; Create Secret partial: actions 38 of 39; G12: the cluster's Prometheus setting, partial: interface 56 of 120, breadth ~57%; earlier: fourth measurement, by `make parity`: breadth ~56%, ready ~26%; beyond Lens re-estimated at ~20–42 h after the built-in agent's engine side) · **Target:** Lens Desktop 2026.10.51501
 
 The authoritative answer to "how close is Cogpit to Lens, and how much work is left". The
 one-page summary is [`ROADMAP.md`](../../ROADMAP.md); the ranked work list is
@@ -83,7 +83,7 @@ counts when it exists in some form; nine counted rows are done, the rest partial
 | Component | Weight | Ours / Lens | % | Kind |
 |---|---:|---|---:|---|
 | Resource views | 30% | 64 / 64 | 100.0% | measured ([resource-parity](resource-parity.md)); ten of them the Gateway API views, generic until captured |
-| Resource actions | 20% | 40 / 40 | 100.0% | measured ([resource-parity](resource-parity.md)) |
+| Resource actions | 20% | 41 / 41 | 100.0% | measured ([resource-parity](resource-parity.md)) |
 | Interface: layout, navigation, tables, drawer, dock, editor, logs, terminal, palette, menus, shortcuts, preferences | 25% | 116 / 120 | 96.7% | measured ([ui-parity](ui-parity.md), free rows) |
 | Cluster authentication and connectivity | 10% | 7 / 13 | 53.8% | measured ([platform-parity](platform-parity.md#cluster-authentication-and-connectivity)) |
 | Platforms and packages | 5% | 6 / 13 | 46.2% | measured ([platform-parity](platform-parity.md#operating-systems-and-packages)) |
@@ -241,6 +241,7 @@ LiteLLM or Open WebUI endpoint for the built-in agent.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-15 | minor | Resource actions 41 / 41 (was 40 / 40): the Config Maps row names the drawer's Save, `configMap.saveData` (the owner's F3, D-55); breadth not moved |
 | 2026-10-15 | minor | Resource actions 40 / 40 (was 39 / 39): the Applications row names its own command, `application.logs` (A81); breadth not moved |
 | 2026-10-14 | minor | Sparkle 2 and the signed appcast built, no update key yet (D-4): interface 114 of 120 (the update channel), platforms and packages 6 of 13 (the update notice, one-click update, channels, signed manifest), weighted 84.2%, breadth ~84% |
 | 2026-10-14 | minor | Paid features 3 of 11 (the Flux CD and Argo CD sections partial, night build, G23): weighted 82.4%, breadth ~82% |

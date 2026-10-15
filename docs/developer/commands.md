@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 192 commands</summary>
+<summary>All 195 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -51,6 +51,9 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `cluster.settings.uploadIcon` | `cluster_settings_uploadIcon` | ui (GUI only) | `context`?, `path` | Makes an image file the user picked a context's icon (it replaces the icon colour): a PNG or JPEG, kept as a PNG of at most 256 pixels a side, or an SVG without scripts or outside references, at most 1 MiB |
 | `clusterRole.create` | `clusterRole_create` | mutating (agents always ask for some calls) | `name`, `rules`? | Creates a ClusterRole with the given rules (API groups and resources, or non-resource URLs) after a server-side dry run; the API server refuses rules that grant more than the user holds unless the user may escalate roles |
 | `clusterRoleBinding.create` | `clusterRoleBinding_create` | destructive | `clusterRole`, `name`, `subjects` | Creates a ClusterRoleBinding that grants a ClusterRole in every namespace and on cluster-scoped resources to users, groups and service accounts, after a server-side dry run; the API server refuses it unless the user holds the role's permissions or may bind it |
+| `configMap.readData` | `configMap_readData` | read | `ref` | Returns a Config Map's data from Cogpit's cache, the first 100 keys sorted, each with its whole value, and the resourceVersion they are of: what configMap_reviewData and configMap_saveData take. readOnly says why none can be saved (immutable, a Helm release record, whose payload is never returned) |
+| `configMap.reviewData` | `configMap_reviewData` | read | `context`?, `data`, `ref`, `resourceVersion` | Shows what configMap_saveData would write: the line diff of the Config Map's YAML with the given values against the object as Cogpit's cache holds it (op "-" removed, "+" added, "=" context), the keys that change, and the API server's verdict on a dry run (accepted, or refused with its reason) |
+| `configMap.saveData` | `configMap_saveData` | mutating | `data`, `ref`, `resourceVersion` | Writes new values for keys of a Config Map's data, as the drawer's Save does: the Config Map from Cogpit's cache with the values set, a server-side dry run, then an update with resourceVersion as precondition |
 | `cronjob.resume` | `cronjob_resume` | mutating | `ref` | Resumes a suspended cron job: sets spec.suspend to false, so that it runs on its schedule again |
 | `cronjob.suspend` | `cronjob_suspend` | mutating | `ref` | Suspends a cron job: sets spec.suspend to true, so that it starts no Jobs on its schedule; running Jobs go on |
 | `cronjob.trigger` | `cronjob_trigger` | mutating | `ref` | Runs a cron job now, as kubectl create job --from=cronjob/<name> does: creates a Job from the cron job's job template, with its labels and annotations, the annotation cronjob.kubernetes.io/instantiate=manual and the cron job as its controller, named <cronjob>-manual-<5 random characters> (within 63 characters) |
