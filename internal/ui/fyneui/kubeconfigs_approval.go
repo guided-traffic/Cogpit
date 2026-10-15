@@ -71,7 +71,7 @@ type (
 // and the engine recorded that (or nothing was left to allow); false when the user cancelled or the
 // plugin could not be shown.
 func (k *kubeconfigUI) reviewPlugin(contextID string, done func(allowed bool)) {
-	k.sh.dispatch("kubeconfig.pendingApprovals", map[string]string{"context": contextID}, func(res any, err error) {
+	k.sh.dispatch("kubeconfig.pendingApprovals", map[string]string{contextParam: contextID}, func(res any, err error) {
 		if err != nil {
 			k.sh.showError(err)
 			done(false)

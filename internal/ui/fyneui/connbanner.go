@@ -163,7 +163,7 @@ func (b *connBanner) act() {
 				// anew (D-26; the section's approval, as a drill into it shows it, D-57).
 				b.sh.kc.reviewPlugin(name, func(allowed bool) {
 					if allowed {
-						b.sh.dispatch("cluster.connect", map[string]any{"context": name}, nil)
+						b.sh.dispatch("cluster.connect", map[string]any{contextParam: name}, nil)
 					}
 				})
 			case err != nil:

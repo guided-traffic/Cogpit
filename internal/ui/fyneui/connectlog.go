@@ -39,7 +39,7 @@ type connectLogDialog struct {
 
 // showConnectLog reads the log of contextID and shows it.
 func (k *kubeconfigUI) showConnectLog(contextID string) {
-	k.sh.dispatch("cluster.connectLog", map[string]string{"context": contextID}, func(res any, err error) {
+	k.sh.dispatch("cluster.connectLog", map[string]string{contextParam: contextID}, func(res any, err error) {
 		if err != nil {
 			k.sh.showError(err)
 			return
