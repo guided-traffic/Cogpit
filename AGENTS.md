@@ -124,6 +124,17 @@ Run tests with the race detector.
 9. **Secrets stay secret.** Tokens, keys, exec-plugin output and Secret values never reach logs,
    errors, crash reports or an LLM endpoint ([credentials](docs/security/credentials.md),
    [agents and MCP](docs/security/agents-and-mcp.md)).
+10. **The docs always show the current state** (owner, 2026-10-15). Every change, patch and fix
+    updates the documentation it affects in the same commit as the code, so the docs never
+    describe yesterday's Cogpit: the parity checklist row, the gap entry and the numbers they feed
+    ([rules](docs/parity/README.md#rules-for-every-progress-page)); the decision's status in
+    [`decisions.md`](docs/developer/decisions.md) ("decided, not built" becomes "built", with its
+    evidence); the security page whose mechanism changed, and the `H-<n>` it opens or closes; the
+    current state in [`architecture.md`](docs/developer/architecture.md); [`usage.md`](docs/developer/usage.md)
+    for what a user sees; and the current focus in [`roadmap.md`](docs/parity/roadmap.md) when the
+    change closes or moves one of its items. A sentence saying "not built yet", "planned" or
+    "none yet" about what the change just built is wrong the moment it lands. A change is not
+    finished while a page still describes the old state.
 
 ## 4. Picking work
 
@@ -160,6 +171,10 @@ Windows compile, and the combined coverage. Read its result when you next push (
 `gh run view <id> --log-failed`) and fix what is red first. Once every job on `main` is green,
 semantic-release publishes a release for the `feat:` and `fix:` commits since the last one and
 pushes a release commit to `main`, so `git pull --rebase` before your next push.
+
+Before committing, bring the docs to the new state ([rule 10](#the-other-rules)): search them for
+what the change touches (its command ids, the decision, the `H-<n>`, "not built", "planned") and
+correct every sentence that no longer holds.
 
 Then commit and push. A commit that only changes documentation carries `[skip ci]` and is never
 the newest commit of a push with code (owner, 2026-10-15; [conventions](docs/developer/conventions.md#commits-and-pull-requests)).
