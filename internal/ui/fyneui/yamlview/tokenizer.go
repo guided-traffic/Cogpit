@@ -66,7 +66,13 @@ func quotedState(q byte) lineState {
 // tokenize returns the tokens of line, read in context st, and the context of the next line.
 // Tokens are sorted, do not overlap and lie within the line.
 func tokenize(line string, st lineState) ([]token, lineState) {
-	l := lexer{s: line, emit: true}
+	return tokenizeAs(line, st, false)
+}
+
+// tokenizeAs is tokenize that, with plainStrings, colours a plain scalar that is no boolean, null
+// or number as a string (View.SetPlainStrings).
+func tokenizeAs(line string, st lineState, plainStrings bool) ([]token, lineState) {
+	l := lexer{s: line, emit: true, plainStrings: plainStrings}
 	next := l.run(st)
 	return l.toks, next
 }
@@ -86,6 +92,17 @@ type lexer struct {
 	s    string
 	toks []token
 	emit bool
+	// plainStrings colours plain scalars that are no boolean, null or number as strings.
+	plainStrings bool
+}
+
+// scalar classifies a plain scalar (classifyPlain), a string when plainStrings asks for it.
+func (l *lexer) scalar(v string) tokKind {
+	k := classifyPlain(v)
+	if k == tokPlain && l.plainStrings {
+		return tokString
+	}
+	return k
 }
 
 func (l *lexer) add(start, end int, k tokKind) {
@@ -200,7 +217,7 @@ func (l *lexer) node(i, base int) lineState {
 				base = i
 				i = j + 1
 			} else {
-				l.add(i, end, classifyPlain(s[i:end]))
+				l.add(i, end, l.scalar(s[i:end]))
 				i = max(j, i+1)
 			}
 		}
@@ -261,7 +278,7 @@ func (l *lexer) flow(i int) (int, lineState) {
 			if j < len(s) && s[j] == ':' {
 				l.add(i, end, tokKey)
 			} else {
-				l.add(i, end, classifyPlain(s[i:end]))
+				l.add(i, end, l.scalar(s[i:end]))
 			}
 			i = max(j, i+1)
 		}

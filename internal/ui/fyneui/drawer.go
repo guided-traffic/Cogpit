@@ -42,6 +42,9 @@ type drawer struct {
 	revealedLen map[string]int    // how many bytes of a revealed text are the value; the rest is a note that it was cut
 	kept        map[string]any    // what section renderers keep across rebuilds for the shown object (drawerSections)
 
+	// A Config Map's edited values the drawer moved away from, by object (configmapdata.go).
+	unsaved map[string]*cmUnsaved
+
 	kind     *textLine
 	title    *textLine
 	status   *pill
@@ -446,12 +449,13 @@ func (d *drawer) buildDetails(m *engine.DetailModel) []fyne.CanvasObject {
 
 // itemName is an item's name in the details' name column (kvLayout): one line, or, for a name
 // wider than the column ("Pod Management Policy", "Volume Claim Templates" of a Stateful Set),
-// wrapped at its spaces onto lines within it, so that it never runs into its value. Before
-// (2026-10-14) such a name ran under its value; a name that fits is drawn as before.
+// wrapped onto lines within it, so that it never runs into its value: at its spaces, a word without
+// them after - . _ / and, failing those, by characters (wrapName; the owner's F3, 2026-10-15:
+// "agent-not-ready-taint-key" ran under its value). A name that fits is drawn as before.
 func (d *drawer) itemName(text string) fyne.CanvasObject {
 	th := d.sh.app.Settings().Theme()
 	if w := th.Size(sizeDrawerLabel); fyne.MeasureText(text, th.Size(theme.SizeNameText), fyne.TextStyle{}).Width > w {
-		return newParagraph(text, colorMuted, w)
+		return newNameParagraph(text, colorMuted, w)
 	}
 	return d.line(text, colorMuted, theme.SizeNameText, fyne.TextStyle{}, false, "")
 }

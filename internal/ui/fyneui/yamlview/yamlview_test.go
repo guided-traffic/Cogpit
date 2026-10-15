@@ -539,3 +539,50 @@ func TestSelectRangeAndReplaceSelection(t *testing.T) {
 		t.Error("a read-only view was edited")
 	}
 }
+
+// TestPlainStrings: with plain strings on, a plain scalar that is no boolean, null or number is a
+// string (a Config Map's value in the drawer); keys, booleans and numbers keep their colours. Off,
+// as by default, it stays plain.
+func TestPlainStrings(t *testing.T) {
+	v, _ := newLogicView(600, 400)
+	v.SetText("node.cilium.io/agent-not-ready\ntrue\n65536\nkey: auto")
+	if got := spans(v.doc.lines[0], v.lineTokens(0)); len(got) != 0 {
+		t.Fatalf("plain strings off: %v", got)
+	}
+	v.SetPlainStrings(true)
+	for i, want := range []string{"str:node.cilium.io/agent-not-ready", "lit:true", "num:65536", "key:key pun:: str:auto"} {
+		if got := strings.Join(spans(v.doc.lines[i], v.lineTokens(i)), " "); got != want {
+			t.Errorf("line %d: %q, want %q", i, got, want)
+		}
+	}
+}
+
+// TestScrollPast: a scroll the view cannot take, at its end or with nothing to scroll, goes on to
+// OnScrollPast; the part it takes does not.
+func TestScrollPast(t *testing.T) {
+	v, _ := newLogicView(600, 400)
+	v.SetText("one line")
+	var past []float32
+	v.OnScrollPast = func(ev *fyne.ScrollEvent) { past = append(past, ev.Scrolled.DY) }
+	v.Scrolled(&fyne.ScrollEvent{Scrolled: fyne.NewDelta(0, -30)})
+	if len(past) != 1 || past[0] != -30 {
+		t.Fatalf("a view with nothing to scroll handed on %v", past)
+	}
+	v.SetText(strings.Repeat("line\n", 100))
+	m := v.metrics()
+	maxY := v.maxScrollY(v.Size(), m)
+	v.scrollY = maxY - 10
+	past = nil
+	v.Scrolled(&fyne.ScrollEvent{Scrolled: fyne.NewDelta(0, -30)})
+	if v.scrollY != maxY || len(past) != 1 || past[0] != -20 {
+		t.Fatalf("at %v of %v, handed on %v; want the 20 it could not take", v.scrollY, maxY, past)
+	}
+	past = nil
+	v.Scrolled(&fyne.ScrollEvent{Scrolled: fyne.NewDelta(0, 30)})
+	if len(past) != 0 {
+		t.Errorf("a scroll the view took was handed on: %v", past)
+	}
+	if h := v.HeightFor(3, 600); h < float32(3*m.lh) {
+		t.Errorf("HeightFor(3) = %v, less than three lines of %v", h, m.lh)
+	}
+}

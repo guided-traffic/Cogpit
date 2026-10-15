@@ -30,10 +30,16 @@ type View struct {
 
 	// OnChanged is called after the user edits the text, not after SetText.
 	OnChanged func()
+	// OnScrollPast, when set, gets the part of a vertical scroll the view cannot take because it
+	// is at its top or bottom (or has nothing to scroll), so that a view inside a scrolling
+	// container (the detail drawer's editors) hands the rest on to it.
+	OnScrollPast func(*fyne.ScrollEvent)
 
 	doc       document
 	readOnly  bool
 	highlight bool
+	// plainStrings colours plain scalars as strings (SetPlainStrings).
+	plainStrings bool
 
 	// caret is where typing goes; anchor is the other end of the selection (equal when none).
 	caret, anchor pos
@@ -191,6 +197,30 @@ func (v *View) SetHighlighting(on bool) {
 
 // Highlighting reports whether YAML highlighting is on.
 func (v *View) Highlighting() bool { return v.highlight }
+
+// SetPlainStrings colours a plain scalar that is no boolean, null or number as a string, as an
+// editor colours a value Kubernetes reads as a string: a Config Map's values in the drawer, where
+// "auto" is a string and "true" a boolean literal. Off by default: the YAML of an object shows
+// plain values in the text colour.
+func (v *View) SetPlainStrings(on bool) {
+	if v.plainStrings == on {
+		return
+	}
+	v.plainStrings = on
+	clear(v.cache)
+	v.Refresh()
+}
+
+// HeightFor is the height that shows lines lines of the document in a view width wide: the
+// lines, the padding above and below, and the horizontal scroll bar when the document is wider.
+func (v *View) HeightFor(lines int, width float32) float32 {
+	m := v.metrics()
+	h := float64(lines)*m.lh + 2*float64(m.pad)
+	if width > 0 && v.maxScrollX(fyne.NewSize(width, 1), m) > 0 {
+		h += float64(m.bar)
+	}
+	return float32(math.Ceil(h))
+}
 
 // LineCount returns the number of lines; an empty document has one.
 func (v *View) LineCount() int { return len(v.doc.lines) }
@@ -356,12 +386,20 @@ func (v *View) TypedShortcut(s fyne.Shortcut) {
 	}
 }
 
-// Scrolled implements fyne.Scrollable.
+// Scrolled implements fyne.Scrollable. What of a vertical scroll the view cannot take goes to
+// OnScrollPast.
 func (v *View) Scrolled(ev *fyne.ScrollEvent) {
+	y := v.scrollY
 	v.scrollX -= float64(ev.Scrolled.DX)
 	v.scrollY -= float64(ev.Scrolled.DY)
 	v.clampScroll()
 	v.Refresh()
+	if v.OnScrollPast == nil || ev.Scrolled.DY == 0 {
+		return
+	}
+	if rest := ev.Scrolled.DY - float32(y-v.scrollY); rest != 0 {
+		v.OnScrollPast(&fyne.ScrollEvent{PointEvent: ev.PointEvent, Scrolled: fyne.Delta{DY: rest}})
+	}
 }
 
 // Tapped implements fyne.Tappable; MouseDown places the caret.
@@ -1004,7 +1042,7 @@ func (v *View) lineTokens(i int) []token {
 	if c, ok := v.cache[i]; ok && c.start == st && c.text == text {
 		return c.toks
 	}
-	toks, _ := tokenize(text, st)
+	toks, _ := tokenizeAs(text, st, v.plainStrings)
 	v.cache[i] = lineCache{text: text, start: st, toks: toks}
 	return toks
 }

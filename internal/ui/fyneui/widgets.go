@@ -537,6 +537,7 @@ type paragraph struct {
 	style fyne.TextStyle
 	width float32 // the wrap width; the paragraph's minimum width
 	hard  bool    // a word wider than width breaks at any character (wrapFlow): a digest has no space
+	names bool    // a name: a word wider than width breaks after - . _ / first (wrapName)
 }
 
 func newParagraph(text string, c fyne.ThemeColorName, width float32) *paragraph {
@@ -579,7 +580,10 @@ func (r *paragraphRenderer) Refresh() {
 	size := th.Size(r.p.size)
 	c := themeColor(th, r.p.color)
 	wrap := wrapLines
-	if r.p.hard {
+	switch {
+	case r.p.names:
+		wrap = wrapName
+	case r.p.hard:
 		wrap = wrapFlow
 	}
 	texts := wrap(r.p.text, r.p.width, size, r.p.style)
