@@ -12,7 +12,9 @@
 //
 // The engine drives it (engine/updates.go): the preference "Check for updates automatically" is
 // Cogpit's, and the engine hands it to Start and SetAutomaticChecks, which set Sparkle's
-// automaticallyChecksForUpdates; Help › Check for Updates… calls CheckForUpdates. Sparkle runs on
+// automaticallyChecksForUpdates; with them on, Start also checks once at once, so that every start
+// checks whenever the last check was (the owner, 2026-10-16), where Sparkle's own launch check
+// waits out its interval. Help › Check for Updates… calls CheckForUpdates. Sparkle runs on
 // the main thread: every call is queued onto the main dispatch queue, which the app's event loop
 // drains, so no method blocks and any goroutine may call them.
 //
@@ -77,7 +79,8 @@ func (u *Updater) Unavailable() error {
 }
 
 // Start starts Sparkle with its scheduled checks on or off, once; later calls do nothing. Sparkle
-// starts when the app's event loop next runs, after the app finished launching.
+// starts when the app's event loop next runs, after the app finished launching, and with the
+// checks on runs one of them at once, its find for the Update button.
 func (u *Updater) Start(automaticChecks bool) {
 	if u.Unavailable() != nil {
 		return

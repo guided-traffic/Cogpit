@@ -13,7 +13,7 @@ import (
 // Two preferences are Cogpit's, kept with the others and shown in UIState.Preferences:
 // CheckForUpdates ("Check for updates automatically", on by default as in Lens), which the engine
 // hands to the updater at start and whenever it changes, so that Cogpit's preference and not
-// Sparkle's own prompt decides whether it checks once a day; and UpdateChannel, only Stable until
+// Sparkle's own prompt decides whether it checks, at every start and every hour; and UpdateChannel, only Stable until
 // Cogpit publishes prereleases. app.checkForUpdates (Help › Check for Updates…) checks now with
 // Sparkle's own window; installing stays the user's click in it.
 //

@@ -7,7 +7,10 @@
 // "state <state> <detail>" and "automatic <0|1|-1>". With "probe" it starts the updater (its
 // scheduled checks off), runs the check Sparkle's scheduler runs against the bundle's feed, and
 // prints what the user driver's delegate reports, "update <0|1> <version>", the Update button's
-// signal (F7); Sparkle shows no window for it.
+// signal (F7); Sparkle shows no window for it. With "launch <0|1>" it starts the updater as the app
+// does, its scheduled checks off or on, and only pumps events: it prints every report, then, a few
+// seconds after the first or after the update session ended without one (a check that found
+// nothing reports nothing), "done"; the test counts how often the feed was asked.
 
 #import <Cocoa/Cocoa.h>
 #include <stdio.h>
@@ -51,14 +54,16 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 		BOOL probe = strcmp(argv[1], "probe") == 0;
-		if (!probe && strcmp(argv[1], "create") != 0) {
+		BOOL launch = strcmp(argv[1], "launch") == 0 && argc > 2;
+		if (!probe && !launch && strcmp(argv[1], "create") != 0) {
 			return 0;
 		}
+		bool automatic = launch && strcmp(argv[2], "1") == 0;
 		dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
-			cogpitSparkleStart(false, probe);
+			cogpitSparkleStart(automatic, probe || launch);
 		});
 		__block int s = COGPIT_SPARKLE_IDLE;
-		int ready = probe ? COGPIT_SPARKLE_RUNNING : COGPIT_SPARKLE_CREATED;
+		int ready = probe || launch ? COGPIT_SPARKLE_RUNNING : COGPIT_SPARKLE_CREATED;
 		pump(10, ^BOOL {
 			s = cogpitSparkleState(NULL, 0);
 			return s == ready || s == COGPIT_SPARKLE_FAILED;
@@ -66,13 +71,24 @@ int main(int argc, char **argv) {
 		memset(detail, 0, sizeof detail);
 		s = cogpitSparkleState(detail, sizeof detail);
 		printf("state %d %s\n", s, detail);
-		if (!probe) {
+		if (!probe && !launch) {
 			printf("automatic %d\n", cogpitSparkleAutomaticChecks());
 			fflush(stdout);
 			return 0;
 		}
 		fflush(stdout);
 		if (s != COGPIT_SPARKLE_RUNNING) {
+			return 0;
+		}
+		if (launch) {
+			pump(20, ^BOOL {
+				return reports > 0 || cogpitSparkleSessionInProgress() == 0;
+			});
+			pump(4, ^BOOL {
+				return NO;
+			});
+			printf("done\n");
+			fflush(stdout);
 			return 0;
 		}
 		cogpitSparkleCheckInBackground();

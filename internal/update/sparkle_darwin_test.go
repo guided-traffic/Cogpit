@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // sparkleFramework is the Sparkle.framework make sparkle keeps in .cache (or
@@ -201,42 +202,11 @@ const probeID = "io.guided-traffic.cogpit.test-sparkle-probe"
 func TestSparkleReportsAScheduledUpdate(t *testing.T) {
 	framework := sparkleFramework(t)
 	harness := buildHarness(t)
-	var feedHits atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/appcast.xml" {
-			http.NotFound(w, r)
-			return
-		}
-		feedHits.Add(1)
-		w.Header().Set("Content-Type", "application/rss+xml")
-		fmt.Fprintf(w, `<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-  <channel>
-    <title>Cogpit</title>
-    <item>
-      <title>Cogpit 99.1.0</title>
-      <sparkle:version>99.1.0</sparkle:version>
-      <sparkle:shortVersionString>99.1.0</sparkle:shortVersionString>
-      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
-      <pubDate>Thu, 15 Oct 2026 08:00:00 +0000</pubDate>
-      <enclosure url="http://%s/Cogpit-99.1.0-macos-arm64.dmg" length="1024" type="application/octet-stream" sparkle:edSignature="%s"/>
-    </item>
-  </channel>
-</rss>
-`, r.Host, base64.StdEncoding.EncodeToString(make([]byte, 64)))
-	}))
-	t.Cleanup(srv.Close)
+	srv, feedHits := feedServer(t, "99.1.0")
 	t.Cleanup(func() { forgetBundle(t, probeID) })
 	forgetBundle(t, probeID) // a run before that did not get to its cleanup
 
-	dir, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	const key = "pfIShU4dEXqPd5ObYNfDBiQWcXozk7estwzTnF9BamQ=" // Sparkle's documentation's example key
-	ats := "\t<key>NSAppTransportSecurity</key>\n\t<dict>\n\t\t<key>NSAllowsLocalNetworking</key>\n\t\t<true/>\n\t</dict>\n"
-	exe := makeAppWith(t, dir, harness, framework,
-		map[string]string{"SUFeedURL": srv.URL + "/appcast.xml", "SUPublicEDKey": key}, probeID, ats)
+	exe := makeFeedApp(t, harness, framework, srv.URL, probeID, "")
 	out, err := exec.Command(exe, "probe").Output()
 	if err != nil {
 		t.Fatalf("the harness: %v\n%s", err, out)
@@ -251,6 +221,127 @@ func TestSparkleReportsAScheduledUpdate(t *testing.T) {
 			t.Errorf("line %d: %q, want %q", i, got, w)
 		}
 	}
+}
+
+// launchID is the bundle identifier of the launch test's app, whose user defaults and caches the
+// test removes again, as the probe's.
+const launchID = "io.guided-traffic.cogpit.test-sparkle-launch"
+
+// Cogpit checks for updates at every start while "Check for updates automatically" is on (the
+// owner, 2026-10-16): once, whenever Sparkle last checked: a minute ago, when Sparkle's own launch
+// check waits out SUScheduledCheckInterval (an hour, as the release sets it), two hours ago and at
+// the first launch, when Sparkle checks by itself too and the two make one request; its find goes
+// to the Update button as a scheduled check's does. Sparkle's scheduler does not check a second
+// time right after it, also when the start check found nothing and its session ended. With the
+// preference off, no check at all. The harness starts the updater as the app does and pumps
+// events a few seconds past the first report or the session's end; the test counts the feed's
+// requests. Skipped without clang or make sparkle's framework.
+func TestSparkleChecksAtEveryStart(t *testing.T) {
+	framework := sparkleFramework(t)
+	harness := buildHarness(t)
+	now := time.Now().UTC()
+	// The release's interval (hack/macos/sparkle.sh), an hour: Sparkle's own launch check is due
+	// two hours after the last one, not a minute after it.
+	interval := "\t<key>SUScheduledCheckInterval</key>\n\t<integer>3600</integer>\n"
+	for _, tc := range []struct {
+		name      string
+		automatic bool
+		lastCheck time.Time // zero: Sparkle never checked (the first launch)
+		feed      string    // the feed's newest version; the bundle is 0.0.1
+		hits      int32
+		report    string
+	}{
+		{"last check a minute ago", true, now.Add(-time.Minute), "99.1.0", 1, "update 1 99.1.0"},
+		{"last check two hours ago", true, now.Add(-2 * time.Hour), "99.1.0", 1, "update 1 99.1.0"},
+		{"first launch", true, time.Time{}, "99.1.0", 1, "update 1 99.1.0"},
+		{"nothing newer, last check a minute ago", true, now.Add(-time.Minute), "0.0.1", 1, ""},
+		{"nothing newer, last check two hours ago", true, now.Add(-2 * time.Hour), "0.0.1", 1, ""},
+		{"nothing newer, first launch", true, time.Time{}, "0.0.1", 1, ""},
+		{"checks off", false, now.Add(-2 * time.Hour), "99.1.0", 0, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, feedHits := feedServer(t, tc.feed)
+			t.Cleanup(func() { forgetBundle(t, launchID) })
+			forgetBundle(t, launchID)
+			if !tc.lastCheck.IsZero() {
+				for _, args := range [][]string{
+					{"write", launchID, "SUHasLaunchedBefore", "-bool", "YES"},
+					{"write", launchID, "SULastCheckTime", "-date", tc.lastCheck.Format("2006-01-02 15:04:05 +0000")},
+				} {
+					if out, err := exec.Command("defaults", args...).CombinedOutput(); err != nil {
+						t.Fatalf("defaults %v: %v\n%s", args, err, out)
+					}
+				}
+			}
+			exe := makeFeedApp(t, harness, framework, srv.URL, launchID, interval)
+			arg := "0"
+			if tc.automatic {
+				arg = "1"
+			}
+			out, err := exec.Command(exe, "launch", arg).Output()
+			if err != nil {
+				t.Fatalf("the harness: %v\n%s", err, out)
+			}
+			if !strings.HasSuffix(strings.TrimSpace(string(out)), "done") {
+				t.Fatalf("output %q, want it to end with done", out)
+			}
+			if got := feedHits.Load(); got != tc.hits {
+				t.Errorf("the feed was asked %d times, want %d (output %q)", got, tc.hits, out)
+			}
+			if tc.report != "" && !strings.Contains(string(out), tc.report+"\n") {
+				t.Errorf("output %q, want the report %q", out, tc.report)
+			}
+			if tc.report == "" && strings.Contains(string(out), "update 1") {
+				t.Errorf("output %q reports an update", out)
+			}
+		})
+	}
+}
+
+// feedServer serves an appcast whose one item has the given version, and counts its requests.
+func feedServer(t *testing.T, version string) (*httptest.Server, *atomic.Int32) {
+	t.Helper()
+	hits := new(atomic.Int32)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/appcast.xml" {
+			http.NotFound(w, r)
+			return
+		}
+		hits.Add(1)
+		w.Header().Set("Content-Type", "application/rss+xml")
+		fmt.Fprintf(w, `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Cogpit</title>
+    <item>
+      <title>Cogpit %[1]s</title>
+      <sparkle:version>%[1]s</sparkle:version>
+      <sparkle:shortVersionString>%[1]s</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <pubDate>Thu, 15 Oct 2026 08:00:00 +0000</pubDate>
+      <enclosure url="http://%[2]s/Cogpit-%[1]s-macos-arm64.dmg" length="1024" type="application/octet-stream" sparkle:edSignature="%[3]s"/>
+    </item>
+  </channel>
+</rss>
+`, version, r.Host, base64.StdEncoding.EncodeToString(make([]byte, 64)))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, hits
+}
+
+// makeFeedApp lays out an installed app with the framework, the update key and the feed on url,
+// local networking allowed by App Transport Security, under the bundle identifier id, with more of
+// its Info.plist (raw XML).
+func makeFeedApp(t *testing.T, harness, framework, url, id, raw string) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const key = "pfIShU4dEXqPd5ObYNfDBiQWcXozk7estwzTnF9BamQ=" // Sparkle's documentation's example key
+	ats := "\t<key>NSAppTransportSecurity</key>\n\t<dict>\n\t\t<key>NSAllowsLocalNetworking</key>\n\t\t<true/>\n\t</dict>\n"
+	return makeAppWith(t, dir, harness, framework,
+		map[string]string{"SUFeedURL": url + "/appcast.xml", "SUPublicEDKey": key}, id, ats+raw)
 }
 
 // forgetBundle removes what Sparkle and Foundation kept for a test bundle: its user defaults and

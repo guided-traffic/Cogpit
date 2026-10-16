@@ -21,7 +21,8 @@
 #     when <public key> is given, else none, and the app's updater does not start
 #     (internal/update); SUEnableAutomaticChecks YES, so that Sparkle never asks for permission
 #     itself: Cogpit's preference "Check for updates automatically" drives automaticallyChecksForUpdates
-#     at every start; SUScheduledCheckInterval 3600, so that the scheduled checks run every hour
+#     at every start (with them on, the app checks once at every start: internal/update);
+#     SUScheduledCheckInterval 3600, so that the scheduled checks run every hour
 #     (owner, 2026-10-16; Sparkle's default is a day, and an hour is the least it accepts:
 #     minimumUpdateCheckInterval in Sparkle/SPUUpdaterSettings.m); SUVerifyUpdateBeforeExtraction
 #     and SURequireSignedFeed YES, so that Sparkle checks the disk image's EdDSA signature before it

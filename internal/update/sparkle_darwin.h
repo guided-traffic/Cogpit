@@ -31,3 +31,4 @@ void cogpitSparkleSetAutomaticChecks(bool on);
 int cogpitSparkleState(char *detail, size_t detailSize);
 int cogpitSparkleAutomaticChecks(void);
 void cogpitSparkleCheckInBackground(void);
+int cogpitSparkleSessionInProgress(void);

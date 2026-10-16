@@ -15,6 +15,7 @@
 @protocol CogpitSPUUpdater <NSObject>
 @property (nonatomic) BOOL automaticallyChecksForUpdates;
 @property (nonatomic, readonly) BOOL canCheckForUpdates;
+@property (nonatomic, readonly) BOOL sessionInProgress;
 - (BOOL)startUpdater:(NSError **)error;
 - (void)checkForUpdatesInBackground;
 @end
@@ -147,7 +148,11 @@ static void fail(NSString *why) {
 // startOnMain makes the controller with its updater and Sparkle's standard window, sets the
 // scheduled checks as Cogpit's preference says (only when they differ: Sparkle keeps the value in
 // the app's user defaults) and starts the updater, whose error it keeps instead of the alert
-// SPUStandardUpdaterController's own startUpdater would show. Main thread.
+// SPUStandardUpdaterController's own startUpdater would show. With the scheduled checks on it then
+// checks once at once, the check Sparkle's scheduler runs, whenever the last check was: Sparkle's
+// own launch check waits until SUScheduledCheckInterval has passed since the last one, and Cogpit
+// checks at every start (the owner, 2026-10-16). What it finds goes to the user driver's delegate,
+// the Update button, never Sparkle's window by itself. Main thread.
 static void startOnMain(bool automaticChecks, bool startUpdater) {
 	@autoreleasepool {
 		if (controllerClass == Nil || controller != nil) {
@@ -177,6 +182,9 @@ static void startOnMain(bool automaticChecks, bool startUpdater) {
 			return;
 		}
 		atomic_store(&state, COGPIT_SPARKLE_RUNNING);
+		if (automaticChecks) {
+			[updater checkForUpdatesInBackground];
+		}
 	}
 }
 
@@ -221,8 +229,8 @@ int cogpitSparkleState(char *detail, size_t detailSize) {
 }
 
 // cogpitSparkleCheckInBackground runs the check Sparkle's scheduler runs, at once: what it finds
-// goes to the user driver's delegate. Any thread (the test harness; the app leaves the schedule to
-// Sparkle).
+// goes to the user driver's delegate. Any thread (the test harness; the app's start check runs in
+// startOnMain, the rest of the schedule is Sparkle's).
 void cogpitSparkleCheckInBackground(void) {
 	dispatch_async(dispatch_get_main_queue(), ^{
 		if (controller != nil && atomic_load(&state) == COGPIT_SPARKLE_RUNNING) {
@@ -238,4 +246,13 @@ int cogpitSparkleAutomaticChecks(void) {
 		return -1;
 	}
 	return controller.updater.automaticallyChecksForUpdates ? 1 : 0;
+}
+
+// cogpitSparkleSessionInProgress returns whether Sparkle runs an update session (a check, or an
+// update held for the user), -1 without a running updater. Main thread (the test harness).
+int cogpitSparkleSessionInProgress(void) {
+	if (controller == nil || atomic_load(&state) != COGPIT_SPARKLE_RUNNING) {
+		return -1;
+	}
+	return controller.updater.sessionInProgress ? 1 : 0;
 }
