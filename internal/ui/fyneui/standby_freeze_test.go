@@ -16,8 +16,8 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/clientcmd"                  //nolint:depguard // the hand-run reproduction (tag standby) writes its own kind cluster's kubeconfig
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api" //nolint:depguard // as above
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
