@@ -183,6 +183,11 @@ func (p *Prometheus) Target() Target { return p.target }
 // Where implements Located: "namespace/service:port".
 func (p *Prometheus) Where() string { return p.target.Where() }
 
+// ServiceRef implements ServiceLocated: the Service's namespace and name.
+func (p *Prometheus) ServiceRef() (namespace, name string) {
+	return p.target.Namespace, p.target.Service
+}
+
 // Capabilities implements Provider: history, network and filesystem.
 func (p *Prometheus) Capabilities() Capabilities {
 	return Capabilities{History: true, Network: true, Filesystem: true}

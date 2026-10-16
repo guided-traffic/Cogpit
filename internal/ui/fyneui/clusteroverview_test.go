@@ -134,8 +134,8 @@ func clusterModelFor(choice engine.OverviewChoice) engine.ClusterOverviewModel {
 		},
 		Status: metrics.StatusAvailable, Source: promSource + " and Kubernetes Metrics Server", History: true,
 		Providers: []metrics.ProviderStatus{
-			{Provider: metrics.PrometheusID, Label: "Prometheus", Service: "monitoring/prometheus-server:http", Status: metrics.StatusAvailable,
-				LastOK: fixedNow.Add(-40 * time.Second), Serves: []string{metrics.ServesHistory, metrics.ServesNetwork, metrics.ServesFilesystem}},
+			{Provider: metrics.PrometheusID, Label: "Prometheus", Service: "monitoring/prometheus-server:http", Namespace: "monitoring", ServiceName: "prometheus-server",
+				Status: metrics.StatusAvailable, LastOK: fixedNow.Add(-40 * time.Second), Serves: []string{metrics.ServesHistory, metrics.ServesNetwork, metrics.ServesFilesystem}},
 			{Provider: metrics.ServerID, Label: metrics.ServerLabel, Status: metrics.StatusAvailable, LastOK: fixedNow.Add(-5 * time.Second),
 				Serves: []string{metrics.ServesLive}},
 		},
@@ -215,6 +215,9 @@ func TestClusterOverviewPage(t *testing.T) {
 	if !strings.HasPrefix(p.caption.text, "Displaying metrics from Prometheus (monitoring/prometheus-server) and Kubernetes Metrics Server") ||
 		len(p.status.rows) != 2 || !p.status.root.Visible() {
 		t.Fatalf("caption %q, status rows %d", p.caption.text, len(p.status.rows))
+	}
+	if links := p.caption.links(); len(links) != 2 || links["monitoring"] == nil || links["prometheus-server"] == nil {
+		t.Errorf("the source line's links %v", links) // the namespace and the service (2026-10-16 night)
 	}
 	cpu, mem, pods := p.cards[0].plot.data, p.cards[1].plot.data, p.cards[2].plot.data
 	if len(cpu.Series) != 1 || len(cpu.Series[0].Points) != 121 || !slices.Equal(lineNames(cpu), []string{"Requests", "Limits", "Allocatable", "Capacity"}) ||

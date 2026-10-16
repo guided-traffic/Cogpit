@@ -391,7 +391,9 @@ namespaces `monitoring`, `prometheus` and `lens-metrics` for equal scores, but a
 anywhere wins). The queries it receives contain the names of the pods and nodes the user opens and
 nothing else (no credential, no Secret value), and Cogpit only ever reads its answers as numbers,
 so the harm is false charts and the disclosure of those names to that service. The source line
-names the namespace and service (`Prometheus (monitoring/prometheus-server)`), and since
+names the namespace and service (`Prometheus (monitoring/prometheus-server)`), since the night of
+2026-10-16/17 as links that open the Namespace and the Service (its selector and endpoints are a
+click away), and since
 2026-10-12 the status line under the charts names the port too
 (`Prometheus monitoring/prometheus-server:http`), which is the check the user can make; an
 answer's text never reaches the window or an agent (a failure is a class), so a lookalike cannot

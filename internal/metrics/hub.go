@@ -657,6 +657,9 @@ func (h *Hub) Providers() []ProviderStatus {
 			if l, ok := sl.prov.(Located); ok {
 				ps.Service = l.Where()
 			}
+			if l, ok := sl.prov.(ServiceLocated); ok {
+				ps.Namespace, ps.ServiceName = l.ServiceRef()
+			}
 		}
 		if sl.asked && sl.state.Status != "" {
 			ps.Status = sl.state.Status

@@ -30,6 +30,8 @@ func drawerTexts(sh *shell) []string {
 		switch x := o.(type) {
 		case *textLine:
 			out = append(out, x.text)
+		case *sourceLine: // the metrics' source line, with links (metricssource.go)
+			out = append(out, x.text)
 		case *paragraph: // a name wider than its column, wrapped (drawer.go itemName)
 			out = append(out, x.text)
 		case *tableSortHeader: // a sortable table's column title (drawertable_sort.go)

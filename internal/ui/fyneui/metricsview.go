@@ -85,7 +85,7 @@ type metricsPanel struct {
 	closed bool
 
 	root    *fyne.Container
-	caption *textLine
+	caption *sourceLine // the source line, its Prometheus's namespace and service links (metricssource.go)
 	note    *textLine
 	status  *providerStatusLine  // each provider's state under the charts (metricsstatus.go)
 	disk    *textLine            // a node's disk under its chart, or why there is none (metricsdisk.go)
@@ -130,8 +130,7 @@ var metricsVariants = []struct {
 func newMetricsPanel(d *drawer, ref model.ObjectRef) *metricsPanel {
 	p := &metricsPanel{d: d, ref: ref, perBox: map[string]*chartCtl{}}
 	p.chartCtl = newChartCtl(p, "", false)
-	p.caption = newTextLine("Loading metrics…", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
-	p.caption.truncate = true
+	p.caption = newSourceLine("Loading metrics…", colorMuted, theme.SizeNameCaptionText)
 	p.note = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	p.note.truncate = true
 	p.status = newProviderStatusLine(d.sh)
@@ -417,7 +416,8 @@ func (p *metricsPanel) render() {
 	case m == nil:
 		p.setState(true, "Loading metrics…")
 	case m.Status == metrics.StatusAvailable:
-		p.setState(true, "Displaying metrics from "+m.Source)
+		p.setState(true, "")
+		p.caption.setSegs(p.d.sh.sourceSegments(m.Source, m.Providers, p.ref.Context))
 	case m.Status == metrics.StatusUnknown:
 		p.setState(true, "Waiting for the first measurement…")
 	case m.Status == metrics.StatusNotServed:
@@ -469,7 +469,9 @@ func (p *metricsPanel) setState(charts bool, caption string) {
 	} else {
 		p.caption.SetColor(colorMuted)
 	}
-	p.caption.SetText(caption)
+	if caption != "" { // "": the caller sets the source line's pieces (sourceSegments)
+		p.caption.SetText(caption)
+	}
 	if !charts {
 		p.setNote("")
 	}

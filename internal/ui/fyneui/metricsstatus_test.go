@@ -26,7 +26,7 @@ import (
 // filesystem), the Metrics Server the live values.
 func bothAnswering() []metrics.ProviderStatus {
 	return []metrics.ProviderStatus{
-		{Provider: metrics.PrometheusID, Label: metrics.PrometheusLabel, Service: "monitoring/prometheus-server:http", Status: metrics.StatusAvailable,
+		{Provider: metrics.PrometheusID, Label: metrics.PrometheusLabel, Service: "monitoring/prometheus-server:http", Namespace: "monitoring", ServiceName: "prometheus-server", Status: metrics.StatusAvailable,
 			LastOK: fixedNow.Add(-40 * time.Second), Serves: []string{metrics.ServesHistory, metrics.ServesNetwork, metrics.ServesFilesystem}},
 		{Provider: metrics.ServerID, Label: metrics.ServerLabel, Status: metrics.StatusAvailable,
 			LastOK: fixedNow.Add(-5 * time.Second), Serves: []string{metrics.ServesLive}},

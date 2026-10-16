@@ -40,8 +40,8 @@ type clusterPanel struct {
 	master   *tipButton
 	worker   *tipButton
 	rangeSel *widget.Select
-	syncing  bool // set while the select is set from engine state
-	caption  *textLine
+	syncing  bool        // set while the select is set from engine state
+	caption  *sourceLine // the source line, its Prometheus's namespace and service links (metricssource.go)
 	note     *textLine
 	status   *providerStatusLine
 	cards    [3]*overviewChartCard
@@ -59,8 +59,7 @@ func newClusterPanel(sh *shell) *clusterPanel {
 	p.master.Text, p.worker.Text = "Master", "Worker"
 	p.rangeSel = widget.NewSelect(rangeLabels(false), p.setRange)
 	p.rangeSel.Selected = engine.FormatChartRange(engine.DefaultOverviewWindow)
-	p.caption = newTextLine("Loading metrics…", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
-	p.caption.truncate = true
+	p.caption = newSourceLine("Loading metrics…", colorMuted, theme.SizeNameCaptionText)
 	p.note = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	p.note.truncate = true
 	p.note.Hide()
@@ -119,7 +118,8 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 	now := p.sh.now()
 	switch m.Status {
 	case metrics.StatusAvailable:
-		p.setCaption("Displaying metrics from "+m.Source, colorMuted)
+		p.setCaption("", colorMuted)
+		p.caption.setSegs(p.sh.sourceSegments(m.Source, m.Providers, ""))
 	case metrics.StatusUnknown, "":
 		p.setCaption("Waiting for the first measurement…", colorMuted)
 	case metrics.StatusNotServed:
@@ -171,7 +171,9 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 }
 
 func (p *clusterPanel) setCaption(text string, color fyne.ThemeColorName) {
-	p.caption.SetText(text)
+	if text != "" { // "": the caller sets the source line's pieces (sourceSegments)
+		p.caption.SetText(text)
+	}
 	p.caption.SetColor(color)
 }
 

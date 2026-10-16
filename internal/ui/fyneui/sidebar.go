@@ -29,6 +29,7 @@ const (
 const (
 	kindPods        = "pods"
 	kindNamespaces  = "namespaces"
+	kindServices    = "services"
 	kindEvents      = "events"
 	kindDefinitions = "customresourcedefinitions"
 )

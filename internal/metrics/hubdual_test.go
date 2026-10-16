@@ -108,6 +108,8 @@ type histFake struct {
 func (f *histFake) ID() string    { return metrics.PrometheusID }
 func (f *histFake) Label() string { return "Prometheus (monitoring/prometheus-server)" }
 func (f *histFake) Where() string { return "monitoring/prometheus-server:http" }
+
+func (f *histFake) ServiceRef() (namespace, name string) { return "monitoring", "prometheus-server" }
 func (f *histFake) Capabilities() metrics.Capabilities {
 	return metrics.Capabilities{History: true, Network: true, Filesystem: true}
 }
@@ -319,6 +321,7 @@ func TestHistoryThenLiveValues(t *testing.T) {
 	}
 	prom, ms := ps[0], ps[1]
 	if prom.Status != metrics.StatusAvailable || prom.Service != "monitoring/prometheus-server:http" || prom.Label != "Prometheus" ||
+		prom.Namespace != "monitoring" || prom.ServiceName != "prometheus-server" || // the source line's links (2026-10-16 night)
 		!slices.Equal(prom.Serves, []string{metrics.ServesHistory, metrics.ServesNetwork, metrics.ServesFilesystem}) || prom.LastOK.IsZero() {
 		t.Errorf("Prometheus = %+v", prom)
 	}

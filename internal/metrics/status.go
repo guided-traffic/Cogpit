@@ -36,6 +36,10 @@ type ProviderStatus struct {
 	// (namespace/service:port, the port by name or number); empty for the Metrics Server and while
 	// none is found.
 	Service string `json:"service,omitempty"`
+	// Namespace and ServiceName are where a found Prometheus runs, for the links of the source line
+	// (the drawer's and the Overview's: the Namespace and the Service open); empty otherwise.
+	Namespace   string `json:"namespace,omitempty"`
+	ServiceName string `json:"serviceName,omitempty"`
 	// Status: available (found and answering), notServed (not found), forbidden, unavailable (found
 	// but not answering), unknown (not asked yet: Prometheus is looked for when a drawer opens or the
 	// Metrics Server fails).
@@ -63,6 +67,12 @@ type Identified interface {
 // "namespace/service:port".
 type Located interface {
 	Where() string
+}
+
+// ServiceLocated is a provider reached through a Service of the cluster: a Prometheus. The source
+// line links its namespace and its name.
+type ServiceLocated interface {
+	ServiceRef() (namespace, name string)
 }
 
 // errorClass is a failed request as a class and a short reason for the status line: the HTTP status
