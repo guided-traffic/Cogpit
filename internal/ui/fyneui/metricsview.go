@@ -432,7 +432,9 @@ func (p *metricsPanel) render() {
 	}
 	if m != nil && m.Status == metrics.StatusAvailable {
 		var note string
-		if t := p.target(""); t != nil && t.Current == nil {
+		if t := p.target(""); t != nil && t.Current == nil && showsUsage(t.Variant) {
+			// A chart of the network or the filesystem alone asks for no CPU or memory (the hub's
+			// SetUsage), so it has no current values: not a missing measurement.
 			note = "No metrics for this " + singular(p.d.sh.kindTitle(p.ref.Kind)) + " yet."
 		} else if t != nil && !m.Capabilities.History && !p.coversWindow(t) {
 			note = "The Metrics Server keeps no history: Cogpit keeps what it measured, the last hour at most."
@@ -449,6 +451,12 @@ func (p *metricsPanel) render() {
 		c.update()
 	}
 	p.root.Refresh()
+}
+
+// showsUsage reports whether a chart's variant, as the engine reports it, is CPU or memory ("": the
+// default, CPU).
+func showsUsage(variant string) bool {
+	return variant == "" || variant == variantCPU || variant == variantMemory
 }
 
 // setState shows or hides the controls and the chart, and sets the caption; without charts there is

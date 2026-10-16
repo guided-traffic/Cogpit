@@ -575,6 +575,7 @@ func (s *Session) SetMetricsVariant(ref model.ObjectRef, target, variant string)
 			return fmt.Errorf("%w: the %s chart needs Prometheus, and this cluster's metrics come without it", ErrNotApplicable, variant)
 		}
 	}
+	names, known := d.chartNames() // reads the cache: before d.wmu
 	d.wmu.Lock()
 	if d.variants == nil {
 		d.variants = map[string]string{}
@@ -584,10 +585,11 @@ func (s *Session) SetMetricsVariant(ref model.ObjectRef, target, variant string)
 	} else {
 		d.variants[target] = variant
 	}
-	want := d.wantsLocked()
+	want, usage := d.wantsLocked(), d.usageShownLocked(names, known)
 	sub := d.usage
 	d.wmu.Unlock()
 	sub.SetWants(want)
+	sub.SetUsage(usage)
 	s.emit(Event{Type: EventMetrics, View: ref.Kind})
 	return nil
 }

@@ -350,16 +350,18 @@ func (d *drawerWatch) followHidden(s *Session, hidden MetricSet) {
 		sub := s.startDrawerUsage(d.backend, d.profile, d.ref)
 		d.wmu.Lock()
 		d.usage = sub
-		windows, wants := d.windowListLocked(names, known), d.wantsLocked()
+		windows, wants, usage := d.windowListLocked(names, known), d.wantsLocked(), d.usageShownLocked(names, known)
 		d.wmu.Unlock()
 		sub.SetWindows(windows...)
 		sub.SetWants(wants)
+		sub.SetUsage(usage)
 	case cur != nil && changed:
 		d.wmu.Lock()
-		windows, wants := d.windowListLocked(names, known), d.wantsLocked() // the containers' charts may have come or gone
+		windows, wants, usage := d.windowListLocked(names, known), d.wantsLocked(), d.usageShownLocked(names, known) // the containers' charts may have come or gone
 		d.wmu.Unlock()
 		cur.SetWindows(windows...)
 		cur.SetWants(wants)
+		cur.SetUsage(usage)
 	}
 	if changed {
 		// Off the caller's locks (the views' state): subscribers may read the engine's state.
@@ -442,6 +444,32 @@ func (d *drawerWatch) wantsLocked() metrics.Want {
 		}
 	}
 	return want
+}
+
+// usageShownLocked reports whether a visible chart of the drawer shows CPU or memory: one set to
+// either, or one at its default while either is visible (its default is CPU, else memory). Only
+// then does the drawer's poll ask for them (metrics.Subscription.SetUsage, 2026-10-16 night): a
+// drawer whose charts all show the network or the filesystem asks the Metrics Server nothing.
+// A pod whose containers the cache does not know yet counts their charts at the default. names
+// and known are chartNames'; d.wmu is held.
+func (d *drawerWatch) usageShownLocked(names []string, known bool) bool {
+	if d.hidden.Has(HideCPU | HideMemory) {
+		return false
+	}
+	containers := d.hidden&HideContainers == 0
+	if !known && containers {
+		return true
+	}
+	for _, n := range names {
+		if n != "" && !containers {
+			continue
+		}
+		v := d.variants[n]
+		if v == "" || v == VariantCPU || v == VariantMemory || d.hidden&variantSet(v) != 0 {
+			return true // the default, CPU or memory, or a variant hidden since, which shows the default
+		}
+	}
+	return false
 }
 
 // defaultVariant is the variant of a chart nobody set: CPU, else the first visible one the

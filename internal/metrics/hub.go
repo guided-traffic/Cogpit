@@ -318,6 +318,7 @@ type Subscription struct {
 	once     sync.Once
 	windows  []time.Duration // the time ranges its charts show (guarded by Hub.mu); empty: the default
 	wants    Want            // the series beyond CPU and memory its charts show (guarded by Hub.mu)
+	noUsage  bool            // none of its charts shows CPU or memory (SetUsage; guarded by Hub.mu)
 }
 
 // Subscribe starts polling scope (if nobody polls it yet) until the returned subscription is
@@ -604,6 +605,45 @@ func (s *Subscription) SetWants(w Want) {
 	h.kickLocked(s.scope)
 }
 
+// SetUsage tells the hub whether the subscriber's charts show CPU or memory; they do until it is
+// told otherwise. While no subscription of an object scope shows them (a drawer whose charts all
+// show the network or the filesystem, or whose CPU and memory are hidden), its poll asks for
+// neither: no live value of the Metrics Server, no CPU and memory history, no gap to fill
+// (2026-10-16 night; before, every object poll asked for them). The cluster's scope always shows
+// them (the Overview holds it only while its CPU or Memory chart shows). Shown again, the
+// history is asked for over the range, and the live values go on. A change makes the scope poll
+// at once.
+func (s *Subscription) SetUsage(shown bool) {
+	if s == nil {
+		return
+	}
+	h := s.h
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if s.noUsage == !shown {
+		return
+	}
+	s.noUsage = !shown
+	h.kickLocked(s.scope)
+}
+
+// usageLocked reports whether an object scope's charts show CPU or memory: the cluster's always,
+// a drawer's when any subscription's does (and with none, as before). Charts that show the network
+// or the filesystem while no provider has them (Prometheus went away) fall back to CPU, in the
+// engine and the window: then CPU and memory are asked again.
+func (h *Hub) usageLocked(st *scopeState) bool {
+	if st.scope.Kind == KindCluster || len(st.subs) == 0 {
+		return true
+	}
+	for s := range st.subs {
+		if !s.noUsage {
+			return true
+		}
+	}
+	w, c := h.wantsLocked(st), h.capsLocked()
+	return w == 0 || w.Has(WantNetwork) && !c.Network || w.Has(WantFilesystem) && !c.Filesystem
+}
+
 func (h *Hub) kickLocked(sc Scope) {
 	if st := h.scopes[sc]; st != nil && st.cancel != nil && !sc.IsList() {
 		select {
@@ -619,6 +659,11 @@ func (h *Hub) kickLocked(sc Scope) {
 func (h *Hub) Capabilities() Capabilities {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	return h.capsLocked()
+}
+
+// capsLocked is Capabilities with h.mu held.
+func (h *Hub) capsLocked() Capabilities {
 	var c Capabilities
 	for _, sl := range h.slots {
 		if sl.prov == nil {

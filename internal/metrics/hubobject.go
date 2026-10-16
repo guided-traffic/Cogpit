@@ -153,9 +153,10 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 	if !wants.Has(WantPods) && ch.podsCov != (coverage{}) {
 		ch.drop(WantPods)
 	}
+	usage := h.usageLocked(st) // a chart shows CPU or memory: else neither is asked (SetUsage)
 	live, hist := h.rolesLocked(now)
 	p := objectPlan{window: bands[len(bands)-1].window, fine: window, step: step, liveSlot: live, histSlot: hist}
-	if live != nil && live != hist {
+	if live != nil && live != hist && usage {
 		p.live = live.prov
 	}
 	if hist == nil {
@@ -172,9 +173,10 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 	} else {
 		ch.carry(bands)
 	}
-	h.planCoarseLocked(ch, sc, &p, bands, wants, base, now)
+	h.planCoarseLocked(ch, sc, &p, bands, wants, base, now, usage)
 	var full, inc Want
 	switch {
+	case !usage:
 	case !ch.hist.covers(window, step) || addrsChanged:
 		// No history at this range yet, or it was asked with other addresses of the node (the
 		// cache knew them only later: SetNodeAddresses), which may find what the last did not.
@@ -213,7 +215,7 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 		}
 		p.inc = &RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, Addresses: base.Addresses, From: start, To: now, Step: step, Want: inc}
 	}
-	if ch.gap != nil && !full.Has(WantUsage) {
+	if usage && ch.gap != nil && !full.Has(WantUsage) {
 		q := RangeQuery{Kind: base.Kind, Namespace: base.Namespace, Name: base.Name, Addresses: base.Addresses, From: alignDown(ch.gap[0], step), To: ch.gap[1], Step: step, Want: WantUsage}
 		if q.To.After(q.From) {
 			p.gap, p.gapSpan = &q, *ch.gap
@@ -228,9 +230,12 @@ func (h *Hub) planLocked(st *scopeState, sc Scope, now time.Time) objectPlan {
 // range at its step, for the series the charts show that it was not asked for yet (CPU and memory
 // always; the network, the filesystem and the cluster's pod counts while shown), never
 // incrementally: the time after the next finer set's start is that set's.
-func (h *Hub) planCoarseLocked(ch *chart, sc Scope, p *objectPlan, bands []band, wants Want, base RangeQuery, now time.Time) {
+func (h *Hub) planCoarseLocked(ch *chart, sc Scope, p *objectPlan, bands []band, wants Want, base RangeQuery, now time.Time, usage bool) {
 	ch.keepCoarse(bands[1:])
-	want := WantUsage | wants&(WantNetwork|WantFilesystem)
+	want := wants & (WantNetwork | WantFilesystem)
+	if usage {
+		want |= WantUsage
+	}
 	if sc.Kind == KindCluster {
 		want |= wants & WantPods
 	}
@@ -327,6 +332,9 @@ func (h *Hub) applyObjectLocked(ctx context.Context, st *scopeState, sc Scope, p
 			ch.fsys.asked = now
 		}
 		served = true
+	}
+	if served && ch.histLabel == "" {
+		ch.histLabel = histLabel // a chart of the network or the filesystem alone: Prometheus's
 	}
 	if p.gap != nil && histOK(r.gapErr) {
 		ch.applyRange(r.gap, WantUsage, p.gapSpan[0].Add(time.Nanosecond), p.gapSpan[1])

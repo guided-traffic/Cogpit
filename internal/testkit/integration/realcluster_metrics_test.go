@@ -95,20 +95,27 @@ func TestRealClusterNodeDrawer(t *testing.T) {
 	t.Logf("node network: %d points, %d from before the drawer opened; filesystem: %d points (%s)", len(net), pastNet, len(m.Targets[0].Filesystem), m.FilesystemSource)
 	logTarget(t, "node "+node.Name, m.FilesystemSource, m.Targets[0])
 
-	// Budget P13 with the node's drawer at 1 h: CPU shown, then the network shown.
-	measure := func(what string) int64 {
-		p0, w0 := proxy(), writes(s)
+	// Budget P13 with the node's drawer at 1 h: CPU shown, then the network shown, which since
+	// 2026-10-16 night asks the Metrics Server nothing (the one chart shows no CPU or memory).
+	liveGets := func() int64 { return s.Diagnostics().Requests.ByVerbResource["get nodes.metrics.k8s.io"] }
+	measure := func(what string) (prom, live int64) {
+		p0, g0, w0 := proxy(), liveGets(), writes(s)
 		time.Sleep(90 * time.Second)
-		n := proxy() - p0
+		prom, live = proxy()-p0, liveGets()-g0
 		if w := writes(s) - w0; w != 0 {
 			t.Errorf("%s: %d writes", what, w)
 		}
-		t.Logf("budget P13 on a real cluster, a node's drawer at 1 h, %s: %d Prometheus requests in 90 s; requests %v", what, n, s.Diagnostics().Requests.ByVerbResource)
-		return n
+		t.Logf("budget P13 on a real cluster, a node's drawer at 1 h, %s: %d Prometheus requests and %d Metrics Server gets in 90 s; requests %v", what, prom, live, s.Diagnostics().Requests.ByVerbResource)
+		return prom, live
 	}
 	dispatch("ui.setMetricsVariant", map[string]any{"ref": node, "variant": "cpu"})
 	time.Sleep(3 * time.Second)
-	measure("CPU shown")
+	if _, live := measure("CPU shown"); live == 0 {
+		t.Error("CPU shown: no Metrics Server get in 90 s")
+	}
 	dispatch("ui.setMetricsVariant", map[string]any{"ref": node, "variant": "network"})
-	measure("the network shown")
+	time.Sleep(time.Second) // the poll under way when the variant changed
+	if _, live := measure("the network shown"); live != 0 {
+		t.Errorf("the network shown: %d Metrics Server gets in 90 s, want none", live)
+	}
 }
