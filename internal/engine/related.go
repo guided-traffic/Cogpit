@@ -14,6 +14,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // relatedSet serves the related-objects indexes a profile declares in Needs (architecture §4.4):
@@ -108,6 +109,9 @@ func newRelatedSetWith(b *Backend, needs []model.RelatedIndex, onChange func(), 
 		p, ok := b.Profile(ix.Kind)
 		if !ok {
 			continue
+		}
+		if ix.Kind == kinds.KeyCustomResourceDefinitions && b.custom.refused() {
+			continue // the user may not list them: the lookups stay empty, nothing is retried
 		}
 		h := acquire(p)
 		kind, derived := ix.Kind, p.Derive != nil // the callback reads no map this loop still fills
@@ -238,10 +242,17 @@ func (r *relatedSet) synced() bool {
 	if r == nil {
 		return true
 	}
-	for _, h := range r.handles {
-		if !h.HasSynced() {
-			return false
+	for kind, h := range r.handles {
+		if h.HasSynced() {
+			continue
 		}
+		// A cluster-scoped kind the API server refused (the definitions for a namespace-limited
+		// user) has no namespace to read instead: its lookups stay empty, and the rows do not wait
+		// for it (TestKindNamespaceLimitedUser, 2026-10-16, after custom owners began to link).
+		if p := r.profiles[kind]; p != nil && !p.Namespaced && cache.IsRefused(h.Err()) {
+			continue
+		}
+		return false
 	}
 	return true
 }

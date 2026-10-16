@@ -5883,8 +5883,17 @@ What was checked there and what it found is in [resource parity](../parity/resou
 | An OCI HelmRepository without a status | (a) Unknown, as before; (b) Ready unless suspended, with an empty Message; (c) Ready with the flux CLI's "Helm repository is Ready" | (b) | No controller reconciles one since Flux 2.1, and `flux get` calls it Ready; Cogpit's Message column is the Ready condition's message, so (c) would show a text the cluster never wrote |
 | How an event's involved custom resource links to its view | (a) an index over the definitions by group and Kind (`CustomKindsByGroupKind`) the Events profile names in `Needs`; (b) the backend's custom kinds, asked while the rows are built | (a) | The definitions' scope is the one the custom kinds already watch, so no request; and the related-objects machinery rebuilds the rows when the definitions change, where (b) would leave rows built before the definitions were listed without links until each event changed |
 | An owner that is a custom resource (a pod's Challenge, a StatefulSet's Prometheus, a Deployment's CephCluster) | (a) plain text, as before, since Lens's form for owners is not captured; (b) linked through the same index: the Pods list names it in `Needs`, the engine adds it to every drawer's needs on a cluster with custom kinds | (b) | One rule for every reference to a custom resource; the index costs no request (the definitions' scope is the custom kinds' own), and the drawer's set holds it only while the drawer is open; a virtual or local kind's drawer does not take it |
-| A drain that did not finish | (a) "cordoned and partly drained", as before; (b) what it left: "no pod was evicted", or the count | (b) | On the real cluster the default drain refused the node at once for its pods with emptyDir data, and "partly drained" was wrong. The unfinished-drains banner keeps the old text: the journal records no count (below) |
+| A drain that did not finish | (a) "cordoned and partly drained", as before; (b) what it left: "this drain evicted no pod", or the count | (b) | On the real cluster the default drain refused the node at once for its pods with emptyDir data, and "partly drained" was wrong. The unfinished-drains banner keeps the old text: the journal records no count (below) |
 | A confirmation's sentence named objects by kind key ("Drain nodes worker-1", "Delete helmreleases web") | (a) leave it; (b) the kind as the dialog's Objects row names it ("Drain Node worker-1", "Delete Release web"), the drawer's singular title or the view's title in the singular | (b) | The dialog said "Delete pods web-0" above "Objects: Pod web-0"; `ConfirmRequest.Kinds` carries the names, and the dialog's Objects row reads them too. Lens's dialogs are not captured |
+
+**Fixed at the merge (2026-10-16, the lead):** the Pods and Events views wait for their indexes, and
+for a namespace-limited user the definitions' list is refused, a cluster-scoped kind with no
+namespace to read instead: the views never synced (CI's `TestKindNamespaceLimitedUser` and
+`TestKindAccessibleNamespaces`). A related-objects set no longer takes the definitions once their
+watch was dropped after a refusal (`customKinds.refused`, the view's `relatedKey` changes and the
+view starts again without them), and a refused cluster-scoped kind does not hold a set's `synced`;
+its lookups stay empty, so a custom owner or an event's custom object shows as plain text for that
+user.
 
 ### What it does not cover
 

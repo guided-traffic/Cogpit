@@ -506,7 +506,7 @@ linters:
 
       # G302: the mode is a directory's: Cogpit tightens its own directory to 0700, which a
       # directory needs (the x bit) and docs/security/credentials.md documents (0600 in 0700).
-      - path: ^internal/(engine/privatefile|mcp/token)\.go$
+      - path: ^internal/(engine/privatefile|mcp/token|cluster/discocache)\.go$
         text: G302
         source: os\.Chmod\(dir, 0o700\)
         linters: [gosec]

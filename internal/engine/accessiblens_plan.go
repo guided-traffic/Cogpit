@@ -14,6 +14,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
 // Namespaced watches (G3; architecture §5, "Namespaced watches"). The engine reads a namespaced
@@ -447,6 +448,10 @@ func (b *Backend) relatedKey(p *model.KindProfile, needs []model.RelatedIndex, n
 			continue
 		}
 		seen[ix.Kind] = true
+		if ix.Kind == kinds.KeyCustomResourceDefinitions && b.custom.refused() {
+			sb.WriteString("|" + ix.Kind + "=refused") // newRelatedSetWith reads them no more
+			continue
+		}
 		sb.WriteString("|" + ix.Kind + "=" + b.readKeyIn(rp, namespace))
 	}
 	if isHelmReleases(p) && b.servesConfigMaps() { // the release ConfigMaps (acquireReleases)

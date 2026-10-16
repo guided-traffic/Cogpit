@@ -353,7 +353,7 @@ func drainLeft(cordoned bool, last cluster.DrainProgress) string {
 	case !cordoned:
 		return "is unchanged: the cordon did not go through"
 	case last.Done == 0:
-		return "stays cordoned; no pod was evicted"
+		return "stays cordoned; this drain evicted no pod"
 	}
 	return fmt.Sprintf("stays cordoned and partly drained (%d of %d pods evicted)", last.Done, last.Total)
 }

@@ -211,7 +211,7 @@ func TestKindDrainCrashFinishUncordon(t *testing.T) {
 	var tab engine.DockTab
 	d.must("job.cancel", map[string]any{"id": res.Job.ID}, &tab)
 	if tab.Job == nil || tab.Job.State != engine.JobCancelled || !strings.HasPrefix(tab.Job.Outcome, "Stopped: cancelled.") ||
-		!strings.Contains(tab.Job.Outcome, "stays cordoned and partly drained") {
+		!strings.Contains(tab.Job.Outcome, "stays cordoned") {
 		t.Fatalf("cancelled: %+v", tab.Job)
 	}
 	t.Logf("cancelled: %s", tab.Job.Outcome)

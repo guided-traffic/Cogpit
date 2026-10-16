@@ -15,8 +15,8 @@ func TestDrainLeft(t *testing.T) {
 		want     string
 	}{
 		{false, cluster.DrainProgress{}, "is unchanged: the cordon did not go through"},
-		{true, cluster.DrainProgress{Step: cluster.DrainCordoned}, "stays cordoned; no pod was evicted"},
-		{true, cluster.DrainProgress{Step: cluster.DrainBlocked, Done: 0, Total: 3}, "stays cordoned; no pod was evicted"},
+		{true, cluster.DrainProgress{Step: cluster.DrainCordoned}, "stays cordoned; this drain evicted no pod"},
+		{true, cluster.DrainProgress{Step: cluster.DrainBlocked, Done: 0, Total: 3}, "stays cordoned; this drain evicted no pod"},
 		{true, cluster.DrainProgress{Step: cluster.DrainEvicted, Done: 1, Total: 3}, "stays cordoned and partly drained (1 of 3 pods evicted)"},
 	} {
 		if got := drainLeft(tc.cordoned, tc.last); got != tc.want {

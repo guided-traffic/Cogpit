@@ -347,7 +347,7 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 
 	close(release)
 	job := waitJob(t, h, res.Job.ID)
-	if job.State != engine.JobFailed || !strings.Contains(job.Outcome, "stays cordoned; no pod was evicted") ||
+	if job.State != engine.JobFailed || !strings.Contains(job.Outcome, "stays cordoned; this drain evicted no pod") ||
 		!strings.Contains(job.Outcome, "Timed out after 5m0s") || !strings.HasPrefix(job.Outcome, "Evicted 0 of 1 pod; 1 failed.") {
 		t.Fatalf("failed drain: %+v", job)
 	}
@@ -380,7 +380,7 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 // TestFailedDrainSaysWhatItLeft: the error and the toast of a drain that did not finish say what
 // it left of the node. On a real cluster (2026-10-16) the default drain refused a node at once for
 // its pods with emptyDir data, and Cogpit said "cordoned and partly drained" though no pod had been
-// evicted; now that reads "no pod was evicted", and a drain that evicted some counts them.
+// evicted; now that reads "this drain evicted no pod", and a drain that evicted some counts them.
 func TestFailedDrainSaysWhatItLeft(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -390,7 +390,7 @@ func TestFailedDrainSaysWhatItLeft(t *testing.T) {
 	}{
 		{"refused before evicting", []cluster.DrainProgress{{Step: cluster.DrainCordoned}},
 			"drain node worker-1: cannot delete Pods with local storage (set deleteEmptyDirData to evict them; their emptyDir data is lost): shop/cache-0",
-			"stays cordoned; no pod was evicted"},
+			"stays cordoned; this drain evicted no pod"},
 		{"timed out after some", []cluster.DrainProgress{{Step: cluster.DrainCordoned}, {Step: cluster.DrainListed, Total: 5},
 			{Step: cluster.DrainEvicted, Pod: "shop/web-0", Done: 1, Total: 5}, {Step: cluster.DrainEvicted, Pod: "shop/web-1", Done: 2, Total: 5},
 			{Step: cluster.DrainBlocked, Pod: "shop/db-0", Done: 2, Total: 5, Message: "the PodDisruptionBudget db-pdb allows no disruption now"}},

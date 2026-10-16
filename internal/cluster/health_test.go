@@ -152,8 +152,14 @@ func TestHeartbeatAndReachable(t *testing.T) {
 		t.Fatal("reachable on a silent connection")
 	}
 	p.Thaw()
-	if err := c.Reachable(ctx); err != nil {
-		t.Fatalf("reachable after the thaw: %v", err)
+	// The probe that timed out on the frozen proxy can leave its HTTP/2 connection closing while
+	// the next one starts ("client connection force closed", CI 2026-10-16); the reconnect loop
+	// tries again on its backoff, so the test waits for the condition, as the loop would.
+	var lastErr error
+	wctx, wcancel := context.WithTimeout(ctx, 5*time.Second)
+	defer wcancel()
+	if !testkit.WaitFor(wctx, func() bool { lastErr = c.Reachable(ctx); return lastErr == nil }) {
+		t.Fatalf("reachable after the thaw: %v", lastErr)
 	}
 	if got := srv.Requests()["discovery"]; got == 0 {
 		t.Errorf("no probe reached the server: %v", srv.Requests())

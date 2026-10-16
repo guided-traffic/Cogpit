@@ -125,6 +125,20 @@ func (ck *customKinds) drop(h *cache.Handle, reason string) {
 	ck.unsub()
 	ck.handle.Release()
 	ck.handle, ck.unsub, ck.dropped = cache.Pending(cache.Scope{GVR: crdsGVR}), func() {}, reason
+	// The views whose rows look the definitions up (a custom owner, an event's custom object:
+	// kinds.CustomKindsByGroupKind) read them no more and stop waiting for them (relatedKey).
+	ck.b.ns.wakeReplan()
+}
+
+// refused reports whether the API server refused to list the definitions, so that their watch
+// ended (drop) until a refresh of the access reviews or the next connect.
+func (ck *customKinds) refused() bool {
+	if ck == nil {
+		return false
+	}
+	ck.hmu.Lock()
+	defer ck.hmu.Unlock()
+	return ck.dropped != ""
 }
 
 // retake watches the definitions again after drop.
