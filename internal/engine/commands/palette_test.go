@@ -247,3 +247,40 @@ func TestPaletteOpenState(t *testing.T) {
 		t.Errorf("a closed palette is in the state: %s", raw)
 	}
 }
+
+// Every cluster and kubeconfig command is under the menu path Cluster/, the window's Cluster menu
+// that holds them, so the palette files each under "Cluster" (N121, the owner's decision in the
+// audit of 2026-10-16): no command names File/, a menu Cogpit's window does not have.
+func TestClusterCommandsUnderTheClusterMenu(t *testing.T) {
+	h := newHarness(t, seed(), engine.Options{})
+	for _, c := range h.s.Registry().Commands() {
+		if first, _, _ := strings.Cut(c.MenuPath, "/"); first == "File" {
+			t.Errorf("%s under %q: the window has no File menu", c.ID, c.MenuPath)
+		}
+	}
+	ids := []string{"cluster.connect", "cluster.disconnect", "cluster.reconnect", "cluster.login", "cluster.remove",
+		"kubeconfig.sources", "kubeconfig.addFile", "kubeconfig.addFolder", "kubeconfig.remove",
+		"cluster.refreshAccess", "cluster.settings.open"}
+	for _, id := range ids {
+		if c, ok := h.s.Registry().Get(id); !ok || !strings.HasPrefix(c.MenuPath, "Cluster/") {
+			t.Errorf("%s: menu path %q, want Cluster/…", id, c.MenuPath)
+		}
+	}
+	// The window runs the kubeconfig commands and Connect its own way (fyneui/palette.go).
+	entries := paletteOf(h, paletteRuns("cluster.connect", "cluster.refreshAccess", "kubeconfig.addFile",
+		"kubeconfig.addFolder", "kubeconfig.remove", "kubeconfig.sources"))
+	var listed []string
+	for _, e := range entries {
+		if slices.Contains(ids, e.Command) {
+			listed = append(listed, e.Command)
+			if e.Category != "Cluster" {
+				t.Errorf("%s in the palette under %q, want Cluster", e.Command, e.Category)
+			}
+		}
+	}
+	for _, id := range []string{"cluster.connect", "cluster.disconnect", "kubeconfig.addFile", "kubeconfig.sources"} {
+		if !slices.Contains(listed, id) {
+			t.Errorf("%s not in the palette; listed %v", id, listed)
+		}
+	}
+}

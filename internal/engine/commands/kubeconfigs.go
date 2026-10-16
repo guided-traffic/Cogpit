@@ -121,7 +121,7 @@ func registerKubeconfigs(g *registrar) {
 	enabled := func(s *engine.Session) error { _, err := sourcesAvailable(s); return err }
 
 	add(g, engine.Spec[struct{}]{
-		ID: "kubeconfig.sources", Label: "Kubeconfig Sources", MenuPath: "File/Kubeconfig Sources", Danger: engine.DangerRead,
+		ID: "kubeconfig.sources", Label: "Kubeconfig Sources", MenuPath: "Cluster/Kubeconfig Sources", Danger: engine.DangerRead,
 		Description: "Lists the kubeconfig sources: the user's ~/.kube sync folder (default), the files named in $KUBECONFIG or --kubeconfig (session: removable for this run only), and the files and folders the user added, each with its id, kind, path, the files read from it, how many contexts it " +
 			"offers and why it cannot be read. Their contexts appear in cluster_contexts as \"<context> [<file>]\". Reads " +
 			"only file names and counts; no credential is returned.",
@@ -143,7 +143,7 @@ func registerKubeconfigs(g *registrar) {
 	})
 
 	add(g, engine.Spec[pathParams]{
-		ID: "kubeconfig.addFile", Label: "Add Kubeconfig File", MenuPath: "File/Add Kubeconfig File", Danger: engine.DangerUI,
+		ID: "kubeconfig.addFile", Label: "Add Kubeconfig File", MenuPath: "Cluster/Add Kubeconfig File", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
 		Description: "Adds a kubeconfig file the user picked as a source: its contexts become available as " +
 			"\"<context> [<file name>]\", read from that file alone, and follow its changes. Cogpit reads the file and never " +
@@ -166,7 +166,7 @@ func registerKubeconfigs(g *registrar) {
 	})
 
 	add(g, engine.Spec[pathParams]{
-		ID: "kubeconfig.addFolder", Label: "Add Sync Folder", MenuPath: "File/Add Sync Folder", Danger: engine.DangerUI,
+		ID: "kubeconfig.addFolder", Label: "Add Sync Folder", MenuPath: "Cluster/Add Sync Folder", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
 		Description: "Adds a sync folder: every kubeconfig file in it (not in its subfolders) becomes available as " +
 			"\"<context> [<folder>/<file>]\", and files that appear in it or leave it later are picked up or dropped. " +
@@ -190,7 +190,7 @@ func registerKubeconfigs(g *registrar) {
 	})
 
 	add(g, engine.Spec[sourceParams]{
-		ID: "kubeconfig.remove", Label: "Remove Kubeconfig Source", MenuPath: "File/Remove Kubeconfig Source", Danger: engine.DangerUI,
+		ID: "kubeconfig.remove", Label: "Remove Kubeconfig Source", MenuPath: "Cluster/Remove Kubeconfig Source", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
 		Description: "Removes a kubeconfig source, which is Cogpit's link to a file or folder and nothing else: its contexts " +
 			"are no longer offered and their tabs close, the dock's tabs of those contexts too (a node shell's pod is deleted, an " +

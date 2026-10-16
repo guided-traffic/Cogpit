@@ -28,7 +28,7 @@ type LinksResult struct {
 
 func registerClusterMenu(g *registrar) {
 	add(g, engine.Spec[engine.OnCluster]{
-		ID: "cluster.disconnect", Label: "Disconnect", MenuPath: "File/Disconnect", Danger: engine.DangerUI,
+		ID: "cluster.disconnect", Label: "Disconnect", MenuPath: "Cluster/Disconnect", Danger: engine.DangerUI,
 		Description: "Closes Cogpit's connection to a connected cluster (ui_state's connections; context, else the cluster the " +
 			"window shows), or ends the shown cluster's connect under way; the other connected clusters stay connected. Nothing " +
 			"is sent to the cluster: Cogpit stops watching it, its port forwards, logs and shells end, and its jobs stop. The " +
@@ -78,7 +78,7 @@ func registerClusterMenu(g *registrar) {
 	})
 
 	add(g, engine.Spec[clusterRemoveParams]{
-		ID: "cluster.remove", Label: "Remove from Cogpit", MenuPath: "File/Remove from Cogpit", Danger: engine.DangerUI,
+		ID: "cluster.remove", Label: "Remove from Cogpit", MenuPath: "Cluster/Remove from Cogpit", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
 		Description: "Removes a cluster from Cogpit by removing Cogpit's link to the kubeconfig file the user added for it, or " +
 			"to the synced folder its file is in (the default ~/.kube too): every context of that file or folder is no longer offered " +

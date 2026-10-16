@@ -41,7 +41,7 @@ var (
 
 func registerConnection(g *registrar) {
 	add(g, engine.Spec[engine.OnCluster]{
-		ID: "cluster.reconnect", Label: "Reconnect Now", MenuPath: "File/Reconnect Now", Danger: engine.DangerUI,
+		ID: "cluster.reconnect", Label: "Reconnect Now", MenuPath: "Cluster/Reconnect Now", Danger: engine.DangerUI,
 		Description: "Tries at once to reach a connected cluster (context, else the shown one) while its connection is " +
 			"interrupted (ui_state's connection.state, or its entry of connections, is interrupted: the computer slept, the " +
 			"network or a VPN went away) and starts the backoff of the attempts again (1, 2, 4, 8, 16, then every 30 " +
@@ -71,7 +71,7 @@ func registerConnection(g *registrar) {
 	})
 
 	add(g, engine.Spec[engine.OnCluster]{
-		ID: "cluster.login", Label: "Log In Again", MenuPath: "File/Log In Again", Danger: engine.DangerUI,
+		ID: "cluster.login", Label: "Log In Again", MenuPath: "Cluster/Log In Again", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
 		Description: "Renews a connected cluster's login (context, else the shown one) after it expired (ui_state's " +
 			"connection.state, or its entry of connections, is loginExpired) or lapsed while the cluster was not shown " +
