@@ -141,10 +141,11 @@ func TestBarClicksReachTheButtons(t *testing.T) {
 		}
 	}
 	drag := findAll[*barDragArea](top.root)[0]
-	for name, o := range map[string]fyne.CanvasObject{"the context's name": top.context, "the connection state": top.state} {
-		if got := clickTarget(root, centre(o)); got != drag {
-			t.Errorf("a click on %s reaches %T, not the drag area", name, got)
-		}
+	if got := clickTarget(root, centre(top.context)); got != drag {
+		t.Errorf("a click on the context's name reaches %T, not the drag area", got)
+	}
+	if got := clickTarget(root, centre(top.dot)); got != top.dot { // it opens the connection log (F13)
+		t.Errorf("a click on the connection's dot reaches %T", got)
 	}
 	empty := fyne.CurrentApp().Driver().AbsolutePositionForObject(top.left).AddXY(top.left.Size().Width+40, 10) // between the left and the right
 	if got := clickTarget(root, empty); got != drag {

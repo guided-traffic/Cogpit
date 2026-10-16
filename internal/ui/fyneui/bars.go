@@ -17,26 +17,11 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/buildinfo"
 	"github.com/guided-traffic/cogpit/internal/engine"
-	"github.com/guided-traffic/cogpit/internal/model"
 	logoart "github.com/guided-traffic/cogpit/internal/ui/logo"
 )
 
-// connectionColor maps a connection state to a status colour token.
-func connectionColor(c engine.Connection) fyne.ThemeColorName {
-	switch c.State {
-	case engine.Connected:
-		return statusColorName(model.StatusOK)
-	case engine.Connecting:
-		return statusColorName(model.StatusPending)
-	case engine.ConnectError, engine.LoginExpired:
-		return statusColorName(model.StatusError)
-	case engine.Interrupted: // amber while Cogpit reconnects (D-58)
-		return statusColorName(model.StatusWarning)
-	}
-	return statusColorName(model.StatusUnknown)
-}
-
-// connectionText describes a connection state in a word or two.
+// connectionText describes a connection state in a word or two: the dots' tooltips (conndot.go)
+// and the navigator's; the bars show the dot alone (F13).
 func connectionText(c engine.Connection) string {
 	switch c.State {
 	case engine.Connected:
@@ -61,10 +46,9 @@ func connectionText(c engine.Connection) string {
 // before the logo, and a drag area under its contents.
 type topBar struct {
 	sh          *shell
-	dot         *dot
+	dot         *connDot // the connection's state, no word beside it (conndot.go, F13)
 	context     *textLine
-	file        *textLine // the kubeconfig the context comes from, muted
-	state       *textLine
+	file        *textLine         // the kubeconfig the context comes from, muted
 	lead        *canvas.Rectangle // the window buttons' room; hidden unless Cogpit draws the title bar
 	history     *titleHistory     // the history arrows and the bar's context menu (titlehistory.go)
 	notes       *notificationsUI  // the bell and its panel (notifications.go)
@@ -82,11 +66,10 @@ type topBar struct {
 
 func newTopBar(sh *shell) *topBar {
 	t := &topBar{sh: sh}
-	t.dot = newDot(statusColorName(model.StatusUnknown))
+	t.dot = newConnDot(sh)
 	t.context = newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	t.file = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	t.file.Hide()
-	t.state = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 
 	wordmark := newTextLine("Cogpit", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	t.lead = canvas.NewRectangle(color.Transparent)
@@ -100,7 +83,7 @@ func newTopBar(sh *shell) *topBar {
 		left = append(left, t.version.gap)
 	}
 	t.left = container.NewHBox(append(left, t.history.root, newHGap(theme.SizeNameInnerPadding), newDivider(true),
-		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state)...)
+		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file)...)
 	t.layout = newLayoutBar(sh)
 	t.right = container.NewHBox(t.layout.root, t.notes.bell)
 	// The line under the bar lies directly under it (shell.go): what the bar centres then sits
@@ -117,7 +100,7 @@ func newTopBar(sh *shell) *topBar {
 
 func (t *topBar) update() {
 	ui := t.sh.ui
-	t.dot.SetColor(connectionColor(ui.Connection))
+	t.dot.set(ui.Context, ui.Connection, "")
 	name, file := splitContextID(ui.Context)
 	if name == "" {
 		name = "No cluster"
@@ -129,7 +112,6 @@ func (t *topBar) update() {
 	} else {
 		t.file.Show()
 	}
-	t.state.SetText(connectionText(ui.Connection))
 }
 
 // splitContextID splits a source context's id, "<context> [<file>]" (engine.SourceContextID), into
@@ -227,14 +209,14 @@ func newDiagView(d engine.Diagnostics) diagView {
 	return v
 }
 
-// statusBar is the bottom line: context and connection, API requests, informers, the demo
-// cluster's event rate, the link to the owner and the MCP indicator.
+// statusBar is the bottom line: the connection's dot and the context, API requests, informers, the
+// demo cluster's event rate, the link to the owner and the MCP indicator.
 type statusBar struct {
 	sh      *shell
 	link    *linkText // the link to the owner (D-23), left of the MCP item
 	mcp     *mcpItem  // the MCP indicator and its switch, at the right end; nil without an MCP server
 	layout  *statusLayout
-	dot     *dot
+	dot     *connDot // the connection's state, no word beside it (F13)
 	context *textLine
 	// tls says "TLS not checked" in the warning colour beside the context while the connection does
 	// not check the server's certificate (engine.Connection.TLSUnchecked, the owner's A29); hidden
@@ -252,7 +234,7 @@ func newStatusBar(sh *shell) *statusBar {
 	caption := func() *textLine {
 		return newTextLine("", colorMuted, sizeStatusText, fyne.TextStyle{})
 	}
-	s.dot = newDot(statusColorName(model.StatusUnknown))
+	s.dot = newConnDot(sh)
 	s.context, s.requests, s.informers, s.demo = caption(), caption(), caption(), caption()
 	s.tls = newTextLine(engine.TLSUncheckedLabel, colorStatusWarning, sizeStatusText, fyne.TextStyle{})
 	s.tls.Hide()
@@ -394,12 +376,12 @@ func (l *statusLayout) show(on bool) {
 
 func (s *statusBar) update() {
 	ui, d := s.sh.ui, s.sh.diag
-	s.dot.SetColor(connectionColor(ui.Connection))
+	s.dot.set(ui.Context, ui.Connection, "")
 	ctx := ui.Context
 	if ctx == "" {
 		ctx = "no cluster"
 	}
-	s.context.SetText(ctx + " · " + connectionText(ui.Connection))
+	s.context.SetText(ctx)
 	if ui.Connection.State.Live() && ui.Connection.TLSUnchecked {
 		s.tls.Show()
 	} else {

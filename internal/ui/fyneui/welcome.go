@@ -355,8 +355,10 @@ func (w *welcomePage) row(c engine.ContextInfo) *clusterRow {
 	connect := func() { w.connect(name) }
 	r := newClusterRow(c, title, sub, connect, connect, func() { sh.kc.showConnectLog(name) })
 	r.badge.setIdentity(sh.identity(name))
-	if sh.ui.Context == name && sh.ui.Connection.State.Live() { // connected, reconnecting, login expired (D-58)
-		r.badges.Add(newPill(strings.ToLower(strings.TrimSuffix(connectionText(sh.ui.Connection), "…")), connectionColor(sh.ui.Connection), true))
+	if c := sh.ui.Connection; sh.ui.Context == name && (c.State.Live() || c.State == engine.Connecting) {
+		d := newConnDot(sh) // its state as a dot, never a word (F13): connecting, connected, reconnecting, login expired
+		d.set(name, c, "")
+		r.badges.Add(d)
 	}
 	r.onMenu = func(pos fyne.Position) { w.menu(name, pos) }
 	w.rows = append(w.rows, r)

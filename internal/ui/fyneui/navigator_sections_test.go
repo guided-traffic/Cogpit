@@ -528,6 +528,31 @@ func renderNavigatorSection(t *testing.T, mode ThemeMode, name string) {
 	savePNG(t, w, name)
 }
 
+// renderNavigatorReconnecting: the section while the connected cluster reconnects, its row's dot
+// in the blink's dimmed phase and the pointer on it, its tooltip shown (F13).
+func renderNavigatorReconnecting(t *testing.T, mode ThemeMode, name string) {
+	sh, w, q, f := sectionScene(t, mode)
+	q.until(t, "diagnostics", func() bool { return sh.diag.total > 0 })
+	clk := fakeBlinkClock(sh)
+	now := interruptedAt.Add(time.Minute)
+	sh.now = func() time.Time { return now }
+	interrupt(f, engine.Interrupted, now)
+	q.until(t, "the blink", func() bool { return sh.blink.ctx == secKind })
+	clk.after(blinkPhase)
+	settle(w)
+	sh.tip.delay = time.Millisecond
+	test.MoveMouse(w.Canvas(), middleOf(sh.side.sec.rows[secKind].dot))
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() != "" })
+	savePNG(t, w, name)
+}
+
+func TestRenderNavigatorReconnectingDark(t *testing.T) {
+	renderNavigatorReconnecting(t, ThemeDark, "navigator_reconnecting_dark.png")
+}
+func TestRenderNavigatorReconnectingLight(t *testing.T) {
+	renderNavigatorReconnecting(t, ThemeLight, "navigator_reconnecting_light.png")
+}
+
 func TestRenderNavigatorFindDark(t *testing.T) {
 	renderNavigatorFind(t, ThemeDark, "navigator_find_dark.png")
 }

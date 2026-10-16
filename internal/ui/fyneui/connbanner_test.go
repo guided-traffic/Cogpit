@@ -28,10 +28,11 @@ func interrupt(f *fakeEngine, state engine.ConnectionState, now time.Time) {
 	})
 }
 
-// TestConnectionBannerFollowsTheState is S3: interrupted, the top bar's dot is amber and reads
-// "Reconnecting…", the banner over the view says what is interrupted, since when and the next
-// attempt, and Reconnect now dispatches cluster.reconnect; an expired login reads "Login expired"
-// and offers Log in again (cluster.login); connected again, the banner goes.
+// TestConnectionBannerFollowsTheState is S3 as the owner amended it (F13, 2026-10-16): interrupted,
+// the top bar's dot is the Running green (it blinks, conndot_test.go) and no word stands beside it
+// in either bar, the banner over the view says what is interrupted, since when and the next
+// attempt, and Reconnect now dispatches cluster.reconnect; an expired login turns the dot red and
+// offers Log in again (cluster.login); connected again, the banner goes.
 func TestConnectionBannerFollowsTheState(t *testing.T) {
 	f := connectedFake(t, 20)
 	sh, _, q := newTestShell(t, f, Options{})
@@ -43,8 +44,8 @@ func TestConnectionBannerFollowsTheState(t *testing.T) {
 	sh.now = func() time.Time { return now }
 	interrupt(f, engine.Interrupted, now)
 	q.until(t, "the banner", func() bool { return sh.conn.root.Visible() })
-	if sh.top.state.text != "Reconnecting…" || sh.top.dot.color != statusColorName(model.StatusWarning) {
-		t.Errorf("top bar %q %v", sh.top.state.text, sh.top.dot.color)
+	if sh.top.dot.color != colorContainerRunning || barSaysState(sh) {
+		t.Errorf("top bar: dot %v, words %q", sh.top.dot.color, barTexts(sh))
 	}
 	if got := sh.conn.title.text; !strings.HasPrefix(got, "The connection to demo is interrupted · since ") {
 		t.Errorf("title %q", got)
@@ -53,7 +54,7 @@ func TestConnectionBannerFollowsTheState(t *testing.T) {
 		!strings.Contains(got, "changes are disabled") {
 		t.Errorf("detail %q", got)
 	}
-	if !strings.Contains(sh.status.context.text, "Reconnecting…") {
+	if sh.status.context.text != "demo" {
 		t.Errorf("status bar %q", sh.status.context.text)
 	}
 	if sh.view.root.Visible() == false || len(sh.kinds) == 0 {
@@ -64,8 +65,8 @@ func TestConnectionBannerFollowsTheState(t *testing.T) {
 
 	interrupt(f, engine.LoginExpired, now)
 	q.until(t, "the login banner", func() bool { return sh.conn.action.Text == "Log in again" })
-	if sh.top.state.text != "Login expired" || sh.top.dot.color != statusColorName(model.StatusError) {
-		t.Errorf("top bar %q %v", sh.top.state.text, sh.top.dot.color)
+	if sh.top.dot.color != statusColorName(model.StatusError) || barSaysState(sh) {
+		t.Errorf("top bar: dot %v, words %q", sh.top.dot.color, barTexts(sh))
 	}
 	if !strings.Contains(sh.conn.detail.text, "may open your browser") {
 		t.Errorf("detail %q", sh.conn.detail.text)
@@ -75,9 +76,30 @@ func TestConnectionBannerFollowsTheState(t *testing.T) {
 
 	f.update(func(u *engine.UIState) { u.Connection = engine.Connection{State: engine.Connected, Demo: true} })
 	q.until(t, "the banner to go", func() bool { return !sh.conn.root.Visible() })
-	if sh.top.state.text != "Connected" {
-		t.Errorf("top bar %q", sh.top.state.text)
+	if sh.top.dot.color != colorContainerRunning || barSaysState(sh) {
+		t.Errorf("top bar: dot %v, words %q", sh.top.dot.color, barTexts(sh))
 	}
+}
+
+// barTexts are the top bar's left part's texts.
+func barTexts(sh *shell) []string {
+	var out []string
+	for _, l := range findAll[*textLine](sh.top.left) {
+		out = append(out, l.text)
+	}
+	return out
+}
+
+// barSaysState reports whether the top bar names the connection's state in a word (F13: never).
+func barSaysState(sh *shell) bool {
+	for _, s := range barTexts(sh) {
+		for _, w := range []string{"Connected", "Connecting", "Reconnecting", "Login expired", "Connection failed", "Not connected"} {
+			if strings.Contains(s, w) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // TestAShellTabOffersReconnect is S7's shells in the window: a shell tab the interruption ended
@@ -117,8 +139,15 @@ func TestAShellTabOffersReconnect(t *testing.T) {
 }
 
 // connectionScene is the shell over the pods view with the drawer open, the connection interrupted
-// (or the login expired) four minutes ago.
+// (or the login expired) four minutes ago, the dots' blink in its first phase.
 func connectionScene(t *testing.T, mode ThemeMode, state engine.ConnectionState) fyne.Window {
+	w, _, _ := blinkScene(t, mode, state, nil)
+	return w
+}
+
+// blinkScene is connectionScene with the blinker's clock in the test's hands; before runs ahead of
+// the interruption (Reduce motion is read when a blink starts).
+func blinkScene(t *testing.T, mode ThemeMode, state engine.ConnectionState, before func(*shell)) (fyne.Window, *shell, *blinkClock) {
 	f := connectedFake(t, 200)
 	row := f.tables["pods"].Rows[3]
 	ref := row.Ref
@@ -131,9 +160,13 @@ func connectionScene(t *testing.T, mode ThemeMode, state engine.ConnectionState)
 	q.until(t, "the shell to settle", func() bool { return len(sh.kinds) > 0 && sh.drawer.last != nil && sh.diag.total > 0 })
 	now := interruptedAt.Add(4 * time.Minute)
 	sh.now = func() time.Time { return now }
+	clk := fakeBlinkClock(sh)
+	if before != nil {
+		before(sh)
+	}
 	interrupt(f, state, now)
 	q.until(t, "the banner", func() bool { return sh.conn.root.Visible() })
-	return w
+	return w, sh, clk
 }
 
 func TestRenderConnectionInterruptedDark(t *testing.T) {
@@ -142,6 +175,28 @@ func TestRenderConnectionInterruptedDark(t *testing.T) {
 
 func TestRenderConnectionInterruptedLight(t *testing.T) {
 	savePNG(t, connectionScene(t, ThemeLight, engine.Interrupted), "connection_interrupted_light.png")
+}
+
+// The dots' second phase: dimmed (F13).
+func renderInterruptedDim(t *testing.T, mode ThemeMode, name string) {
+	w, _, clk := blinkScene(t, mode, engine.Interrupted, nil)
+	clk.after(blinkPhase)
+	savePNG(t, w, name)
+}
+
+func TestRenderConnectionInterruptedDimDark(t *testing.T) {
+	renderInterruptedDim(t, ThemeDark, "connection_interrupted_dim_dark.png")
+}
+
+func TestRenderConnectionInterruptedDimLight(t *testing.T) {
+	renderInterruptedDim(t, ThemeLight, "connection_interrupted_dim_light.png")
+}
+
+// Under Reduce motion: a steady half-alpha dot (F13).
+func TestRenderConnectionReduceMotionDark(t *testing.T) {
+	w, _, clk := blinkScene(t, ThemeDark, engine.Interrupted, func(sh *shell) { sh.blink.reduce = func() bool { return true } })
+	clk.after(blinkPhase)
+	savePNG(t, w, "connection_reduce_motion_dark.png")
 }
 
 func TestRenderConnectionLoginExpiredDark(t *testing.T) {

@@ -71,7 +71,7 @@ evening):
 | Rank | Step | Estimate |
 |---|---|---:|
 | 1 | The first signed appcast: the owner's update key is set up (2026-10-15) and in the releases since v0.11.0; v0.9.0 to v0.13.0 got no files (Apple kept the submissions "In Progress", v0.13.0's for 330 minutes); **v0.14.0 to v0.16.0 passed notarization on 2026-10-16**, and Pages serves the signed feed with 0.16.0 and 0.15.0 since that morning; the first update of an installed copy went through the same morning (the owner's MacBook, 0.15.0 to 0.16.0, through the Update button and Sparkle's install) (G14) | done |
-| 2 | Standby and lost connections: the window hung after the Mac slept (the owner, 2026-10-15); decided in an interview the same evening and built 2026-10-16 (D-58: detection by wake, network change, heartbeat and broken watch, "Reconnecting…" with a banner, writes disabled, reconnect with backoff, "Login expired", logs and port forwards resuming); left: the owner's check in a real window after a real sleep (G2, G16) | human |
+| 2 | Standby and lost connections: the window hung after the Mac slept (the owner, 2026-10-15); decided in an interview the same evening and built 2026-10-16 (D-58: detection by wake, network change, heartbeat and broken watch, "Reconnecting…" with a banner (since 2026-10-16 a blinking green dot, no word, F13), writes disabled, reconnect with backoff, "Login expired", logs and port forwards resuming); left: the owner's check in a real window after a real sleep (G2, G16) | human |
 | 3 | Choosing a cluster: one list, the navigator's section; the context picker, "Switch context ▾" and the scope dropdown gone (the owner's interview of 2026-10-15 evening, built that night, D-57, the lead's decisions for the owner to confirm; G13); the owner's walk (rank 5) checks it in a real window | built |
 | 4 | The owner's audit answers of 2026-10-15: a Secret's values in the drawer (window only), Save rebasing by itself, a Config Map's drawer drafts on disk, the selection bar from one row, `ui.navigate` leaving the selection alone; the chat's send-all-tools, `http://` warning and CA file, and editing a sent message (F9) (all built 2026-10-15 night: D-55, D-59, D-10; F8 postponed by the owner) (G5, G9, G21) | built |
 | 5 | The owner walks what the runs of 2026-10-13 to 2026-10-15 built, in a real window, and records what differs | human |
@@ -109,6 +109,7 @@ Detail: [docs/parity/roadmap.md](docs/parity/roadmap.md).
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-16 | minor | Upcoming rank 2: the reconnect shows as a blinking green dot, no word (the owner's F13, D-58's S3 amended) |
 | 2026-10-15 | minor | Upcoming rank 3, choosing a cluster, built in the night run (D-57): the context picker, "Switch context" and the scope dropdown gone, the navigator's section the one list; readiness and hours not moved |
 | 2026-10-15 | minor | Next item 4: F9 (a sent message edited and sent again) built in the night run; the chat's part of item 4 done |
 | 2026-10-15 | minor | Next item 4: the chat's `http://` warning and CA file per connection built in the night run |

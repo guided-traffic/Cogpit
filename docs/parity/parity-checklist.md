@@ -332,7 +332,7 @@ Not counted: 7 interface rows that are not a target, 5 platform rows that are pa
 | On start, nodes Cogpit cordoned for a drain it did not finish are shown with "continue drain" and "uncordon" | done | [Crash recovery](beyond-lens.md#crash-recovery) |
 | Unsaved editor content restored from its local draft | done | [Crash recovery](beyond-lens.md#crash-recovery) |
 | An interrupted connection noticed within seconds: on a wake, a network change, a watch that broke, and by a heartbeat every 15 s | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
-| "Reconnecting…" with an amber dot, a banner saying since when and the next attempt, Reconnect now; the window usable throughout | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
+| "Reconnecting…" with an amber dot, a banner saying since when and the next attempt, Reconnect now; the window usable throughout (since 2026… | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | The views keep the cache's state; every write disabled with the reason, for the window and agents | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | Reconnecting by itself, at once on a wake or a network change, then after 1 to 30 s without end | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | A login that expired renewed once by itself, then "Login expired" and Log in again, never a pile of plugin runs | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |

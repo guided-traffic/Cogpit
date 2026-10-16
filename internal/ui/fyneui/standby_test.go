@@ -103,11 +103,8 @@ func TestStandbyWindowStaysUsable(t *testing.T) {
 	if d, window := time.Since(frozen), watch.Heartbeat+2*watch.ProbeTimeout+watch.Confirm+2*time.Second; d > window {
 		t.Errorf("interrupted after %v, want within %v", d, window)
 	}
-	if got := sh.top.state.text; got != "Reconnecting…" {
-		t.Errorf("the top bar says %q", got)
-	}
-	if sh.top.dot.color != statusColorName(model.StatusWarning) {
-		t.Errorf("the top bar's dot is %v, want amber", sh.top.dot.color)
+	if sh.top.dot.color != colorContainerRunning || barSaysState(sh) { // blinking green, no word (F13)
+		t.Errorf("the top bar: dot %v, words %q", sh.top.dot.color, barTexts(sh))
 	}
 	if !sh.conn.root.Visible() || !strings.Contains(sh.conn.title.text, "interrupted · since") {
 		t.Errorf("the banner: visible %v, %q", sh.conn.root.Visible(), sh.conn.title.text)

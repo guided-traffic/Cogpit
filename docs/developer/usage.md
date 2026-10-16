@@ -62,7 +62,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🐙 Argo CD: its section in the navigator (Applications, Application Sets, Projects, and the repositories and clusters without their credentials), a dashboard of the Applications' health and sync state, Sync (with prune) and Refresh (normal or hard) through the Kubernetes API, on a selection too and within the project's sync windows, an Application's logs in one tab, and Argo CD's own UI through a port forward.
 - 📈 CPU and memory from the cluster's metrics-server and its Prometheus: columns in the Pods and Nodes lists, charts with requests and limits in the pod and node drawers, and the cluster Overview: CPU, Memory and Pods of the master or worker nodes over a time range, with the Issues (pods, nodes and workloads in trouble, warning events) below. A node's history, its network and its filesystem come from node-exporter where it runs. A cluster without a Prometheus gets one on request: Cluster Settings › Cogpit Metrics installs Prometheus, kube-state-metrics and node-exporter from charts Cogpit bundles, each a Helm release in the namespace `cogpit-metrics`, and removes them again.
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
-- 😴 Sleep and lost connections: when the Mac wakes, the network or a VPN changes, or the cluster stops answering, Cogpit notices within seconds, says "Reconnecting…" with a banner, keeps your views and tabs as they were, disables changes, and reconnects by itself; a login that expired asks you once ([below](#when-the-connection-breaks)).
+- 😴 Sleep and lost connections: when the Mac wakes, the network or a VPN changes, or the cluster stops answering, Cogpit notices within seconds, blinks the cluster's dot and shows a banner, keeps your views and tabs as they were, disables changes, and reconnects by itself; a login that expired asks you once ([below](#when-the-connection-breaks)).
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
 - ⌨️ `cogpit-cli`, inside the app: your contexts and any kind's objects on the command line, read-only, and an MCP stdio bridge you register once.
 - 💬 A built-in agent in a chat beside your views (⌘I), on any OpenAI-compatible endpoint such as LM Studio, LiteLLM or Open WebUI.
@@ -447,15 +447,20 @@ connected cluster when the Mac wakes, when its network changes (Wi-Fi, a VPN), w
 and every 15 seconds; two checks without an answer (one after a wake) and the connection is
 **interrupted**:
 
-- The top bar's dot turns amber and reads **Reconnecting…**; a banner over the view says which
-  cluster, since when, why, and when Cogpit tries next; **Reconnect now** tries at once.
+- The cluster's dot blinks green, slowly (half a second on, half a second dimmed), everywhere it
+  shows: the top bar, the status bar, its hotbar tile, the navigator, the welcome page. No word
+  stands beside it; its tooltip says **Reconnecting…**, since when, why and the next attempt, and a
+  click on it opens the cluster's connection updates. Under macOS's Reduce motion it stays a steady,
+  paler green. A banner over the view says which cluster, since when, why, and when Cogpit tries
+  next; **Reconnect now** tries at once (since 2026-10-16, the owner's F13: dots, never words).
 - The views, the tabs, the drawer and the dock stay as they were, showing the cluster as of the
   interruption. Everything that would change the cluster is disabled, its menus saying
   "connection interrupted"; an agent's change is refused the same way, and its reads are marked as
   the cluster's state of then.
 - Cogpit reconnects by itself: at once on a wake or a network change, otherwise after 1, 2, 4, 8, 16,
-  then every 30 seconds, for as long as the window is open. Back, the dot is green, a notification
-  says how long it was away, and the views catch up.
+  then every 30 seconds, for as long as the window is open. Back, the dot stops blinking (after
+  three blinks at least, so that a quick reconnect is seen too) and stays green, a notification says
+  how long it was away, and the views catch up. Connecting to a cluster blinks the same way.
 - A followed log goes on by itself after a line `[cogpit] — interrupted 14:03–14:07 —`, from where it
   stopped. A port forward waits and connects again at once. A pod shell, a node shell or an attach
   ends (a process cannot be resumed): its tab says so and offers **Reconnect**, which opens a new
@@ -468,7 +473,7 @@ and every 15 seconds; two checks without an answer (one after a wake) and the co
 
 When the cluster rejects your login (it expired while the Mac slept) Cogpit lets the context's
 login program renew it once by itself; if that does not help, or the program waits for you (a
-browser login), the dot turns red and reads **Login expired**, and the banner's **Log in again**
+browser login), the dot turns red at once (its tooltip: **Login expired**), and the banner's **Log in again**
 runs the login program, browser included, keeping your views. Cogpit never runs it again on its own
 meanwhile. A login program that changed since you allowed it is shown to you first, as at a connect.
 

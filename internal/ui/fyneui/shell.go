@@ -88,6 +88,7 @@ type shell struct {
 	hot       *hotbar       // the pinned clusters at the window's left edge (hotbar.go)
 	tabs      *tabBar       // the tabs of cluster views above the workspace (tabbar.go)
 	kc        *kubeconfigUI // the kubeconfig sources' dialogs (kubeconfigs.go)
+	blink     *blinker      // the connection dots' one clock (conndot.go, F13)
 	settings  *settingsPage // Preferences and Cluster settings (preferences_page.go)
 	confirmer *guiConfirmer
 	conn      *connBanner  // an interrupted connection or an expired login, right below the top bar (connbanner.go, D-58)
@@ -176,6 +177,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.titlebar = newTitlebar(sh)
 	sh.loadWidths() // before the drawer, which wraps its values to the width it will have
 
+	sh.blink = newBlinker(sh) // before the bars, whose dots it refreshes
 	sh.top = newTopBar(sh)
 	sh.side = newSidebar(sh)
 	sh.view = newTableView(sh)
@@ -232,7 +234,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	frame := container.NewBorder(
 		container.NewVBox(box(layout.NewCustomPaddedVBoxLayout(0), sh.top.root, sh.top.edge), // the line directly under the bar
 			sh.conn.root, sh.drains.root, sh.helm.root, sh.helmHTTP.root, sh.drafts.root),
-		container.NewVBox(newDivider(false), sh.status.root),
+		box(layout.NewCustomPaddedVBoxLayout(0), newDivider(false), sh.status.root), // the line directly on the bar
 		sh.hot.root, nil, sh.chatRow)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
 	return sh
@@ -533,6 +535,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 // connectionChanged follows the context or the connection: the header, the status bar, the
 // placeholder, and the connected cluster's kinds and namespaces.
 func (sh *shell) connectionChanged(st, old engine.UIState) {
+	sh.blink.observe(st.Context, st.Connection.State) // before the dots follow (conndot.go)
 	sh.top.update()
 	sh.status.update()
 	sh.conn.update()            // the banner of an interrupted connection (D-58)

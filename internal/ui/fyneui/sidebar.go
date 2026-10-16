@@ -203,7 +203,7 @@ type sidebar struct {
 	badge     *clusterBadge
 	name      *textLine
 	subtitle  *textLine
-	dot       *dot
+	dot       *connDot // the root's connection dot (conndot.go, F13)
 	emptyHint *textLine
 	hintRow   fyne.CanvasObject // the hint below the root while no item shows
 	root      fyne.CanvasObject
@@ -217,7 +217,7 @@ func newSidebar(sh *shell) *sidebar {
 	s.subtitle = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	// The sidebar's width is the user's (panelwidths.go): a long context name is cut, not widened.
 	s.name.truncate, s.subtitle.truncate = true, true
-	s.dot = newDot(connectionColor(engine.Connection{}))
+	s.dot = newConnDot(sh)
 	s.emptyHint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	s.emptyHint.truncate = true
 	s.hintRow = inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, s.emptyHint)
@@ -302,7 +302,7 @@ func (s *sidebar) updateHeader() {
 	if s.section {
 		s.sec.render() // the clusters' dots, marks and identities
 	}
-	s.dot.SetColor(connectionColor(ui.Connection))
+	s.dot.set(ui.Context, ui.Connection, "")
 	s.rootRow.showCluster(ui.Context != "")
 	if ui.Context == "" {
 		s.badge.set("–", true)

@@ -534,7 +534,7 @@ func (t *hotbarTile) MouseOut() {
 func (t *hotbarTile) CreateRenderer() fyne.WidgetRenderer {
 	r := &hotbarTileRenderer{t: t,
 		bg: canvas.NewRectangle(color.Transparent), initials: canvas.NewText("", color.Transparent),
-		ring: canvas.NewCircle(color.Transparent), dot: canvas.NewCircle(color.Transparent),
+		ring: canvas.NewCircle(color.Transparent), dot: newConnDot(t.h.sh),
 		label: canvas.NewText("", color.Transparent),
 		img:   &canvas.Image{FillMode: canvas.ImageFillContain, ScaleMode: canvas.ImageScaleSmooth}}
 	r.initials.TextStyle = fyne.TextStyle{Bold: true}
@@ -543,13 +543,14 @@ func (t *hotbarTile) CreateRenderer() fyne.WidgetRenderer {
 }
 
 type hotbarTileRenderer struct {
-	t         *hotbarTile
-	bg        *canvas.Rectangle
-	initials  *canvas.Text
-	ring, dot *canvas.Circle
-	label     *canvas.Text
-	img       *canvas.Image   // the cluster's uploaded icon (clusteridentity.go), over the square
-	id        clusterIdentity // the cluster's name and icon, from its settings
+	t        *hotbarTile
+	bg       *canvas.Rectangle
+	initials *canvas.Text
+	ring     *canvas.Circle
+	dot      *connDot // a click on it opens the cluster's connection log, not the cluster (F13)
+	label    *canvas.Text
+	img      *canvas.Image   // the cluster's uploaded icon (clusteridentity.go), over the square
+	id       clusterIdentity // the cluster's name and icon, from its settings
 }
 
 func (r *hotbarTileRenderer) sizes() (side, pad, dot float32) {
@@ -621,11 +622,14 @@ func (r *hotbarTileRenderer) Refresh() {
 	if t.lifted() {
 		r.lift(th, accent)
 	}
-	dot := connectionColor(engine.Connection{State: t.tile.Connection})
-	if t.tile.Missing {
-		dot = colorStatusWarning
+	conn, base := engine.Connection{State: t.tile.Connection}, fyne.ThemeColorName("")
+	if sh := t.h.sh; sh != nil && t.active() && sh.ui.Context == t.tile.Context {
+		conn = sh.ui.Connection // its reason and times for the dot's tooltip
 	}
-	r.dot.FillColor = themeColor(th, dot)
+	if t.tile.Missing {
+		base = colorStatusWarning
+	}
+	r.dot.set(t.tile.Context, conn, base)
 	r.ring.FillColor = themeColor(th, theme.ColorNameHeaderBackground) // sets the dot off the tile
 	if r.id.image != nil && !t.tile.Missing {                          // the uploaded icon in place of the initials
 		r.img.Resource = r.id.image

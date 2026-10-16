@@ -19,7 +19,6 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
-	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // The navigator's section level (ui-parity › Layout and Clusters, G5, G13): the level above a
@@ -386,17 +385,17 @@ func (n *navSections) marked(id string) bool {
 	return id == ui.Context && (ui.Connection.State.Live() || ui.Connection.State == engine.Connecting)
 }
 
-// dotColor is a context's connection dot: the active one's state, red after a failed connect, the
-// unknown state's grey otherwise.
-func (n *navSections) dotColor(c engine.ContextInfo) fyne.ThemeColorName {
+// dotConnection is what a context's connection dot shows (conndot.go): the active one's
+// connection, a failed connect after one failed, not connected otherwise.
+func (n *navSections) dotConnection(c engine.ContextInfo) engine.Connection {
 	ui := n.s.sh.ui
 	switch {
 	case c.Name == ui.Context:
-		return connectionColor(ui.Connection)
+		return ui.Connection
 	case c.ConnectProblem:
-		return statusColorName(model.StatusError)
+		return engine.Connection{State: engine.ConnectError}
 	}
-	return connectionColor(engine.Connection{})
+	return engine.Connection{}
 }
 
 // drill shows a cluster's tree (ui.setNavigatorScope). A cluster not connected is connected through
@@ -765,7 +764,7 @@ type navContextRow struct {
 	badge    *clusterBadge
 	title    *textLine
 	insecure *widget.Icon
-	dot      *dot
+	dot      *connDot
 	next     *navIconButton
 	body     fyne.CanvasObject
 	bg, ring *canvas.Rectangle
@@ -779,7 +778,7 @@ var (
 )
 
 func newNavContextRow(n *navSections, id string) *navContextRow {
-	r := &navContextRow{n: n, id: id, badge: newClusterBadge(), dot: newDot(connectionColor(engine.Connection{})),
+	r := &navContextRow{n: n, id: id, badge: newClusterBadge(), dot: newConnDot(n.s.sh),
 		bg: canvas.NewRectangle(color.Transparent), ring: canvas.NewRectangle(color.Transparent)}
 	r.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
 	r.title.truncate = true
@@ -805,7 +804,7 @@ func (r *navContextRow) set(c engine.ContextInfo) {
 		r.title.style.Bold = bold
 		r.title.Refresh()
 	}
-	r.dot.SetColor(n.dotColor(c))
+	r.dot.set(c.Name, n.dotConnection(c), "")
 	if c.Insecure != r.insecure.Visible() {
 		if c.Insecure {
 			r.insecure.Show()

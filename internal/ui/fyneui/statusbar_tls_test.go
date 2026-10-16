@@ -32,7 +32,7 @@ func TestStatusBarSaysTLSNotChecked(t *testing.T) {
 	if i < 0 || s.tls.color != colorStatusWarning {
 		t.Fatalf("status bar %q, item colour %v", texts, s.tls.color)
 	}
-	if i == 0 || texts[i-1] != "lab [lab.yaml] · Connected" {
+	if i == 0 || texts[i-1] != "lab [lab.yaml]" { // the context; its state is the dot alone (F13)
 		t.Errorf("the item is not right beside the context: %q", texts)
 	}
 	if ctxEnd, tlsX := s.context.Position().X+s.context.Size().Width, s.tls.Position().X; tlsX < ctxEnd || tlsX > ctxEnd+12 {
