@@ -75,6 +75,9 @@ func TestWelcomePageOverTheEngine(t *testing.T) {
 	if w.status.Visible() || !strings.Contains(w.hint.text, "finds a cluster by name") {
 		t.Errorf("status %q (visible %v), hint %q", w.status.text, w.status.Visible(), w.hint.text)
 	}
+	if got := welcomeButtons(w); !slices.Equal(got, []string{"Add Kubeconfigs…"}) { // N122
+		t.Errorf("the welcome page's buttons %q, want Add Kubeconfigs… alone", got)
+	}
 
 	// Pinned to the hotbar, the demo is listed first, under the hotbar; the others follow.
 	mustDispatch(t, s, "hotbar.addCluster", map[string]string{"context": engine.DemoContext})

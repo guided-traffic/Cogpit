@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
@@ -154,22 +155,35 @@ func TestConnectToClusterClosesASettingsPage(t *testing.T) {
 	}
 }
 
-// The welcome page's button is Connect to Cluster… (it read All Clusters…, D-57) and does what ⌘P
-// does; the workspace's button while no cluster is connected too.
-func TestWelcomeConnectToClusterButton(t *testing.T) {
+// welcomeButtons returns the labels of the welcome page's buttons with a label (a cluster row's
+// warning button has none).
+func welcomeButtons(w *welcomePage) []string {
+	var out []string
+	for _, b := range findAll[*widget.Button](w.root) {
+		if b.Text != "" {
+			out = append(out, b.Text)
+		}
+	}
+	return out
+}
+
+// The welcome page has no Connect to Cluster… (the owner, 2026-10-16 evening, N122): Add
+// Kubeconfigs… is its one button; the workspace's button while no cluster is connected stays
+// Connect to Cluster… (it read All Clusters…, D-57) and does what ⌘P does.
+func TestConnectToClusterButtons(t *testing.T) {
 	f := newFakeEngine(t)
 	f.contexts = fixtureContexts()
 	sh, q := welcomeOnFake(t, f, ThemeDark)
 	w := sh.tabs.welcome
-	if w.allB.Text != "Connect to Cluster…" || sh.view.connectButton.Text != "Connect to Cluster…" {
-		t.Fatalf("buttons %q, %q", w.allB.Text, sh.view.connectButton.Text)
+	if got := welcomeButtons(w); !slices.Equal(got, []string{"Add Kubeconfigs…"}) {
+		t.Fatalf("the welcome page's buttons %q, want Add Kubeconfigs… alone", got)
+	}
+	if sh.view.connectButton.Text != "Connect to Cluster…" {
+		t.Fatalf("the workspace's button %q", sh.view.connectButton.Text)
 	}
 	h := sh.side.head
-	test.Tap(w.allB)
-	q.until(t, "the section's search", func() bool { return h.searching() && sh.win.Canvas().Focused() == h.entry })
-	escape(sh)
 	test.Tap(sh.view.connectButton)
-	q.until(t, "the section's search again", func() bool { return h.searching() && sh.win.Canvas().Focused() == h.entry })
+	q.until(t, "the section's search", func() bool { return h.searching() && sh.win.Canvas().Focused() == h.entry })
 }
 
 // Over the real engine: connected to the demo cluster with the navigator hidden (⌘B), ⌘P shows the

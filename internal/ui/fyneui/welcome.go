@@ -33,10 +33,11 @@ import (
 //     kubeconfig sources offer (the kubeconfig's current one first), so that a failed connect
 //     always leaves another to try; each row as the context picker had it (clusterrow.go), with
 //     its right-click menu;
-//   - "Connect to Cluster…" (⌘P: the navigator's section with its search focused, D-57; it read
-//     "All Clusters…" and opened the context picker until then; the name is the lead's default for
-//     the owner to confirm) and "Add Kubeconfigs…" (the Sync Files and Folders dialog), the
-//     documentation and the shortcuts to remember. The documentation is two links to
+//   - "Add Kubeconfigs…" (the Sync Files and Folders dialog), the documentation and the shortcuts
+//     to remember, ⌘P finding a cluster by name among them. The page has no "Connect to Cluster…"
+//     (the owner, 2026-10-16 evening, N122; D-57): its cluster rows and the navigator's section
+//     beside it are the list already. It had one from 2026-10-15 (D-57; "All Clusters…" with the
+//     context picker until then); the workspace's button without a live connection stays. The documentation is two links to
 //     the repository on GitHub, opened in the browser (the owner's A113, 2026-10-14 evening): the
 //     README for what Cogpit does (the showcase), and docs/developer/commands.md for the commands.
 //
@@ -66,7 +67,6 @@ type welcomePage struct {
 	status    *paragraph      // the connection's line, wrapped; hidden without one
 	list      *fyne.Container // the groups of clusters
 	hint      *textLine
-	allB      *widget.Button
 	addB      *widget.Button
 	docs      *widget.Hyperlink // the README: what Cogpit does
 	cmds      *widget.Hyperlink // docs/developer/commands.md: every command
@@ -95,7 +95,6 @@ func newWelcomePage(sh *shell) *welcomePage {
 	w.status = newParagraph("", colorMuted, welcomeColumn)
 	w.status.Hide()
 	w.list = container.NewVBox()
-	w.allB = widget.NewButtonWithIcon(connectLabel+"…", theme.SearchIcon(), func() { sh.findCluster() })
 	w.addB = widget.NewButtonWithIcon("Add Kubeconfigs…", theme.ContentAddIcon(), sh.kc.addKubeconfigs)
 	u, _ := url.Parse(readmeURL)
 	w.docs = widget.NewHyperlink("What Cogpit does: the README on GitHub", u)
@@ -111,7 +110,7 @@ func newWelcomePage(sh *shell) *welcomePage {
 		newSpace(theme.SizeNameInnerPadding),
 		heading("Clusters"),
 		w.list,
-		container.NewHBox(w.allB, w.addB),
+		container.NewHBox(w.addB),
 		newSpace(theme.SizeNameInnerPadding),
 		heading("Documentation"),
 		w.docs,

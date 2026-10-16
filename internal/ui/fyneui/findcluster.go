@@ -11,16 +11,19 @@ import (
 const connectCommand = "cluster.connect"
 
 // connectLabel is cluster.connect's label in the registry (commands/cluster.go), the name the
-// Cluster menu, the palette and the welcome page give it (D-57, I6); a build without the command
-// (a test fake) uses it as it is.
+// Cluster menu, the palette and the workspace's button give it (D-57, I6); a build without the
+// command (a test fake) uses it as it is.
 const connectLabel = "Connect to Cluster"
 
 // Choosing a cluster (D-57, the owner's interview of 2026-10-15 evening): one list, the navigator's
 // section (navigator_sections.go), instead of the context picker that listed the same clusters a
 // second time. Every way that opened the picker shows the section with its search open and
 // focused: ⌘P and the Cluster menu's Connect to Cluster… (cluster.connect's shortcut and label in
-// the registry), the palette's Connect to Cluster, the welcome page's button, the workspace's
-// button while no cluster is connected, and a --context that fails at start. ↵ drills into the
+// the registry), the palette's Connect to Cluster, the workspace's button while no cluster is
+// connected, and a --context that fails at start. The welcome page has no button of its own (the
+// owner, 2026-10-16 evening, N122): its cluster rows and the section are the list. The workspace's
+// stays: while it shows, the engine's scope is the section (syncNavScope: the shown cluster is not
+// connected or connecting), but a navigator ⌘B hid shows nothing, and the button shows it first. ↵ drills into the
 // first match, connecting it as the section does (its login program shown for approval first);
 // Escape on the empty search goes back to the tree of the cluster ⌘P came from (navHeader.escape).
 //
