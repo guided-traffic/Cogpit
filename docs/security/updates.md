@@ -73,6 +73,7 @@ for updates automatically off stops the scheduled checks; Help › Check for Upd
 | The update key behind the owner's approval, the environment's rules checked before signing | "Appcast (sign)" | a run the owner did not approve signing a feed ([H-92](#h-92-an-environment-sparkle-without-rules-hands-the-update-key-to-any-run)) |
 | The history taken from Pages only when the update key signed it | "Appcast (draft)" | a feed altered on Pages being signed again with the next release |
 | The signed feed and the disk image checked with the public key before Pages gets them | "Appcast (deploy)" | a feed every copy would refuse (a secret that does not match the app's key) |
+| The new feed keeps every item the feed on Pages serves, unless its channel's newest were kept (the owner's decision, 2026-10-16) | "Appcast (deploy)" | an older release's appcast, approved after a newer one's, putting the feed back to the older version (2026-10-16): a freeze made by the pipeline itself ([H-93](#h-93-the-feeds-host-can-withhold-updates)) |
 | HTTPS | the feed and the download | eavesdroppers learning which version a user runs (not integrity: the signatures provide that) |
 | Package-manager installs hand over to the manager | not built: no package manager installs Cogpit ([H-17](#h-17-installs-owned-by-a-package-manager)) | Cogpit overwriting files a package manager owns |
 
@@ -270,7 +271,9 @@ is public. Per case: the host serves nothing or an error, and copies stay on the
 a notice ([H-16](#h-16-availability-of-the-release-host)); the host serves an older signed feed (a
 freeze), and copies older than its newest item are offered at most that item, a version with flaws
 fixed since, while newer copies see nothing; a downgrade is not possible, since Sparkle offers only
-a `CFBundleVersion` newer than the running one. Who can change what Pages serves: a workflow run
+a `CFBundleVersion` newer than the running one. The pipeline no longer freezes the feed by
+accident: since 2026-10-16 "Appcast (deploy)" refuses a feed that would drop an item Pages serves
+(`hack/appcast verify -live`); a workflow that skips the check still can. Who can change what Pages serves: a workflow run
 with `pages: write` that the environment `github-pages` admits (by default the default branch, and
 the tag rule the owner adds), so whoever may push a workflow to `main` (H-62). No expiry or
 freshness check is designed.

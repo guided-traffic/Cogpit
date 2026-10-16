@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -224,5 +226,97 @@ func TestReleaseNotesBounded(t *testing.T) {
 	}
 	if none, _ := releaseNotes("", "https://example.invalid/r"); none != "[The release on GitHub](https://example.invalid/r)" {
 		t.Errorf("no notes: %q", none)
+	}
+}
+
+// signedFeed builds a feed of the versions (in that order, each added on the one before) signed
+// with priv, its items' disk images signed too.
+func signedFeed(t *testing.T, priv ed25519.PrivateKey, pub, channel string, versions ...string) []byte {
+	t.Helper()
+	var feed []byte
+	for _, v := range versions {
+		o := baseOptions(t, pub, v)
+		o.channel = channel
+		if feed != nil {
+			o.feed = filepath.Join(t.TempDir(), "current.xml")
+			if err := os.WriteFile(o.feed, feed, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			o.feed = filepath.Join(t.TempDir(), "missing.xml")
+		}
+		draft, err := add(o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		feed = signFeed(priv, fill(draft, ed25519.Sign(priv, []byte(v))))
+	}
+	return feed
+}
+
+// verify with the served feed refuses a feed that would drop one of its items, the way v0.15.0's
+// appcast, approved after v0.16.0's, replaced the feed with 0.15.0 alone on 2026-10-16; an item
+// older than every item its channel keeps may go, and a re-run replaces its own item.
+func TestVerifyKeepsTheServedFeed(t *testing.T) {
+	priv, pub := testKey(t)
+	write := func(data []byte) string {
+		p := filepath.Join(t.TempDir(), "appcast.xml")
+		if err := os.WriteFile(p, data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	otherPriv, _ := testKey(t)
+	for _, tt := range []struct {
+		name       string
+		live, next []byte
+		ok         bool
+	}{
+		{"a release after the served ones", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0", "0.16.0", "0.17.0"), true},
+		{"a re-run of the newest", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), true},
+		{"the oldest left out by the channel's keep", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.16.0", "0.17.0"), true},
+		{"an older release approved after a newer one", signedFeed(t, priv, pub, "", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0"), false},
+		{"a draft made before the newest was deployed", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0", "0.17.0"), false},
+		{"a channel dropped", signedFeed(t, priv, pub, "beta", "0.16.0"), signedFeed(t, priv, pub, "", "0.17.0"), false},
+		{"a served feed another key signed", signedFeed(t, otherPriv, pub, "", "0.16.0"), signedFeed(t, priv, pub, "", "0.17.0"), false},
+	} {
+		_, err := verify(verifyOptions{feed: write(tt.next), pubkey: pub, live: tt.live})
+		if (err == nil) != tt.ok {
+			t.Errorf("%s: %v", tt.name, err)
+		}
+		if !tt.ok && err != nil && strings.Contains(tt.name, "approved after") && !strings.Contains(err.Error(), "would drop 0.16.0 (stable)") {
+			t.Errorf("%s: the error does not name the dropped item: %v", tt.name, err)
+		}
+	}
+}
+
+// fetchLive reads the served feed past Pages' cache, and treats a 404 as no feed yet.
+func TestFetchLive(t *testing.T) {
+	var query string
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query().Get("cogpit-run")
+		switch r.URL.Path {
+		case "/appcast.xml":
+			_, _ = w.Write([]byte("the feed"))
+		case "/broken.xml":
+			w.WriteHeader(http.StatusBadGateway)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	t.Setenv("GITHUB_RUN_ID", "42")
+	t.Setenv("GITHUB_RUN_ATTEMPT", "2")
+	if b, err := fetchLive(srv.Client(), srv.URL+"/appcast.xml"); err != nil || string(b) != "the feed" || query != "42-2" {
+		t.Errorf("served: %q, %v, query %q", b, err, query)
+	}
+	if b, err := fetchLive(srv.Client(), srv.URL+"/missing.xml"); err != nil || b != nil {
+		t.Errorf("not served yet: %q, %v", b, err)
+	}
+	if _, err := fetchLive(srv.Client(), srv.URL+"/broken.xml"); err == nil {
+		t.Error("a 502 read as a feed")
+	}
+	if _, err := fetchLive(srv.Client(), "http://example.invalid/appcast.xml"); err == nil {
+		t.Error("an http URL fetched")
 	}
 }

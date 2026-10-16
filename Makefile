@@ -557,7 +557,7 @@ dist-macos-notarize: ## The release pipeline's second macOS job: Apple's verdict
 # appcast-sign signs the disk image and the feed with Sparkle's sign_update and
 # SPARKLE_ED_PRIVATE_KEY into dist/site (the environment sparkle; without the key it signs
 # nothing), appcast-verify checks the signed feed and the disk image with SPARKLE_PUBLIC_ED_KEY
-# before Pages gets it.
+# before Pages gets it, and that it keeps every item of the feed Pages serves now.
 APPCAST         := $(DIST)/appcast
 
 .PHONY: appcast-draft appcast-sign appcast-verify
@@ -568,9 +568,10 @@ appcast-draft: ## Draft the appcast with this release's item in dist/appcast (re
 appcast-sign: sparkle ## Sign the disk image and the drafted appcast into dist/site with SPARKLE_ED_PRIVATE_KEY (release pipeline's environment sparkle); VERSION=x.y.z
 	hack/macos/appcast.sh sign '$(VERSION)' '$(DIST)/macos' '$(APPCAST)' '$(DIST)/site' '$(SPARKLE_DIR)'
 
-appcast-verify: ## Check dist/site/appcast.xml and the disk image with SPARKLE_PUBLIC_ED_KEY before Pages gets them; VERSION=x.y.z
+appcast-verify: ## Check dist/site/appcast.xml and the disk image with SPARKLE_PUBLIC_ED_KEY, and that no item Pages serves is dropped, before Pages gets them; VERSION=x.y.z
 	$(GO) run ./hack/appcast verify -feed '$(DIST)/site/appcast.xml' -pubkey '$(SPARKLE_PUBLIC_ED_KEY)' \
-		-dmg "$$(ls $(DIST)/macos/Cogpit-$(VERSION)-macos-*.dmg)" -version "$$(cat $(APPCAST)/version)"
+		-dmg "$$(ls $(DIST)/macos/Cogpit-$(VERSION)-macos-*.dmg)" -version "$$(cat $(APPCAST)/version)" \
+		-live '$(SPARKLE_FEED_URL)'
 
 dist-checksums: ## SHA256SUMS of the disk images and app zips in dist/
 	cd $(DIST) && files=$$(ls *.zip *.dmg 2>/dev/null || true) && test -n "$$files" && \

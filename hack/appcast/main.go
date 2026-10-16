@@ -7,7 +7,8 @@
 //	    -version 0.5.0 -short 0.5.0 -min 13.0 -url <the disk image's release asset> -length <bytes> \
 //	    -signature <placeholder> -notes notes.md -link <the release's page> -published <RFC 3339> \
 //	    [-channel beta] [-keep 10]
-//	go run ./hack/appcast verify -feed appcast.xml -pubkey <SUPublicEDKey> [-dmg <disk image> -version 0.5.0]
+//	go run ./hack/appcast verify -feed appcast.xml -pubkey <SUPublicEDKey> [-dmg <disk image> -version 0.5.0] \
+//	    [-live <the feed's URL>]
 //
 // add builds on the feed as GitHub Pages serves it (-feed; a missing file starts a new one), but
 // only on a feed signed with the app's update key: an altered history would otherwise be signed
@@ -20,6 +21,11 @@
 // an Ed25519 signature over every byte before the trailing "<!-- sparkle-signatures:" block, whose
 // length it names) with the app's public key, every item, and with -dmg that the release's item
 // names that disk image by its length and an EdDSA signature over its bytes the key verifies.
+// With -live it also fetches the feed Pages serves now (past its cache) and refuses a feed that
+// would drop one of its items: each draft builds on the feed served when the draft ran, so a
+// release whose appcast is approved after a newer one's would otherwise deploy its older feed over
+// the newer one (2026-10-16). An item may only be missing because its channel's -keep newest were
+// kept, that is when it is older than every item of its channel in the new feed.
 //
 // Standard library only: it runs in the release pipeline beside no dependency's code.
 package main
@@ -33,6 +39,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -464,8 +471,11 @@ func cdata(s string) string {
 	return "<![CDATA[" + strings.ReplaceAll(s, "]]>", "]]]]><![CDATA[>") + "]]>"
 }
 
-// verifyOptions are verify's flags.
-type verifyOptions struct{ feed, pubkey, dmg, version string }
+// verifyOptions are verify's flags; live is the served feed's content (nil: none served).
+type verifyOptions struct {
+	feed, pubkey, dmg, version string
+	live                       []byte
+}
 
 func runVerify(args []string, stdout io.Writer) error {
 	var o verifyOptions
@@ -474,8 +484,19 @@ func runVerify(args []string, stdout io.Writer) error {
 	fs.StringVar(&o.pubkey, "pubkey", "", "the app's SUPublicEDKey (base64)")
 	fs.StringVar(&o.dmg, "dmg", "", "the release's disk image, which the item of -version must name")
 	fs.StringVar(&o.version, "version", "", "the release's CFBundleVersion")
+	liveURL := fs.String("live", "", "the feed's URL on Pages: refuse to drop an item it serves")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if *liveURL != "" {
+		live, err := fetchLive(http.DefaultClient, *liveURL)
+		if err != nil {
+			return err
+		}
+		if live == nil {
+			fmt.Fprintf(stdout, "appcast: no feed on Pages yet (%s): nothing to keep\n", *liveURL)
+		}
+		o.live = live
 	}
 	items, err := verify(o)
 	if err != nil {
@@ -511,6 +532,11 @@ func verify(o verifyOptions) ([]item, error) {
 	if err := check(f.Items, ""); err != nil {
 		return nil, err
 	}
+	if o.live != nil {
+		if err := keepsLive(o.live, f.Items, pub); err != nil {
+			return nil, err
+		}
+	}
 	if o.dmg == "" {
 		return f.Items, nil
 	}
@@ -533,4 +559,63 @@ func verify(o verifyOptions) ([]item, error) {
 		return nil, fmt.Errorf("item %s: the disk image's signature does not verify with the app's update key", it.Version)
 	}
 	return f.Items, nil
+}
+
+// fetchLive reads the feed Pages serves now, past its cache (ten minutes) with a query of the run,
+// as the draft does; nil when none is served yet (404).
+func fetchLive(c *http.Client, feedURL string) ([]byte, error) {
+	u, err := url.Parse(feedURL)
+	if err != nil || u.Scheme != "https" {
+		return nil, fmt.Errorf("-live %q is not an https URL", feedURL)
+	}
+	q := u.Query()
+	q.Set("cogpit-run", os.Getenv("GITHUB_RUN_ID")+"-"+os.Getenv("GITHUB_RUN_ATTEMPT"))
+	u.RawQuery = q.Encode()
+	resp, err := c.Get(u.String())
+	if err != nil {
+		return nil, fmt.Errorf("fetching the feed on Pages: %w", err)
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	case http.StatusNotFound:
+		return nil, nil
+	}
+	return nil, fmt.Errorf("fetching the feed on Pages: HTTP %d", resp.StatusCode)
+}
+
+// keepsLive refuses a feed that drops an item of the served one (live), unless the item is older
+// than every item of its channel in the feed (its channel's newest were kept). The served feed
+// must verify with the same key, as the draft requires of the feed it builds on.
+func keepsLive(live []byte, next []item, pub ed25519.PublicKey) error {
+	content, err := verifySigned(live, pub)
+	if err != nil {
+		return fmt.Errorf("the feed on Pages: %w", err)
+	}
+	served, err := parse(content)
+	if err != nil {
+		return fmt.Errorf("the feed on Pages: %w", err)
+	}
+	oldest := map[string]string{}
+	has := map[string]bool{}
+	for _, it := range next {
+		has[it.Version] = true
+		if o, ok := oldest[it.Channel]; !ok || compareVersions(it.Version, o) < 0 {
+			oldest[it.Channel] = it.Version
+		}
+	}
+	var dropped []string
+	for _, it := range served.Items {
+		if o, ok := oldest[it.Channel]; has[it.Version] || ok && compareVersions(it.Version, o) < 0 {
+			continue
+		}
+		dropped = append(dropped, it.ShortVersion+" ("+channelName(it.Channel)+")")
+	}
+	if len(dropped) > 0 {
+		return fmt.Errorf("the feed would drop %s, which Pages serves now: its draft ran before that "+
+			"release's appcast was deployed (approve the appcasts in the order of the releases); re-run this "+
+			"release's \"Appcast (draft)\", which builds on the feed Pages serves now", strings.Join(dropped, ", "))
+	}
+	return nil
 }
