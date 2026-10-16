@@ -188,9 +188,10 @@ func registerHotbar(g *registrar) {
 	add(g, engine.Spec[hotbarSlotParams]{
 		ID: "hotbar.openCluster", Label: "Open Hotbar Cluster", MenuPath: "Hotbar/Open Cluster", Shortcut: "F1–F12", Danger: engine.DangerUI,
 		Description: "Opens the cluster of a hotbar tile, as clicking it or pressing its F-key does (F1 the top tile of the bank " +
-			"shown): connects to its context and shows its last used tab or its Pods view, replacing the current connection, exactly as " +
-			"cluster_connect does; a tile of the cluster connected already changes nothing. Connecting only reads from the " +
-			"cluster. A tile whose context no kubeconfig source offers any more is disabled. Returns {context, state, error}.",
+			"shown): shows its last used tab or its Pods view, exactly as cluster_connect does: a cluster connected already " +
+			"is only shown, from Cogpit's cache and without a request, another one is connected first, and the cluster shown " +
+			"before stays connected; the tile of the cluster shown changes nothing. Connecting only reads from the cluster. " +
+			"A tile whose context no kubeconfig source offers any more is disabled. Returns {context, state, error}.",
 		Enabled: func(s *engine.Session, p hotbarSlotParams) error {
 			_, err := openableTile(s, p)
 			return err

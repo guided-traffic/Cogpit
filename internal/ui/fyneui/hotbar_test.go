@@ -131,6 +131,9 @@ func (fh *fakeHotbar) view() engine.HotbarState {
 		for j := range v.Banks[i].Clusters {
 			t := &v.Banks[i].Clusters[j]
 			t.Label, t.Connection = engine.ContextLabel(t.Context), engine.Disconnected
+			if c, ok := u.ConnectionOf(t.Context); ok { // every connected cluster's state (D-69)
+				t.Connection = c.Connection.State
+			}
 			if t.Context == u.Context {
 				t.Connection = u.Connection.State
 			}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"slices"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -26,12 +27,17 @@ import (
 // Session.OpenTerminal; Edit and Create resource tabs show a YAML editor whose text lives in the
 // engine (editortab.go, createtab.go). A stream is opened when its tab appears and closed when it
 // disappears.
+//
+// The dock per cluster (D-69 item 9, engine/dockscope.go): the strip shows the shown cluster's
+// tabs and those of no cluster (UIState.DockInScope); every other connected cluster's tabs keep
+// their content and their streams here, hidden, and show again with what ran meanwhile when their
+// cluster is shown. Which tab is active and whether the dock is open are the engine's, per cluster.
 type dock struct {
 	sh *shell
 
-	tabs     []engine.DockTab
+	tabs     []engine.DockTab // the tabs the strip shows: the shown cluster's and those of no cluster
 	active   string
-	contents map[string]*dockContent
+	contents map[string]*dockContent // every tab's content, a hidden cluster's too
 
 	tabRow       *fyne.Container
 	strip        fyne.CanvasObject
@@ -118,8 +124,11 @@ func (d *dock) attachStrip(panel bool) {
 	d.stripHolder.Refresh()
 }
 
-// sync follows UIState.Dock: opens new tabs, closes removed ones, shows the active one.
-func (d *dock) sync(tabs []engine.DockTab, active string) {
+// sync follows UIState.Dock: opens new tabs, closes removed ones, shows the tabs of the shown
+// cluster and of no cluster in the strip (D-69), and the active one. A hidden cluster's tabs keep
+// their streams.
+func (d *dock) sync(st engine.UIState) {
+	tabs := st.Dock
 	seen := make(map[string]bool, len(tabs))
 	for _, t := range tabs {
 		seen[t.ID] = true
@@ -143,10 +152,10 @@ func (d *dock) sync(tabs []engine.DockTab, active string) {
 			delete(d.contents, id)
 		}
 	}
-	d.tabs = append(d.tabs[:0], tabs...)
-	d.active = active
-	if _, ok := d.contents[d.active]; !ok && len(tabs) > 0 {
-		d.active = tabs[len(tabs)-1].ID
+	d.tabs = st.DockInScope()
+	d.active = st.ActiveDock
+	if !slices.ContainsFunc(d.tabs, func(t engine.DockTab) bool { return t.ID == d.active }) && len(d.tabs) > 0 {
+		d.active = d.tabs[len(d.tabs)-1].ID
 	}
 	d.rebuildStrip()
 	d.showActive()

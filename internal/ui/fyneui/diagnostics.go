@@ -2,6 +2,7 @@ package fyneui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -19,19 +20,24 @@ import (
 // most once a second). Its first line sums the cluster's objects and memory, says where discovery
 // came from (the disk cache or the server, D-65), and counts the table snapshots built since start,
 // in every state (connected, the demo cluster, no cluster): the only place the GUI shows them since
-// the status bar dropped them (owner, 2026-10-14). Its layout and wording are Cogpit's (Lens has no
-// such view).
+// the status bar dropped them (owner, 2026-10-14). With several clusters connected (D-69 item 3,
+// stage 2, 2026-10-16) a line per connected cluster follows it, the shown one first: what each one
+// costs, its API requests, watches, objects and memory (DiagnosticsReport.Clusters), so that the
+// cost of keeping clusters connected stays visible; the columns stay the shown cluster's. Its
+// layout and wording are Cogpit's (Lens has no such view).
 
 // diagnosticsTab is the tab's content; it is the dock content's editor (dockEditor), so the dock
 // closes it.
 type diagnosticsTab struct {
 	sh *shell
 
-	root     *fyne.Container
-	summary  *textLine
-	requests *fyne.Container
-	watches  *fyne.Container
-	kinds    *fyne.Container
+	root       *fyne.Container
+	summary    *textLine
+	clusters   *fyne.Container   // a line per connected cluster while more than one is (D-69)
+	perCluster fyne.CanvasObject // clusters with its inset; hidden while it has no line, so the layout stays
+	requests   *fyne.Container
+	watches    *fyne.Container
+	kinds      *fyne.Container
 
 	report engine.DiagnosticsReport
 	seq    int
@@ -41,7 +47,8 @@ type diagnosticsTab struct {
 var _ dockEditor = (*diagnosticsTab)(nil)
 
 func newDiagnosticsTab(sh *shell) *diagnosticsTab {
-	d := &diagnosticsTab{sh: sh, requests: container.NewVBox(), watches: container.NewVBox(), kinds: container.NewVBox()}
+	d := &diagnosticsTab{sh: sh, requests: container.NewVBox(), watches: container.NewVBox(), kinds: container.NewVBox(),
+		clusters: container.NewVBox()}
 	d.summary = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	d.summary.truncate = true
 	column := func(title string, body *fyne.Container) fyne.CanvasObject {
@@ -52,7 +59,10 @@ func newDiagnosticsTab(sh *shell) *diagnosticsTab {
 		column("API requests by verb and resource", d.requests),
 		column("Watches", d.watches),
 		column("Objects and memory per kind", d.kinds))
-	d.root = container.NewBorder(container.NewVBox(inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, d.summary), newDivider(false)),
+	d.perCluster = inset(theme.SizeNameInnerPadding, "", d.clusters)
+	d.perCluster.Hide()
+	d.root = container.NewBorder(container.NewVBox(inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, d.summary),
+		d.perCluster, newDivider(false)),
 		nil, nil, nil, cols)
 	d.reload()
 	return d
@@ -88,6 +98,7 @@ func (d *diagnosticsTab) reload() {
 func (d *diagnosticsTab) show(r engine.DiagnosticsReport) {
 	d.report = r
 	d.summary.SetText(diagnosticsSummary(r))
+	d.showClusters(r)
 	line := func(text string, c fyne.ThemeColorName, mono bool) fyne.CanvasObject {
 		l := newTextLine(text, c, theme.SizeNameText, fyne.TextStyle{Monospace: mono})
 		l.truncate = true
@@ -129,6 +140,52 @@ func (d *diagnosticsTab) show(r engine.DiagnosticsReport) {
 	d.requests.Refresh()
 	d.watches.Refresh()
 	d.kinds.Refresh()
+}
+
+// showClusters draws a line per connected cluster, the shown one first, while more than one is
+// connected; with one the summary says it all.
+func (d *diagnosticsTab) showClusters(r engine.DiagnosticsReport) {
+	var objs []fyne.CanvasObject
+	if len(r.Clusters) > 1 {
+		cs := slices.Clone(r.Clusters)
+		slices.SortStableFunc(cs, func(a, b engine.DiagCluster) int { return boolOrder(b.Shown) - boolOrder(a.Shown) })
+		objs = append(objs, newTextLine(fmt.Sprintf("%d clusters connected", len(cs)), colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{}))
+		for _, c := range cs {
+			l := newTextLine(diagClusterLine(d.sh.identity(c.Context).name, c), theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
+			l.truncate = true
+			objs = append(objs, l)
+		}
+	}
+	d.clusters.Objects = objs
+	d.clusters.Refresh()
+	if len(objs) == 0 {
+		d.perCluster.Hide()
+	} else {
+		d.perCluster.Show()
+	}
+}
+
+// boolOrder is 1 for true, 0 for false: an order with the true ones first.
+func boolOrder(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// diagClusterLine is one connected cluster's line: its name, shown or in the background, its API
+// requests since connecting, its watches, and the objects and memory its cache holds.
+func diagClusterLine(name string, c engine.DiagCluster) string {
+	where := "in the background"
+	if c.Shown {
+		where = "shown"
+	}
+	held := formatCount(int64(c.Objects)) + " objects"
+	if c.Bytes > 0 {
+		held += " (" + model.FormatBytes(c.Bytes) + ")"
+	}
+	return strings.Join([]string{name + " (" + where + ")", formatCount(c.Requests) + " API requests",
+		fmt.Sprintf("%d open watches, %d warm", c.Open, c.Warm), held}, " · ")
 }
 
 // memoryText is a kind's estimated memory, empty when nothing was estimated.

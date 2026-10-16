@@ -100,7 +100,7 @@ func newTopBar(sh *shell) *topBar {
 
 func (t *topBar) update() {
 	ui := t.sh.ui
-	t.dot.set(ui.Context, ui.Connection, "")
+	t.dot.setMark(ui.Context, t.sh.mark(ui.Context, false)) // the shown cluster's mark (clustermarks.go)
 	_, file := splitContextID(ui.Context)
 	name, tip := "No cluster", ""
 	if ui.Context != "" {
@@ -380,7 +380,7 @@ func (l *statusLayout) show(on bool) {
 
 func (s *statusBar) update() {
 	ui, d := s.sh.ui, s.sh.diag
-	s.dot.set(ui.Context, ui.Connection, "")
+	s.dot.setMark(ui.Context, s.sh.mark(ui.Context, false)) // the shown cluster's mark (clustermarks.go)
 	name, tip := "no cluster", ""
 	if ui.Context != "" {
 		name, tip = s.sh.identity(ui.Context).name, ui.Context // the short name; the full context id, its file included

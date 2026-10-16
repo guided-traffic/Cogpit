@@ -538,7 +538,7 @@ func renderNavigatorReconnecting(t *testing.T, mode ThemeMode, name string) {
 	now := interruptedAt.Add(time.Minute)
 	sh.now = func() time.Time { return now }
 	interrupt(f, engine.Interrupted, now)
-	q.until(t, "the blink", func() bool { return sh.blink.ctx == secKind })
+	q.until(t, "the blink", func() bool { return sh.blink.blinking(secKind) })
 	clk.after(blinkPhase)
 	settle(w)
 	sh.tip.delay = time.Millisecond

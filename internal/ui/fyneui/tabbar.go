@@ -25,7 +25,7 @@ import (
 //   - a tab's icon is the cluster's initials badge in its icon colour (cluster settings, the accent
 //     by default), drawn as the navigator's root and the hotbar's tiles draw it (an uploaded image
 //     shows there, not yet on a tab), muted while its
-//     cluster is not the connected one;
+//     cluster is not connected (D-69 stage 2: a tab of another connected cluster is not muted);
 //   - the bar takes the dock's tab colours; the active tab is raised and underlined in the accent
 //     colour, as the dock's active tab is;
 //   - a title wider than the dock's widest tab title is cut with an ellipsis; tabs that do not fit
@@ -98,7 +98,6 @@ func (b *tabBar) sync() {
 		b.row.Refresh()
 		return
 	}
-	live := ui.Connection.State.Live() // interrupted too: the tabs stay (D-58)
 	for len(b.shown) < len(tabs) {
 		b.shown = append(b.shown, newViewTab(b))
 	}
@@ -107,7 +106,9 @@ func (b *tabBar) sync() {
 	var active *viewTab
 	for i, t := range tabs {
 		w := b.shown[i]
-		w.set(t, t.ID == ui.ActiveTab, live && t.Context == ui.Context, b.sh.identity(t.Context))
+		// Muted while its cluster is not connected; interrupted counts as connected (D-58), and so
+		// does a connected cluster the window does not show (D-69).
+		w.set(t, t.ID == ui.ActiveTab, clusterConnected(ui, t.Context), b.sh.identity(t.Context))
 		if w.active {
 			active = w
 		}
@@ -220,7 +221,7 @@ func (b *tabBar) history(back bool) func() {
 // tabsChanged reports whether the tab bar shows something else in st than in old.
 func tabsChanged(st, old engine.UIState) bool {
 	return st.ActiveTab != old.ActiveTab || st.Context != old.Context || st.Connection.State != old.Connection.State ||
-		st.Scope() != old.Scope() ||
+		st.Scope() != old.Scope() || connectionsChanged(st, old) ||
 		!slices.EqualFunc(st.Tabs, old.Tabs, func(a, b engine.ViewTab) bool {
 			return a.ID == b.ID && a.Title == b.Title && a.Preview == b.Preview && a.Context == b.Context
 		})
@@ -276,7 +277,7 @@ type viewTab struct {
 	bar     *tabBar
 	tab     engine.ViewTab
 	active  bool
-	live    bool            // its cluster is the connected one
+	live    bool            // its cluster is connected, shown or not (D-69)
 	id      clusterIdentity // its cluster's initials and icon colour (cluster settings)
 	hovered bool
 	close   *widget.Button

@@ -23,7 +23,10 @@ import (
 // the bottom, as captured from Lens (2026-10-11). A tile is the cluster's identity
 // (clusteridentity.go: its initials in its icon colour, the accent by default, or its uploaded
 // image), its name under it (the display name its Settings give it, else the context's) and a dot
-// for the connection's state; its tooltip is the full context id. A click opens the cluster (hotbar.openCluster); the
+// with the cluster's mark (clustermarks.go, D-69: live, (re)connecting, cold, its login lapsed,
+// failed); its tooltip is the full context id and the state. The shown cluster's tile is raised;
+// a connected cluster's tile that is not shown has its dot only. A click opens the cluster
+// (hotbar.openCluster: a connected one is only shown, D-69); the
 // tile's menu (right-click) connects, moves it up or down and removes it; a tile dragged within the
 // bar moves to the gap it is dropped into (R2, hotbardrag.go); the switcher's arrows and its number
 // (a menu of the banks) switch, create, rename and remove banks. F1–F12 open a tile of the shown
@@ -188,8 +191,9 @@ func (h *hotbar) switchBank(n int) {
 }
 
 // open opens the tile in a slot of the shown bank: a missing context is explained, a credential
-// plugin waiting for the user's approval is shown first (as the navigator's section does), and the connected
-// cluster's tile does nothing.
+// plugin waiting for the user's approval is shown first (as the navigator's section does), the
+// shown cluster's tile does nothing, and a connected cluster's tile only shows it (D-69: nothing is
+// asked again, nothing connects).
 func (h *hotbar) open(slot int) {
 	b, ok := h.bank()
 	if !ok || slot < 1 || slot > len(b.Clusters) {
@@ -216,12 +220,13 @@ func (h *hotbar) open(slot int) {
 				State   string `json:"state"`
 				Error   string `json:"error"`
 			}
-			if decode(res, &out) == nil && out.State == string(engine.ConnectError) {
+			// A window that went back to the cluster it showed said why already (clustermarks.go).
+			if decode(res, &out) == nil && out.State == string(engine.ConnectError) && !h.sh.wentBack(t.Context) {
 				h.sh.toast("error", "Could not connect to "+name+": "+out.Error)
 			}
 		})
 	}
-	if t.Exec == engine.ExecRequired || t.Exec == engine.ExecChanged {
+	if (t.Exec == engine.ExecRequired || t.Exec == engine.ExecChanged) && !switchable(h.sh.ui, t.Context) {
 		h.sh.kc.reviewPlugin(t.Context, func(allowed bool) {
 			if !allowed {
 				h.sh.toast("warning", "Not connected: the login of "+name+" was not allowed.")
@@ -291,7 +296,7 @@ func (h *hotbar) tileMenu(slot int, pos fyne.Position) {
 		return
 	}
 	t, bank := b.Clusters[slot-1], h.view.Current
-	connect := fyne.NewMenuItem("Connect", func() { h.open(slot) })
+	connect := fyne.NewMenuItem(connectItemLabel(h.sh.ui, t.Context), func() { h.open(slot) })
 	connect.Disabled = t.Missing || (t.Context == h.sh.ui.Context && t.Connection.Live())
 	move := func(to int) func() {
 		return func() {
@@ -487,14 +492,32 @@ func newHotbarTile(h *hotbar, t engine.HotbarTile, slot int) *hotbarTile {
 	return ht
 }
 
-// active reports whether the tile is the cluster the window is connected or connecting to.
+// active reports whether the tile is the cluster the window shows, connected or connecting: the
+// tile is raised. Another connected cluster's tile is not (D-69): its dot says it is connected.
 func (t *hotbarTile) active() bool {
-	return t.tile.Connection != "" && t.tile.Connection != engine.Disconnected
+	live := t.tile.Connection.Live() || t.tile.Connection == engine.Connecting
+	if sh := t.h.sh; sh != nil {
+		return live && t.tile.Context == sh.ui.Context
+	}
+	return live
+}
+
+// mark is the tile's dot (clustermarks.go): the cluster's mark, a failed last connect as the
+// navigator's list of contexts says it.
+func (t *hotbarTile) mark() clusterMark {
+	if t.h.sh == nil {
+		return clusterMark{conn: engine.Connection{State: t.tile.Connection}}
+	}
+	return t.h.sh.mark(t.tile.Context, t.h.sh.connectProblem(t.tile.Context))
 }
 
 // tipText is the tooltip: the full context id, its state and its key.
 func (t *hotbarTile) tipText() string {
-	state := connectionText(engine.Connection{State: t.tile.Connection})
+	m := t.mark()
+	state := m.state
+	if state == "" {
+		state = connectionText(m.conn)
+	}
 	if t.tile.Missing {
 		state = "No kubeconfig source offers this context any more"
 	}
@@ -627,14 +650,11 @@ func (r *hotbarTileRenderer) Refresh() {
 	if t.lifted() {
 		r.lift(th, accent)
 	}
-	conn, base := engine.Connection{State: t.tile.Connection}, fyne.ThemeColorName("")
-	if sh := t.h.sh; sh != nil && t.active() && sh.ui.Context == t.tile.Context {
-		conn = sh.ui.Connection // its reason and times for the dot's tooltip
-	}
+	m := t.mark() // the cluster's mark, with its reason and times for the dot's tooltip (D-69)
 	if t.tile.Missing {
-		base = colorStatusWarning
+		m.color, m.ring = colorStatusWarning, false
 	}
-	r.dot.set(t.tile.Context, conn, base)
+	r.dot.setMark(t.tile.Context, m)
 	r.ring.FillColor = themeColor(th, theme.ColorNameHeaderBackground) // sets the dot off the tile
 	if r.id.image != nil && !t.tile.Missing {                          // the uploaded icon in place of the initials
 		r.img.Resource = r.id.image

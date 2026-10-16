@@ -308,7 +308,7 @@ func (s *sidebar) updateHeader() {
 	if s.section {
 		s.sec.render() // the clusters' dots, marks and identities
 	}
-	s.dot.set(ui.Context, ui.Connection, "")
+	s.dot.setMark(ui.Context, s.sh.mark(ui.Context, false)) // the shown cluster's mark (clustermarks.go)
 	s.rootRow.showCluster(ui.Context != "")
 	if ui.Context == "" {
 		s.badge.set("–", true)

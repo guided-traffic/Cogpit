@@ -37,7 +37,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🗂️ Every cluster from your kubeconfig files and synced folders, side by side.
 - 🧭 Lens's navigator levels: All Clusters (Local Kubeconfigs) lists every cluster and the tabs of all of them, the one list to choose a cluster from, with a + to add kubeconfigs; › drills into one cluster's resources and its tabs, ‹ All Clusters goes back up.
 - 📌 A hotbar of pinned clusters at the window's edge, in banks of twelve: F1–F12 to switch cluster, ⇧F1–⇧F12 to switch bank.
-- 🔀 Several clusters connected at once (since 2026-10-16): switching to another cluster leaves the one you were on connected, its logs, shells, port forwards and running jobs going on; switching back within five minutes shows it at once without asking the cluster again, later its lists load anew. A cluster stays connected until you disconnect it or quit; agents may work on any connected cluster. The window's marks for the clusters in the background come next *(planned)*.
+- 🔀 Several clusters connected at once (since 2026-10-16): switching to another cluster leaves the one you were on connected, its logs, shells, port forwards and running jobs going on; switching back within five minutes shows it at once without asking the cluster again, later its lists load anew. A cluster stays connected until you disconnect it or quit; agents may work on any connected cluster. Every dot of a cluster says how it is: filled while live, a ring while it rests in the background, blinking while it reconnects, red when it needs you; the dock shows the tabs of the cluster you look at ([Several clusters connected](#several-clusters-connected)).
 - 🪪 One short name per cluster wherever the window names it: the name you gave it in its Settings, else its context's name after the last "@" ("kubernetes-admin@prod-eu" shows as "prod-eu"); the full name in every tooltip, and the navigator's search finds it by either. The navigator's root says who you are logged in as there, as the API server confirms it at every connect (`kubectl auth whoami`'s question), your groups in the tooltip of the small box beside it; "(kubeconfig)" marks the kubeconfig's user name where the API server does not say, and while the cluster connects the last user it confirmed shows dimmed, with when it was last seen ([D-68](decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)).
 - ⌨️ A command palette on ⌘⇧P (Ctrl+Shift+P): every action the menus offer, Switch to any view, the hotbar's clusters and banks; ⌘P (Cluster › Connect to Cluster…) to search a cluster by name in the navigator's list, ↵ to connect, Escape to go back.
 - 👋 A welcome page whenever no cluster is open (and from Help › Welcome): your clusters one click away, Add Kubeconfigs, the documentation. Disconnect a cluster, or remove it from Cogpit, which unlinks the kubeconfig file you added and never touches the file.
@@ -441,6 +441,37 @@ view and selection the input's chip shows then. While a turn runs the pencil is 
 turn first. The model is not told what was cut, so where you allowed agent writes for the cluster,
 a write of the cut part can run again unasked
 ([H-100](../security/agents-and-mcp.md#h-100-a-cut-parts-tool-calls-leave-the-models-view)).
+
+### Several clusters connected
+
+Since 2026-10-16 ([D-69](decisions.md#d-69-several-clusters-connected-at-once)). Showing another
+cluster leaves the one you were on connected. Click a connected cluster's hotbar tile (or press its
+F-key), its row in All Clusters or on the welcome page, or one of its tabs: it shows at once, from
+Cogpit's cache, without asking the cluster or showing its login program again. A cluster that is not
+connected connects and shows; the others stay connected. A connected cluster's menu (right-click on
+its tile or row) says **Show** instead of Connect, and **Disconnect** there closes that cluster
+alone. If a connect fails while another cluster was shown, Cogpit shows that cluster again and a
+toast says why; the cluster that failed turns red.
+
+Every dot of a cluster (its hotbar tile, its row in the navigator and on the welcome page, the top
+bar and the status bar for the one shown) says how it is; its tooltip names the state, a click on it
+opens the cluster's connection updates:
+
+| Dot | Means |
+|---|---|
+| filled green | live: the cluster shown, or one in the background whose lists are still kept (5 minutes after you left it): showing it is instant |
+| filled green, blinking | connecting or reconnecting, in the background too |
+| green ring | connected in the background, its lists released: showing it lists them again (seconds) |
+| grey ring | connected in the background, its login lapsed and was not renewed: showing it or Log in again renews it |
+| filled red | needs you: a connect or a login renewal failed |
+| filled grey | not connected |
+
+The dock shows the tabs of the cluster you look at, and the Audit Log and the Diagnostics, which
+belong to no cluster. Another cluster's logs, shells and jobs go on behind it; showing that cluster
+again shows its tabs with what they printed meanwhile, the tab that was active and the dock open
+or collapsed as you left it. A tab an agent opens on a cluster you do not look at waits in that
+cluster's dock. With more than one cluster connected, the Diagnostics tab (Help › Diagnostics) lists
+what each one costs: its API requests, watches, objects and memory.
 
 ### When the connection breaks
 

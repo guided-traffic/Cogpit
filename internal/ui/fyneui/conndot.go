@@ -23,12 +23,19 @@ import (
 // that cluster blinks in step: the top bar's, the status bar's, its hotbar tile's, its navigator
 // rows' and its welcome-page row's. The dot's tooltip names the state, and a click on it opens the
 // cluster's connection log (connectlog.go), never also its row or tile.
+//
+// With several clusters connected (D-69 item 5, stage 2, 2026-10-16) the dot's shape says live or
+// resting: a connected cluster the window does not show is filled while its views are warm, a ring
+// of the same size once they are released (cold, green) or once its login lapsed without a renewal
+// (grey); clustermarks.go derives each cluster's mark. Each cluster's dots blink for its own
+// (re)connect, a background cluster's too (D-69 item 7), and a blinking dot is drawn filled.
 
 const (
 	blinkPhase   = 500 * time.Millisecond // each phase, full and dimmed (the owner)
 	blinkMinimum = 3 * time.Second        // three intervals at least (the owner)
 	blinkDim     = 0.3                    // the dimmed phase's alpha: the dot stays (the lead's)
 	blinkStill   = 0.5                    // the steady dot's alpha under Reduce motion (the lead's)
+	ringStroke   = 1.5                    // a ring's line, in points: 1.5 px at 1× (D-69, the lead's)
 )
 
 // blinkingState reports whether a state is a (re)connect: Connecting or Interrupted.
@@ -49,78 +56,116 @@ func connectionColor(c engine.Connection) fyne.ThemeColorName {
 	return colorStatusUnknown
 }
 
-// blinker is the one clock of the blinking dots, on the main goroutine. It follows the window's
-// connection (observe): a (re)connect of a cluster starts a blink of its dots that lasts while the
-// engine says it (re)connects and at least blinkMinimum; Login expired, Connection failed, a
-// disconnect or another cluster end it at once. A ticker runs only while a blink lasts and
-// refreshes the cluster's dots at each phase; without a blink nothing runs.
+// blinker is the one clock of the blinking dots, on the main goroutine. It follows every
+// cluster's connection the window knows (observeAll: the shown one's and each connected one's,
+// D-69 item 7): a (re)connect of a cluster starts a blink of its dots that lasts while the engine
+// says it (re)connects and at least blinkMinimum; Login expired, Connection failed or a disconnect
+// end it at once. Each cluster blinks for itself, a background cluster's reconnect too; a cluster
+// shown or left does not end another's blink. A ticker runs only while a blink lasts and refreshes
+// the blinking clusters' dots at each phase; without a blink nothing runs.
 type blinker struct {
 	sh     *shell
 	now    func() time.Time
 	reduce func() bool // Reduce motion (reducemotion_darwin.go), read when a blink starts
 	ticker func(on bool)
 
-	ctx   string    // the cluster that blinks; "" while none does
+	blinks map[string]*blink // the clusters that blink, by context
+
+	dots []weak.Pointer[connDot] // every dot made, to refresh the blinking clusters'
+	stop chan struct{}           // the running ticker's; nil while none runs
+}
+
+// blink is one cluster's blink.
+type blink struct {
 	live  bool      // the engine still says it (re)connects
 	start time.Time // the blink's start: its phases count from here, so its dots blink in step
 	until time.Time // it blinks at least until then
 	still bool      // Reduce motion: a steady half-alpha dot instead
-
-	dots []weak.Pointer[connDot] // every dot made, to refresh the blinking cluster's
-	stop chan struct{}           // the running ticker's; nil while none runs
 }
 
+// on reports whether the blink lasts at now.
+func (k *blink) on(now time.Time) bool { return k != nil && (k.live || now.Before(k.until)) }
+
 func newBlinker(sh *shell) *blinker {
-	b := &blinker{sh: sh, now: time.Now, reduce: reduceMotion}
+	b := &blinker{sh: sh, now: time.Now, reduce: reduceMotion, blinks: map[string]*blink{}}
 	b.ticker = b.runTicker
 	return b
 }
 
-// observe follows the window's cluster and its connection state.
-func (b *blinker) observe(ctx string, s engine.ConnectionState) {
-	now := b.now()
-	switch {
-	case ctx != "" && blinkingState(s):
-		if ctx != b.ctx || !b.on(now) {
-			b.ctx, b.start, b.until, b.still = ctx, now, now.Add(blinkMinimum), b.reduce()
+// observeAll follows every cluster the window knows a state of (clusterStates): a cluster no
+// longer among them (disconnected) ends its blink.
+func (b *blinker) observeAll(states map[string]engine.ConnectionState) {
+	for ctx := range b.blinks {
+		if _, ok := states[ctx]; !ok {
+			delete(b.blinks, ctx)
 		}
-		b.live = true
-	case ctx != "" && ctx == b.ctx && s == engine.Connected:
-		b.live = false // the minimum may still run
-	default:
-		b.ctx, b.live = "", false
+	}
+	for ctx, s := range states {
+		b.follow(ctx, s)
 	}
 	b.tick()
 }
 
-// on reports whether a blink lasts at now.
-func (b *blinker) on(now time.Time) bool {
-	return b.ctx != "" && (b.live || now.Before(b.until))
+// follow starts, keeps or ends a cluster's blink for its state.
+func (b *blinker) follow(ctx string, s engine.ConnectionState) {
+	if ctx == "" {
+		return
+	}
+	now := b.now()
+	k := b.blinks[ctx]
+	switch {
+	case blinkingState(s):
+		if !k.on(now) {
+			k = &blink{start: now, until: now.Add(blinkMinimum), still: b.reduce()}
+			b.blinks[ctx] = k
+		}
+		k.live = true
+	case k != nil && s == engine.Connected:
+		k.live = false // the minimum may still run
+	default:
+		delete(b.blinks, ctx)
+	}
 }
 
-// look is how a dot of ctx in state s shows now: its colour token and alpha.
-func (b *blinker) look(ctx string, s engine.ConnectionState, base fyne.ThemeColorName) (fyne.ThemeColorName, float32) {
+// blinking reports whether a cluster's dots blink now.
+func (b *blinker) blinking(ctx string) bool { return ctx != "" && b.blinks[ctx].on(b.now()) }
+
+// any reports whether some cluster's dots blink now.
+func (b *blinker) any() bool {
 	now := b.now()
-	if ctx == "" || ctx != b.ctx || !b.on(now) || (!blinkingState(s) && s != engine.Connected) {
-		return base, 1
+	for _, k := range b.blinks {
+		if k.on(now) {
+			return true
+		}
+	}
+	return false
+}
+
+// look is how a dot of ctx in state s shows now: its colour token and alpha, and whether it blinks
+// (a blinking dot is drawn filled, never as a ring).
+func (b *blinker) look(ctx string, s engine.ConnectionState, base fyne.ThemeColorName) (fyne.ThemeColorName, float32, bool) {
+	now := b.now()
+	k := b.blinks[ctx]
+	if ctx == "" || !k.on(now) || (!blinkingState(s) && s != engine.Connected) {
+		return base, 1, false
 	}
 	switch {
-	case b.still:
-		return colorContainerRunning, blinkStill
-	case (now.Sub(b.start)/blinkPhase)%2 == 1:
-		return colorContainerRunning, blinkDim
+	case k.still:
+		return colorContainerRunning, blinkStill, true
+	case (now.Sub(k.start)/blinkPhase)%2 == 1:
+		return colorContainerRunning, blinkDim, true
 	}
-	return colorContainerRunning, 1
+	return colorContainerRunning, 1, true
 }
 
-// tick refreshes the blinking cluster's dots and runs the ticker while a blink lasts; the last
+// tick refreshes the blinking clusters' dots and runs the ticker while a blink lasts; the last
 // tick of a blink refreshes them once more, steady.
 func (b *blinker) tick() {
 	now := b.now()
-	on := b.on(now)
-	ctx := b.ctx
-	if !on {
-		b.ctx = ""
+	for ctx, k := range b.blinks {
+		if !k.on(now) {
+			delete(b.blinks, ctx)
+		}
 	}
 	live := b.dots[:0]
 	for _, w := range b.dots {
@@ -129,13 +174,13 @@ func (b *blinker) tick() {
 			continue
 		}
 		live = append(live, w)
-		if d.context != "" && (d.context == ctx || d.blinked) {
+		if _, on := b.blinks[d.context]; d.context != "" && (on || d.blinked) {
 			d.Refresh()
 		}
 	}
 	clear(b.dots[len(live):])
 	b.dots = live
-	b.ticker(on)
+	b.ticker(len(b.blinks) > 0)
 }
 
 // add keeps a dot to refresh while its cluster blinks.
@@ -176,6 +221,8 @@ type connDot struct {
 	context  string // the cluster; "" for none, which has no log
 	conn     engine.Connection
 	color    fyne.ThemeColorName // the colour when it does not blink
+	ring     bool                // drawn as a ring, not filled, when it does not blink (D-69: resting)
+	state    string              // the tooltip's first line in place of connectionText's, "" for that
 	blinked  bool                // drawn blinking last time: refreshed once more when the blink ends
 	tipExtra string              // a line the site adds to the tooltip
 }
@@ -195,25 +242,26 @@ func newConnDot(sh *shell) *connDot {
 	return d
 }
 
-// set shows a cluster's connection; base is the colour when it does not blink, "" for
-// connectionColor's.
-func (d *connDot) set(ctx string, c engine.Connection, base fyne.ThemeColorName) {
-	if base == "" {
-		base = connectionColor(c)
+// setMark shows a cluster's mark (clustermarks.go): its connection, colour, shape and the state its
+// tooltip names.
+func (d *connDot) setMark(ctx string, m clusterMark) {
+	if m.color == "" {
+		m.color = connectionColor(m.conn)
 	}
-	if ctx == d.context && c == d.conn && base == d.color {
+	if ctx == d.context && m.conn == d.conn && m.color == d.color && m.ring == d.ring && m.state == d.state {
 		return
 	}
-	d.context, d.conn, d.color = ctx, c, base
+	d.context, d.conn, d.color, d.ring, d.state = ctx, m.conn, m.color, m.ring, m.state
 	d.Refresh()
 }
 
-// look is the dot's colour token and alpha now.
-func (d *connDot) look() (fyne.ThemeColorName, float32) {
+// look is the dot's colour token and alpha now, and whether it is drawn as a ring.
+func (d *connDot) look() (fyne.ThemeColorName, float32, bool) {
 	if d.sh == nil || d.sh.blink == nil {
-		return d.color, 1
+		return d.color, 1, d.ring
 	}
-	return d.sh.blink.look(d.context, d.conn.State, d.color)
+	name, a, blinking := d.sh.blink.look(d.context, d.conn.State, d.color)
+	return name, a, d.ring && !blinking
 }
 
 // tipText names the state: why and since when where the engine says so, the next attempt, and
@@ -221,6 +269,9 @@ func (d *connDot) look() (fyne.ThemeColorName, float32) {
 func (d *connDot) tipText() string {
 	c := d.conn
 	parts := []string{connectionText(c)}
+	if d.state != "" {
+		parts[0] = d.state
+	}
 	tf := d.sh.timeFormat()
 	if !c.Since.IsZero() && (c.State == engine.Interrupted || c.State == engine.LoginExpired) {
 		parts = append(parts, "since "+tf.FormatClock(c.Since))
@@ -315,13 +366,17 @@ func (r *connDotRenderer) MinSize() fyne.Size {
 }
 
 func (r *connDotRenderer) Refresh() {
-	name, a := r.d.look()
-	r.d.blinked = name != r.d.color || a != 1
+	name, a, ring := r.d.look()
+	r.d.blinked = name != r.d.color || a != 1 || ring != r.d.ring
 	c := themeColor(r.d.Theme(), name)
 	if a < 1 {
 		c = withAlpha(c, scaleAlpha(color.NRGBAModel.Convert(c).(color.NRGBA).A, a))
 	}
-	r.c.FillColor = c
+	if ring { // the same size, an outline: the layout does not move (D-69 item 5)
+		r.c.FillColor, r.c.StrokeColor, r.c.StrokeWidth = color.Transparent, c, ringStroke
+	} else {
+		r.c.FillColor, r.c.StrokeColor, r.c.StrokeWidth = c, color.Transparent, 0
+	}
 	r.Layout(r.d.Size())
 	r.c.Refresh()
 }

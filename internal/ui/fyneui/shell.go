@@ -92,6 +92,7 @@ type shell struct {
 	tabs      *tabBar       // the tabs of cluster views above the workspace (tabbar.go)
 	kc        *kubeconfigUI // the kubeconfig sources' dialogs (kubeconfigs.go)
 	blink     *blinker      // the connection dots' one clock (conndot.go, F13)
+	switcher  clusterSwitch // the cluster shown before a connect, shown again when it fails (clustermarks.go, D-69)
 	settings  *settingsPage // Preferences and Cluster settings (preferences_page.go)
 	confirmer *guiConfirmer
 	conn      *connBanner  // an interrupted connection or an expired login, right below the top bar (connbanner.go, D-58)
@@ -472,7 +473,8 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || st.Context != old.Context || st.Connection != old.Connection {
 		sh.connectionChanged(st, old)
 	}
-	sh.side.userChanged(st, old) // a renewed login's user (clusteruser.go, D-68)
+	sh.clustersChanged(st, old, first) // the other connected clusters' marks, a failed connect's way back (clustermarks.go, D-69)
+	sh.side.userChanged(st, old)       // a renewed login's user (clusteruser.go, D-68)
 	if !first && (st.ActiveTab != old.ActiveTab || st.View != old.View) {
 		sh.view.dropSearch() // a search typed for one tab or view stays out of the next (tableview.go)
 	}
@@ -494,7 +496,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 		sh.drawerChanged()
 	}
 	if first || !dockEqual(st, old) {
-		sh.dock.sync(st.Dock, st.ActiveDock)
+		sh.dock.sync(st)
 		sh.layoutBody()
 	}
 	if first || !sameHotbar(st.Hotbar, old.Hotbar) || st.Context != old.Context || st.Connection != old.Connection {
@@ -542,7 +544,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 // connectionChanged follows the context or the connection: the header, the status bar, the
 // placeholder, and the connected cluster's kinds and namespaces.
 func (sh *shell) connectionChanged(st, old engine.UIState) {
-	sh.blink.observe(st.Context, st.Connection.State) // before the dots follow (conndot.go)
+	sh.blink.observeAll(clusterStates(st)) // before the dots follow (conndot.go): every cluster's, D-69
 	sh.top.update()
 	sh.status.update()
 	sh.conn.update()            // the banner of an interrupted connection (D-58)
@@ -550,7 +552,8 @@ func (sh *shell) connectionChanged(st, old engine.UIState) {
 	sh.side.updateHeader()
 	sh.view.updatePlaceholder()
 	sh.view.checksChanged() // the selection bar's Delete follows the connection (D-58)
-	if st.Connection.State == engine.Connected && (sh.kindsFor != st.Context) {
+	// A connected cluster shown again loads its kinds, an interrupted one too (D-69).
+	if st.Connection.State.Live() && (sh.kindsFor != st.Context) {
 		sh.loadKinds()
 		sh.loadNamespaces()
 	}
@@ -1156,7 +1159,7 @@ func sameRef(a, b *model.ObjectRef) bool {
 }
 
 func dockEqual(a, b engine.UIState) bool {
-	if a.ActiveDock != b.ActiveDock || len(a.Dock) != len(b.Dock) {
+	if a.ActiveDock != b.ActiveDock || len(a.Dock) != len(b.Dock) || a.Context != b.Context { // the shown cluster's tabs (D-69)
 		return false
 	}
 	for i := range a.Dock {

@@ -2,6 +2,7 @@ package fyneui
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/url"
 	"runtime"
@@ -189,9 +190,12 @@ func (w *welcomePage) subscribe() {
 }
 
 // welcomeStateSig is what of a UI state the page's list depends on beyond the tab bar's changes:
-// the hotbar's banks and the tabs' clusters.
+// the hotbar's banks, the tabs' clusters and the connected clusters' marks (D-69).
 func welcomeStateSig(st engine.UIState) string {
 	var b strings.Builder
+	for _, c := range st.Connections {
+		fmt.Fprintf(&b, "%s=%s/%v/%v|", c.Context, c.Connection.State, c.Cold, c.LoginLapsed)
+	}
 	if h := st.Hotbar; h != nil {
 		raw, _ := json.Marshal(h)
 		b.Write(raw)
@@ -200,6 +204,14 @@ func welcomeStateSig(st engine.UIState) string {
 		b.WriteString("|" + t.Context)
 	}
 	return b.String()
+}
+
+// reload reads the contexts again while the page shows (after a connect ended: its failed
+// connects, ContextInfo.ConnectProblem).
+func (w *welcomePage) reload() {
+	if w.shown {
+		w.load()
+	}
 }
 
 // load reads the contexts and their links off the main goroutine, then renders. A newer load
@@ -303,6 +315,9 @@ func (w *welcomePage) render() {
 	ui := w.sh.ui
 	var sig strings.Builder
 	sig.WriteString(string(ui.Connection.State) + "|" + ui.Context)
+	for _, c := range ui.Connections { // the connected clusters' marks (D-69)
+		fmt.Fprintf(&sig, "|%s=%s/%v/%v", c.Context, c.Connection.State, c.Cold, c.LoginLapsed)
+	}
 	for _, g := range groups {
 		sig.WriteString("|" + g.title)
 		for _, c := range g.contexts {
@@ -358,9 +373,9 @@ func (w *welcomePage) row(c engine.ContextInfo) *clusterRow {
 	connect := func() { w.connect(name) }
 	r := newClusterRow(c, title, sub, connect, connect, func() { sh.kc.showConnectLog(name) })
 	r.badge.setIdentity(sh.identity(name))
-	if c := sh.ui.Connection; sh.ui.Context == name && (c.State.Live() || c.State == engine.Connecting) {
-		d := newConnDot(sh) // its state as a dot, never a word (F13): connecting, connected, reconnecting, login expired
-		d.set(name, c, "")
+	if c := sh.ui.Connection; (sh.ui.Context == name && (c.State.Live() || c.State == engine.Connecting)) || clusterConnected(sh.ui, name) {
+		d := newConnDot(sh) // its mark, never a word (F13, D-69): connecting, connected, warm, cold, reconnecting, login expired
+		d.setMark(name, sh.mark(name, false))
 		r.badges.Add(d)
 	}
 	r.onMenu = func(pos fyne.Position) { w.menu(name, pos) }
@@ -369,7 +384,8 @@ func (w *welcomePage) row(c engine.ContextInfo) *clusterRow {
 }
 
 // connect connects a cluster as the navigator's section does: a login program the user has not
-// allowed yet is shown first; the connection's outcome shows on the page (or the cluster's tab replaces it).
+// allowed yet is shown first; the connection's outcome shows on the page (or the cluster's tab
+// replaces it). A connected cluster is only shown (D-69).
 func (w *welcomePage) connect(name string) {
 	sh := w.sh
 	if sh.ui.Context == name && sh.ui.Connection.State.Live() {
@@ -385,7 +401,7 @@ func (w *welcomePage) connect(name string) {
 		return
 	}
 	for _, c := range w.contexts {
-		if c.Name == name && (c.Exec == engine.ExecRequired || c.Exec == engine.ExecChanged) {
+		if c.Name == name && (c.Exec == engine.ExecRequired || c.Exec == engine.ExecChanged) && !switchable(sh.ui, name) {
 			sh.kc.reviewPlugin(name, func(allowed bool) {
 				if allowed {
 					sh.dispatch("cluster.connect", contextParams{Context: name}, nil)
@@ -401,7 +417,7 @@ func (w *welcomePage) connect(name string) {
 // Remove from Cogpit, as the navigator's section rows have them.
 func (w *welcomePage) menu(name string, pos fyne.Position) {
 	sh := w.sh
-	items := []*fyne.MenuItem{fyne.NewMenuItem("Connect", func() { w.connect(name) })}
+	items := []*fyne.MenuItem{fyne.NewMenuItem(connectItemLabel(sh.ui, name), func() { w.connect(name) })}
 	if item := sh.settingsItem(name); item != nil {
 		items = append(items, item)
 	}

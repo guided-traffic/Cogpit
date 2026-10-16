@@ -55,7 +55,10 @@ Reporting a vulnerability: [`SECURITY.md`](../../SECURITY.md).
   a write confirmed for one context refuses to run on another (`CheckConfirmedContext` in
   [`confirm.go`](../../internal/engine/confirm.go)), its cluster's connection, access reviews and the
   allowance of agent writes decide for it, and each terminal is bound to its context by its own
-  kubeconfig ([architecture §4.3](../developer/architecture.md#several-clusters-connected-d-69)). What
+  kubeconfig ([architecture §4.3](../developer/architecture.md#several-clusters-connected-d-69)).
+  Since stage 2 (2026-10-16) the dock shows only the shown cluster's tabs and those of no cluster
+  ([`dockscope.go`](../../internal/engine/dockscope.go)), so a terminal of one cluster never stands
+  beside another cluster's view, and every connected cluster's dot shows that it is connected. What
   agents can do with clusters the window does not show is
   [H-115](agents-and-mcp.md#h-115-agents-read-and-act-on-connected-clusters-the-window-does-not-show). The owner asked on 2026-10-14 evening
   for a hotbar tile dragged out of the window to open another Cogpit window with that cluster; it

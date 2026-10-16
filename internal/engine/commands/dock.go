@@ -157,8 +157,16 @@ func registerDock(g *registrar) {
 
 	add(g, engine.Spec[dockParams]{
 		ID: "dock.activate", Label: "Show Tab", Danger: engine.DangerUI,
-		Description: "Shows a dock tab. Returns the new UI state.",
+		Description: "Shows a dock tab. The dock shows the tabs of the cluster the window shows and those of no cluster " +
+			"(ui_state's dock lists every tab with its context); a tab of another connected cluster shows that cluster " +
+			"first, as cluster_connect shows a connected one, from Cogpit's cache and without a request. Returns the new UI state.",
 		Run: func(_ context.Context, s *engine.Session, p dockParams) (any, error) {
+			u := s.UIState()
+			if t, ok := u.DockTab(p.ID); ok && !u.InDockScope(t) {
+				if err := s.Show(t.Context); err != nil { // the dock per cluster (D-69): its cluster first
+					return nil, err
+				}
+			}
 			found := false
 			st := s.UpdateUI(func(u *engine.UIState) {
 				if _, ok := u.DockTab(p.ID); ok {

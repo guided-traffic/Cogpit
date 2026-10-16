@@ -22,6 +22,11 @@ type ConnectedCluster struct {
 	// takes seconds. Its heartbeat, access reviews and the dock's streams go on. Within the warm
 	// period it is not cold, and showing it again lists nothing.
 	Cold bool `json:"cold,omitempty"`
+	// LoginLapsed is set for a cluster not shown whose login lapsed and that Cogpit did not renew,
+	// because its Cluster Settings say not to renew it while it is not shown (D-69 item 4): it is
+	// renewed when the cluster is shown, or by Log in again. Not a failure: the window draws a grey
+	// ring, not red (item 5).
+	LoginLapsed bool `json:"loginLapsed,omitempty"`
 
 	gen uint64 // the connect that made it (pooled.gen): a watch writes only its own connection's state
 }

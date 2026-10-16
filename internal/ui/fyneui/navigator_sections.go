@@ -40,8 +40,9 @@ import (
 //     root has no ‹ and nothing above it;
 //   - every context the kubeconfig sources offer, grouped under a heading naming the folder or
 //     file they come from (".kube/", "dev.yaml"), the demo cluster first without one; each row the
-//     cluster's badge (its identity), its display name, a connection dot (the connected one's
-//     state; red after a failed connect; grey otherwise) and a ›; the active cluster's row marked;
+//     cluster's badge (its identity), its display name, a connection dot (the cluster's mark,
+//     clustermarks.go: each connected cluster's state, D-69; red after a failed connect; grey
+//     otherwise) and a ›; the shown cluster's row marked;
 //   - the row's tooltip, "<name> - <source>", and below it what the context picker's row said
 //     beside the context (the lead's night decision, 2026-10-15, for the owner to confirm; D-57):
 //     why the connect failed (the connection's error for the cluster that just failed, else that
@@ -385,25 +386,20 @@ func (n *navSections) marked(id string) bool {
 	return id == ui.Context && (ui.Connection.State.Live() || ui.Connection.State == engine.Connecting)
 }
 
-// dotConnection is what a context's connection dot shows (conndot.go): the active one's
-// connection, a failed connect after one failed, not connected otherwise.
-func (n *navSections) dotConnection(c engine.ContextInfo) engine.Connection {
-	ui := n.s.sh.ui
-	switch {
-	case c.Name == ui.Context:
-		return ui.Connection
-	case c.ConnectProblem:
-		return engine.Connection{State: engine.ConnectError}
-	}
-	return engine.Connection{}
+// dotMark is what a context's connection dot shows (clustermarks.go, D-69): the shown cluster's
+// connection, a connected one's mark (warm, cold, its login lapsed, reconnecting), a failed connect
+// after one failed, not connected otherwise.
+func (n *navSections) dotMark(c engine.ContextInfo) clusterMark {
+	return n.s.sh.mark(c.Name, c.ConnectProblem)
 }
 
-// drill shows a cluster's tree (ui.setNavigatorScope). A cluster not connected is connected through
-// the engine: a login program the user has not allowed yet, or that changed, is shown for approval
-// first (kubeconfigs.go), and nothing runs without it.
+// drill shows a cluster's tree (ui.setNavigatorScope). A connected cluster is only shown (D-69);
+// a cluster not connected is connected through the engine: a login program the user has not
+// allowed yet, or that changed, is shown for approval first (kubeconfigs.go), and nothing runs
+// without it.
 func (n *navSections) drill(id string) {
 	sh := n.s.sh
-	if !n.marked(id) {
+	if !n.marked(id) && !switchable(sh.ui, id) {
 		if c, ok := n.context(id); ok && (c.Exec == engine.ExecRequired || c.Exec == engine.ExecChanged) {
 			sh.kc.reviewPlugin(id, func(allowed bool) {
 				if allowed {
@@ -638,14 +634,15 @@ func (n *navSections) FocusLost() {
 // keyboardOn reports whether the ring is on a row: the list has the focus from the keyboard (A53).
 func (n *navSections) keyboardOn(id string) bool { return n.focused && n.keys && n.focus == id }
 
-// rowMenu is a cluster's menu (right-click on its row): Connect while it is not the active one,
-// Settings…, the hotbar's item, Disconnect, Remove from Cogpit, as its menus elsewhere have them,
-// and after a failed connect Show Connection Updates…, its log (G2).
+// rowMenu is a cluster's menu (right-click on its row): Connect while it is not the active one
+// (Show for a connected one, D-69), Settings…, the hotbar's item, Disconnect, Remove from Cogpit,
+// as its menus elsewhere have them, and after a failed connect Show Connection Updates…, its log
+// (G2).
 func (n *navSections) rowMenu(id string, pos fyne.Position) {
 	sh := n.s.sh
 	var items []*fyne.MenuItem
 	if !n.marked(id) {
-		items = append(items, fyne.NewMenuItem("Connect", func() { n.drill(id) }))
+		items = append(items, fyne.NewMenuItem(connectItemLabel(sh.ui, id), func() { n.drill(id) }))
 	}
 	for _, item := range append([]*fyne.MenuItem{sh.settingsItem(id), sh.hot.contextItem(id)}, sh.clusterItems(id)...) {
 		if item != nil {
@@ -804,7 +801,7 @@ func (r *navContextRow) set(c engine.ContextInfo) {
 		r.title.style.Bold = bold
 		r.title.Refresh()
 	}
-	r.dot.set(c.Name, n.dotConnection(c), "")
+	r.dot.setMark(c.Name, n.dotMark(c))
 	if c.Insecure != r.insecure.Visible() {
 		if c.Insecure {
 			r.insecure.Show()

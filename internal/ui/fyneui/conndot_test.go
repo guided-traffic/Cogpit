@@ -112,7 +112,7 @@ func TestDotsBlinkWhileReconnecting(t *testing.T) {
 	}
 
 	interrupt(f, engine.Interrupted, clk.now)
-	q.until(t, "the blink", func() bool { return sh.blink.ctx == ctx })
+	q.until(t, "the blink", func() bool { return sh.blink.blinking(ctx) })
 	q.until(t, "the tile's state", func() bool {
 		for _, ti := range tilesOf(sh.hot) {
 			if ti.tile.Context == ctx {
@@ -150,14 +150,14 @@ func TestDotsBlinkWhileReconnecting(t *testing.T) {
 
 	clk.after(10 * time.Second) // a long reconnect blinks on
 	clk.after(blinkPhase)
-	if sh.blink.ctx != ctx || !clk.running {
+	if !sh.blink.blinking(ctx) || !clk.running {
 		t.Fatal("the blink ended while the engine still reconnects")
 	}
 	f.update(func(u *engine.UIState) { u.Connection = engine.Connection{State: engine.Connected} })
 	q.until(t, "connected", func() bool { return sh.ui.Connection.State == engine.Connected })
 	clk.after(blinkPhase) // the minimum ran out long ago: it stops at the next phase
-	if clk.running || sh.blink.ctx != "" {
-		t.Errorf("still blinking after the reconnect: ticker %v, cluster %q", clk.running, sh.blink.ctx)
+	if clk.running || sh.blink.any() {
+		t.Errorf("still blinking after the reconnect: ticker %v, a cluster blinking %v", clk.running, sh.blink.any())
 	}
 	checkDots(t, w, ctx, colorContainerRunning, alphaFull, "connected again")
 }
@@ -170,7 +170,7 @@ func TestBlinkLastsThreeIntervalsAfterAQuickReconnect(t *testing.T) {
 	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
 	clk := fakeBlinkClock(sh)
 	interrupt(f, engine.Interrupted, clk.now)
-	q.until(t, "the blink", func() bool { return sh.blink.ctx == "demo" })
+	q.until(t, "the blink", func() bool { return sh.blink.blinking("demo") })
 	clk.now = clk.now.Add(100 * time.Millisecond)
 	f.update(func(u *engine.UIState) { u.Connection = engine.Connection{State: engine.Connected, Demo: true} })
 	q.until(t, "connected", func() bool { return sh.ui.Connection.State == engine.Connected })
@@ -195,14 +195,14 @@ func TestLoginExpiredStopsTheBlink(t *testing.T) {
 	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 })
 	clk := fakeBlinkClock(sh)
 	interrupt(f, engine.Interrupted, clk.now)
-	q.until(t, "the blink", func() bool { return sh.blink.ctx == "demo" })
+	q.until(t, "the blink", func() bool { return sh.blink.blinking("demo") })
 	clk.after(blinkPhase)
 	checkDots(t, w, "demo", colorContainerRunning, alphaDim, "dimmed")
 	interrupt(f, engine.LoginExpired, clk.now)
 	q.until(t, "the login expired", func() bool { return sh.ui.Connection.State == engine.LoginExpired })
 	checkDots(t, w, "demo", colorStatusError, alphaFull, "login expired")
-	if clk.running || sh.blink.ctx != "" {
-		t.Errorf("the blink goes on: ticker %v, cluster %q", clk.running, sh.blink.ctx)
+	if clk.running || sh.blink.any() {
+		t.Errorf("the blink goes on: ticker %v, a cluster blinking %v", clk.running, sh.blink.any())
 	}
 }
 
@@ -214,7 +214,7 @@ func TestReduceMotionKeepsTheDotSteady(t *testing.T) {
 	clk := fakeBlinkClock(sh)
 	sh.blink.reduce = func() bool { return true }
 	f.update(func(u *engine.UIState) { u.Connection = engine.Connection{State: engine.Connecting, Demo: true} })
-	q.until(t, "connecting", func() bool { return sh.blink.ctx == "demo" })
+	q.until(t, "connecting", func() bool { return sh.blink.blinking("demo") })
 	checkDots(t, w, "demo", colorContainerRunning, alphaStill, "first phase")
 	clk.after(blinkPhase)
 	checkDots(t, w, "demo", colorContainerRunning, alphaStill, "second phase")

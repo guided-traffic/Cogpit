@@ -114,14 +114,18 @@ func (l *clusterLinks) refresh() {
 	}()
 }
 
-// clusterItems are a cluster's Disconnect (while it is the connected one) and Remove from Cogpit,
-// for its menus.
+// clusterItems are a cluster's Disconnect (while it is the shown one connected or connecting, or
+// another connected one, D-69) and Remove from Cogpit, for its menus.
 func (sh *shell) clusterItems(contextID string) []*fyne.MenuItem {
 	var items []*fyne.MenuItem
 	st := sh.ui.Connection.State
-	if c, ok := sh.eng.Registry().Get("cluster.disconnect"); ok && contextID != "" && contextID == sh.ui.Context &&
-		(st.Live() || st == engine.Connecting) {
+	c, ok := sh.eng.Registry().Get("cluster.disconnect")
+	switch {
+	case !ok || contextID == "":
+	case contextID == sh.ui.Context && (st.Live() || st == engine.Connecting):
 		items = append(items, fyne.NewMenuItem(c.Label, sh.disconnect))
+	case clusterConnected(sh.ui, contextID): // another connected cluster: it alone, the shown one stays
+		items = append(items, fyne.NewMenuItem(c.Label, func() { sh.disconnectOther(contextID) }))
 	}
 	if item := sh.removeItem(contextID); item != nil {
 		items = append(items, item)
@@ -152,6 +156,14 @@ func (sh *shell) clusterMenuItems() []*fyne.MenuItem {
 func (sh *shell) disconnect() {
 	if st := sh.ui.Connection.State; st.Live() || st == engine.Connecting {
 		sh.dispatch("cluster.disconnect", struct{}{}, nil)
+	}
+}
+
+// disconnectOther closes a connected cluster the window does not show (cluster.disconnect with its
+// context, D-69): its tabs close and its streams end; the shown cluster and the window stay.
+func (sh *shell) disconnectOther(contextID string) {
+	if switchable(sh.ui, contextID) {
+		sh.dispatch("cluster.disconnect", contextParams{Context: contextID}, nil)
 	}
 }
 

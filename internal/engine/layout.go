@@ -18,18 +18,22 @@ import (
 // its tab strip with the "+" menu.
 var ErrNoDockTabs = errors.New("the dock has no tabs: open a terminal (⌘⇧T), a pod's logs or a Create resource tab first")
 
-// SyncDock keeps DockOpen to what the dock can show, whoever changed the state: closed while it has
-// no tabs; opened when a tab is added, or when another tab is made active while the one active
-// before is still there (a tab clicked, an object's logs opened again, an agent's dock.activate),
-// but not when the active tab moves because the one before it closed. UpdateUI runs it; exported for
-// the window's test fake of the engine, which applies the same rule.
+// SyncDock keeps the dock to the shown cluster's tabs (syncDockScope, D-69) and DockOpen to what
+// the dock can show, whoever changed the state: closed while it shows no tabs; opened when a tab it
+// shows is added, or when another tab is made active while the one active before is still there (a
+// tab clicked, an object's logs opened again, an agent's dock.activate), but not when the active
+// tab moves because the one before it closed, nor when another cluster is shown (its dock opens as
+// it was). UpdateUI runs it; exported for the window's test fake of the engine, which applies the
+// same rule.
 func (u *UIState) SyncDock(old UIState) {
+	u.syncDockScope(old)
+	shown := u.DockInScope()
 	switch {
-	case len(u.Dock) == 0:
+	case len(shown) == 0:
 		u.DockOpen = false
-	case dockTabAdded(old.Dock, u.Dock):
+	case dockTabAdded(old.Dock, shown):
 		u.DockOpen = true
-	case u.ActiveDock != old.ActiveDock && u.ActiveDock != "" && hasDockTab(u.Dock, old.ActiveDock):
+	case u.Context == old.Context && u.ActiveDock != old.ActiveDock && u.ActiveDock != "" && hasDockTab(u.Dock, old.ActiveDock):
 		u.DockOpen = true
 	}
 }
@@ -65,12 +69,13 @@ func (s *Session) SetLayout(part string, open *bool) (UIState, error) {
 	return s.UIState(), errors.New("unknown part of the layout: " + part)
 }
 
-// DockToggleUnavailable returns why the dock cannot be opened or collapsed now (ErrNoDockTabs),
-// nil when it can: the enabled state of ui.toggleDock.
+// DockToggleUnavailable returns why the dock cannot be opened or collapsed now (ErrNoDockTabs: it
+// shows no tab of the shown cluster nor of no cluster), nil when it can: the enabled state of
+// ui.toggleDock.
 func (s *Session) DockToggleUnavailable() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.ui.Dock) == 0 {
+	if len(s.ui.DockInScope()) == 0 {
 		return ErrNoDockTabs
 	}
 	return nil

@@ -68,8 +68,12 @@ type UIState struct {
 	// chart is listed with. It ends when the drawer closes or shows another object.
 	DrawerChartVersion string `json:"drawerChartVersion,omitempty"`
 	// Dock lists the dock's tabs; ActiveDock is the id of the shown one.
+	// The dock shows the shown cluster's tabs and those of no cluster (D-69, dockscope.go):
+	// ActiveDock is the shown cluster's active tab, and dockMemo keeps every other cluster's active
+	// tab and open state while it is not shown.
 	Dock       []DockTab `json:"dock"`
 	ActiveDock string    `json:"activeDock,omitempty"`
+	dockMemo   map[string]dockMemo
 	// Hotbar is the hotbar's banks and the shown one (hotbar.go); nil in a session without one.
 	// Its tiles carry their contexts only; ui.state adds what each tile shows (Session.HotbarView).
 	Hotbar *HotbarState `json:"hotbar,omitempty"`
@@ -358,6 +362,7 @@ func (u UIState) Clone() UIState {
 	}
 	out.Tabs = cloneTabs(u.Tabs)
 	out.Navigator = u.Navigator.clone()
+	out.dockMemo = maps.Clone(u.dockMemo)
 	return out
 }
 

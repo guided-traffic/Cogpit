@@ -78,15 +78,20 @@ reference that names it. Per case, live today:
   allowed agent writes for that context), and the confirmation names the context; where the user
   allowed agent writes for that context, an agent's mutating command runs there without asking,
   whichever cluster the window shows.
-- **What the user sees:** the window shows one cluster; the others' connections are named in
-  `ui_state`, the hotbar's tile states and the Diagnostics' `clusters`, but the window's marks for
-  connected clusters it does not show (filled, ring, D-69 item 5) are stage 2 and not built.
+- **What the user sees:** the window shows one cluster; since stage 2 (2026-10-16) every connected
+  cluster's dot says it is connected (filled, a ring while it rests, red when it needs the user),
+  and the Diagnostics tab lists each one. A dock tab an agent opens on a cluster the window does not
+  show (`pod_logs`, `terminal_open` with `context`, `workload_logs`) waits hidden in that
+  cluster's dock until the user shows it: the user does not see that an agent opened it. A shell or
+  any write still asks first and names the context. `dock_activate` of such a tab shows its cluster,
+  a UI command agents run freely, as `ui_navigate` and `cluster_connect` already change the cluster
+  the window shows.
 - **The Secrets kept out of what agents read** are every connected cluster's cached Secrets and the
   read cluster's taken first; a Secret of a cluster that is not connected, or whose Secrets are not
   cached, is not known to the filter (H-82's limit, per cluster).
 
-Closes in part with stage 2's marks; the reads and the allowance per context are the owner's
-decisions (D-2, D-69 item 6) and stay.
+Closed in part by stage 2's marks (2026-10-16); the hidden dock tabs, the reads and the
+allowance per context are the owner's decisions (D-2, D-69 items 6 and 9) and stay.
 
 ### H-113: The user's name and groups reach every agent that reads ui_state
 
