@@ -273,7 +273,10 @@ freeze), and copies older than its newest item are offered at most that item, a 
 fixed since, while newer copies see nothing; a downgrade is not possible, since Sparkle offers only
 a `CFBundleVersion` newer than the running one. The pipeline no longer freezes the feed by
 accident: since 2026-10-16 "Appcast (deploy)" refuses a feed that would drop an item Pages serves
-(`hack/appcast verify -live`); a workflow that skips the check still can. Who can change what Pages serves: a workflow run
+(`hack/appcast verify -live`); a workflow that skips the check still can. The two runs that waited
+for an approval with such a workflow, v0.13.0's and v0.14.0's (their tags predate the check, their
+drafts held their own release alone), were cancelled on 2026-10-16 (the owner's choice), so neither
+can put the feed back. Who can change what Pages serves: a workflow run
 with `pages: write` that the environment `github-pages` admits (by default the default branch, and
 the tag rule the owner adds), so whoever may push a workflow to `main` (H-62). No expiry or
 freshness check is designed.

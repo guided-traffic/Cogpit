@@ -123,8 +123,8 @@ the journal keeps the drain as `stopped` with that cause, the banner offers Fini
 and Dismiss as after a crash, and the agent's call is in the audit log. Not covered: an agent can
 leave a node half-drained (cordoned, its remaining pods unevicted) until the user notices the
 banner; the options were to let an agent cancel only the jobs it started, or to ask the user before
-an agent stops a job another origin started (D-63 chose any origin for any job, the lead's decision
-for the owner to confirm).
+an agent stops a job another origin started (D-63 chose any origin for any job, the lead's decision,
+confirmed by the owner in the audit of 2026-10-16).
 
 ### H-102: An agent may act after the reconnect on what it read during the interruption
 
@@ -449,7 +449,7 @@ Per case:
   connection that sends all tools). The window keeps nothing else of it: the items, the request
   bodies (`SentPayload`) and the kept file lose it.
 - **A private conversation stays memory-only** after its private turn is cut (H-96's "for good";
-  the lead's decision for the owner to confirm in D-10): nothing private reaches the file through a
+  the lead's decision in D-10, confirmed by the owner in the audit of 2026-10-16): nothing private reaches the file through a
   cut.
 
 What would close it: a note to the model naming the cut part's writes (declined by the owner on

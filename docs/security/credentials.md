@@ -372,7 +372,9 @@ a Secret's values are edited in its drawer, as a Config Map's are, in the window
   until it is saved or reverted. A Secret that changed (a rotation) masks every unedited value
   revealed at the older version (R-6). ⌘C and ⌘X in the editor go through the clipboard for Secret
   values (concealed, cleared after 60 seconds, [H-25](#h-25-a-copied-secret-value-reaches-the-clipboard);
-  yamlview's `OnCopy`, `TestSecretEditorCopiesAsASecret`).
+  yamlview's `OnCopy`, `TestSecretEditorCopiesAsASecret`). A copy icon over the editor that copies
+  the whole value the same way: the owner's choice in the audit of 2026-10-16 (D-59), decided, not
+  built yet.
 - **To the engine, in the GUI's own process.** `secret.reviewData` (a masked diff: the keys that
   change and their sizes, never a value, and the server's dry run) and `secret.saveData` are marked
   GUI-only: `Dispatch` refuses the CLI and every agent before anything is read, asked or sent, and
@@ -580,7 +582,8 @@ the warning). What remains, per case:
   sends the key, the conversation and what the agent read in the clear. Live for every
   `http://` connection to another machine; a local LM Studio sends nothing over the network.
 - **The chat itself does not repeat it:** the warning is in Preferences › Agent and the test, not
-  in the chat column or per turn (the lead's decision, D-10 (6)); a user who set the connection up
+  in the chat column or per turn (the lead's decision, D-10 (6), confirmed by the owner in the
+  audit of 2026-10-16); a user who set the connection up
   long ago is not reminded. The message's "Sent … to <host>" names the host only.
 - **A name that resolves to this computer** (`*.localhost`, a hosts-file entry) is warned about
   although nothing leaves the computer; the opposite, a name for another machine that the warning
