@@ -218,7 +218,7 @@ var lightPalette = palette{
 		colorSidebar:          hex(0xeee8d5), // sideBar.background
 		colorRowHover:         hex(0xf5eacb), // list.hoverBackground #dfca8844 over the background
 		colorRowSelected:      hex(0xdfca88), // list.activeSelectionBackground
-		colorContainerRunning: hex(0x1a8f53), // the earlier Running green #1f9d5c, darkened to read on a selected row
+		colorContainerRunning: hex(0x177f4a), // the earlier Running green #1f9d5c, darkened to read on a selected row: 3.1:1 on the selection, 4.1:1 on the navigator (owner, 2026-10-16; #1a8f53 before, 2.5:1 on the selection)
 		colorRowSelectedText:  hex(0x073642), // base02
 		colorDrawer:           hex(0xeee8d5),
 		colorDrawerHeader:     hex(0xddd6c1),
