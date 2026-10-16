@@ -142,7 +142,7 @@ func (a *accessReviews) firstDoneLocked(ns string, err error) func() {
 	}
 	text := fmt.Sprintf("Access reviews: %d of %d rules reviews failed (the commands' access is then asked per verb): %s",
 		len(f.failed), f.total, f.failed[0])
-	return func() { note(LogWarn, text, took) }
+	return func() { note(LogInfo, text, took) } // the connection works and is safe: not a WARN (connectlog.go)
 }
 
 // rulesReview is one namespace's rules review: pending until done.
