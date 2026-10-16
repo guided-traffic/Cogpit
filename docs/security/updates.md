@@ -107,9 +107,9 @@ The owner set up the update key on 2026-10-15 (checked with `gh` that day, ~19:0
 `SPARKLE_ED_PRIVATE_KEY` in the environment `sparkle` since 07:00 UTC, the repository variable
 `SPARKLE_PUBLIC_ED_KEY` set), and v0.11.0, v0.12.0 and v0.13.0 are built with it (the app job's
 log of v0.11.0 and v0.12.0: "Sparkle bundled with the update key"). No appcast was signed before 2026-10-16, when
-`https://guided-traffic.github.io/cogpit/appcast.xml` first served one: v0.9.0 to v0.13.0
-got no files (Apple kept each notarization "In Progress" beyond the old job's 45 minutes, and
-v0.13.0's beyond the new job's 330 minutes: submission d72ef4b5-…, given up 2026-10-15 23:43 UTC);
+`https://guided-traffic.github.io/cogpit/appcast.xml` first served one: v0.9.0 to v0.12.0
+got no files (Apple kept each notarization "In Progress" beyond the old job's 45 minutes);
+v0.13.0's first wait gave up after 330 minutes (2026-10-15 23:43 UTC); a re-run of its failed jobs found the same submission accepted and attached its disk image at 23:52 UTC;
 v0.14.0 to v0.16.0 passed, and the owner approved the appcasts of v0.15.0 and v0.16.0 (the feed
 holds both since ~06:20 UTC). The first update went through the same morning: the owner's MacBook
 (0.15.0 installed from its disk image) updated to 0.16.0; after `defaults delete
@@ -152,8 +152,8 @@ GitHub Pages serves a project site under the repository's name, case-sensitively
 another owner, moves the feed: the copies installed before stop finding updates, without an
 error the user sees, and only a manual download brings them back. Dormant until a release built
 with the update key has files to install (the environment `sparkle`, Pages and the key set up
-2026-10-15; every release since v0.11.0 is built with the key: v0.11.0 to v0.13.0 have no files,
-v0.14.0 to v0.16.0 have theirs since 2026-10-16, the signed feed serves 0.16.0 and 0.15.0).
+2026-10-15; every release since v0.11.0 is built with the key: v0.11.0 and v0.12.0 have no files,
+v0.13.0 has its disk image since 2026-10-15 23:52 UTC, v0.14.0 to v0.16.0 theirs since 2026-10-16, the signed feed serves 0.16.0 and 0.15.0).
 What bounds it: nothing in the code; the rename is a GitHub setting. A custom domain for Pages, or
 a redirect page at the old path, would keep the URL stable; neither is set up.
 
