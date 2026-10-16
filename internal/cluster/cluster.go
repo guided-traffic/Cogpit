@@ -256,6 +256,10 @@ type Conn struct {
 	secrets []string
 	trace   tracer // Connect's steps; nil after Connect
 
+	// hold holds the credential plugin while the engine says so (loginhold.go, D-69 item 4); nil
+	// without a plugin.
+	hold *loginHold
+
 	closed atomic.Bool
 
 	who whoAmI // who the connection is logged in as (whoami.go, D-68)
@@ -347,6 +351,13 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 	// The credential plugin's standard error, kept for a failed login (pluginstderr.go): set on the
 	// Authenticator the client built next uses.
 	stderr := capturePluginStderr(cfg)
+	// The hold of the plugin while the cluster is not shown (loginhold.go), on the same Authenticator.
+	hold := registerLoginHold(cfg, health.guard)
+	defer func() {
+		if err != nil {
+			hold.drop() // no connection uses the registration
+		}
+	}()
 	httpClient, err := rest.HTTPClientFor(cfg)
 	if err != nil {
 		return nil, &ConnectError{Context: name, Problem: "cannot build the client: " + kubeconfig.SafeError(err).Error(), Err: err}
@@ -397,6 +408,7 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 		stderr:      stderr,
 		secrets:     knownLoginSecrets(raw, kctx),
 		trace:       trace,
+		hold:        hold,
 	}
 	err = c.checkReachable(ctx, opts.ConnectTimeout)
 	c.trace = nil
@@ -626,6 +638,7 @@ func (c *Conn) Close() {
 	if !c.closed.CompareAndSwap(false, true) {
 		return
 	}
+	c.hold.drop() // nil-safe: a closed connection neither holds nor frees its login
 	if c.httpClient != nil {
 		c.httpClient.CloseIdleConnections()
 	}

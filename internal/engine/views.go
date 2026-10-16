@@ -39,6 +39,10 @@ type state struct {
 	connectSeq    uint64
 	connectCancel context.CancelFunc
 	pool          map[string]*pooled // every connected backend, by context id (pool.go)
+	// background are the connects under way that show nothing (ConnectBackground, the restore of
+	// the last session), by context id: each channel closes when its connect ended.
+	background map[string]chan struct{}
+	bgGen      uint64 // the last background connect's number (backgroundGen)
 
 	// The window's view state. shown is the backend the window shows, one of the pool's; nil while
 	// none is (connecting, failed, disconnected). The workers below read it only.
@@ -268,6 +272,11 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	if !st.current(seq) {
 		return fmt.Errorf("connect %s: superseded by a newer connect", name)
 	}
+	// A connect of the restore that runs in the background for this context: its connection is
+	// the one to show, rather than a second connect beside it (connect_background.go).
+	if err := st.awaitBackground(cctx, name); err != nil {
+		return fmt.Errorf("connect %s: superseded by a newer connect", name)
+	}
 
 	st.mu.Lock()
 	if e := st.pool[name]; e != nil && !e.b.watch.needsNewConnect() {
@@ -275,12 +284,14 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		st.showLocked(e)
 		st.mu.Unlock()
 		s.showConnected(e.b, e.gen)
+		s.applyLoginHolds() // shown: its login is renewed again, a lapsed one now (connwatch_lapse.go)
 		return nil
 	}
 	stale := st.removeLocked(name) // its login program changed since it was allowed: connected anew (D-26)
 	st.leaveLocked()               // the cluster shown so far stays connected (D-69)
 	st.mu.Unlock()
 	stale.close(s.log)
+	s.applyLoginHolds() // the cluster shown so far may hold its login now
 	s.UpdateUI(func(u *UIState) {
 		if stale != nil {
 			u.dropConnection(name, 0)
@@ -334,6 +345,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		b.close(s.log)
 		st.logs.finish(attempt, OutcomeAbandoned, LogInfo, "Connected already as "+b.Context)
 		s.showConnected(e.b, e.gen)
+		s.applyLoginHolds()
 		return nil
 	}
 	s.attachCustomKinds(b)
@@ -367,6 +379,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		u.Filter = ""
 	})
 	b.watch.start()                   // nil-safe
+	s.applyLoginHolds()               // the shown cluster's login is renewed (connwatch_lapse.go)
 	s.settleGoneConnect(b.Context, b) // its file went or its source was removed meanwhile (connect_gone.go)
 	return nil
 }

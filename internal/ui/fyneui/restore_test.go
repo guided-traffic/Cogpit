@@ -27,8 +27,15 @@ const restoredWorkspace = `{"version": 1, "active": 0, "tabs": [
 
 // restoredEngine is a real engine whose kubeconfig's contexts all point at server (empty: the
 // welcome page's renders' unreachable address, so that the PNGs do not change from run to run), and
-// whose Cogpit folder holds restoredWorkspace.
+// whose Cogpit folder holds restoredWorkspace (a file as v0.17.0 wrote it, without connections) and
+// the preference "Restore the last session" on (D-69 item 8: off, no tab comes back).
 func restoredEngine(t *testing.T, server string) *engine.Session {
+	t.Helper()
+	return restoredEngineWith(t, server, true)
+}
+
+// restoredEngineWith is restoredEngine with the restore preference as given.
+func restoredEngineWith(t *testing.T, server string, restore bool) *engine.Session {
 	t.Helper()
 	cfg := filepath.Join(t.TempDir(), "Cogpit")
 	if err := os.MkdirAll(cfg, 0o700); err != nil {
@@ -36,6 +43,11 @@ func restoredEngine(t *testing.T, server string) *engine.Session {
 	}
 	if err := os.WriteFile(filepath.Join(cfg, engine.WorkspaceFile), []byte(restoredWorkspace), 0o600); err != nil {
 		t.Fatal(err)
+	}
+	if restore {
+		if err := os.WriteFile(filepath.Join(cfg, engine.PreferencesFile), []byte(`{"version": 1, "restoreSession": true}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	kc := filepath.Join(t.TempDir(), "config")
 	config := settingsKubeconfig
@@ -75,10 +87,12 @@ func tabTitles(sh *shell) []string {
 	return out
 }
 
-// A start with the tabs of the last run (D-41) shows the tab bar at once, the tab shown last
-// marked, and the welcome page, the navigator's search closed (D-42, D-57) and without a request to any
-// cluster; the tabs of a context that is gone are not restored and a toast says so once the window
-// is up. Showing a tab is what connects its cluster.
+// A start with the tabs of the last run (D-41, the preference Restore the last session on, D-69
+// item 8) shows the tab bar at once, the tab shown last marked, and the welcome page, the
+// navigator's search closed (D-42, D-57) and without a request to any cluster: the file, as
+// v0.17.0 wrote it, names no connection to restore, and the window itself connects nothing (the
+// app's RestoreLastSession does, engine/restore.go). The tabs of a context that is gone are not
+// restored and a toast says so once the window is up. Showing a tab is what connects its cluster.
 func TestStartShowsRestoredTabsWithoutConnecting(t *testing.T) {
 	srv, requests := countingServer(t)
 	s := restoredEngine(t, srv.URL)
@@ -111,6 +125,26 @@ func TestStartShowsRestoredTabsWithoutConnecting(t *testing.T) {
 
 	test.Tap(sh.tabs.shown[0])
 	q.until(t, "the tab's connect to ask its cluster", func() bool { return requests.Load() > 0 })
+}
+
+// Without the preference (the owner's default, D-69 item 8) the start shows no tab of the last run
+// and says nothing about them: the welcome page alone, nothing connected.
+func TestStartWithoutTheRestoreShowsNoTabs(t *testing.T) {
+	srv, requests := countingServer(t)
+	s := restoredEngineWith(t, srv.URL, false)
+	sh, _, q := newEngineShell(t, s, Options{})
+	welcomeShown(t, sh, q)
+	q.drain()
+	if len(sh.tabs.shown) != 0 || len(s.UIState().Tabs) != 0 {
+		t.Errorf("tabs at a start without the restore: %q", tabTitles(sh))
+	}
+	sh.showStartNotices()
+	if cards := toastCards(sh); len(cards) != 0 {
+		t.Errorf("%d toasts at start", len(cards))
+	}
+	if n := requests.Load(); n != 0 || s.Backend() != nil {
+		t.Fatalf("%d requests at a start without the restore", n)
+	}
 }
 
 // The start screen with the tabs of the last run: the tab bar over the welcome page.

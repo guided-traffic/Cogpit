@@ -536,7 +536,7 @@ func (wl *workloadLogs) stream(ctx context.Context, t logTarget, tail int64, cur
 			return // lines without timestamps: a resumption could not tell which it has
 		}
 		// Broken with the connection: wait until it is back, mark the gap and go on at once (D-58).
-		from, to, werr := wl.watch.await(ctx, openedAt)
+		from, to, werr := wl.watch.await(ctx, openedAt, func() { wl.write(NoticePrefix, []byte(prefix+": "+lapsedNotice)) })
 		if werr != nil {
 			return
 		}

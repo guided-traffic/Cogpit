@@ -70,31 +70,43 @@ func registerConnection(g *registrar) {
 		},
 	})
 
-	add(g, engine.Spec[struct{}]{
+	add(g, engine.Spec[engine.OnCluster]{
 		ID: "cluster.login", Label: "Log In Again", MenuPath: "File/Log In Again", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
-		Description: "Renews the shown cluster's login after it expired (ui_state's connection.state is loginExpired): " +
-			"the context's credential plugin runs once, and may open a browser for the user to log in. The cache, the tabs " +
-			"and the views stay. A plugin whose program changed since the user allowed it is not run: then the context is " +
-			"connected anew, which asks the user first. Returns the connection." + guiOnly,
-		Enabled: func(s *engine.Session, _ struct{}) error {
+		Description: "Renews a connected cluster's login (context, else the shown one) after it expired (ui_state's " +
+			"connection.state, or its entry of connections, is loginExpired) or lapsed while the cluster was not shown " +
+			"(its entry's loginLapsed: its setting renewLoginInBackground is off): the context's credential plugin runs once, " +
+			"and may open a browser for the user to log in. The cache, the tabs and the views stay. A plugin whose program " +
+			"changed since the user allowed it is not run: then the context is connected anew, which asks the user first. " +
+			"Returns the connection." + guiOnly,
+		Enabled: func(s *engine.Session, p engine.OnCluster) error {
 			u := s.UIState()
+			c, lapsed := u.Connection, false
+			if p.Context != "" && p.Context != u.Context {
+				e, ok := u.ConnectionOf(p.Context)
+				if !ok {
+					return &engine.NotConnectedError{Context: p.Context}
+				}
+				c, lapsed = e.Connection, e.LoginLapsed
+			} else if e, ok := u.ConnectionOf(u.Context); ok {
+				lapsed = e.LoginLapsed
+			}
 			switch {
-			case u.Connection.State != engine.LoginExpired:
+			case c.State != engine.LoginExpired && !lapsed:
 				return errLoginNotExpired
-			case u.Connection.LoggingIn:
+			case c.LoggingIn:
 				return errors.New("a login is under way")
 			}
 			return nil
 		},
-		Run: func(ctx context.Context, s *engine.Session, _ struct{}) (any, error) {
+		Run: func(ctx context.Context, s *engine.Session, p engine.OnCluster) (any, error) {
 			if err := requireGUI(ctx); err != nil {
 				return nil, err
 			}
-			if err := s.Login(); err != nil {
+			if err := s.LoginContext(p.Context); err != nil {
 				return nil, err
 			}
-			return connectionResult(s, ""), nil
+			return connectionResult(s, p.Context), nil
 		},
 	})
 

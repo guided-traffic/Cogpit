@@ -317,11 +317,18 @@ interruption, Log in again; they make the login expired and ask for a new connec
 shows the plugin, `Connection.NeedsApproval`); the login
 guard lets client-go answer only the first 401 after a request that worked with a run, where before
 every 401 could start one ([`cluster/health.go`](../../internal/cluster/health.go)); and the
-replacement needs write access to the kubeconfig's folder while the user is connected. Not covered:
-client-go's run at a credential's expiry and at that first 401, while connected. Closing it needs
-Cogpit to run the plugin itself (client-go's exec authenticator re-done for tokens and client
-certificates) or a check of the program before each of client-go's runs, for which client-go offers
-no hook.
+replacement needs write access to the kubeconfig's folder while the user is connected. Since
+2026-10-16 ([D-69](../developer/decisions.md#d-69-several-clusters-connected-at-once) item 4) a
+cluster the window does not show whose setting "Renew the login while the cluster is not shown" is
+off runs none of client-go's renewals while it is held ([`cluster/loginhold.go`](../../internal/cluster/loginhold.go),
+`TestHeldPluginDoesNotRun`), and the renewal when it is shown again is Cogpit's own, which checks the
+approval first. Not covered: client-go's run at a credential's expiry and at that first 401, while
+connected, for the shown cluster and for a cluster not shown whose setting is on (the default).
+Closing it needs Cogpit to run the plugin itself (client-go's exec authenticator re-done for tokens
+and client certificates) or a check of the program before each of client-go's runs. Client-go
+offers no hook for that; the hold wraps one of its unexported fields (`interactiveFunc`, asked right
+before each run) by reflection, so the same wrapper could check the approval before every run, at
+the cost of depending on client-go's internals as the hold and D-66's capture do. Not built.
 
 ### H-34: The plugin approval shows the kubeconfig's proxy, not Cogpit's
 

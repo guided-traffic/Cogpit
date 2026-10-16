@@ -130,6 +130,10 @@ func run(previousCrash string) int {
 		opts.StartWarning = crashNotice(previousCrash, at, s.TimeFormat())
 	}
 	demo.autoConnect(&opts)
+	// Preferences › App › Restore the last session (D-69 item 8): with it on, the clusters connected
+	// at the last quit connect again, the one shown then first unless --context names the one to
+	// show; off (the default), nothing connects by itself.
+	s.RestoreLastSession(opts.AutoConnect)
 	if !*noMCP {
 		srv, err := mcp.New(s, mcp.Options{Addr: *mcpAddr, Version: buildinfo.Version(), Logger: logger})
 		if err != nil {
@@ -267,9 +271,10 @@ func openDrafts(logger *slog.Logger) *engine.Drafts {
 	return engine.NewDrafts(filepath.Join(dir, "Cogpit"))
 }
 
-// openWorkspace keeps the tab bar's tabs and the tables' column layout in
-// <user config dir>/Cogpit/workspace.json, owner-only, restored at the next start without
-// connecting anything (D-41). Without a configuration directory they last for the run.
+// openWorkspace keeps the tab bar's tabs, the clusters connected and the tables' column layout in
+// <user config dir>/Cogpit/workspace.json, owner-only (D-41): the layout comes back at every start,
+// the tabs and the connections only while Preferences › App › Restore the last session is on
+// (D-69 item 8, RestoreLastSession). Without a configuration directory they last for the run.
 func openWorkspace(logger *slog.Logger) *engine.Workspace {
 	dir, err := os.UserConfigDir()
 	if err != nil {

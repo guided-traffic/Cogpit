@@ -108,6 +108,13 @@ type ClusterSettings struct {
 	// (nodeshell_duration.go); 0: DefaultNodeShellDeadline. Only the user sets it; agents may
 	// reset it.
 	NodeShellMaxMinutes int `json:"nodeShellMaxMinutes,omitempty"`
+	// HoldBackgroundLogin is the page's "Renew the login while the cluster is not shown" switched
+	// off (D-69 item 4, connwatch_lapse.go; kept as its negation so that the default, on, is the
+	// zero value): while the cluster is connected but not shown, its credential plugin does not run,
+	// and a login that expires meanwhile lapses until the cluster is shown. Agents and the CLI may
+	// only set it (turn the renewal off); turning the renewal on again is the user's, in Cogpit's
+	// window (ErrRenewLoginGUIOnly).
+	HoldBackgroundLogin bool `json:"holdBackgroundLogin,omitempty"`
 }
 
 // IsZero reports whether the settings are all defaults.
@@ -119,7 +126,8 @@ func (c ClusterSettings) Equal(o ClusterSettings) bool {
 	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.TerminalDir == o.TerminalDir &&
 		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy && c.MetricsSource == o.MetricsSource &&
 		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces) && c.AgentWrites == o.AgentWrites &&
-		c.NodeShellImage == o.NodeShellImage && c.NodeShellPullSecret == o.NodeShellPullSecret && c.NodeShellMaxMinutes == o.NodeShellMaxMinutes
+		c.NodeShellImage == o.NodeShellImage && c.NodeShellPullSecret == o.NodeShellPullSecret && c.NodeShellMaxMinutes == o.NodeShellMaxMinutes &&
+		c.HoldBackgroundLogin == o.HoldBackgroundLogin
 }
 
 // Check says why settings cannot be kept: the first field out of its bounds.
@@ -356,7 +364,7 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 	c.change.Lock()
 	defer c.change.Unlock()
 	var dropped string
-	proxyChanged := false
+	proxyChanged, holdChanged := false, false
 	next, all, err := func() (ClusterSettings, map[string]ClusterSettings, error) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
@@ -392,6 +400,7 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 		}
 		c.by = all
 		proxyChanged = RedactProxyURL(old.Proxy) != RedactProxyURL(cs.Proxy)
+		holdChanged = old.HoldBackgroundLogin != cs.HoldBackgroundLogin
 		if old.Icon != "" && old.Icon != cs.Icon && !iconInUse(all, old.Icon) {
 			dropped = old.Icon
 		}
@@ -409,6 +418,9 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 		// A credential plugin's approval binds the proxy (A23): the context's approval state, which
 		// the context lists show, may have changed with it.
 		s.emit(Event{Type: EventContexts})
+	}
+	if holdChanged {
+		s.applyLoginHolds() // a cluster that is not shown holds its login, or renews a lapsed one (connwatch_lapse.go)
 	}
 	return next, nil
 }
@@ -485,6 +497,10 @@ type ClusterSettingsView struct {
 	NodeShellMaxDuration string `json:"nodeShellMaxDuration,omitempty"`
 	// NodeShellDefaultMaxDuration is Cogpit's default maximum duration of a node shell (2h).
 	NodeShellDefaultMaxDuration string `json:"nodeShellDefaultMaxDuration"`
+	// RenewLoginInBackground says whether the cluster's login is renewed while the cluster is
+	// connected but not shown (D-69 item 4; on by default): off, its credential plugin does not run
+	// then, and a login that expires lapses until the cluster is shown.
+	RenewLoginInBackground bool `json:"renewLoginInBackground"`
 	// Connected says whether the context is the connected cluster (its metrics settings apply).
 	Connected bool `json:"connected"`
 	// Kept says whether the settings outlive this run (false without a configuration directory).
@@ -501,7 +517,7 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 		NameSet: cs.Name != "", IconColor: cs.IconColor, TerminalDir: cs.TerminalDir,
 		TerminalNamespace: cs.TerminalNamespace, HiddenMetrics: MetricNames(cs.HiddenMetrics),
 		Proxy: RedactProxyURL(cs.Proxy), AccessibleNamespaces: append([]string{}, cs.AccessibleNamespaces...),
-		AgentWrites: cs.AgentWrites, Kept: s.opts.ClusterSettings.Path() != "",
+		AgentWrites: cs.AgentWrites, Kept: s.opts.ClusterSettings.Path() != "", RenewLoginInBackground: !cs.HoldBackgroundLogin,
 		NodeShellImage: cs.NodeShellImage, NodeShellDefaultImage: DefaultNodeShellImage, NodeShellPullSecret: cs.NodeShellPullSecret,
 		NodeShellDefaultMaxDuration: FormatNodeShellDeadline(DefaultNodeShellDeadline)}
 	if cs.NodeShellMaxMinutes != 0 {

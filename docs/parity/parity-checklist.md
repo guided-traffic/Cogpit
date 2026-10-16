@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 121 | 118 | 9 | 109 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 53 | 51 | 44 | 7 | 2 |
+| Beyond Lens (not in feature breadth) | 55 | 53 | 45 | 8 | 2 |
 
 Not counted: 7 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -338,6 +338,7 @@ Not counted: 7 interface rows that are not a target, 5 platform rows that are pa
 | A login that expired renewed once by itself, then "Login expired" and Log in again, never a pile of plugin runs | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | Logs resume with a marker of the gap, port forwards wait and dial at once, shells end with Reconnect | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | A drain or a Helm action stops at the interruption and is offered after the reconnect, as after a crash | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
+| A cluster that stays connected while another one is shown renews its login by default; its setting "Renew the login while the cluster is no… | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | The window does not hang after the Mac slept | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | Every connect, reconnect, login and disconnect documented step by step, the successful ones too, with times, durations and a failure's erro… | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | Every value in the detail drawer can be selected, and has a copy icon on hover; an entry of a value with several entries is copied in YAML… | partial | [Everyday use](beyond-lens.md#everyday-use) |
@@ -347,6 +348,7 @@ Not counted: 7 interface rows that are not a target, 5 platform rows that are pa
 | A status filter in every view: the states the view's rows carry (Status, Not Ready, Degraded, …), several at once, cleared with one click,… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | A link to the owner at the status bar's left end, opening hans-fischer.com in the browser on a click, a GUI link and not a command (D-23) | done | [Everyday use](beyond-lens.md#everyday-use) |
 | The window's layout from the top bar, as VS Code's title bar has it: three toggles at its right end that show and hide the navigator (⌘B),… | done | [Everyday use](beyond-lens.md#everyday-use) |
+| Restore the last session at start, a preference that is off by default: on, the tabs of the last run come back and the clusters connected a… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | Drag a hotbar tile out of the window and drop it to open that cluster in another Cogpit window (owner, 2026-10-14 evening) | missing | [Everyday use](beyond-lens.md#everyday-use) |
 | cogpit-cli contexts lists the contexts Cogpit offers, from the app's kubeconfig sources and with its credential plugin approvals, as a tabl… | done | [Command line](beyond-lens.md#command-line) |
 | cogpit-cli get <kind> [name] reads objects from a headless engine's cache, as the views show them, read-only, Secret values never printed | partial | [Command line](beyond-lens.md#command-line) |

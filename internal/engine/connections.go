@@ -22,13 +22,16 @@ type ConnectedCluster struct {
 	// takes seconds. Its heartbeat, access reviews and the dock's streams go on. Within the warm
 	// period it is not cold, and showing it again lists nothing.
 	Cold bool `json:"cold,omitempty"`
-	// LoginLapsed is set for a cluster not shown whose login lapsed and that Cogpit did not renew,
-	// because its Cluster Settings say not to renew it while it is not shown (D-69 item 4): it is
-	// renewed when the cluster is shown, or by Log in again. Not a failure: the window draws a grey
-	// ring, not red (item 5).
+	// LoginLapsed is set for a cluster that is not shown whose login lapsed and was not renewed:
+	// its cluster setting "Renew the login while the cluster is not shown" is off, so Cogpit held
+	// its credential plugin (D-69 item 4, connwatch_lapse.go). Its connection stays connected (not
+	// red: whether a renewal would work is not known), with since and reason; writes to it are
+	// refused, its heartbeat pauses, reads that need the cluster fail. Showing the cluster, or Log
+	// in again (cluster.login with its context), renews the login.
 	LoginLapsed bool `json:"loginLapsed,omitempty"`
 
-	gen uint64 // the connect that made it (pooled.gen): a watch writes only its own connection's state
+	gen       uint64 // the connect that made it (pooled.gen): a watch writes only its own connection's state
+	restoring bool   // a connect of the restore of the last session, in the background (connect_background.go)
 }
 
 // connectionIndex returns the index of a context's entry of Connections, made by the connect gen
@@ -84,7 +87,7 @@ func (u *UIState) syncConnections() {
 		shownID = u.Context
 	}
 	u.Connections = slices.DeleteFunc(u.Connections, func(c ConnectedCluster) bool {
-		return c.Connection.State == Connecting && c.Context != shownID
+		return c.Connection.State == Connecting && c.Context != shownID && !c.restoring
 	})
 	found := false
 	for i := range u.Connections {
@@ -94,7 +97,7 @@ func (u *UIState) syncConnections() {
 			continue
 		}
 		found = true
-		c.Connection, c.Cold = u.Connection, false
+		c.Connection, c.Cold, c.restoring = u.Connection, false, false
 		if u.Connection.State.Live() {
 			c.gen = u.connGen
 		}

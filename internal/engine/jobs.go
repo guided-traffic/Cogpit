@@ -194,7 +194,10 @@ var (
 	// errJobInterrupted stops a job when its cluster stops answering (D-58): as after a crash
 	// (S8), nothing a job does continues by itself after the connection is back; what it wrote
 	// stays, and the step under way may or may not have reached the cluster.
-	errJobInterrupted    = errors.New("the connection was interrupted; Cogpit does not continue the job after the reconnect")
+	errJobInterrupted = errors.New("the connection was interrupted; Cogpit does not continue the job after the reconnect")
+	// errJobLoginLapsed stops a job on a cluster that is not shown whose login lapsed (D-69 item 4):
+	// its requests would fail, so it stops as at an interruption.
+	errJobLoginLapsed    = errors.New("the login lapsed while the cluster was not shown; Cogpit does not continue the job after it is renewed")
 	errJobSessionClosed  = errors.New("the app is closing")
 	errJobCancelled      = errors.New("cancelled")
 	errJobAgentCancelled = errors.New("cancelled by an agent")
@@ -411,6 +414,8 @@ func (s *Session) followJobs(old, now UIState) {
 			cancels = append(cancels, func() { r.cancel(errJobTabClosed) })
 		case was == Connected && (is == Interrupted || is == LoginExpired):
 			cancels = append(cancels, func() { r.cancel(errJobInterrupted) })
+		case is == Connected && !old.loginLapsed(r.context) && now.loginLapsed(r.context):
+			cancels = append(cancels, func() { r.cancel(errJobLoginLapsed) })
 		case was.Live() && !is.Live():
 			cancels = append(cancels, func() { r.cancel(errJobClusterChanged) })
 		}

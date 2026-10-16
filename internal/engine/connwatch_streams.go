@@ -162,11 +162,13 @@ var errWatchEnded = errors.New("the connection closed")
 
 // await waits, after a stream of the connection opened at since broke, until the connection is
 // usable: it asks for a check at once and waits for its verdict, and while the connection is
-// interrupted or its login expired, until it is back. It returns the interruption the stream lived
-// through (from, to): the one it waited out, or one that ended after since, since a stream can
-// break only after the connection is back (its TCP connection outlived the interruption); zero
-// when the connection did not break; errWatchEnded when the backend closed, or ctx's error.
-func (w *connWatch) await(ctx context.Context, since time.Time) (from, to time.Time, err error) {
+// interrupted, its login expired or its login lapsed (D-69 item 4), until it is back. It returns
+// the interruption the stream lived through (from, to): the one it waited out, or one that ended
+// after since, since a stream can break only after the connection is back (its TCP connection
+// outlived the interruption); zero when the connection did not break; errWatchEnded when the
+// backend closed, or ctx's error. lapsed, when given, is called once before it waits for a lapsed
+// login: the stream says so in a line of its own.
+func (w *connWatch) await(ctx context.Context, since time.Time, lapsed func()) (from, to time.Time, err error) {
 	if w == nil {
 		return time.Time{}, time.Time{}, nil
 	}
@@ -195,6 +197,10 @@ func (w *connWatch) await(ctx context.Context, since time.Time) (from, to time.T
 				return lf, lt, nil
 			}
 			return time.Time{}, time.Time{}, nil
+		}
+		if st == stateLapsed && lapsed != nil {
+			lapsed()
+			lapsed = nil
 		}
 		select {
 		case <-back:

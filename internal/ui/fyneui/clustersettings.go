@@ -172,8 +172,10 @@ func (p *settingsPage) clusterGeneralSection() fyne.CanvasObject {
 	}
 	p.controls["openFolder"] = open
 	kc := container.NewBorder(nil, nil, nil, open, container.NewStack(pathBg, inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, path)))
+	login, syncLogin := p.clusterLoginSetting() // clustersettings_login.go
 
 	p.sync = func() {
+		syncLogin()
 		v := p.clusterView()
 		name.SetPlaceHolder(v.ContextName)
 		set := ""
@@ -215,6 +217,7 @@ func (p *settingsPage) clusterGeneralSection() fyne.CanvasObject {
 		p.setting("name", "Cluster name", "Shown in the hotbar, the navigator and the welcome page; the kubeconfig is not changed.", name),
 		p.setting("icon", "Icon", "Upload an image (.png, .jpeg, .svg) or pick a colour; Cogpit keeps a copy in its own folder.", icon),
 		p.setting("kubeconfig", "Kubeconfig", "The file this context comes from.", kc),
+		login,
 	)
 }
 

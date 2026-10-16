@@ -58,6 +58,9 @@ const (
 	// HealthLoginExpired: the API server rejects the login. Lists and watches wait, others are
 	// refused, and no request reaches the credential plugin.
 	HealthLoginExpired
+	// HealthLoginLapsed: the login lapsed while the engine held its credential plugin (loginhold.go,
+	// D-69 item 4). Lists and watches wait, others are refused with ErrLoginLapsed.
+	HealthLoginLapsed
 )
 
 // Errors of a connection that is not healthy, and of its requests.
@@ -139,8 +142,11 @@ func (g *gate) state() (Health, <-chan struct{}) {
 
 // refusal is the error a request gets while the gate is h.
 func refusal(h Health) error {
-	if h == HealthLoginExpired {
+	switch h {
+	case HealthLoginExpired:
 		return ErrLoginExpired
+	case HealthLoginLapsed:
+		return ErrLoginLapsed
 	}
 	return ErrInterrupted
 }
@@ -204,9 +210,11 @@ func (r *gateRoundTripper) CloseIdleConnections() { closeIdle(r.next) }
 
 // loginGuard sits below client-go's credential plugin: it hands the plugin the first 401 after a
 // request that worked, and turns the ones after it into ErrLoginRejected until a request works
-// again or ArmLogin is called.
+// again or ArmLogin is called. While the engine holds the login (HoldLogin, loginhold.go) no 401
+// reaches the plugin: each ends as ErrLoginLapsed.
 type loginGuard struct {
 	armed atomic.Bool
+	heldGuard
 }
 
 func newLoginGuard() *loginGuard {
@@ -231,11 +239,14 @@ func (r *guardRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized:
+		if r.g.held.Load() {
+			drainBody(resp)
+			return nil, ErrLoginLapsed // held: the plugin does not renew it (loginhold.go)
+		}
 		if r.g.armed.CompareAndSwap(true, false) {
 			return resp, nil // client-go's plugin, if any, renews the login once
 		}
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
-		_ = resp.Body.Close()
+		drainBody(resp)
 		return nil, ErrLoginRejected
 	case resp.StatusCode < http.StatusBadRequest:
 		r.g.armed.Store(true)
@@ -245,6 +256,12 @@ func (r *guardRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 
 func (r *guardRoundTripper) WrappedRoundTripper() http.RoundTripper { return r.next }
 func (r *guardRoundTripper) CloseIdleConnections()                  { closeIdle(r.next) }
+
+// drainBody reads what is left of a response the caller never sees, at most 64 KiB, and closes it.
+func drainBody(resp *http.Response) {
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+	_ = resp.Body.Close()
+}
 
 // timeoutRoundTripper bounds a request that is not a stream.
 type timeoutRoundTripper struct {
@@ -317,7 +334,7 @@ func mayHaveBeenSent(err error, timedOut bool) bool {
 	if timedOut {
 		return true
 	}
-	if errors.Is(err, ErrInterrupted) || errors.Is(err, ErrLoginExpired) || errors.Is(err, ErrLoginRejected) {
+	if errors.Is(err, ErrInterrupted) || errors.Is(err, ErrLoginExpired) || errors.Is(err, ErrLoginRejected) || errors.Is(err, ErrLoginLapsed) {
 		return false
 	}
 	var op *net.OpError
@@ -448,15 +465,20 @@ func (c *Conn) ResetConnections() {
 }
 
 // Heartbeat asks the API server for its version with the connection's credentials, bounded by
-// ctx: nil when it answers, an error wrapping ErrLoginRejected when it rejects the login. It passes
-// the gates, and it may make client-go's credential plugin run (a login that expired by its time,
-// or a 401 the guard hands on): the call then returns only when the plugin has.
+// ctx: nil when it answers, an error wrapping ErrLoginRejected when it rejects the login, and
+// ErrLoginLapsed when it needed the credential plugin while the login is held (HoldLogin). It
+// passes the gates, and it may make client-go's credential plugin run (a login that expired by its
+// time, or a 401 the guard hands on): the call then returns only when the plugin has.
 func (c *Conn) Heartbeat(ctx context.Context) error {
 	if c == nil || c.disco == nil {
 		return errors.New("not connected")
 	}
-	mark := c.stderr.mark()
+	mark, lapses := c.stderr.mark(), c.lapseMark()
 	_, err := discovery.ToDiscoveryInterfaceWithContext(c.disco).ServerVersionWithContext(withProbe(ctx))
+	if err != nil && (errors.Is(err, ErrLoginLapsed) || c.lapsedSince(lapses)) {
+		c.stderr.discard() // the plugin did not run: nothing of it to keep
+		return ErrLoginLapsed
+	}
 	// A login the plugin failed to renew carries the plugin's standard error (pluginstderr.go).
 	return probeError(withPluginStderr(err, c.stderr, mark, c.secrets))
 }

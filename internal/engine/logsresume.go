@@ -79,7 +79,7 @@ func (r *resumingLog) run(rc io.ReadCloser, opened time.Time) {
 		}
 		// The stream may break only once the connection is back (CI, 2026-10-16): asked by when it
 		// opened, the interruption it lived through still counts.
-		from, to, werr := r.w.await(r.ctx, opened)
+		from, to, werr := r.w.await(r.ctx, opened, r.lapsedLine)
 		if werr != nil || from.IsZero() {
 			endErr = err // the stream ended while the connection works: the log ends here, as before
 			return
@@ -101,13 +101,20 @@ func (r *resumingLog) run(rc io.ReadCloser, opened time.Time) {
 				return
 			}
 			// Broken again at once: wait for the connection again; else the log ends with the error.
-			if from, _, werr := r.w.await(r.ctx, opened); werr != nil || from.IsZero() {
+			if from, _, werr := r.w.await(r.ctx, opened, r.lapsedLine); werr != nil || from.IsZero() {
 				r.line(NoticePrefix + " the log could not be opened again: " + oneLine(err.Error()))
 				return
 			}
 		}
 	}
 }
+
+// lapsedNotice is the line a log shows while it waits for a login that lapsed while its cluster
+// was not shown (D-69 item 4).
+const lapsedNotice = "the login lapsed; it is renewed when the cluster is shown"
+
+// lapsedLine writes lapsedNotice: the stream waits for the cluster to be shown.
+func (r *resumingLog) lapsedLine() { r.line(NoticePrefix + " " + lapsedNotice) }
 
 // line writes one of Cogpit's own lines; false once the reader is gone.
 func (r *resumingLog) line(text string) bool {

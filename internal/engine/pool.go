@@ -343,6 +343,7 @@ func (s *Session) Show(contextID string) error {
 	st.showLocked(e)
 	st.mu.Unlock()
 	s.showConnected(e.b, e.gen)
+	s.applyLoginHolds() // shown: its login is renewed again, a lapsed one now (connwatch_lapse.go)
 	return nil
 }
 

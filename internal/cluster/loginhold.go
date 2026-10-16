@@ -1,0 +1,236 @@
+package cluster
+
+import (
+	"errors"
+	"log/slog"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"unsafe"
+
+	"k8s.io/client-go/plugin/pkg/client/auth/exec"
+	"k8s.io/client-go/rest"
+)
+
+// A credential plugin held while its cluster is not shown (D-69 item 4, stage 3: the cluster
+// setting "Renew the login while the cluster is not shown", off). The engine holds a background
+// cluster's login (HoldLogin) so that no browser login pops up while the user works with another
+// cluster; showing the cluster, or Log in again, lets the plugin run again.
+//
+// client-go's exec authenticator starts the plugin by itself in three places
+// (k8s.io/client-go v0.37.1, plugin/pkg/client/auth/exec/exec.go): getCreds, when no credential is
+// cached or the cached one expired by its time (exec.go:402); maybeRefreshCreds, after a 401
+// (exec.go:419); and cert, for a client certificate in the TLS handshake, through getCreds
+// (exec.go:394).
+// The login guard (health.go) sees the 401 only; the other two run in client-go's round-tripper,
+// above every round-tripper of Cogpit's but the outer gate, and in the transports of exec, attach,
+// port forwards and Helm, in front of which Cogpit has none.
+//
+// So the hold sits where client-go starts the plugin: refreshCredsLocked asks the Authenticator's
+// interactiveFunc before it builds the command, and runs nothing when it fails (exec.go:436–439).
+// registerLoginHold wraps that unexported field once per Authenticator, under the Authenticator's
+// own lock, as pluginstderr.go sets its stderr: while every connection that uses the Authenticator
+// holds its login, the wrapper fails with errPluginHeld and no plugin process starts; each of
+// those connections counts the refusal (loginGuard.lapses), so that the request ends as
+// ErrLoginLapsed for the engine. A held connection's 401 is not handed to the plugin either: the
+// login guard ends it as ErrLoginLapsed.
+//
+// client-go keeps one Authenticator per plugin configuration (its command, arguments and
+// environment, and the cluster when provideClusterInfo is set, exec.go:166–170): two contexts with
+// the same plugin configuration share one login, and it is held only while every connection using
+// it holds it. If a later client-go renames the field or its lock, nothing is wrapped (logged
+// once): the 401 path stays held, the expiry path is not, and TestHeldPluginDoesNotRun fails.
+
+// ErrLoginLapsed refuses a request of a connection whose login lapsed while it was held: the
+// credential plugin was not run to renew it.
+var ErrLoginLapsed = errors.New("the login to the cluster lapsed and Cogpit does not renew it while the cluster is not shown; " +
+	"show the cluster in Cogpit's window to renew it")
+
+// errPluginHeld is what the wrapped interactiveFunc returns while the plugin is held; client-go
+// wraps it into its own message ("getting credentials: exec plugin cannot support interactive
+// mode: …") without keeping it as a cause, which is why the refusal is counted instead.
+var errPluginHeld = errors.New("cogpit holds the credential plugin while the cluster is not shown")
+
+// pluginHold is one Authenticator's hold: the connections that use it and whether each holds.
+type pluginHold struct {
+	mu        sync.Mutex
+	conns     map[*loginGuard]bool
+	installed bool // the interactiveFunc is wrapped
+}
+
+// holds are the pluginHolds by Authenticator, which client-go keeps for the life of the process;
+// patchMu (pluginstderr.go) guards the map and serialises the wrapping.
+var (
+	holds         = map[*exec.Authenticator]*pluginHold{}
+	holdWarnOnce  sync.Once
+	interactiveFn = reflect.TypeFor[func() (bool, error)]()
+)
+
+// loginHold is a connection's part of its Authenticator's hold.
+type loginHold struct {
+	a *exec.Authenticator
+	p *pluginHold
+	g *loginGuard
+}
+
+// registerLoginHold registers the connection's login guard with the hold of the Authenticator its
+// configuration uses, wrapping the Authenticator if that has not happened yet; nil without a
+// credential plugin. It must run on the configuration the connection's HTTP client is built from.
+func registerLoginHold(cfg *rest.Config, g *loginGuard) *loginHold {
+	a := authenticatorFor(cfg)
+	if a == nil || g == nil {
+		return nil
+	}
+	patchMu.Lock()
+	p := holds[a]
+	if p == nil {
+		p = &pluginHold{conns: map[*loginGuard]bool{}}
+		holds[a] = p
+	}
+	patchMu.Unlock()
+	p.mu.Lock()
+	p.conns[g] = false
+	p.mu.Unlock()
+	h := &loginHold{a: a, p: p, g: g}
+	h.install()
+	return h
+}
+
+// install wraps the Authenticator's interactiveFunc once; it reports whether it is wrapped. A plugin
+// run that holds the Authenticator's lock right now leaves it for the next try (HoldLogin).
+func (h *loginHold) install() bool {
+	patchMu.Lock()
+	defer patchMu.Unlock()
+	h.p.mu.Lock()
+	done := h.p.installed
+	h.p.mu.Unlock()
+	if done {
+		return true
+	}
+	if !wrapInteractive(h.a, h.p) {
+		return false
+	}
+	h.p.mu.Lock()
+	h.p.installed = true
+	h.p.mu.Unlock()
+	return true
+}
+
+// set records whether the connection holds the login.
+func (h *loginHold) set(on bool) {
+	h.p.mu.Lock()
+	if _, ok := h.p.conns[h.g]; ok {
+		h.p.conns[h.g] = on
+	}
+	h.p.mu.Unlock()
+}
+
+// drop forgets the connection (Close): a closed connection neither holds nor frees the login.
+// Nil-safe.
+func (h *loginHold) drop() {
+	if h == nil {
+		return
+	}
+	h.p.mu.Lock()
+	delete(h.p.conns, h.g)
+	h.p.mu.Unlock()
+}
+
+// refuse reports whether the plugin is held: some connection uses the Authenticator and every one
+// holds it. Each is told, so that its request ends as ErrLoginLapsed. It runs under the
+// Authenticator's lock (inside refreshCredsLocked).
+func (p *pluginHold) refuse() bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.conns) == 0 {
+		return false
+	}
+	for _, held := range p.conns {
+		if !held {
+			return false
+		}
+	}
+	for g := range p.conns {
+		g.lapses.Add(1)
+	}
+	return true
+}
+
+// wrapInteractive sets a's unexported interactiveFunc to one that refuses while p holds the plugin
+// and asks the original otherwise, under a's own lock (client-go reads the field under it, in
+// refreshCredsLocked). It reports false, setting nothing, when the fields are not what client-go
+// v0.37.1 has, or a plugin run holds the lock right now.
+func wrapInteractive(a *exec.Authenticator, p *pluginHold) bool {
+	v := reflect.ValueOf(a).Elem()
+	field, lock := v.FieldByName("interactiveFunc"), v.FieldByName("mu")
+	if !field.IsValid() || field.Type() != interactiveFn || !lock.IsValid() || lock.Type() != reflect.TypeFor[sync.Mutex]() {
+		holdWarnOnce.Do(func() {
+			slog.Warn("cluster: a credential plugin cannot be held with this client-go; a cluster that is not shown renews its login by the credential's time")
+		})
+		return false
+	}
+	// #nosec G103 -- the address of client-go's own lock in the Authenticator, checked to be a sync.Mutex above.
+	mu := (*sync.Mutex)(unsafe.Pointer(lock.UnsafeAddr()))
+	if !mu.TryLock() {
+		return false
+	}
+	defer mu.Unlock()
+	// #nosec G103 -- the interactiveFunc field checked to be a func() (bool, error) above.
+	fn := reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
+	orig, ok := fn.Interface().(func() (bool, error))
+	if !ok || orig == nil {
+		return false
+	}
+	fn.Set(reflect.ValueOf(func() (bool, error) {
+		if p.refuse() {
+			return false, errPluginHeld
+		}
+		return orig()
+	}))
+	return true
+}
+
+// HoldLogin holds the connection's credential plugin, or lets it run again (D-69 item 4): while
+// held, a login that expires by its time or that the API server rejects is not renewed, and the
+// requests that would have needed the plugin end as ErrLoginLapsed. A connection without a
+// credential plugin has nothing to hold: its rejected login stays ErrLoginRejected. Safe for
+// concurrent use.
+func (c *Conn) HoldLogin(on bool) {
+	if c == nil || c.hold == nil {
+		return
+	}
+	c.hold.g.held.Store(on)
+	c.hold.set(on)
+	if on {
+		c.hold.install() // wrapped at connect, unless a plugin run held the Authenticator's lock then
+	}
+}
+
+// LoginHoldable reports whether the connection's credential plugin can be held: it has one, and
+// client-go's Authenticator could be wrapped.
+func (c *Conn) LoginHoldable() bool {
+	if c == nil || c.hold == nil {
+		return false
+	}
+	return c.hold.install()
+}
+
+// lapseMark is the count of plugin runs the hold refused for this connection: a request that
+// fails while it grows needed the plugin.
+func (c *Conn) lapseMark() uint64 {
+	if c == nil || c.hold == nil {
+		return 0
+	}
+	return c.hold.g.lapses.Load()
+}
+
+// lapsedSince reports whether the hold refused a plugin run for this connection since mark.
+func (c *Conn) lapsedSince(mark uint64) bool {
+	return c != nil && c.hold != nil && c.hold.g.lapses.Load() != mark
+}
+
+// heldGuard is the part of the login guard the hold uses.
+type heldGuard struct {
+	held   atomic.Bool   // the engine holds the login: a 401 is not handed to the plugin
+	lapses atomic.Uint64 // plugin runs the hold refused
+}

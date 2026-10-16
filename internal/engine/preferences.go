@@ -133,6 +133,11 @@ type Preferences struct {
 	// the only one until Cogpit publishes prereleases.
 	CheckForUpdates bool   `json:"checkForUpdates"`
 	UpdateChannel   string `json:"updateChannel,omitempty"`
+	// RestoreSession: at start Cogpit restores the last run's tabs and connects again to the
+	// clusters connected when it quit, the one shown then first (D-69 item 8, restore.go); off,
+	// the owner's default, it starts without tabs and without connections. Agents and the CLI may
+	// only turn it off (ErrRestoreSessionGUIOnly).
+	RestoreSession bool `json:"restoreSession,omitempty"`
 }
 
 // DefaultPreferences are the preferences of a first start: the theme follows the computer's

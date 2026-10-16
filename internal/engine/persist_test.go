@@ -19,16 +19,38 @@ import (
 )
 
 // workspaceSession is a session over the fake connector ("test" and "broken") whose workspace is
-// kept in dir, written delay after a change; closed at cleanup.
+// kept in dir, written delay after a change, with the preference "Restore the last session" on
+// (D-69 item 8: off, no tab comes back); closed at cleanup.
 func workspaceSession(t *testing.T, dir string, delay time.Duration) (*Session, *fakeConnector) {
+	t.Helper()
+	return workspaceSessionWith(t, dir, delay, true)
+}
+
+// workspaceSessionWith is workspaceSession with the restore preference as given.
+func workspaceSessionWith(t *testing.T, dir string, delay time.Duration, restore bool) (*Session, *fakeConnector) {
 	t.Helper()
 	src := testkit.NewMemorySource()
 	src.Set(testkit.PodsGVR, testkit.Pod("shop", "web-0"))
 	src.Set(testkit.ServicesGVR, testkit.Service("shop", "checkout", "10.96.0.1"))
 	fc := &fakeConnector{src: src, profiles: testProfiles()}
-	s := New(Options{Connector: fc, SnapshotInterval: 5 * time.Millisecond, Workspace: NewWorkspace(dir).WithDelay(delay)})
+	s := New(Options{Connector: fc, SnapshotInterval: 5 * time.Millisecond, Workspace: NewWorkspace(dir).WithDelay(delay),
+		Preferences: restorePreferences(t, dir, restore)})
 	t.Cleanup(s.Close)
 	return s, fc
+}
+
+// restorePreferences keeps the preferences in dir, the restore of the last session as given; it
+// writes them only when dir has none yet, so that a session started again keeps what was set.
+func restorePreferences(t *testing.T, dir string, restore bool) *PreferencesStore {
+	t.Helper()
+	path := filepath.Join(dir, PreferencesFile)
+	if _, err := os.Stat(path); err == nil || !restore {
+		return NewPreferencesStore(dir)
+	}
+	if err := writePrivateFile(path, []byte(`{"version": 1, "restoreSession": true}`)); err != nil {
+		t.Fatal(err)
+	}
+	return NewPreferencesStore(dir)
 }
 
 // readWorkspace decodes the workspace file in dir.
@@ -212,7 +234,8 @@ func TestWorkspaceDropsOnlyWhatIsCertainlyGone(t *testing.T) {
 		{Context: "x [removed.yaml]", View: "pods"},
 		{Context: "x [elsewhere/y.yaml]", View: "pods"},
 	}})
-	s := New(Options{Connector: &ClusterConnector{Sources: k}, Workspace: NewWorkspace(dir).WithDelay(time.Hour)})
+	s := New(Options{Connector: &ClusterConnector{Sources: k}, Workspace: NewWorkspace(dir).WithDelay(time.Hour),
+		Preferences: restorePreferences(t, dir, true)})
 	t.Cleanup(s.Close)
 	var got []string
 	for _, tab := range s.UIState().Tabs {
@@ -358,7 +381,8 @@ func TestWorkspaceNoRequestAtStart(t *testing.T) {
 	writeWorkspace(t, dir, workspaceDoc{Version: workspaceVersion, Active: 1, Tabs: []storedTab{
 		{Context: "dev [dev.yaml]", View: "pods"}, {Context: "dev [dev.yaml]", View: "nodes", Preview: true},
 	}})
-	s := New(Options{Connector: &ClusterConnector{Sources: k}, Workspace: NewWorkspace(dir).WithDelay(time.Millisecond)})
+	s := New(Options{Connector: &ClusterConnector{Sources: k}, Workspace: NewWorkspace(dir).WithDelay(time.Millisecond),
+		Preferences: restorePreferences(t, dir, true)})
 	t.Cleanup(s.Close)
 	stop := s.WatchKubeconfigs(time.Millisecond)
 	t.Cleanup(stop)

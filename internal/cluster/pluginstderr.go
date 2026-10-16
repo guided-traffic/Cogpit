@@ -115,19 +115,8 @@ var (
 // (once per Authenticator) and returns it; nil without a plugin or when it cannot be set. It must
 // run on the configuration the connection's HTTP client is then built from.
 func capturePluginStderr(cfg *rest.Config) *pluginStderr {
-	if cfg == nil || cfg.ExecProvider == nil {
-		return nil
-	}
-	var cl *clientauthentication.Cluster
-	if cfg.ExecProvider.ProvideClusterInfo {
-		c, err := rest.ConfigToExecCluster(cfg)
-		if err != nil {
-			return nil
-		}
-		cl = c
-	}
-	a, err := exec.GetAuthenticator(cfg.ExecProvider, cl)
-	if err != nil || a == nil {
+	a := authenticatorFor(cfg)
+	if a == nil {
 		return nil
 	}
 	patchMu.Lock()
@@ -144,6 +133,28 @@ func capturePluginStderr(cfg *rest.Config) *pluginStderr {
 	}
 	stderrSinks[a] = sink
 	return sink
+}
+
+// authenticatorFor returns the Authenticator client-go's transport built from cfg uses for its
+// credential plugin (exec.GetAuthenticator keeps one per exec section and cluster); nil without a
+// plugin.
+func authenticatorFor(cfg *rest.Config) *exec.Authenticator {
+	if cfg == nil || cfg.ExecProvider == nil {
+		return nil
+	}
+	var cl *clientauthentication.Cluster
+	if cfg.ExecProvider.ProvideClusterInfo {
+		c, err := rest.ConfigToExecCluster(cfg)
+		if err != nil {
+			return nil
+		}
+		cl = c
+	}
+	a, err := exec.GetAuthenticator(cfg.ExecProvider, cl)
+	if err != nil {
+		return nil
+	}
+	return a
 }
 
 // setAuthenticatorStderr sets a's unexported stderr field to w under a's own lock (client-go reads

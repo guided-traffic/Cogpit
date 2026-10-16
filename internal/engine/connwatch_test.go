@@ -27,6 +27,10 @@ type fakeProber struct {
 	beats     int
 	reaches   []time.Time
 	beatTimes []time.Time
+	expired   bool   // the login expired by its time: the next heartbeat needs the credential plugin
+	held      bool   // the engine holds the plugin (HoldLogin): an expired login lapses instead
+	holds     []bool // every HoldLogin
+	renewals  int    // the plugin's runs that renewed an expired login
 }
 
 func (f *fakeProber) Heartbeat(ctx context.Context) error {
@@ -38,7 +42,19 @@ func (f *fakeProber) Heartbeat(ctx context.Context) error {
 		f.rejectN--
 		reject = true
 	}
+	lapsed := false
+	if f.expired && !down && block == nil {
+		if f.held {
+			lapsed = true // the plugin is held: nothing renews the login (cluster/loginhold.go)
+		} else {
+			f.expired = false // the plugin ran and renewed it
+			f.renewals++
+		}
+	}
 	f.mu.Unlock()
+	if lapsed {
+		return cluster.ErrLoginLapsed
+	}
 	if block != nil {
 		<-block
 		return nil
@@ -82,6 +98,13 @@ func (f *fakeProber) ArmLogin() {
 	f.mu.Unlock()
 }
 
+func (f *fakeProber) HoldLogin(on bool) {
+	f.mu.Lock()
+	f.held = on
+	f.holds = append(f.holds, on)
+	f.mu.Unlock()
+}
+
 func (f *fakeProber) set(fn func(*fakeProber)) {
 	f.mu.Lock()
 	fn(f)
@@ -92,7 +115,8 @@ func (f *fakeProber) get() fakeProber {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return fakeProber{health: append([]cluster.Health(nil), f.health...), resets: f.resets, armed: f.armed, beats: f.beats,
-		reaches: append([]time.Time(nil), f.reaches...)}
+		reaches: append([]time.Time(nil), f.reaches...), expired: f.expired, held: f.held, holds: append([]bool(nil), f.holds...),
+		renewals: f.renewals}
 }
 
 // fastWatch are the watch's options in milliseconds instead of seconds.
@@ -242,7 +266,7 @@ func TestAStreamThatBreaksChecksAtOnce(t *testing.T) {
 		done := make(chan struct{})
 		var f, to time.Time
 		var e error
-		go func() { f, to, e = w.await(ctx, s.Now()); close(done) }()
+		go func() { f, to, e = w.await(ctx, s.Now(), nil); close(done) }()
 		waitState(t, s, Interrupted)
 		p.set(func(f *fakeProber) { f.down = false })
 		<-done
@@ -268,11 +292,11 @@ func TestAStreamThatBreaksAfterTheReconnectStillResumes(t *testing.T) {
 	waitState(t, s, Connected)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	from, to, err := w.await(ctx, opened)
+	from, to, err := w.await(ctx, opened, nil)
 	if err != nil || from.IsZero() || to.Before(from) {
 		t.Fatalf("a stream opened before the interruption: from %v to %v, err %v", from, to, err)
 	}
-	if from, _, err := w.await(ctx, s.Now()); err != nil || !from.IsZero() {
+	if from, _, err := w.await(ctx, s.Now(), nil); err != nil || !from.IsZero() {
 		t.Errorf("a stream opened after it: from %v, err %v", from, err)
 	}
 }

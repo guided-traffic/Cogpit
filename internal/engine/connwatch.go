@@ -39,6 +39,13 @@ import (
 //     answered within 30 s (it may wait for a browser login), makes it LoginExpired: no request
 //     reaches the plugin until the user logs in again (cluster.login), so no plugin runs in the
 //     background and no browser tabs pile up.
+//   - A cluster that is not shown, whose cluster setting "Renew the login while the cluster is not
+//     shown" is off (D-69 item 4, loginhold.go), holds its credential plugin: a login that expires
+//     or is rejected meanwhile lapses (stateLapsed) instead of being renewed. The UI state says so
+//     (ConnectedCluster.LoginLapsed, the connection Connected: whether a renewal would work is not
+//     known, so it is not red); the heartbeat pauses, writes are disabled ("login lapsed"), streams
+//     that have to open again wait. Showing the cluster renews the login as above (one run of the
+//     plugin, LoginExpired if that does not help); so does Log in again.
 type connWatch struct {
 	s   *Session
 	b   *Backend
@@ -53,7 +60,7 @@ type connWatch struct {
 	once   sync.Once
 
 	mu            sync.Mutex
-	state         ConnectionState // Connected, Interrupted or LoginExpired
+	state         ConnectionState // Connected, Interrupted, LoginExpired or stateLapsed
 	since         time.Time
 	next          time.Time     // when the next attempt is due, on the session's clock (shown)
 	delay         time.Duration // the wait before it (waited)
@@ -69,6 +76,8 @@ type connWatch struct {
 	sessions      map[*trackedSession]struct{} // pod shells, node shells, attach (connwatch_streams.go)
 	pending       chan error                   // a heartbeat that has not returned yet (its plugin runs)
 	loggedReason  string                       // the reason the connection log has of the last failed try (connwatch_log.go)
+	held          bool                         // the engine holds the login: the cluster is not shown and its setting is off (loginhold.go)
+	renewing      bool                         // a renewal of a lapsed login runs (showing the cluster, Log in again): the plugin may run
 }
 
 // ConnWatchOptions tune the connection watch; zero fields are the owner's values.
@@ -130,7 +139,15 @@ type HealthProber interface {
 var (
 	errConnInterrupted = errors.New("connection interrupted")
 	errConnLoginGone   = errors.New("login expired: log in again first")
+	errConnLoginLapsed = errors.New("login lapsed: show the cluster to renew it")
 )
+
+// stateLapsed is the watch's own state of a login that lapsed while it was held (D-69 item 4): the
+// UI state shows it as Connected with ConnectedCluster.LoginLapsed, never as this value.
+const stateLapsed ConnectionState = "loginLapsed"
+
+// lapsedReason is the connection's reason while its login lapsed.
+const lapsedReason = "the login lapsed; it is renewed when the cluster is shown"
 
 type connKick int
 
@@ -140,6 +157,7 @@ const (
 	kickStream                      // a list, a watch or a stream broke
 	kickNow                         // Reconnect now
 	kickLogin                       // Log in again
+	kickRenew                       // the hold ended (the cluster is shown, or its setting is on again): renew a lapsed login
 )
 
 // loginWaitReason is LoginExpired's reason when the credential plugin did not answer in time.
@@ -231,6 +249,8 @@ func (w *connWatch) run() {
 			ok = w.interrupted()
 		case LoginExpired:
 			ok = w.expired()
+		case stateLapsed:
+			ok = w.lapsedStep()
 		default:
 			ok = w.healthy(&fails, &rejects)
 		}
@@ -302,6 +322,9 @@ func (w *connWatch) healthy(fails, rejects *int) bool {
 	case checkWaiting:
 		*fails, *rejects = 0, 0
 		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
+	case checkLapsed:
+		*fails, *rejects = 0, 0
+		w.lapse()
 	}
 	return true
 }
@@ -357,6 +380,8 @@ func (w *connWatch) afterReach() bool {
 		w.expire(rejectedReason(err), false)
 	case checkWaiting:
 		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
+	case checkLapsed: // the cluster answers again, its login lapsed meanwhile and is held
+		w.lapse()
 	}
 	return true
 }
@@ -394,6 +419,8 @@ func (w *connWatch) login() {
 	}
 	w.setLoggingIn(true)
 	defer w.setLoggingIn(false)
+	w.setRenewing(true) // a held login is let go for the user's own login (loginhold.go)
+	defer w.setRenewing(false)
 	w.s.state.logs.begin(w.b.Context, AttemptLogin, LogInfo, "Logging in again (Log in again): the credential plugin may run once, with its browser")
 	w.p.ArmLogin()
 	w.mu.Lock()
@@ -419,6 +446,8 @@ func (w *connWatch) login() {
 		w.expire("the API server still rejects the login ("+rejectedReason(err)+")", false)
 	case checkWaiting:
 		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
+	case checkLapsed:
+		w.lapse()
 	}
 }
 
@@ -430,6 +459,7 @@ const (
 	checkRejected
 	checkWaiting // no answer while the credential plugin runs
 	checkQuit
+	checkLapsed // the request needed the credential plugin, which the hold kept from running
 )
 
 // heartbeat runs one heartbeat on its own goroutine and sends its error to ch.
@@ -504,6 +534,8 @@ func classifyCheck(err error) checkResult {
 	switch {
 	case err == nil:
 		return checkOK
+	case errors.Is(err, cluster.ErrLoginLapsed):
+		return checkLapsed
 	case errors.Is(err, cluster.ErrLoginRejected):
 		return checkRejected
 	}
@@ -614,7 +646,8 @@ func (w *connWatch) reconnect() {
 	w.mu.Lock()
 	from := w.since
 	kind := AttemptReconnect
-	if w.state == LoginExpired {
+	lapsed := w.state == stateLapsed
+	if w.state == LoginExpired || lapsed {
 		kind = AttemptLogin
 	}
 	w.lastFrom, w.lastTo = from, now
@@ -631,12 +664,18 @@ func (w *connWatch) reconnect() {
 	w.s.renewUser(w.b) // the login may be another user's now (whoami.go, D-68)
 	away := now.Sub(from).Round(time.Second)
 	text := fmt.Sprintf("Reconnected to %s after %s", w.b.Context, away)
-	if kind == AttemptLogin {
+	switch {
+	case lapsed:
+		text = fmt.Sprintf("Renewed the login to %s, lapsed for %s", w.b.Context, away)
+	case kind == AttemptLogin:
 		text = fmt.Sprintf("Logged in again to %s; the connection was away %s", w.b.Context, away)
 	}
 	w.s.state.logs.end(w.b.Context, kind, OutcomeOK, LogInfo, text)
 	w.s.log.Info("engine: reconnected", "context", w.b.Context, "after", away)
 	w.publish()
+	if lapsed {
+		return // the user showed the cluster or logged in: the window shows the rest, no toast
+	}
 	w.s.emit(Event{Type: EventToast, Level: LevelInfo, Message: fmt.Sprintf("Reconnected to %s (interrupted %s–%s)",
 		kubeconfig.DisplayText(w.b.Context, 200), w.s.clockText(from), w.s.clockText(now))})
 }
@@ -673,10 +712,22 @@ func (w *connWatch) setLoggingIn(on bool) {
 func (w *connWatch) connection(old Connection) Connection {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return Connection{
-		State: w.state, Demo: old.Demo, TLSUnchecked: old.TLSUnchecked,
-		Since: w.since, NextAttempt: w.next, Reason: w.reason, LoggingIn: w.loggingIn, NeedsApproval: w.needsApproval,
+	st := w.state
+	if st == stateLapsed {
+		st = Connected // not red: whether a renewal would work is not known (D-69 item 4)
 	}
+	return Connection{
+		State: st, Demo: old.Demo, TLSUnchecked: old.TLSUnchecked,
+		Since: w.since, NextAttempt: w.next, Reason: w.reason, LoggingIn: w.loggingIn || w.renewing, NeedsApproval: w.needsApproval,
+	}
+}
+
+// lapsedShown reports whether the UI state shows the login as lapsed: it lapsed and no renewal
+// runs.
+func (w *connWatch) lapsedShown() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.state == stateLapsed && !w.renewing
 }
 
 // publish writes the watch's state into the UI state: the shown cluster's Connection, or its entry
@@ -686,13 +737,18 @@ func (w *connWatch) publish() {
 	if !w.s.state.holds(w.b) {
 		return
 	}
+	lapsed := w.lapsedShown()
 	w.s.UpdateUI(func(u *UIState) {
 		if u.connGen == w.gen && u.Context == w.b.Context && u.Connection.State.Live() {
 			u.Connection = w.connection(u.Connection) // syncConnections mirrors it into its entry
+			if i := u.connectionIndex(w.b.Context, w.gen); i >= 0 {
+				u.Connections[i].LoginLapsed = lapsed
+			}
 			return
 		}
 		if i := u.connectionIndex(w.b.Context, w.gen); i >= 0 && u.Connections[i].Connection.State.Live() {
 			u.Connections[i].Connection = w.connection(u.Connections[i].Connection)
+			u.Connections[i].LoginLapsed = lapsed
 		}
 	})
 }
@@ -748,6 +804,8 @@ func (s *Session) writeBlocked(d Danger, contextID string) error {
 		return errConnInterrupted
 	case LoginExpired:
 		return errConnLoginGone
+	case stateLapsed:
+		return errConnLoginLapsed
 	}
 	return nil
 }
@@ -781,12 +839,18 @@ var ErrNeedsNewConnect = errors.New("the login program of this context changed s
 var errNotExpired = errors.New("the login has not expired")
 
 // Login renews the shown cluster's expired login (cluster.login, the banner's Log in again): the
-// context's credential plugin may run once, with its browser if it needs one. Another connected
-// cluster's login follows today's renewal (D-58) and is renewed when it is shown (D-69 item 4's
-// setting comes later).
-func (s *Session) Login() error {
-	w := s.connWatch("")
-	if w.current() != LoginExpired {
+// context's credential plugin may run once, with its browser if it needs one.
+func (s *Session) Login() error { return s.LoginContext("") }
+
+// LoginContext is Login for a connected context, "" the shown one (cluster.login with a context):
+// an expired login, or one that lapsed while the cluster was not shown (D-69 item 4), whose hold
+// the login lets go for its run.
+func (s *Session) LoginContext(contextID string) error {
+	if s.BackendOf(contextID) == nil && contextID != "" {
+		return &NotConnectedError{Context: contextID}
+	}
+	w := s.connWatch(contextID)
+	if st := w.current(); st != LoginExpired && st != stateLapsed {
 		return errNotExpired
 	}
 	if w.approvalChanged() {
@@ -819,9 +883,23 @@ func (s *Session) StaleNoteFor(inv Invocation) string {
 		return staleNote(u.Context, u.Connection)
 	}
 	if c, ok := u.ConnectionOf(contextID); ok {
+		if c.LoginLapsed {
+			return lapsedNote(contextID, c.Connection)
+		}
 		return staleNote(contextID, c.Connection)
 	}
 	return ""
+}
+
+// lapsedNote is what an agent's read of a cluster whose login lapsed while it was not shown is
+// told (D-69 item 4): the cache's data may be older than the read, and what needs the cluster is
+// refused until the cluster is shown; the agent's read never renews the login itself.
+func lapsedNote(contextID string, c Connection) string {
+	since := c.Since.UTC().Format(time.RFC3339)
+	return fmt.Sprintf("Note from Cogpit: the login to %s lapsed (since %s) and Cogpit does not renew it while the cluster is not "+
+		"shown (its cluster setting renewLoginInBackground is off); this is data from %s or later, as Cogpit's cache last saw it. "+
+		"Reads that need the cluster and writes are refused until the cluster is shown in Cogpit's window, which renews the login.",
+		kubeconfig.DisplayText(contextID, 200), since, since)
 }
 
 func staleNote(contextID string, c Connection) string {

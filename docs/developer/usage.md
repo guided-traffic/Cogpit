@@ -37,7 +37,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🗂️ Every cluster from your kubeconfig files and synced folders, side by side.
 - 🧭 Lens's navigator levels: All Clusters (Local Kubeconfigs) lists every cluster and the tabs of all of them, the one list to choose a cluster from, with a + to add kubeconfigs; › drills into one cluster's resources and its tabs, ‹ All Clusters goes back up.
 - 📌 A hotbar of pinned clusters at the window's edge, in banks of twelve: F1–F12 to switch cluster, ⇧F1–⇧F12 to switch bank.
-- 🔀 Several clusters connected at once (since 2026-10-16): switching to another cluster leaves the one you were on connected, its logs, shells, port forwards and running jobs going on; switching back within five minutes shows it at once without asking the cluster again, later its lists load anew. A cluster stays connected until you disconnect it or quit; agents may work on any connected cluster. Every dot of a cluster says how it is: filled while live, a ring while it rests in the background, blinking while it reconnects, red when it needs you; the dock shows the tabs of the cluster you look at ([Several clusters connected](#several-clusters-connected)).
+- 🔀 Several clusters connected at once (since 2026-10-16): switching to another cluster leaves the one you were on connected, its logs, shells, port forwards and running jobs going on; switching back within five minutes shows it at once without asking the cluster again, later its lists load anew. A cluster stays connected until you disconnect it or quit; agents may work on any connected cluster. Every dot of a cluster says how it is: filled while live, a ring while it rests in the background, blinking while it reconnects, red when it needs you; the dock shows the tabs of the cluster you look at ([Several clusters connected](#several-clusters-connected)). A cluster's Settings can keep its login program from running while you look at another cluster (its login then waits, renewed when you show it), and Preferences › App can bring the last session back at start: its tabs and its clusters, connected again.
 - 🪪 One short name per cluster wherever the window names it: the name you gave it in its Settings, else its context's name after the last "@" ("kubernetes-admin@prod-eu" shows as "prod-eu"); the full name in every tooltip, and the navigator's search finds it by either. The navigator's root says who you are logged in as there, as the API server confirms it at every connect (`kubectl auth whoami`'s question), your groups in the tooltip of the small box beside it; "(kubeconfig)" marks the kubeconfig's user name where the API server does not say, and while the cluster connects the last user it confirmed shows dimmed, with when it was last seen ([D-68](decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)).
 - ⌨️ A command palette on ⌘⇧P (Ctrl+Shift+P): every action the menus offer, Switch to any view, the hotbar's clusters and banks; ⌘P (Cluster › Connect to Cluster…) to search a cluster by name in the navigator's list, ↵ to connect, Escape to go back.
 - 👋 A welcome page whenever no cluster is open (and from Help › Welcome): your clusters one click away, Add Kubeconfigs, the documentation. Disconnect a cluster, or remove it from Cogpit, which unlinks the kubeconfig file you added and never touches the file.
@@ -349,6 +349,56 @@ may only turn it off. Not offered on Windows and Linux yet. What macOS does with
 signed with the Developer ID since v0.6.0, is not verified: no signed app installed in Applications
 has been tried ([D-48](decisions.md#d-48-start-at-login)).
 
+### Preferences › App: restore the last session
+
+Since 2026-10-16 ([D-69](decisions.md#d-69-several-clusters-connected-at-once) item 8, the owner's
+decision): **off by default**, Cogpit starts without tabs and without connections, on the welcome
+page. On, the next start reopens the tab bar's tabs of the last run and connects again to the
+clusters that were connected when Cogpit quit: the one you were looking at first, shown as on any
+connect with its most recently used tab, then the others one after another in the background
+(`ui_state`'s `connections` lists each as `connecting` meanwhile). Their login programs run as on any connect; one you have not
+allowed yet, or one whose program changed since, is not run, and the cluster says why (allow it in
+the navigator). `--context` shows its own cluster, and the restore connects the others behind it. A
+cluster whose kubeconfig is gone is left out with a notice. The dock's tabs (logs, terminals,
+editors) are not reopened. The tables' column choice and order, the navigator's collapsed groups and
+whether the navigator and the chat are shown come back whatever this says.
+
+| Preference (`preferences.set`, `ui_state`'s `preferences`) | Default | Meaning |
+|---|---|---|
+| `restoreSession` | `false` # default | on: the next start restores the last session's tabs and connections |
+
+`workspace.json` keeps the clusters connected and the one shown whether it is on or off, so turning
+it on restores the session of your last quit. Security note: on, the next start connects clusters
+and runs their login programs without a click, so only you, in Cogpit's window, can turn it on;
+agents and the CLI may only turn it off.
+
+### Cluster Settings › General: the login while the cluster is not shown
+
+Since 2026-10-16 ([D-69](decisions.md#d-69-several-clusters-connected-at-once) item 4). **On by
+default:** a cluster that stays connected while you look at another one renews its login as the
+shown one does, so its login program may run (a browser login included) when the login expires.
+Off ("Renew the login while the cluster is not shown" unchecked), its login program does not run
+while another cluster is shown: when its login expires, the cluster's login **lapses**. It stays
+connected and is not shown in red (whether a renewal would work is not known); `ui_state`'s
+`connections[].loginLapsed` says so, with since and why (the window's grey mark for it comes with
+the marks of the clusters in the background *(planned)*). Meanwhile its checks pause, changes to
+it are disabled ("login lapsed: show the cluster to renew it"), a log that has to open again waits
+with the line `[cogpit] the login lapsed; it is renewed when the cluster is shown`, port forwards
+wait, and a drain or a Helm action that was running stops as at an interruption. A stream that is
+open goes on. Show the cluster and its login is renewed as the shown cluster's is (its login program
+runs once; **Login expired** in red if that does not help); **Log in again** (`cluster.login` with
+the cluster's context, the window's only) renews it without showing it. An agent never renews it: its reads come from the cache with a note, and what
+needs the cluster is refused.
+
+| Setting (`cluster.settings.set`, `cluster.settings.get`) | Default | Meaning |
+|---|---|---|
+| `renewLoginInBackground` | `true` # default | off: the login program does not run while the cluster is not shown; kept as `holdBackgroundLogin: true` in `cluster-settings.json` |
+
+Security note: on lets a login program run while you work with another cluster, so only you, in
+Cogpit's window, can turn it on; agents and the CLI may only turn it off. Two contexts whose login
+program runs with the same command, arguments and environment share one login in client-go: it is
+held only while both are held.
+
 ### Deep links (`cogpit://`)
 
 macOS only: the app registers the URL scheme `cogpit`, so a link in a runbook, a chat or an alert
@@ -581,7 +631,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Hotbar | `<user config dir>/Cogpit/hotbar.json`, owner-only (0600, directory 0700): the banks of pinned clusters by context id; an unreadable one is moved to `hotbar.json.unreadable` at the first change | |
 | A cluster's name in the window | the display name set in its Cluster Settings › General, else the part of its context's name after the last `@` (the whole name without an `@`, or with nothing after it), without the kubeconfig file; commands and `ui_state` keep the full context id ([D-68](decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)) | `kubernetes-admin@prod-eu [dev.yaml]` → `prod-eu` # example |
 | Last known users | `<user config dir>/Cogpit/cluster-users.json`, owner-only (0600, directory 0700): per context id the username the API server last confirmed and when Cogpit last saw it so, for the navigator's root while the cluster is not connected; never the groups, never the kubeconfig's user name; an unreadable one is moved to `cluster-users.json.unreadable` at the next write ([D-68](decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)) | `{"version": 1, "users": {"kubernetes-admin@prod-eu [dev.yaml]": {"username": "alice@example.com", "seen": "2026-10-16T09:12:00Z"}}}` # example |
-| Tabs and column layout | `<user config dir>/Cogpit/workspace.json`, owner-only (0600, directory 0700): the tab bar's tabs (context id, view, filters, search, sort, history), each view's hidden columns and column order, and since 2026-10-15 the navigator's collapsed source groups (their folders' and files' labels, A63) and whether the navigator is hidden and the chat column shown (F7, [D-54](decisions.md#d-54-the-layout-toggles-and-the-update-button)), restored at start without connecting anything ([D-41](decisions.md#d-41-what-survives-a-restart)); an unreadable one is moved to `workspace.json.unreadable` at the first change | |
+| Tabs and column layout | `<user config dir>/Cogpit/workspace.json`, owner-only (0600, directory 0700): the tab bar's tabs (context id, view, filters, search, sort, history), each view's hidden columns and column order, and since 2026-10-15 the navigator's collapsed source groups (their folders' and files' labels, A63) and whether the navigator is hidden and the chat column shown (F7, [D-54](decisions.md#d-54-the-layout-toggles-and-the-update-button)), and since 2026-10-16 the clusters connected (`connected`, context ids) and the one shown (`shown`) ([D-41](decisions.md#d-41-what-survives-a-restart)); the layout comes back at every start, the tabs and the connections only while Preferences › App › Restore the last session is on ([D-69](decisions.md#d-69-several-clusters-connected-at-once) item 8); format version 1, a file of v0.17.0 loads; an unreadable one is moved to `workspace.json.unreadable` at the first change | `{"version": 1, "tabs": […], "active": 0, "connected": ["kind-dev", "prod-eu"], "shown": "prod-eu"}` # example |
 | Drafts of unsaved text | `<user config dir>/Cogpit/drafts/<32 hex digits>.json`, owner-only (0600, directory 0700): an Edit or Create resource tab's unsaved text, and since 2026-10-15 a Config Map's values edited in the drawer (type `configMapData`), removed when saved, reverted or discarded, offered again at the next connect of their context ([D-11](decisions.md#d-11-crash-stance), [D-55](decisions.md#d-55-a-config-maps-values-edited-in-the-drawer)); never a Secret's values or Helm values | `drafts/3f9a…c2.json` # example |
 | Helm chart repositories | Helm's own `repositories.yaml`, as the helm CLI resolves it: `$HELM_REPOSITORY_CONFIG`, else `$HELM_CONFIG_HOME/repositories.yaml`, else Helm's folder; read every 2 seconds, never written (add and remove repositories with `helm repo add` and `helm repo remove`, [D-29](decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)); credentials stay in memory | `~/Library/Preferences/helm/repositories.yaml` # default on macOS |
 | Helm repositories allowed over http | `<user config dir>/Cogpit/helm-http-approvals.json`, owner-only (0600, directory 0700): the repositories whose user and password you let Cogpit send over plain http, each by its name, its URL without user, password or query values, a SHA-256 of its name, URL and user name and when; no credential ([H-40](../security/credentials.md#h-40-credentials-over-plain-http)) | |

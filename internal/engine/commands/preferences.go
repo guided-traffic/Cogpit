@@ -52,6 +52,8 @@ type preferencesSetParams struct {
 	// CheckForUpdates and UpdateChannel: the app's updater (engine/updates.go, D-4).
 	CheckForUpdates *bool   `json:"checkForUpdates,omitempty" jsonschema:"whether the macOS app checks Cogpit's update feed once a day and offers a new release with one click (default true). Agents and the CLI may only turn it on"`
 	UpdateChannel   *string `json:"updateChannel,omitempty" jsonschema:"the update channel the app follows: stable, the only one until Cogpit publishes prereleases (empty means stable)"`
+	// RestoreSession: agents and the CLI may only turn it off (engine/restore.go, D-69 item 8).
+	RestoreSession *bool `json:"restoreSession,omitempty" jsonschema:"whether Cogpit, at its next start, restores the tabs of the last run and connects again to the clusters connected when it quit, the one shown then first, their credential plugins running as on any connect (default false: it starts without tabs and connections). Agents and the CLI may only turn it off"`
 }
 
 // shellChange reports whether the parameters change the local terminal's shell or arguments.
@@ -102,7 +104,8 @@ func registerPreferences(g *registrar) {
 			"kubectl for terminals: downloads offered or not, the mirror, the directory for binaries (kubectlDir: the one " +
 			"in effect), the path to kubectl, where new Helm installs keep their records (helmDriver, empty: " +
 			"secret), whether chart icons are fetched (loadChartIcons), whether the app checks for updates automatically " +
-			"(checkForUpdates) and on which channel (updateChannel); kept says whether they outlive this run. " +
+			"(checkForUpdates) and on which channel (updateChannel), whether the next start restores the last session " +
+			"(restoreSession: its tabs and connections); kept says whether they outlive this run. " +
 			"ui_state carries the same.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := s.Preferences(); return err },
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
@@ -124,8 +127,9 @@ func registerPreferences(g *registrar) {
 			"mirror, which decide what the terminals run as kubectl, and the terminals' right mouse button, which decides " +
 			"whether a click pastes into a shell. An agent's HTTP proxy (it decides where Cogpit's downloads go) always " +
 			"waits for the user's acceptance; the CLI may only clear it. Refused too: choosing the configmap Helm storage driver for new installs, which they may " +
-			"only set back to secret, turning on chart icons, which they may only turn off, and turning off the automatic " +
-			"update checks, which they may only turn on." + prefsWritesOnly + " Returns the preferences.",
+			"only set back to secret, turning on chart icons, which they may only turn off, turning off the automatic " +
+			"update checks, which they may only turn on, and turning on the restore of the last session (the next start would " +
+			"connect clusters and run their credential plugins without a click), which they may only turn off." + prefsWritesOnly + " Returns the preferences.",
 		Enabled: func(s *engine.Session, _ preferencesSetParams) error { _, err := s.Preferences(); return err },
 		// An agent's proxy always waits for the user (A20, owner 2026-10-14 evening; the follow-up's
 		// Preferences proxy belongs to no context, so no allowance could skip it: a night decision).
@@ -152,6 +156,9 @@ func registerPreferences(g *registrar) {
 			if err := engine.RefuseUpdateChecks(ctx, p.CheckForUpdates); err != nil {
 				return err
 			}
+			if err := engine.RefuseRestoreSession(ctx, p.RestoreSession); err != nil {
+				return err
+			}
 			return refuseProxy(ctx, p.HTTPProxy)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p preferencesSetParams) (any, error) {
@@ -171,6 +178,9 @@ func registerPreferences(g *registrar) {
 				return nil, err
 			}
 			if err := engine.RefuseUpdateChecks(ctx, p.CheckForUpdates); err != nil {
+				return nil, err
+			}
+			if err := engine.RefuseRestoreSession(ctx, p.RestoreSession); err != nil {
 				return nil, err
 			}
 			var helmDriver string
@@ -221,6 +231,7 @@ func registerPreferences(g *registrar) {
 				setIf(&pr.KubectlDownload, p.KubectlDownload)
 				setIf(&pr.LoadChartIcons, p.LoadChartIcons)
 				setIf(&pr.CheckForUpdates, p.CheckForUpdates)
+				setIf(&pr.RestoreSession, p.RestoreSession)
 				if p.UpdateChannel != nil {
 					pr.UpdateChannel = strings.TrimSpace(*p.UpdateChannel)
 					if pr.UpdateChannel == "" {

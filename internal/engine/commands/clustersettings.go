@@ -30,6 +30,8 @@ type clusterSettingsSetParams struct {
 	HiddenMetrics        []string `json:"hiddenMetrics,omitempty" jsonschema:"the metrics the window hides for this cluster, and does not ask the cluster for: places (cluster: the Overview's charts; nodes, pods: their lists' CPU and Memory columns and their drawers' charts; containers: a pod's containers' charts) and measures (cpu, memory, network, filesystem), or all; it replaces the list set before, and an empty list shows every metric again. metrics_get still answers"`
 	MetricsSource        *string  `json:"metricsSource,omitempty" jsonschema:"which providers the cluster's metrics come from, as Lens's Metrics source: auto (both: Prometheus's history and the Metrics Server's current values, the default), prometheus (Prometheus alone), metrics-server (the Metrics Server alone: no history, network, filesystem or disk) or none (no metrics: nothing is asked); applied to the connected cluster at once"`
 	AccessibleNamespaces []string `json:"accessibleNamespaces,omitempty" jsonschema:"the namespaces the user may read in, for a user who may not list the cluster's namespaces (Lens: Accessible namespaces), at most 100 namespace names; it replaces the list set before, and an empty list removes them. It only narrows what Cogpit reads: the namespace filter offers them, and a kind the user may not list in all namespaces is watched in each of them instead"`
+	// RenewLoginInBackground: agents and the CLI may only turn it off (engine/connwatch_lapse.go, D-69 item 4).
+	RenewLoginInBackground *bool `json:"renewLoginInBackground,omitempty" jsonschema:"whether the cluster's login is renewed while the cluster is connected but not shown, its credential plugin running (a browser login included) when the login expires (default true). Off: the plugin does not run then, and an expired login lapses (connections' loginLapsed) until the cluster is shown or logged in again. Agents and the CLI may only turn it off"`
 }
 
 type clusterIconParams struct {
@@ -84,8 +86,8 @@ func registerClusterSettings(g *registrar) {
 			"namespaces named for a user who may not list namespaces (accessibleNamespaces), the node shells' image, pull " +
 			"secret and maximum duration (nodeShellImage, empty: nodeShellDefaultImage; nodeShellPullSecret; " +
 			"nodeShellMaxDuration, empty: nodeShellDefaultMaxDuration), whether it is " +
-			"connected (shown or not), whether the user allowed agents' changes without asking (agentWrites), and whether the " +
-			"settings are kept. The Prometheus setting is cluster_prometheus.",
+			"connected (shown or not), whether the user allowed agents' changes without asking (agentWrites), whether its login " +
+			"is renewed while it is not shown (renewLoginInBackground), and whether the settings are kept. The Prometheus setting is cluster_prometheus.",
 		Enabled: func(s *engine.Session, p clusterSettingsParams) error {
 			_, err := settingsContext(s, p.Context)
 			return err
@@ -108,7 +110,9 @@ func registerClusterSettings(g *registrar) {
 			"and the Overview at once, and nothing is polled for them; the metrics source turns a provider or both off " +
 			"for the cluster at once; a proxy applies at the next connect; accessible " +
 			"namespaces (a list that replaces the last) only narrow what Cogpit reads: the namespace filter offers them, " +
-			"and a kind the user may not list in all namespaces is watched in each of them, at once. An agent's proxy " +
+			"and a kind the user may not list in all namespaces is watched in each of them, at once; renewLoginInBackground " +
+			"off holds the credential plugin while the cluster is not shown (its login then lapses instead of being renewed), " +
+			"and only the user may turn it on again. An agent's proxy " +
 			"always waits for the user's acceptance, also where the user allowed agent writes; the CLI may clear the proxy " +
 			"but not set one; the proxy read back has its password shown as •••." +
 			clusterSettingsOnly + " Returns the settings.",
@@ -117,6 +121,9 @@ func registerClusterSettings(g *registrar) {
 			return err
 		},
 		Refuse: func(ctx context.Context, _ *engine.Session, p clusterSettingsSetParams) error {
+			if err := engine.RefuseRenewLogin(ctx, p.RenewLoginInBackground); err != nil {
+				return err
+			}
 			return refuseProxy(ctx, p.Proxy)
 		},
 		// A proxy decides where the user's cluster traffic goes, credentials in it: an agent's always
@@ -131,6 +138,9 @@ func registerClusterSettings(g *registrar) {
 		},
 		Run: func(ctx context.Context, s *engine.Session, p clusterSettingsSetParams) (any, error) {
 			if err := refuseProxy(ctx, p.Proxy); err != nil {
+				return nil, err
+			}
+			if err := engine.RefuseRenewLogin(ctx, p.RenewLoginInBackground); err != nil {
 				return nil, err
 			}
 			var source string
@@ -176,6 +186,9 @@ func registerClusterSettings(g *registrar) {
 						return err
 					}
 					cs.Proxy = next
+				}
+				if p.RenewLoginInBackground != nil {
+					cs.HoldBackgroundLogin = !*p.RenewLoginInBackground
 				}
 				return nil
 			})

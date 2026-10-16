@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,12 @@ import (
 // moment after they stop changing (WorkspaceDelay, at least every workspaceMaxWait while they keep
 // changing) and when the session closes.
 //
+// Since 2026-10-16 (D-69 item 8, restore.go) the tabs come back only while the preference "Restore
+// the last session" is on, and then the clusters connected at quit connect again; off, Cogpit
+// starts without tabs and connections. The file keeps both either way (connected, shown), so that
+// turning the preference on restores the session of the last quit. A file written before has no
+// connections: its tabs come back without a connect, as in v0.17.0.
+//
 // What it holds (D-41, night decision): per tab its cluster (the context id), its view and the
 // view's title, whether it is the preview tab, its place in the bar, when it was last shown (a
 // rank, so that a cluster connected from the navigator shows its most recently used tab), its
@@ -30,9 +37,11 @@ import (
 // never a dock tab (logs, terminals, editors: an editor's unsaved text has its draft, D-11), never
 // a credential or an object's value.
 //
-// At start (attach, in New) the tabs show at once and nothing connects: the shown tab's cluster
-// becomes UIState.Context, Disconnected, as after cluster.disconnect, so the tab is marked and the
-// workspace shows the welcome page; a tab connects its cluster when the user shows it (SelectTab).
+// At start (attach, in New), with the preference on, the tabs show at once and nothing connects
+// yet: the shown tab's cluster becomes UIState.Context, Disconnected, as after cluster.disconnect,
+// so the tab is marked and the workspace shows the welcome page; the clusters of the last session
+// connect once the app calls RestoreLastSession (restore.go), and a tab connects its cluster when
+// the user shows it (SelectTab).
 // The tabs of a context no kubeconfig source offers any more are dropped with a notice
 // (restoreGoneTabs). A file that does not load is ignored, reported, and moved to
 // <file>.unreadable before the first write, never overwritten (as the preferences' files).
@@ -70,6 +79,11 @@ type Workspace struct {
 	unreadable bool   // the file did not load: it is moved aside before the first write
 	closed     bool
 	warned     bool // a failed write was logged
+
+	// plan is what RestoreLastSession connects (restore.go), from the file read at start while the
+	// preference is on; nil once taken. restoreCancel ends its connects when the session closes.
+	plan          *restorePlan
+	restoreCancel context.CancelFunc
 }
 
 // NewWorkspace returns the workspace kept in dir (<user config dir>/Cogpit); an empty dir keeps
@@ -115,6 +129,12 @@ type workspaceDoc struct {
 	// tabs is closed.
 	NavigatorHidden bool `json:"navigatorHidden,omitempty"`
 	Chat            bool `json:"chat,omitempty"`
+	// Connected are the clusters connected (or connecting) when the file was written, by context
+	// id, and Shown the one the window showed (D-69 item 8, 2026-10-16): what "Restore the last
+	// session" connects again. Absent in a file of v0.17.0 and before; the format version stays 1,
+	// and a Cogpit of then ignores the two fields.
+	Connected []string `json:"connected,omitempty"`
+	Shown     string   `json:"shown,omitempty"`
 }
 
 // storedTab is one tab as kept: a ViewTab without its id, selection and drawer.
@@ -143,6 +163,12 @@ func workspaceDocOf(u *UIState, viewTitle func(string) string) workspaceDoc {
 	doc := workspaceDoc{Version: workspaceVersion, Tabs: make([]storedTab, len(u.Tabs)), Active: -1,
 		HiddenColumns: u.HiddenColumns, ColumnOrder: u.ColumnOrder, CollapsedSources: u.Navigator.Collapsed,
 		NavigatorHidden: u.NavigatorHidden, Chat: u.Chat}
+	for _, c := range u.Connections { // connected, connecting, or being restored in the background
+		doc.Connected = append(doc.Connected, c.Context)
+	}
+	if u.Context != "" && activeConnection(u.Connection.State) {
+		doc.Shown = u.Context
+	}
 	ranks := usedRanks(u.Tabs)
 	for i, t := range u.Tabs {
 		doc.Tabs[i] = storedTab{Context: t.Context, View: t.View, Preview: t.Preview,
@@ -243,7 +269,13 @@ func (w *Workspace) attach(s *Session) {
 		s.log.Warn("workspace", "err", err)
 	}
 	read, _ := marshalWorkspace(doc)
-	dropped := s.restoreWorkspace(doc)
+	restore := s.restoreSession() // the preference "Restore the last session" (restore.go)
+	dropped := s.restoreWorkspace(doc, restore)
+	var plan *restorePlan
+	var notConnected []string
+	if restore {
+		plan, notConnected = s.planRestore(doc)
+	}
 	s.mu.Lock()
 	now := workspaceDocOf(&s.ui, s.knownViewTitle)
 	rev := s.ui.Revision
@@ -251,7 +283,7 @@ func (w *Workspace) attach(s *Session) {
 	data, _ := marshalWorkspace(now)
 
 	w.mu.Lock()
-	w.s, w.lastRev = s, rev
+	w.s, w.lastRev, w.plan = s, rev, plan
 	if !w.unreadable {
 		w.written = read
 		if !bytes.Equal(data, read) {
@@ -267,7 +299,27 @@ func (w *Workspace) attach(s *Session) {
 	if notice := notRestoredNotice(dropped); notice != "" {
 		s.emit(Event{Type: EventToast, Level: LevelInfo, Message: notice})
 	}
+	if notice := notReconnectedNotice(notConnected); notice != "" {
+		s.emit(Event{Type: EventToast, Level: LevelInfo, Message: notice})
+	}
 	s.Subscribe(w.onEvent)
+}
+
+// takePlan hands the restore's plan over once, with the cancel of its connects, which close calls;
+// nil without one. Nil-safe.
+func (w *Workspace) takePlan(cancel context.CancelFunc) *restorePlan {
+	if w == nil {
+		return nil
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	plan := w.plan
+	w.plan = nil
+	if plan != nil && !w.closed {
+		w.restoreCancel = cancel
+		return plan
+	}
+	return nil
 }
 
 // onEvent runs on the goroutine that emitted the event: it must not block.
@@ -373,6 +425,10 @@ func (w *Workspace) close() {
 		w.timer.Stop()
 	}
 	gen := w.gen
+	cancel := w.restoreCancel
 	w.mu.Unlock()
 	w.flush(gen)
+	if cancel != nil {
+		cancel() // the restore's connects still under way give up (restore.go)
+	}
 }

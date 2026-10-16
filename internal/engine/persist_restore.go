@@ -123,6 +123,23 @@ func (doc *workspaceDoc) normalize() {
 	doc.Tabs, doc.Active = tabs, active
 	doc.HiddenColumns, doc.ColumnOrder = storedLayout(doc.HiddenColumns), storedLayout(doc.ColumnOrder)
 	doc.CollapsedSources = uniqueKeys(storedKeys(doc.CollapsedSources))
+	doc.Connected = storedContexts(doc.Connected)
+	if !slices.Contains(doc.Connected, doc.Shown) {
+		doc.Shown = ""
+	}
+}
+
+// storedContexts keeps the connections of a file read back: valid context ids without repeats, at
+// most maxRestoredTabs; nil for none.
+func storedContexts(ids []string) []string {
+	var out []string
+	for _, id := range ids {
+		if strings.TrimSpace(id) == "" || !storedText(id, maxStoredContext) || slices.Contains(out, id) || len(out) == maxRestoredTabs {
+			continue
+		}
+		out = append(out, id)
+	}
+	return out
 }
 
 // goneTabs counts the tabs of one context that were closed or not restored.
@@ -139,20 +156,24 @@ func addGone(list []goneTabs, contextID string) []goneTabs {
 	return append(list, goneTabs{Context: contextID, Tabs: 1})
 }
 
-// restoreWorkspace puts a document into the UI state: its column layout, and its tabs but those
-// of contexts that are certainly gone (goneContexts), with fresh ids and their titles. The tab shown
-// last is marked active and its cluster becomes UIState.Context, Disconnected, as after
-// cluster.disconnect: nothing connects until the user shows a tab. It returns the dropped tabs.
-func (s *Session) restoreWorkspace(doc workspaceDoc) []goneTabs {
+// restoreWorkspace puts a document into the UI state: its column layout and the window's layout,
+// and, when tabs is set (the preference "Restore the last session", restore.go), its tabs but
+// those of contexts that are certainly gone (goneContexts), with fresh ids and their titles. The
+// tab shown last is marked active and its cluster becomes UIState.Context, Disconnected, as after
+// cluster.disconnect: nothing connects here (RestoreLastSession does). It returns the dropped tabs.
+func (s *Session) restoreWorkspace(doc workspaceDoc, tabs bool) []goneTabs {
+	if !tabs {
+		doc.Tabs, doc.Active = nil, -1 // a start without the last session's tabs (D-69 item 8)
+	}
 	ids := make([]string, 0, len(doc.Tabs))
 	for _, t := range doc.Tabs {
 		ids = append(ids, t.Context)
 	}
 	gone := s.goneContexts(ids, false)
 	var (
-		tabs    []ViewTab
-		dropped []goneTabs
-		clock   uint64
+		restored []ViewTab
+		dropped  []goneTabs
+		clock    uint64
 	)
 	active := -1
 	for i, st := range doc.Tabs {
@@ -164,25 +185,25 @@ func (s *Session) restoreWorkspace(doc workspaceDoc) []goneTabs {
 			s.NoteViewTitle(st.View, st.ViewTitle)
 		}
 		if i == doc.Active {
-			active = len(tabs)
+			active = len(restored)
 		}
 		clock = max(clock, st.Used)
-		tabs = append(tabs, ViewTab{ID: "tab-" + strconv.Itoa(len(tabs)+1), Context: st.Context, View: st.View,
+		restored = append(restored, ViewTab{ID: "tab-" + strconv.Itoa(len(restored)+1), Context: st.Context, View: st.View,
 			Preview: st.Preview, Namespaces: st.Namespaces, Groups: st.Groups, Filter: st.Filter,
 			FilterOptions: st.FilterOptions, States: st.States, Sort: st.Sort, Back: st.Back, Forward: st.Forward, used: st.Used})
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	u := &s.ui
-	for k := range tabs {
-		tabs[k].Title = tabTitle(s.viewTitle, tabs[k], u.ClusterSettings)
+	for k := range restored {
+		restored[k].Title = tabTitle(s.viewTitle, restored[k], u.ClusterSettings)
 	}
 	u.HiddenColumns, u.ColumnOrder = doc.HiddenColumns, doc.ColumnOrder
 	u.Navigator.Collapsed = doc.CollapsedSources
 	u.NavigatorHidden, u.Chat = doc.NavigatorHidden, doc.Chat // the layout (F7, layout.go)
-	u.Tabs, u.tabSeq, u.tabClock = tabs, uint64(len(tabs)), clock
+	u.Tabs, u.tabSeq, u.tabClock = restored, uint64(len(restored)), clock
 	if active >= 0 && u.Context == "" && u.Connection.State == Disconnected {
-		u.ActiveTab, u.Context = tabs[active].ID, tabs[active].Context
+		u.ActiveTab, u.Context = restored[active].ID, restored[active].Context
 		u.User = s.users.shown(u.Context, false) // its last known user (whoami.go)
 	}
 	return dropped
