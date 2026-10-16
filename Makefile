@@ -345,6 +345,20 @@ kind-kps-down: ## Uninstall it, its CRDs, its kubelet Service and its namespace
 	$(KUBECTL) delete crd --ignore-not-found $(addsuffix .monitoring.coreos.com,$(KPS_CRDS))
 	$(KUBECTL) delete namespace cogpit-kps --ignore-not-found
 
+# VictoriaMetrics for one check (TestKindVictoriaMetrics, D-71): single-node and a small cluster
+# (vmselect under /select/0/prometheus) in the namespace cogpit-vm, both fed from the kind
+# cluster's Prometheus (make kind-prometheus first) through its /federate endpoint
+# (hack/kind/victoriametrics). Detection prefers that Prometheus: the test names each.
+.PHONY: kind-vm kind-vm-down
+
+kind-vm: ## Install VictoriaMetrics (single-node and a cluster) into the kind cluster (namespace cogpit-vm)
+	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
+	$(KUBECTL) apply -f hack/kind/victoriametrics/
+	$(KUBECTL) -n cogpit-vm rollout status deployment --timeout 5m
+
+kind-vm-down: ## Delete the kind cluster's VictoriaMetrics and its namespace
+	$(KUBECTL) delete namespace cogpit-vm --ignore-not-found
+
 # The drain cluster: one control plane and two workers, for the tests that cordon and drain a
 # node, which must never run against the shared single-node cluster above.
 KIND_DRAIN_CLUSTER    ?= cogpit-drain

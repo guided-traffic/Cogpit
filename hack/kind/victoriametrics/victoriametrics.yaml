@@ -1,0 +1,203 @@
+# VictoriaMetrics in the kind cluster for one check (TestKindVictoriaMetrics, architecture §9,
+# D-71): single-node VictoriaMetrics and a small VictoriaMetrics cluster (vmstorage, vminsert,
+# vmselect), named as VictoriaMetrics' operator names a VMSingle's and a VMCluster's Services
+# (vmsingle-<name>, vmselect-<name>), in the namespace cogpit-vm. Neither scrapes the cluster
+# itself: both take the series the kind cluster's Prometheus (make kind-prometheus) has, through
+# its /federate endpoint, every 30 seconds, so they hold what Cogpit's queries read from the time
+# they start. Plain manifests, every image pinned; make kind-vm applies them, make kind-vm-down
+# deletes the namespace. Detection prefers the kind cluster's Prometheus (score 80) to them (74,
+# 73): the test names each through the Prometheus setting.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cogpit-vm
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: federate
+  namespace: cogpit-vm
+data:
+  scrape.yml: |
+    global:
+      scrape_interval: 30s
+    scrape_configs:
+      - job_name: federate
+        honor_labels: true
+        metrics_path: /federate
+        params:
+          'match[]':
+            - '{__name__=~"container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_network_(receive|transmit)_bytes_total|container_fs_.+|node_cpu_seconds_total|node_memory_.+|node_network_(receive|transmit)_bytes_total|node_filesystem_(size|avail)_bytes|node_disk_(read|written)_bytes_total|kube_pod_info|kube_pod_status_phase"}'
+        static_configs:
+          - targets: ["prometheus-server.monitoring.svc:80"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmsingle-cogpit
+  namespace: cogpit-vm
+  labels: {app: vmsingle-cogpit}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: vmsingle-cogpit}
+  template:
+    metadata:
+      labels: {app: vmsingle-cogpit}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, fsGroup: 65534}
+      containers:
+        - name: vmsingle
+          image: victoriametrics/victoria-metrics:v1.106.1
+          args: ["-storageDataPath=/storage", "-retentionPeriod=7d", "-httpListenAddr=:8428", "-promscrape.config=/config/scrape.yml"]
+          ports: [{name: http, containerPort: 8428}]
+          readinessProbe: {httpGet: {path: /health, port: http}}
+          resources: {requests: {cpu: 20m, memory: 64Mi}, limits: {memory: 256Mi}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: storage, mountPath: /storage}, {name: config, mountPath: /config}]
+      volumes:
+        - {name: storage, emptyDir: {}}
+        - {name: config, configMap: {name: federate}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmsingle-cogpit
+  namespace: cogpit-vm
+spec:
+  selector: {app: vmsingle-cogpit}
+  ports: [{name: http, port: 8428, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmstorage-cogpit
+  namespace: cogpit-vm
+  labels: {app: vmstorage-cogpit}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: vmstorage-cogpit}
+  template:
+    metadata:
+      labels: {app: vmstorage-cogpit}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, fsGroup: 65534}
+      containers:
+        - name: vmstorage
+          image: victoriametrics/vmstorage:v1.106.1-cluster
+          args: ["-storageDataPath=/storage", "-retentionPeriod=7d"]
+          ports: [{name: http, containerPort: 8482}, {name: vminsert, containerPort: 8400}, {name: vmselect, containerPort: 8401}]
+          readinessProbe: {httpGet: {path: /health, port: http}}
+          resources: {requests: {cpu: 20m, memory: 64Mi}, limits: {memory: 256Mi}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: storage, mountPath: /storage}]
+      volumes:
+        - {name: storage, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmstorage-cogpit
+  namespace: cogpit-vm
+spec:
+  selector: {app: vmstorage-cogpit}
+  ports: [{name: http, port: 8482}, {name: vminsert, port: 8400}, {name: vmselect, port: 8401}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vminsert-cogpit
+  namespace: cogpit-vm
+  labels: {app: vminsert-cogpit}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: vminsert-cogpit}
+  template:
+    metadata:
+      labels: {app: vminsert-cogpit}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534}
+      containers:
+        - name: vminsert
+          image: victoriametrics/vminsert:v1.106.1-cluster
+          args: ["-storageNode=vmstorage-cogpit:8400"]
+          ports: [{name: http, containerPort: 8480}]
+          readinessProbe: {httpGet: {path: /health, port: http}}
+          resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {memory: 128Mi}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vminsert-cogpit
+  namespace: cogpit-vm
+spec:
+  selector: {app: vminsert-cogpit}
+  ports: [{name: http, port: 8480, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmselect-cogpit
+  namespace: cogpit-vm
+  labels: {app: vmselect-cogpit}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: vmselect-cogpit}
+  template:
+    metadata:
+      labels: {app: vmselect-cogpit}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, fsGroup: 65534}
+      containers:
+        - name: vmselect
+          image: victoriametrics/vmselect:v1.106.1-cluster
+          args: ["-storageNode=vmstorage-cogpit:8401", "-cacheDataPath=/cache"]
+          ports: [{name: http, containerPort: 8481}]
+          readinessProbe: {httpGet: {path: /health, port: http}}
+          resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {memory: 256Mi}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: cache, mountPath: /cache}]
+      volumes:
+        - {name: cache, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vmselect-cogpit
+  namespace: cogpit-vm
+spec:
+  selector: {app: vmselect-cogpit}
+  ports: [{name: http, port: 8481, targetPort: http}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmagent-cogpit
+  namespace: cogpit-vm
+  labels: {app: vmagent-cogpit}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: vmagent-cogpit}
+  template:
+    metadata:
+      labels: {app: vmagent-cogpit}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, fsGroup: 65534}
+      containers:
+        - name: vmagent
+          image: victoriametrics/vmagent:v1.106.1
+          args: ["-promscrape.config=/config/scrape.yml", "-remoteWrite.url=http://vminsert-cogpit:8480/insert/0/prometheus/api/v1/write",
+                 "-remoteWrite.tmpDataPath=/buffer"]
+          ports: [{name: http, containerPort: 8429}]
+          readinessProbe: {httpGet: {path: /health, port: http}}
+          resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {memory: 128Mi}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: buffer, mountPath: /buffer}, {name: config, mountPath: /config}]
+      volumes:
+        - {name: buffer, emptyDir: {}}
+        - {name: config, configMap: {name: federate}}

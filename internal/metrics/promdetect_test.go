@@ -39,6 +39,7 @@ func TestCandidatesRankKnownServices(t *testing.T) {
 		"monitoring/prometheus-k8s:web",
 		"monitoring/prometheus-operated:web",
 		"monitoring/prometheus-server:http",
+		"monitoring/thanos-query:http", // since 2026-10-16 night, Thanos by its name (D-71)
 		"lens-metrics/prometheus:web",
 		"apps/prometheus:9090",
 	}

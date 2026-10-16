@@ -75,6 +75,12 @@ type ServiceLocated interface {
 	ServiceRef() (namespace, name string)
 }
 
+// Named is a found provider whose name differs from its detector's: a Thanos or a VictoriaMetrics
+// found where a Prometheus was looked for (promflavor.go). The status line names it so.
+type Named interface {
+	Name() string
+}
+
 // errorClass is a failed request as a class and a short reason for the status line: the HTTP status
 // the API server or the service proxy answered, a timeout, a refused connection, an answer Cogpit
 // cannot read. It never includes the error's text, which for a proxied answer can carry the

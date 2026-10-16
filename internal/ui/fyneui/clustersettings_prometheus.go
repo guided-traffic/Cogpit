@@ -113,7 +113,8 @@ func (p *settingsPage) prometheusSettings() (fyne.CanvasObject, func()) {
 		p.setting(promAddressSetting, "Prometheus service address",
 			"Empty: found by its name among the cluster's services. Kept in Cogpit's settings, never the kubeconfig.",
 			container.NewVBox(f.address, f.line, f.https)),
-		p.setting(promPrefixSetting, "Path prefix", "The path the service serves under (its --web.route-prefix), such as /prometheus.", f.prefix),
+		p.setting(promPrefixSetting, "Path prefix",
+			"The path the service serves under: its --web.route-prefix, or /select/<tenant>/prometheus for VictoriaMetrics' vmselect.", f.prefix),
 	), sync
 }
 

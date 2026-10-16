@@ -100,7 +100,7 @@ func TestPrometheusOverrideFromTheSettings(t *testing.T) {
 	if set := res.(engine.PrometheusSetting); set.Auto || set.Address != "observability/thanos-query:9090" || set.Prefix != "/prometheus" || !set.Kept {
 		t.Errorf("setting = %+v", set)
 	}
-	m := waitSource(s, "Prometheus (observability/thanos-query)")
+	m := waitSource(s, "Thanos (observability/thanos-query)") // a Thanos by its name (D-71, 2026-10-16 night)
 	if p := m.Providers[0]; p.Service != "observability/thanos-query:9090/prometheus" || p.Status != metrics.StatusAvailable {
 		t.Errorf("status line = %+v", p)
 	}
@@ -109,7 +109,7 @@ func TestPrometheusOverrideFromTheSettings(t *testing.T) {
 	}
 	res, err = dispatch(s, "cluster.prometheus", `{}`)
 	if set, ok := res.(engine.PrometheusSetting); err != nil || !ok || set.Auto || set.Address != "observability/thanos-query:9090" ||
-		set.InUse != "Prometheus observability/thanos-query:9090/prometheus" || set.InUseStatus != metrics.StatusAvailable {
+		set.InUse != "Thanos observability/thanos-query:9090/prometheus" || set.InUseStatus != metrics.StatusAvailable {
 		t.Errorf("cluster.prometheus = %+v, %v", res, err) // the one in use: Cluster Settings › Metrics names it (2026-10-16 night)
 	}
 
@@ -125,7 +125,7 @@ func TestPrometheusOverrideFromTheSettings(t *testing.T) {
 	before := byName.n.Load()
 	s2 := session(t)
 	s2.UpdateUI(func(u *engine.UIState) { u.Drawer = &ref })
-	waitSource(s2, "Prometheus (observability/thanos-query)")
+	waitSource(s2, "Thanos (observability/thanos-query)")
 	if n := byName.n.Load(); n != before {
 		t.Errorf("the service found by name got %d requests while the setting named another", n-before)
 	}

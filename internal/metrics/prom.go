@@ -48,6 +48,9 @@ type Target struct {
 	// Scheme is the service proxy's scheme: "https" asks the service over TLS
 	// (QuerySettings.HTTPS), "" over http.
 	Scheme string
+	// Flavor is which server it is, by its Service's name (promflavor.go): Prometheus, Thanos,
+	// VictoriaMetrics. The queries are the same; the name shown is the flavor's.
+	Flavor Flavor
 }
 
 // String is "namespace/service", the name the source line shows.
@@ -174,8 +177,11 @@ func (p *Prometheus) Query() QuerySettings { return p.opts.Query }
 func (p *Prometheus) ID() string { return PrometheusID }
 
 // Label implements Provider: "Prometheus (namespace/service)", which the drawer prints after
-// "Displaying metrics from".
-func (p *Prometheus) Label() string { return "Prometheus (" + p.target.String() + ")" }
+// "Displaying metrics from"; "Thanos (…)" or "VictoriaMetrics (…)" for those (promflavor.go).
+func (p *Prometheus) Label() string { return p.target.Flavor.Name() + " (" + p.target.String() + ")" }
+
+// Name implements Named: "Prometheus", "Thanos", "VictoriaMetrics", the status line's name.
+func (p *Prometheus) Name() string { return p.target.Flavor.Name() }
 
 // Target returns the service the provider reads.
 func (p *Prometheus) Target() Target { return p.target }

@@ -68,30 +68,61 @@ type Candidate struct {
 //	score  90  prometheus-operated                       the Prometheus Operator's governing service
 //	score  80  prometheus-server                         the prometheus Helm chart
 //	            <release>-prometheus-server
+//	score  76  <release>-thanos-query, thanos-querier    Thanos's Querier (Bitnami's chart,
+//	                                                     kube-thanos, the Thanos operators)
+//	score  75  <release>-thanos-query-frontend           Thanos's query frontend
+//	score  74  vmsingle-<name>                           VictoriaMetrics single-node (its operator's
+//	            <release>-victoria-metrics-single-server VMSingle, its chart)
+//	score  73  vmselect-<name>                           VictoriaMetrics' cluster vmselect (its
+//	            <release>-victoria-metrics-cluster-vmselect operator's VMCluster, its chart), under
+//	                                                     /select/0/prometheus
 //	score  70  prometheus in monitoring, prometheus, lens-metrics (Lens's own install, a
 //	           hand-written install)
 //	score  40  prometheus in any other namespace
 //
 // Detection finds what the cluster runs: Cogpit installs no Prometheus of its own (D-61, owner
-// 2026-10-16), so no install ranks first for being Cogpit's. Ties go to the namespaces named in
+// 2026-10-16), so no install ranks first for being Cogpit's. A Prometheus by one of its own names
+// ranks before Thanos and VictoriaMetrics (D-71, the lead's decision of the night run
+// 2026-10-16/17): it holds the cluster's own series, where a Querier or a VictoriaMetrics may hold
+// several clusters' and Cogpit's queries do not narrow by a cluster label; the user names one in
+// Cluster Settings › Metrics to read it instead. Ties go to the namespaces named in
 // preferredNamespaces, then by name. A name that is not one of these is never tried: probing every
 // Service of a cluster would send a request each.
-var promNames = []struct {
-	re    *regexp.Regexp
-	score int
-}{
+var promNames = []promName{
 	// The chart names its resources <release>-kube-prometheus-stack, cut to 26 characters (or the
 	// release alone when it contains the chart's name): "kube-prometheus-stack-prometheus",
 	// "monitoring-kube-prometheus-prometheus", and for a release of up to five characters
 	// "kps-kube-prometheus-stack-prometheus" (2026-10-12, found reading the chart for the kind check).
-	{regexp.MustCompile(`^(.+-)?kube-prometheus(-stack)?-prometheus$`), 100},
-	{regexp.MustCompile(`^prometheus-k8s$`), 95},
-	{regexp.MustCompile(`^prometheus-operated$`), 90},
+	{re: regexp.MustCompile(`^(.+-)?kube-prometheus(-stack)?-prometheus$`), score: 100},
+	{re: regexp.MustCompile(`^prometheus-k8s$`), score: 95},
+	{re: regexp.MustCompile(`^prometheus-operated$`), score: 90},
 	// The prometheus chart names its server <release>-prometheus-server, or <release>-server when
 	// the release contains "prometheus" ("prometheus-server" for the release prometheus): any name
 	// ending so is found, monitoring-prometheus-server, or cogpit-prometheus-server, the release
 	// v0.16.0 and v0.17.0 installed from Cluster Settings › Cogpit Metrics, now the user's own.
-	{regexp.MustCompile(`^.*prometheus-server$`), 80},
+	{re: regexp.MustCompile(`^.*prometheus-server$`), score: 80},
+	// Thanos: Bitnami's chart names the Querier <release>-thanos-query and its frontend
+	// <release>-thanos-query-frontend (its gRPC Service <release>-thanos-query-grpc is not the HTTP
+	// API: not matched), kube-thanos thanos-query and thanos-query-frontend, the Thanos operators
+	// and OpenShift's monitoring thanos-querier. The store gateway, the compactor, the ruler, the
+	// receiver and kube-prometheus-stack's thanos-discovery serve no query API: not matched.
+	{re: regexp.MustCompile(`^(.+-)?thanos-quer(y|ier)$`), score: 76, flavor: FlavorThanos},
+	{re: regexp.MustCompile(`^(.+-)?thanos-query-frontend$`), score: 75, flavor: FlavorThanos},
+	// VictoriaMetrics: its operator names a VMSingle's Service vmsingle-<name> and a VMCluster's
+	// vmselect-<name> (the victoria-metrics-k8s-stack chart through it), its charts
+	// <release>-victoria-metrics-single-server and <release>-victoria-metrics-cluster-vmselect.
+	// vmselect serves the Prometheus API under /select/<tenant>/prometheus: the default tenant's.
+	{re: regexp.MustCompile(`^(vmsingle-.+|(.+-)?victoria-metrics-single-server)$`), score: 74, flavor: FlavorVictoriaMetrics},
+	{re: regexp.MustCompile(`^(vmselect-.+|(.+-)?victoria-metrics-cluster-vmselect)$`), score: 73, flavor: FlavorVictoriaMetrics, prefix: VMSelectPrefix},
+}
+
+// promName is a well-known Service name of a server that speaks the Prometheus HTTP API: its rank,
+// its flavor and the path the API is served under.
+type promName struct {
+	re     *regexp.Regexp
+	score  int
+	flavor Flavor
+	prefix string
 }
 
 const (
@@ -121,7 +152,8 @@ func Candidates(services []Service) []Candidate {
 		if !ok {
 			continue
 		}
-		out = append(out, Candidate{Target: Target{Namespace: s.Namespace, Service: s.Name, Port: port}, Score: score})
+		n, _ := matchName(s.Name)
+		out = append(out, Candidate{Target: Target{Namespace: s.Namespace, Service: s.Name, Port: port, Prefix: n.prefix, Flavor: n.flavor}, Score: score})
 	}
 	slices.SortFunc(out, func(a, b Candidate) int {
 		if a.Score != b.Score {
@@ -136,10 +168,8 @@ func Candidates(services []Service) []Candidate {
 }
 
 func scoreName(namespace, name string) int {
-	for _, n := range promNames {
-		if n.re.MatchString(name) {
-			return n.score
-		}
+	if n, ok := matchName(name); ok {
+		return n.score
 	}
 	if name == promService {
 		if slices.Contains(preferredNamespaces, namespace) {
@@ -272,7 +302,8 @@ func (d *PrometheusDetector) Detect(ctx context.Context) (Provider, State) {
 
 	var cands []Candidate
 	if ov != nil {
-		cands = []Candidate{{Target: Target{Namespace: ov.Namespace, Service: ov.Service, Port: ov.Port, Prefix: ov.Prefix}, Score: 1000}}
+		cands = []Candidate{{Target: Target{Namespace: ov.Namespace, Service: ov.Service, Port: ov.Port, Prefix: ov.Prefix,
+			Flavor: flavorOf(ov.Service, ov.Prefix)}, Score: 1000}}
 	} else {
 		if d.services == nil {
 			return nil, State{Status: StatusNotServed, Message: "no Prometheus found"}

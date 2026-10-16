@@ -10,6 +10,7 @@ so Cogpit and kubectl never reach another cluster by accident.
 | [`cluster.yaml`](cluster.yaml) | kind configuration: one control-plane node, the default service CIDR `10.96.0.0/16` |
 | [`seed/`](seed/) | the manifests `make kind-seed` applies, all in the namespace `cogpit-demo` |
 | [`prometheus-values.yaml`](prometheus-values.yaml) | the values `make kind-prometheus` installs the `prometheus` chart with; see [Prometheus](#prometheus) |
+| [`victoriametrics/`](victoriametrics/) | the manifests `make kind-vm` applies: VictoriaMetrics single-node and a small cluster in the namespace `cogpit-vm`; see [VictoriaMetrics](#victoriametrics) |
 | [`drain-cluster.yaml`](drain-cluster.yaml) | the second, multi-node cluster `cogpit-drain` (one control plane, two workers) for the tests that cordon and drain a node; see [The drain cluster](#the-drain-cluster) |
 
 ## Use
@@ -95,6 +96,27 @@ node's `/` is an overlay, which node-exporter leaves out, so the Nodes list's Di
 empty here. node-exporter reads the Docker VM's `/proc`, the Metrics Server the node container's
 cgroup: on kind a node's history (node-exporter's) and its live values (the Metrics Server's) do not
 match.
+
+## VictoriaMetrics
+
+`make kind-vm` (after `make kind-prometheus`) adds VictoriaMetrics for one check of D-71,
+`TestKindVictoriaMetrics`: single-node VictoriaMetrics (`cogpit-vm/vmsingle-cogpit`, port `http`
+8428) and a small cluster, vmstorage, vminsert, vmselect (`cogpit-vm/vmselect-cogpit`, port `http`
+8481, the Prometheus API under `/select/0/prometheus`) and a vmagent, in the namespace `cogpit-vm`
+([`victoriametrics/`](victoriametrics/), plain manifests, images pinned to v1.106.1). The Services are
+named as VictoriaMetrics' operator names a VMSingle's and a VMCluster's. Neither scrapes the cluster:
+both take the kind Prometheus's series through its `/federate` endpoint every 30 seconds, so their
+history starts when they do; run the test a few minutes after. Detection prefers the kind
+Prometheus to them, so the test names each in the Prometheus setting.
+
+```sh
+make kind-vm        # apply the manifests and wait for the rollouts
+make test-kind      # TestKindVictoriaMetrics runs instead of skipping
+make kind-vm-down   # delete the namespace cogpit-vm
+```
+
+If the images do not pull inside the kind node, pull them on the host and `kind load docker-image
+<image> --name cogpit`, as for Prometheus.
 
 ## The synthetic cluster
 

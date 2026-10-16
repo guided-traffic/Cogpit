@@ -660,6 +660,9 @@ func (h *Hub) Providers() []ProviderStatus {
 			if l, ok := sl.prov.(ServiceLocated); ok {
 				ps.Namespace, ps.ServiceName = l.ServiceRef()
 			}
+			if n, ok := sl.prov.(Named); ok && n.Name() != "" {
+				ps.Label = n.Name() // a Thanos or a VictoriaMetrics found by the Prometheus detector
+			}
 		}
 		if sl.asked && sl.state.Status != "" {
 			ps.Status = sl.state.Status
