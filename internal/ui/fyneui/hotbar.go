@@ -90,6 +90,15 @@ func (h *hotbar) stateChanged() {
 	h.request()
 }
 
+// marksChanged draws the tiles' dots again without rebuilding the tiles (a rebuild would drop a
+// tooltip or a drag in progress): their marks read state the hotbar's list does not carry, such as
+// the contexts' failed connects. Main goroutine.
+func (h *hotbar) marksChanged() {
+	for _, t := range h.tileWidgets() {
+		t.Refresh()
+	}
+}
+
 // request reads the hotbar as the user sees it (hotbar.list) and shows it. Main goroutine.
 func (h *hotbar) request() {
 	if h.sh.ui.Hotbar == nil {

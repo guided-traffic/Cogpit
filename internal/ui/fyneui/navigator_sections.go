@@ -163,7 +163,7 @@ func (n *navSections) load() {
 			}
 			n.render()
 			if sh.hot != nil {
-				sh.hot.stateChanged() // the tiles' marks read the contexts' failed connects too (connectProblem)
+				sh.hot.marksChanged() // the tiles' marks read the contexts' failed connects too (connectProblem)
 			}
 		})
 	}()
