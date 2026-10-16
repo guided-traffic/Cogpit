@@ -247,6 +247,8 @@ func attemptHeader(a connectLogAttempt, tf model.TimeFormat) (string, fyne.Theme
 		return head + "failed" + took, colorStatusError
 	case a.Outcome == engine.OutcomeAbandoned:
 		return head + "ended by a newer attempt" + took, colorMuted
+	case a.Outcome == engine.OutcomeCancelled: // Cancel Connecting (D-73)
+		return head + "cancelled" + took, colorMuted
 	}
 	return head + "no outcome recorded (Cogpit stopped first)", colorMuted
 }

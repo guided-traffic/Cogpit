@@ -65,8 +65,12 @@ type tableView struct {
 	table                      *resourceTable
 	placeholder                *fyne.Container
 	placeholderText            *textLine
+	placeholderDetail          *textLine       // while connecting: the login it waits for (D-73)
+	detailBox                  *fyne.Container // placeholderDetail centred; hidden while it says nothing
 	connectButton              *widget.Button
-	create                     *createButton // the floating "+" (createbutton.go)
+	cancelButton               *widget.Button  // Cancel Connecting while connecting (D-73)
+	cancelBox                  *fyne.Container // cancelButton centred; hidden unless connecting
+	create                     *createButton   // the floating "+" (createbutton.go)
 	root                       fyne.CanvasObject
 
 	snap    *engine.TableSnapshot
@@ -145,8 +149,14 @@ func newTableView(sh *shell) *tableView {
 	tv.placeholderText = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	tv.connectButton = widget.NewButtonWithIcon(connectLabel+"…", theme.LoginIcon(), func() { sh.findCluster() }) // D-57
 	tv.connectButton.Importance = widget.HighImportance
+	tv.placeholderDetail = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
+	tv.cancelButton = widget.NewButtonWithIcon(cancelConnectingLabel, theme.CancelIcon(), sh.disconnect) // cluster.disconnect (menus_cluster.go)
+	// Hidden as boxes: a centring box around a hidden widget would still take its row's padding.
+	tv.detailBox, tv.cancelBox = container.NewCenter(tv.placeholderDetail), container.NewCenter(tv.cancelButton)
+	tv.detailBox.Hide()
+	tv.cancelBox.Hide()
 	tv.placeholder = container.NewCenter(container.NewVBox(
-		container.NewCenter(tv.placeholderText), container.NewCenter(tv.connectButton)))
+		container.NewCenter(tv.placeholderText), tv.detailBox, container.NewCenter(tv.connectButton), tv.cancelBox))
 
 	tv.csvButton = widget.NewButtonWithIcon("", theme.DownloadIcon(), tv.exportCSV)
 	tv.csvButton.Importance = widget.LowImportance
@@ -323,6 +333,24 @@ func (tv *tableView) updateTitle() {
 	}
 }
 
+// updateConnecting shows, while the cluster connects, the login its credential plugin waits for and
+// Cancel Connecting (D-73; the owner's finding of 2026-10-16 night: a login nobody finished could
+// not be ended).
+func (tv *tableView) updateConnecting(ui engine.UIState) {
+	if ui.Connection.State != engine.Connecting {
+		tv.detailBox.Hide()
+		tv.cancelBox.Hide()
+		return
+	}
+	tv.cancelBox.Show()
+	if line := loginWaitLine(ui.Connection.WaitingForLogin, tv.sh.timeFormat()); line != "" {
+		tv.placeholderDetail.SetText(line)
+		tv.detailBox.Show()
+	} else {
+		tv.detailBox.Hide()
+	}
+}
+
 // updatePlaceholder shows the placeholder instead of the table when there is nothing to show.
 func (tv *tableView) updatePlaceholder() {
 	ui := tv.sh.ui
@@ -356,6 +384,7 @@ func (tv *tableView) updatePlaceholder() {
 	} else {
 		tv.connectButton.Hide()
 	}
+	tv.updateConnecting(ui)
 	if msg == "" {
 		tv.placeholder.Hide()
 	} else {

@@ -69,6 +69,9 @@ type Backend struct {
 
 	// watch is the connection's watch; the Session sets it before it publishes the backend.
 	watch *connWatch
+	// login follows the runs of the connection's credential plugin (loginwait.go, D-73); the
+	// Session sets it before it publishes the backend, nil for a backend made otherwise.
+	login *loginNotes
 
 	// custom is the custom kinds watch (customkinds.go); the Session sets it before it publishes
 	// the backend, nil without CustomResources.
@@ -116,8 +119,9 @@ func (b *Backend) close(log *slog.Logger) {
 	if b == nil {
 		return
 	}
-	b.watch.stop() // the connection watch (connwatch.go); nil-safe
-	b.ns.stop()    // the session's replan loop (accessiblens_plan.go)
+	b.Conn.CancelLogin() // a credential plugin's run it waits for ends first: nothing below waits for it (D-73); nil-safe
+	b.watch.stop()       // the connection watch (connwatch.go); nil-safe
+	b.ns.stop()          // the session's replan loop (accessiblens_plan.go)
 	if b.custom != nil {
 		b.custom.stop()
 	}

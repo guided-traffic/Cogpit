@@ -26,6 +26,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -73,8 +74,18 @@ type Options struct {
 	QPS   float32
 	Burst int
 	// ConnectTimeout bounds Connect's reachability check only; later requests are not bounded
-	// by it, because watches stay open. Zero means DefaultConnectTimeout.
+	// by it, because watches stay open. It bounds the request below the credential plugin: a
+	// plugin's run (a browser login) is bounded by LoginTimeout instead (loginrun.go, D-73). Zero
+	// means DefaultConnectTimeout.
 	ConnectTimeout time.Duration
+	// LoginTimeout bounds each run of the context's credential plugin, at the connect and at every
+	// renewal after it: a run that has not returned after it is ended (SIGTERM, then SIGKILL) and
+	// the request that waited for it fails with a *LoginEndedError (loginrun.go, D-73). Zero means
+	// DefaultLoginTimeout.
+	LoginTimeout time.Duration
+	// Login, when set, is told when a run of the context's credential plugin begins and ends, from
+	// Connect on (a connect that waits for a browser login says so). Nil: nobody is told.
+	Login *LoginWatch
 	// RequestTimeout bounds every later request that is not a stream (health.go, D-58): a read
 	// without an answer ends with ErrNoAnswer, a write as an OutcomeUnknownError. Watches, logs,
 	// exec, attach and port forwards are not bounded. Zero means DefaultRequestTimeout.
@@ -351,8 +362,10 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 	// The credential plugin's standard error, kept for a failed login (pluginstderr.go): set on the
 	// Authenticator the client built next uses.
 	stderr := capturePluginStderr(cfg)
-	// The hold of the plugin while the cluster is not shown (loginhold.go), on the same Authenticator.
-	hold := registerLoginHold(cfg, health.guard)
+	// The hold of the plugin while the cluster is not shown (loginhold.go), on the same Authenticator,
+	// and its runs' bound and watch (loginrun.go).
+	health.guard.ends.watch = opts.Login
+	hold := registerLoginHold(cfg, health.guard, opts.LoginTimeout)
 	defer func() {
 		if err != nil {
 			hold.drop() // no connection uses the registration
@@ -430,18 +443,23 @@ func (memoryPersister) Persist(map[string]string) error { return nil }
 
 // checkReachable makes the one cheap request Connect pays for: GET /version. It proves the
 // server answers and accepts the credentials (a request with bad credentials is rejected before
-// authorization, even for /version).
+// authorization, even for /version). timeout bounds the request itself, below the credential plugin
+// (withRequestBound): the plugin's run, which may wait for the user in a browser, has its own bound
+// (LoginTimeout), and ctx's cancel ends it (D-73).
 func (c *Conn) checkReachable(ctx context.Context, timeout time.Duration) error {
 	if timeout <= 0 {
 		timeout = DefaultConnectTimeout
 	}
-	tctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 	start := time.Now()
-	mark := c.stderr.mark()
-	info, err := discovery.ToDiscoveryInterfaceWithContext(c.disco).ServerVersionWithContext(tctx)
+	mark, ended := c.stderr.mark(), c.loginEndMark()
+	info, err := c.firstAnswer(ctx, timeout)
 	took := time.Since(start)
-	err = withPluginStderr(err, c.stderr, mark, c.secrets)
+	c.traceLoginRun(start)
+	if e := c.loginEndedSince(ended); err != nil && e != nil {
+		err = endedWithStderr(err, e, c.stderr, mark, c.secrets)
+	} else {
+		err = withPluginStderr(err, c.stderr, mark, c.secrets)
+	}
 	if err == nil {
 		if info != nil {
 			c.version = info.GitVersion
@@ -449,23 +467,75 @@ func (c *Conn) checkReachable(ctx context.Context, timeout time.Duration) error 
 		c.trace.timed(StepAnswer, "First answer: GET /version: Kubernetes "+c.version, took, false)
 		return nil
 	}
-	c.trace.timed(StepAnswer, fmt.Sprintf("First answer: GET /version failed (the limit is %s)", timeout), took, true)
+	c.trace.timed(StepAnswer, fmt.Sprintf("First answer: GET /version failed (the limit is %s, a login not counted)", timeout), took, true)
 	var pe *PluginError
 	stderr := ""
 	if errors.As(err, &pe) {
 		stderr = pe.Stderr
 	}
 	c.trace.failure(err, stderr)
-	return &ConnectError{Context: c.contextName, Problem: c.describeConnectFailure(ctx, tctx, timeout, err), Err: err}
+	return &ConnectError{Context: c.contextName, Problem: c.describeConnectFailure(ctx, timeout, err), Err: err}
+}
+
+// abandonAfter is how long a cancelled connect waits for its first request once it ended the
+// credential plugin's run: past it the request is left to end by itself (a child of the plugin
+// may keep its output open, and client-go waits for that).
+const abandonAfter = killGrace + 2*time.Second
+
+// cancelSettle is how long a cancelled connect without a plugin's run of its own to end waits for
+// its first request to see the cancel.
+const cancelSettle = 500 * time.Millisecond
+
+// firstAnswer is Connect's GET /version. A cancel of ctx ends a credential plugin's run the request
+// waits for (CancelLogin) instead of waiting for it, as client-go would: its exec authenticator runs
+// the plugin without a context.
+func (c *Conn) firstAnswer(ctx context.Context, timeout time.Duration) (*version.Info, error) {
+	type answer struct {
+		info *version.Info
+		err  error
+	}
+	ch := make(chan answer, 1)
+	go func() {
+		var a answer
+		defer func() {
+			if r := recover(); r != nil {
+				a = answer{err: fmt.Errorf("internal error: %v", r)}
+			}
+			ch <- a
+		}()
+		a.info, a.err = discovery.ToDiscoveryInterfaceWithContext(c.disco).ServerVersionWithContext(withRequestBound(ctx, timeout))
+	}()
+	select {
+	case a := <-ch:
+		return a.info, a.err
+	case <-ctx.Done():
+	}
+	wait := abandonAfter
+	if !c.CancelLogin() { // the run this connect waits for ends; one another connection needs too runs on
+		wait = cancelSettle
+	}
+	t := time.NewTimer(wait)
+	defer t.Stop()
+	select {
+	case a := <-ch:
+		return a.info, a.err
+	case <-t.C:
+		return nil, ctx.Err()
+	}
 }
 
 // describeConnectFailure turns a failed request into a sentence a user can act on.
-func (c *Conn) describeConnectFailure(ctx, tctx context.Context, timeout time.Duration, err error) string {
+func (c *Conn) describeConnectFailure(ctx context.Context, timeout time.Duration, err error) string {
 	var ue *url.Error
+	var ended *LoginEndedError
 	switch {
+	case errors.As(err, &ended) && ended.TimedOut():
+		return ended.Error() + "; Connect starts it again"
+	case errors.As(err, &ended):
+		return ended.Error()
 	case ctx.Err() != nil:
 		return "connecting was cancelled"
-	case tctx.Err() != nil:
+	case errors.Is(err, ErrNoAnswer):
 		return fmt.Sprintf("no answer from the API server %s within %s", c.server, timeout)
 	case apierrors.IsUnauthorized(err):
 		return fmt.Sprintf("the API server %s rejected the credentials (401 Unauthorized); log in again or check the user entry", c.server)
@@ -638,7 +708,8 @@ func (c *Conn) Close() {
 	if !c.closed.CompareAndSwap(false, true) {
 		return
 	}
-	c.hold.drop() // nil-safe: a closed connection neither holds nor frees its login
+	c.CancelLogin() // a credential plugin's run it alone waits for ends with it (loginrun.go, D-73)
+	c.hold.drop()   // nil-safe: a closed connection neither holds nor frees its login
 	if c.httpClient != nil {
 		c.httpClient.CloseIdleConnections()
 	}

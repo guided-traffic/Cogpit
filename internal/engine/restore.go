@@ -149,7 +149,7 @@ func (s *Session) restoreConnections(ctx context.Context, plan restorePlan, expl
 			continue
 		}
 		err := s.ConnectBackground(ctx, id)
-		if err == nil || errors.Is(err, errConnectedAlready) || ctx.Err() != nil {
+		if err == nil || errors.Is(err, errConnectedAlready) || errors.Is(err, errConnectCancelled) || ctx.Err() != nil {
 			continue
 		}
 		s.emit(Event{Type: EventToast, Level: LevelWarning, Message: fmt.Sprintf("Could not connect to %s again (restoring the last session): %s",

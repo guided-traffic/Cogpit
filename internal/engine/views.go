@@ -37,11 +37,13 @@ type state struct {
 	mu            sync.Mutex
 	closed        bool
 	connectSeq    uint64
-	connectCancel context.CancelFunc
-	pool          map[string]*pooled // every connected backend, by context id (pool.go)
+	connectCancel context.CancelCauseFunc // the shown connect's: errConnectSuperseded, errConnectCancelled (Disconnect)
+	pool          map[string]*pooled      // every connected backend, by context id (pool.go)
 	// background are the connects under way that show nothing (ConnectBackground, the restore of
-	// the last session), by context id: each channel closes when its connect ended.
+	// the last session), by context id: each channel closes when its connect ended; bgCancel
+	// cancels one (Disconnect, D-73).
 	background map[string]chan struct{}
+	bgCancel   map[string]context.CancelCauseFunc
 	bgGen      uint64 // the last background connect's number (backgroundGen)
 
 	// The window's view state. shown is the backend the window shows, one of the pool's; nil while
@@ -177,7 +179,10 @@ func (st *state) close() {
 	}
 	st.closed = true
 	if st.connectCancel != nil {
-		st.connectCancel()
+		st.connectCancel(ErrClosed) // its credential plugin's run ends with it (D-73)
+	}
+	for _, cancel := range st.bgCancel {
+		cancel(ErrClosed)
 	}
 	st.detachViewsLocked()
 	var all []*Backend
@@ -260,8 +265,8 @@ func (s *Session) connect(ctx context.Context, name string) error {
 		}
 		name = resolved
 	}
-	cctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	cctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 
 	st.mu.Lock()
 	if st.closed {
@@ -269,7 +274,7 @@ func (s *Session) connect(ctx context.Context, name string) error {
 		return ErrClosed
 	}
 	if st.connectCancel != nil {
-		st.connectCancel() // supersede a pending connect: it returns soon and leaves the UI alone
+		st.connectCancel(errConnectSuperseded) // supersede a pending connect: it returns soon and leaves the UI alone
 	}
 	st.connectSeq++
 	seq := st.connectSeq
@@ -320,9 +325,12 @@ func (s *Session) connect(ctx context.Context, name string) error {
 	if line := s.proxyLogLine(name); line != "" {
 		steps.step(LogInfo, cluster.StepProxy, line, 0) // the proxy of the cluster's settings, its password as ••• (proxy.go)
 	}
-	cctx = withConnectSteps(cctx, steps)
+	// The runs of its credential plugin: the UI state and the log say what it waits for (loginwait.go, D-73).
+	login := s.newLoginNotes(name, steps)
+	cctx = withLoginWatch(withConnectSteps(cctx, steps), login.lw)
 	var b *Backend
 	err := s.safeCall("connect", func() (err error) { b, err = connector.Connect(cctx, name); return err })
+	login.connected()
 	if err == nil && b == nil {
 		err = errors.New("the connector returned no cluster")
 	}
@@ -333,17 +341,18 @@ func (s *Session) connect(ctx context.Context, name string) error {
 			s.UpdateUI(func(u *UIState) { u.Connection = Connection{State: ConnectError, Error: msg} })
 			s.settleGoneConnect(name, nil) // its context left Cogpit meanwhile: forget it (connect_gone.go)
 		} else {
-			st.logs.finish(attempt, OutcomeAbandoned, LogInfo, "Superseded by a newer connect")
+			finishLeftConnect(cctx, &st.logs, attempt, err)
 		}
 		return fmt.Errorf("connect %s: %w", name, err)
 	}
+	b.login = login
 	s.learnUser(cctx, name, b) // who the API server says the user is, never failing the connect (whoami.go, D-68)
 
 	st.mu.Lock()
 	if st.closed || st.connectSeq != seq {
 		st.mu.Unlock()
 		b.close(s.log)
-		st.logs.finish(attempt, OutcomeAbandoned, LogInfo, "Superseded by a newer connect")
+		finishLeftConnect(cctx, &st.logs, attempt, nil)
 		return fmt.Errorf("connect %s: superseded by a newer connect", name)
 	}
 	if e := st.pool[b.Context]; e != nil {
@@ -391,6 +400,22 @@ func (s *Session) connect(ctx context.Context, name string) error {
 	s.applyLoginHolds()               // the shown cluster's login is renewed (connwatch_lapse.go)
 	s.settleGoneConnect(b.Context, b) // its file went or its source was removed meanwhile (connect_gone.go)
 	return nil
+}
+
+// finishLeftConnect ends the attempt of a connect that is no longer the latest: cancelled by
+// Disconnect (Cancel Connecting, D-73), with how its login ended when it waited for one, or
+// superseded by a newer connect.
+func finishLeftConnect(cctx context.Context, logs *connectLogs, attempt *ConnectAttempt, err error) {
+	if !errors.Is(context.Cause(cctx), errConnectCancelled) {
+		logs.finish(attempt, OutcomeAbandoned, LogInfo, "Superseded by a newer connect")
+		return
+	}
+	text := "Connecting cancelled (Disconnect)"
+	var ended *cluster.LoginEndedError
+	if errors.As(err, &ended) {
+		text += ": " + ended.Error()
+	}
+	logs.finish(attempt, OutcomeCancelled, LogInfo, text)
 }
 
 // current reports whether the connect with sequence number seq is still the latest.

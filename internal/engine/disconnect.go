@@ -1,6 +1,10 @@
 package engine
 
-import "slices"
+import (
+	"context"
+	"slices"
+	"time"
+)
 
 // Disconnect closes the connection to the cluster the window shows, or ends a connect under way
 // (cluster.disconnect, the Cluster menu's Disconnect): DisconnectContext of the shown cluster.
@@ -15,6 +19,10 @@ func (s *Session) Disconnect() error { return s.DisconnectContext("") }
 // shows the welcome page (UIState.Welcome); for another one only its entry of Connections goes.
 // The cluster's connect log notes the disconnect. A context that is not connected is a
 // NotConnectedError.
+//
+// A connect under way is cancelled at once (the window's Cancel Connecting, D-73): the credential
+// plugin it waits for, a browser login, is ended by the cluster layer, and the connect's attempt in
+// the log says "cancelled"; a background connect of the restore (connect_background.go) too.
 //
 // A connect started after Disconnect wins: Disconnect then leaves the new connection alone.
 func (s *Session) DisconnectContext(contextID string) error {
@@ -34,8 +42,12 @@ func (s *Session) DisconnectContext(contextID string) error {
 	e := st.pool[contextID]
 	shown := (u.Context == contextID && activeConnection(u.Connection.State)) || (e != nil && st.shown == e.b)
 	if e == nil && !shown {
+		cancel, done := st.bgCancel[contextID], st.background[contextID]
 		st.mu.Unlock()
-		return &NotConnectedError{Context: contextID}
+		if cancel == nil {
+			return &NotConnectedError{Context: contextID}
+		}
+		return s.cancelBackground(contextID, cancel, done)
 	}
 	if !shown {
 		// Another connected cluster: the shown one and a connect under way are left alone. Decided
@@ -51,7 +63,8 @@ func (s *Session) DisconnectContext(contextID string) error {
 		return nil
 	}
 	if st.connectCancel != nil {
-		st.connectCancel() // a connect under way returns soon and, superseded, leaves the UI alone
+		// A connect under way returns at once, its plugin ended (D-73), and leaves the UI alone.
+		st.connectCancel(errConnectCancelled)
 	}
 	st.connectSeq++
 	seq := st.connectSeq
@@ -66,7 +79,9 @@ func (s *Session) DisconnectContext(contextID string) error {
 	b := st.removeLocked(contextID) // nil for a connect under way, which has no backend yet
 	st.mu.Unlock()
 	b.close(s.log)
-	s.noteDisconnect(contextID)
+	if b != nil {
+		s.noteDisconnect(contextID) // a cancelled connect's attempt says it itself (finishLeftConnect)
+	}
 	s.UpdateUI(func(u *UIState) {
 		u.dropConnection(contextID, 0)
 		if u.Context == contextID {
@@ -76,6 +91,25 @@ func (s *Session) DisconnectContext(contextID string) error {
 		}
 		u.closeTabsOf(contextID)
 	})
+	return nil
+}
+
+// backgroundCancelWait bounds how long Disconnect waits for a cancelled background connect to end
+// (the cluster layer ends its plugin within seconds).
+const backgroundCancelWait = 10 * time.Second
+
+// cancelBackground cancels a background connect of the restore under way (D-73) and waits for it
+// to end: its entry of Connections goes with it, and its attempt says "cancelled".
+func (s *Session) cancelBackground(contextID string, cancel context.CancelCauseFunc, done <-chan struct{}) error {
+	cancel(errConnectCancelled)
+	select {
+	case <-done:
+	case <-time.After(backgroundCancelWait):
+		s.log.Warn("engine: a cancelled background connect did not end in time", "context", contextID)
+	}
+	if s.BackendOf(contextID) != nil { // it connected before it saw the cancel: disconnect that
+		return s.DisconnectContext(contextID)
+	}
 	return nil
 }
 

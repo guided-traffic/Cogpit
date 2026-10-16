@@ -19,7 +19,7 @@ them in these forms ([kubeconfig](https://kubernetes.io/docs/concepts/configurat
 |---|---|---|
 | Client certificate and key (`client-certificate[-data]`, `client-key[-data]`) | the kubeconfig, or a file it names | Read when connecting; held in memory by the TLS stack |
 | Static bearer token (`token`, `tokenFile`) | the kubeconfig, or a file it names | Read when connecting; held in memory |
-| Exec credential plugin (`exec`) | a program the kubeconfig names | Run on connect and on expiry; the returned credential is held in memory only, never written to disk. Since 2026-10-16 ([D-58](../developer/decisions.md#d-58-standby-and-lost-connections)) client-go runs it on a 401 only once after a request that worked (the login guard), Cogpit runs it by itself once after an interruption or a rejected heartbeat (an approved plugin only), and a run that waits longer than 30 s (a browser login) makes the login "expired" until the user logs in again; a run Cogpit stopped waiting for goes on, and the connection is back by itself if it ends with a working login. The checks of the connection send its credential with `GET /version` every 15 s; the reconnect attempts send none ([H-101](trust-boundaries.md#h-101-a-credential-plugin-runs-again-during-a-connection-without-being-checked-again)). Since 2026-10-16 ([D-69](../developer/decisions.md#d-69-several-clusters-connected-at-once) item 4) a cluster the window does not show, whose setting "Renew the login while the cluster is not shown" is off, **holds its plugin**: client-go's authenticator is kept from starting it (Cogpit wraps the Authenticator's `interactiveFunc`, which client-go asks before it builds the command, [`loginhold.go`](../../internal/cluster/loginhold.go)), so a credential that expires is not renewed and the login lapses until the cluster is shown or the user logs in again; while held, no run happens at all (`TestHeldPluginDoesNotRun`). Two contexts whose plugin runs with the same command, arguments and environment share client-go's one login: it is held only while both are. The plugin's standard output, the credential, goes to a buffer of client-go's own that Cogpit never reads. Its standard error goes to Cogpit's standard error as client-go always sent it, and since 2026-10-16 ([D-66](../developer/decisions.md#d-66-the-connection-log)) a copy of the newest 64 KiB is held in memory: after a connect or a heartbeat that failed because the plugin failed, it is scrubbed, cut to 4 KiB and written to the [connection log](#where-credentials-must-never-end-up); after a request that worked it is dropped ([`pluginstderr.go`](../../internal/cluster/pluginstderr.go), [H-112](#h-112-a-credential-plugins-standard-error-in-the-connection-log)) |
+| Exec credential plugin (`exec`) | a program the kubeconfig names | Run on connect and on expiry; the returned credential is held in memory only, never written to disk. Since 2026-10-16 ([D-58](../developer/decisions.md#d-58-standby-and-lost-connections)) client-go runs it on a 401 only once after a request that worked (the login guard), Cogpit runs it by itself once after an interruption or a rejected heartbeat (an approved plugin only), and a run that waits longer than 30 s (a browser login) makes the login "expired" until the user logs in again; a run Cogpit stopped waiting for goes on, and the connection is back by itself if it ends with a working login. Since 2026-10-16 night ([D-73](../developer/decisions.md#d-73-a-login-that-waits-cancel-connecting-and-a-bound), the owner's finding) **Cogpit ends a run**: one that has not returned within 5 minutes, and one the user cancels (Disconnect, the window's Cancel Connecting, of a connect or a connection that waits for it). client-go starts the plugin without a context and offers no handle on the process, so Cogpit notes each run where client-go starts it (the same `interactiveFunc` wrapper) and finds the process among its own child processes by its command line, then sends it SIGTERM, and SIGKILL after 3 s if it still runs ([`loginrun.go`](../../internal/cluster/loginrun.go), [`pluginproc_*.go`](../../internal/cluster/pluginproc_darwin.go); `TestCancelledConnectEndsThePlugin`, `TestLoginTimeoutEndsThePlugin`). Only the plugin's own process, never its process group (Cogpit's own) nor a browser it opened; after that no run of the plugin starts until the user connects or logs in again ([H-118](#h-118-a-cancelled-logins-plugin-is-found-by-its-command-line-its-children-run-on)). Nothing of it reaches the cluster. The checks of the connection send its credential with `GET /version` every 15 s; the reconnect attempts send none ([H-101](trust-boundaries.md#h-101-a-credential-plugin-runs-again-during-a-connection-without-being-checked-again)). Since 2026-10-16 ([D-69](../developer/decisions.md#d-69-several-clusters-connected-at-once) item 4) a cluster the window does not show, whose setting "Renew the login while the cluster is not shown" is off, **holds its plugin**: client-go's authenticator is kept from starting it (Cogpit wraps the Authenticator's `interactiveFunc`, which client-go asks before it builds the command, [`loginhold.go`](../../internal/cluster/loginhold.go)), so a credential that expires is not renewed and the login lapses until the cluster is shown or the user logs in again; while held, no run happens at all (`TestHeldPluginDoesNotRun`). Two contexts whose plugin runs with the same command, arguments and environment share client-go's one login: it is held only while both are. The plugin's standard output, the credential, goes to a buffer of client-go's own that Cogpit never reads. Its standard error goes to Cogpit's standard error as client-go always sent it, and since 2026-10-16 ([D-66](../developer/decisions.md#d-66-the-connection-log)) a copy of the newest 64 KiB is held in memory: after a connect or a heartbeat that failed because the plugin failed, it is scrubbed, cut to 4 KiB and written to the [connection log](#where-credentials-must-never-end-up); after a request that worked it is dropped ([`pluginstderr.go`](../../internal/cluster/pluginstderr.go), [H-112](#h-112-a-credential-plugins-standard-error-in-the-connection-log)) |
 | A proxy's user and password in the cluster's `proxy-url` (`http://user:password@proxy:3128`) | the kubeconfig | Handed to client-go, which sends it to the proxy alone (Basic `Proxy-Authorization` on the CONNECT; in clear for an `http://` proxy); shown nowhere: the plugin approval dialog strips it, and since 2026-10-13 connect errors replace it with `•••` ([`proxyurl.go`](../../internal/cluster/proxyurl.go), `TestKubeconfigProxyPasswordNeverInErrors`) |
 | Legacy auth provider `oidc` | the kubeconfig | Refreshed tokens go through a persister Cogpit supplies; see [H-4](#h-4-auth-provider-token-refresh) |
 | Legacy auth providers `azure` and `gcp` | the kubeconfig | client-go 0.37.1 rejects `azure` and points to kubelogin; the user replaces them with exec plugins |
@@ -473,10 +473,43 @@ credential plugin fails with it on its standard error:
 
 A plugin that prints its secrets on standard error on failure is the case that makes it real; the
 plugins' usual messages (the error, a URL to open, a device code's instructions) are what the
-filter is for. A successful plugin's standard error is not kept, and its standard output, the
+filter is for. Since 2026-10-16 night ([D-73](../developer/decisions.md#d-73-a-login-that-waits-cancel-connecting-and-a-bound))
+a run Cogpit ended after its 5-minute bound counts as a failed login: what it wrote is kept the same
+way (a browser login's "open this URL" line, its query removed); a run the user cancelled keeps
+nothing. A successful plugin's standard error is not kept, and its standard output, the
 credential, is never read. The capture also rests on an unexported field of client-go's
 Authenticator (`stderr`, client-go v0.37.1): a client-go that renames it leaves the plugin's
 standard error on Cogpit's own standard error, as before, and fails the capture's test.
+
+### H-118: A cancelled login's plugin is found by its command line, its children run on
+
+Since 2026-10-16 night ([D-73](../developer/decisions.md#d-73-a-login-that-waits-cancel-connecting-and-a-bound))
+Cogpit ends a credential plugin's run that the user cancels or that passes its 5-minute bound
+([above](#where-credentials-come-from)). client-go gives it no handle on the process, so what it
+ends is found, and what it does not end stays:
+
+- **Its children run on.** Cogpit signals the plugin's own process only (the plugin shares Cogpit's
+  process group, and a browser it starts must never be ended). A helper the plugin started keeps
+  running until it ends by itself. If such a child keeps the plugin's output open, client-go's run
+  does not end with the plugin, its lock stays taken, and every connection with that plugin
+  configuration waits behind it: a new connect of the context waits too (and can be cancelled
+  again, with no process left to end). Live where a plugin starts a long-running child; on macOS
+  pinniped and kubelogin open the browser through `open`, which hands the URL to the system and
+  leaves no child, so it is dormant there as far as the code shows (not tried with a real plugin).
+- **Found by its command line.** The process is the one child of Cogpit's whose command line is the
+  plugin's (its arguments after its program, or a script's path after its interpreter). Two runs of
+  the same command line from different plugin configurations at the same time are not told apart,
+  and neither is ended: the cancel then only stops waiting. A plugin that is a wrapper script is
+  ended as the script: one that runs the real login program as its child leaves that child running
+  (the case above), one that replaces itself with it (`exec`) is not found at all, since its
+  command line is no longer the kubeconfig's; then too the cancel only stops waiting, and no run of
+  that plugin starts again until the user connects or logs in again. SIGKILL goes out only after the number
+  is found again with the same command line among Cogpit's children, so a number the system gave
+  to another process meanwhile is not hit.
+- **Windows** finds the plugin by its program's file name alone (another process's command line is
+  not readable without its memory), so another child with the same program would be ended in its
+  place; the code compiles for Windows and is not tried there. Systems other than macOS, Linux and
+  Windows find no process: the run goes on, and its login is not used until the user acts.
 
 ### H-25: A copied Secret value reaches the clipboard
 

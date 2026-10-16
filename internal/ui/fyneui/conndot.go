@@ -290,6 +290,12 @@ func (d *connDot) tipText() string {
 	case c.Error != "" && (c.State == engine.ConnectError || c.State == engine.Disconnected):
 		text += "\n" + kubeconfig.DisplayText(c.Error, maxShownPath)
 	}
+	if line := loginWaitLine(c.WaitingForLogin, tf); line != "" { // its credential plugin runs (D-73)
+		text += "\n" + line
+		if c.State == engine.Connecting {
+			text += " Cancel Connecting in its menu ends it now."
+		}
+	}
 	if d.tipExtra != "" {
 		text += "\n" + d.tipExtra
 	}

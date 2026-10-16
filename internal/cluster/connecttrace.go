@@ -348,7 +348,12 @@ func errorClass(err error) string {
 	var invalid x509.CertificateInvalidError
 	var header tls.RecordHeaderError
 	var netErr net.Error
+	var ended *LoginEndedError
 	switch {
+	case errors.As(err, &ended) && ended.TimedOut():
+		return "timeout: " + ended.Error() + "; Cogpit ended it (D-73)"
+	case errors.As(err, &ended):
+		return "cancelled: " + ended.Error()
 	case IsPluginFailure(err):
 		return "the credential plugin failed: " + pluginFailure(msg)
 	case errors.As(err, &dns):

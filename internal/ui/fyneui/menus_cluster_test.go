@@ -12,12 +12,18 @@ import (
 )
 
 // windowDisconnect is the Disconnect item of the window's Cluster menu as last set on the window
-// (not a menu built afresh: the window shows the one SetMainMenu was given).
+// (not a menu built afresh: the window shows the one SetMainMenu was given); Cancel Connecting
+// while the cluster connects (D-73).
 func windowDisconnect(t *testing.T, w fyne.Window) *fyne.MenuItem {
 	t.Helper()
 	m := w.MainMenu()
 	if m == nil || len(m.Items) == 0 {
 		t.Fatal("the window has no main menu")
+	}
+	for _, it := range m.Items[0].Items {
+		if it.Label == cancelConnectingLabel {
+			return it
+		}
 	}
 	return menuItem(t, m.Items[0], "Disconnect")
 }
@@ -53,8 +59,12 @@ func TestClusterMenuDisconnectFollowsAReconnect(t *testing.T) {
 		f.update(func(u *engine.UIState) { u.Connection = engine.Connection{State: step.state} })
 		q.until(t, string(step.state), func() bool { return sh.ui.Connection.State == step.state })
 		q.drain()
-		if got := windowDisconnect(t, w).Disabled; got != step.disabled {
+		item := windowDisconnect(t, w)
+		if got := item.Disabled; got != step.disabled {
 			t.Errorf("%s: Disconnect disabled %v, want %v", step.state, got, step.disabled)
+		}
+		if want := map[bool]string{true: cancelConnectingLabel, false: "Disconnect"}[step.state == engine.Connecting]; item.Label != want {
+			t.Errorf("%s: the item reads %q, want %q", step.state, item.Label, want)
 		}
 	}
 }

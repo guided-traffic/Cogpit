@@ -114,18 +114,35 @@ func (l *clusterLinks) refresh() {
 	}()
 }
 
-// clusterItems are a cluster's Disconnect (while it is the shown one connected or connecting, or
-// another connected one, D-69) and Remove from Cogpit, for its menus.
+// cancelConnectingLabel is cluster.disconnect's item while the cluster connects (D-73): it ends the
+// connect and the login it waits for. Lens's item while connecting is not captured (inferred).
+const cancelConnectingLabel = "Cancel Connecting"
+
+// connectingInBackground reports whether a cluster the window does not show connects (the restore
+// of the last session, D-69).
+func connectingInBackground(ui engine.UIState, contextID string) bool {
+	c, ok := ui.ConnectionOf(contextID)
+	return ok && contextID != ui.Context && c.Connection.State == engine.Connecting
+}
+
+// clusterItems are a cluster's Disconnect (while it is the shown one connected, or another connected
+// one, D-69), or Cancel Connecting while it connects (D-73), and Remove from Cogpit, for its menus.
 func (sh *shell) clusterItems(contextID string) []*fyne.MenuItem {
 	var items []*fyne.MenuItem
 	st := sh.ui.Connection.State
 	c, ok := sh.eng.Registry().Get("cluster.disconnect")
 	switch {
 	case !ok || contextID == "":
-	case contextID == sh.ui.Context && (st.Live() || st == engine.Connecting):
+	case contextID == sh.ui.Context && st == engine.Connecting:
+		items = append(items, fyne.NewMenuItem(cancelConnectingLabel, sh.disconnect))
+	case contextID == sh.ui.Context && st.Live():
 		items = append(items, fyne.NewMenuItem(c.Label, sh.disconnect))
 	case clusterConnected(sh.ui, contextID): // another connected cluster: it alone, the shown one stays
 		items = append(items, fyne.NewMenuItem(c.Label, func() { sh.disconnectOther(contextID) }))
+	case connectingInBackground(sh.ui, contextID):
+		items = append(items, fyne.NewMenuItem(cancelConnectingLabel, func() {
+			sh.dispatch("cluster.disconnect", contextParams{Context: contextID}, nil)
+		}))
 	}
 	if item := sh.removeItem(contextID); item != nil {
 		items = append(items, item)
@@ -144,6 +161,9 @@ func (sh *shell) clusterMenuItems() []*fyne.MenuItem {
 		item := fyne.NewMenuItem(c.Label, sh.disconnect)
 		st := sh.ui.Connection.State
 		item.Disabled = !st.Live() && st != engine.Connecting
+		if st == engine.Connecting {
+			item.Label = cancelConnectingLabel
+		}
 		items = append(items, item)
 	}
 	if item := sh.removeItem(sh.ui.Context); item != nil {

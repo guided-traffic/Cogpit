@@ -215,6 +215,7 @@ func (r *gateRoundTripper) CloseIdleConnections() { closeIdle(r.next) }
 type loginGuard struct {
 	armed atomic.Bool
 	heldGuard
+	ends loginEnds // the plugin's runs Cogpit ended for this connection (loginrun.go, D-73)
 }
 
 func newLoginGuard() *loginGuard {
@@ -278,7 +279,11 @@ func (r *timeoutRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	if isStream(req, verb, resource) {
 		return r.next.RoundTrip(req)
 	}
-	ctx, cancel := context.WithTimeoutCause(req.Context(), r.d, errRequestTimeout)
+	d := r.d
+	if b, ok := req.Context().Value(requestBoundKey{}).(time.Duration); ok && b > 0 {
+		d = b // Connect's first request: its own bound, below the credential plugin (withRequestBound)
+	}
+	ctx, cancel := context.WithTimeoutCause(req.Context(), d, errRequestTimeout)
 	resp, err := r.next.RoundTrip(req.WithContext(ctx))
 	if err == nil {
 		resp.Body = &cancelOnClose{ReadCloser: resp.Body, cancel: cancel}
@@ -291,14 +296,24 @@ func (r *timeoutRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	}
 	if isWrite(verb, resource) && mayHaveBeenSent(err, timedOut) {
 		if timedOut {
-			err = fmt.Errorf("%w within %s", ErrNoAnswer, r.d)
+			err = fmt.Errorf("%w within %s", ErrNoAnswer, d)
 		}
 		return nil, &OutcomeUnknownError{Verb: verb, Resource: resource, Err: err}
 	}
 	if timedOut {
-		return nil, fmt.Errorf("%w within %s", ErrNoAnswer, r.d)
+		return nil, fmt.Errorf("%w within %s", ErrNoAnswer, d)
 	}
 	return nil, err
+}
+
+// requestBoundKey marks a request whose bound is its context's value, not the request timeout.
+type requestBoundKey struct{}
+
+// withRequestBound bounds the request of ctx by d where the request timeout applies: below
+// client-go's credential plugin, so that a login that waits for the user does not count against
+// it (the plugin's run has its own bound, loginrun.go).
+func withRequestBound(ctx context.Context, d time.Duration) context.Context {
+	return context.WithValue(ctx, requestBoundKey{}, d)
 }
 
 func (r *timeoutRoundTripper) WrappedRoundTripper() http.RoundTripper { return r.next }
@@ -445,10 +460,14 @@ func (c *Conn) SetHealth(h Health) {
 }
 
 // ArmLogin lets the next 401 Unauthorized reach client-go's credential plugin, which then runs once
-// to renew the login (the user's Log in again).
+// to renew the login (the user's Log in again); a plugin whose run Cogpit ended (loginrun.go) may
+// run again.
 func (c *Conn) ArmLogin() {
 	if c.health != nil {
 		c.health.guard.armed.Store(true)
+	}
+	if c.hold != nil {
+		c.hold.p.rearm()
 	}
 }
 
@@ -468,16 +487,22 @@ func (c *Conn) ResetConnections() {
 // ctx: nil when it answers, an error wrapping ErrLoginRejected when it rejects the login, and
 // ErrLoginLapsed when it needed the credential plugin while the login is held (HoldLogin). It
 // passes the gates, and it may make client-go's credential plugin run (a login that expired by its
-// time, or a 401 the guard hands on): the call then returns only when the plugin has.
+// time, or a 401 the guard hands on): the call then returns only when the plugin has, or when Cogpit
+// ended its run (its bound, a cancel: a *LoginEndedError, loginrun.go).
 func (c *Conn) Heartbeat(ctx context.Context) error {
 	if c == nil || c.disco == nil {
 		return errors.New("not connected")
 	}
-	mark, lapses := c.stderr.mark(), c.lapseMark()
+	mark, lapses, ended := c.stderr.mark(), c.lapseMark(), c.loginEndMark()
 	_, err := discovery.ToDiscoveryInterfaceWithContext(c.disco).ServerVersionWithContext(withProbe(ctx))
 	if err != nil && (errors.Is(err, ErrLoginLapsed) || c.lapsedSince(lapses)) {
 		c.stderr.discard() // the plugin did not run: nothing of it to keep
 		return ErrLoginLapsed
+	}
+	if err != nil {
+		if e := c.loginEndedSince(ended); e != nil {
+			return endedWithStderr(err, e, c.stderr, mark, c.secrets)
+		}
 	}
 	// A login the plugin failed to renew carries the plugin's standard error (pluginstderr.go).
 	return probeError(withPluginStderr(err, c.stderr, mark, c.secrets))

@@ -166,6 +166,18 @@ type Connection struct {
 	// NeedsApproval is set in LoginExpired when the context's credential plugin is not allowed as it
 	// is now (its program changed, D-26): logging in again connects anew, which asks first.
 	NeedsApproval bool `json:"needsApproval,omitempty"`
+	// WaitingForLogin is set while the connection waits for its credential plugin (loginwait.go,
+	// D-73): a connect's first request, a renewal, Log in again. The plugin may wait for the user in
+	// a browser; Cogpit ends it at its Until, and cluster.disconnect ends it (and a connect under
+	// way) at once. While Connecting, Reason says it in a sentence.
+	WaitingForLogin LoginWait `json:"waitingForLogin,omitzero"`
+}
+
+// LoginWait is a credential plugin's run that a connection waits for (Connection.WaitingForLogin).
+type LoginWait struct {
+	Program string    `json:"program"` // the plugin's program, its file name ("pinniped")
+	Since   time.Time `json:"since"`   // when it began
+	Until   time.Time `json:"until"`   // when Cogpit ends it unless it returned
 }
 
 // ConnectionState is a connection's lifecycle state.

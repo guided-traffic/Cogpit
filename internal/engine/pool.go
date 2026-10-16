@@ -332,7 +332,7 @@ func (s *Session) show(contextID string) error {
 		return &NotConnectedError{Context: contextID}
 	}
 	if st.connectCancel != nil {
-		st.connectCancel() // the window shows this one now: a pending connect gives up
+		st.connectCancel(errConnectSuperseded) // the window shows this one now: a pending connect gives up
 		st.connectCancel = nil
 	}
 	st.connectSeq++

@@ -325,6 +325,9 @@ func (w *connWatch) healthy(fails, rejects *int) bool {
 	case checkLapsed:
 		*fails, *rejects = 0, 0
 		w.lapse()
+	case checkEnded: // Cogpit ended the plugin's run: Log in again starts it again (D-73)
+		*fails, *rejects = 0, 0
+		w.expire(endedReason(err), false)
 	}
 	return true
 }
@@ -382,6 +385,8 @@ func (w *connWatch) afterReach() bool {
 		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
 	case checkLapsed: // the cluster answers again, its login lapsed meanwhile and is held
 		w.lapse()
+	case checkEnded:
+		w.expire(endedReason(err), false)
 	}
 	return true
 }
@@ -448,6 +453,8 @@ func (w *connWatch) login() {
 		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
 	case checkLapsed:
 		w.lapse()
+	case checkEnded:
+		w.expire(endedReason(err), false)
 	}
 }
 
@@ -460,6 +467,7 @@ const (
 	checkWaiting // no answer while the credential plugin runs
 	checkQuit
 	checkLapsed // the request needed the credential plugin, which the hold kept from running
+	checkEnded  // Cogpit ended the credential plugin's run (its bound, a cancel), or did not start it again (D-73)
 )
 
 // heartbeat runs one heartbeat on its own goroutine and sends its error to ch.
@@ -531,9 +539,12 @@ func (w *connWatch) check(bound time.Duration) (checkResult, error) {
 }
 
 func classifyCheck(err error) checkResult {
+	var ended *cluster.LoginEndedError
 	switch {
 	case err == nil:
 		return checkOK
+	case errors.As(err, &ended):
+		return checkEnded
 	case errors.Is(err, cluster.ErrLoginLapsed):
 		return checkLapsed
 	case errors.Is(err, cluster.ErrLoginRejected):
@@ -719,6 +730,7 @@ func (w *connWatch) connection(old Connection) Connection {
 	return Connection{
 		State: st, Demo: old.Demo, TLSUnchecked: old.TLSUnchecked,
 		Since: w.since, NextAttempt: w.next, Reason: w.reason, LoggingIn: w.loggingIn || w.renewing, NeedsApproval: w.needsApproval,
+		WaitingForLogin: w.b.login.wait(), // a run of its credential plugin under way (loginwait.go, D-73)
 	}
 }
 

@@ -56,6 +56,7 @@ const (
 	OutcomeOK        = "ok"
 	OutcomeFailed    = "failed"
 	OutcomeAbandoned = "abandoned" // a newer attempt began before it ended
+	OutcomeCancelled = "cancelled" // the user cancelled it (Disconnect of a connect under way, D-73)
 )
 
 const (
@@ -92,7 +93,7 @@ type ConnectAttempt struct {
 	End     time.Time `json:"end,omitzero"`
 	// TookMS is End − Start in milliseconds, once it ended.
 	TookMS  int64  `json:"tookMs,omitempty"`
-	Outcome string `json:"outcome,omitempty"` // OutcomeOK, OutcomeFailed, OutcomeAbandoned; empty: see Running
+	Outcome string `json:"outcome,omitempty"` // OutcomeOK, OutcomeFailed, OutcomeAbandoned, OutcomeCancelled; empty: see Running
 	// Running: this session's attempt has not ended yet. An attempt without an outcome that is not
 	// running ended when Cogpit stopped (a quit or a crash).
 	Running bool             `json:"running,omitempty"`

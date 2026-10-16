@@ -68,6 +68,9 @@ type ClusterConnector struct {
 	// (cluster.Options.DiscoveryCacheDir, D-65): <user cache dir>/Cogpit/discovery in both
 	// binaries (app.Dirs.DiscoveryCacheDir). Empty: discovery in memory only (tests).
 	DiscoveryCacheDir string
+	// LoginTimeout bounds each run of a context's credential plugin (cluster.Options.LoginTimeout,
+	// D-73); zero means cluster.DefaultLoginTimeout, 5 minutes. Tests shorten it.
+	LoginTimeout time.Duration
 }
 
 // metricsOptions are the options of a backend's metrics hub.
@@ -147,6 +150,7 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	opts.DiscoveryCacheDir = c.DiscoveryCacheDir
 	steps := connectStepsOf(ctx) // the connection log's attempt (connectlog_steps.go, D-66)
 	opts.Trace = steps.traceFunc()
+	opts.Login, opts.LoginTimeout = loginWatchOf(ctx), c.LoginTimeout // its plugin's runs (loginwait.go, D-73)
 	conn, err := cluster.Connect(ctx, opts)
 	if err != nil {
 		return nil, err

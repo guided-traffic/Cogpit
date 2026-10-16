@@ -112,6 +112,8 @@ func (w *connWatch) renewLapsed() {
 	case checkLapsed: // held again meanwhile: the cluster left before the renewal ran
 		w.s.state.logs.end(w.b.Context, AttemptLogin, OutcomeAbandoned, LogInfo, "The cluster is not shown any more; the login stays lapsed")
 		w.publish()
+	case checkEnded: // Cogpit ended the plugin's run (D-73)
+		w.expire(endedReason(err), false)
 	}
 }
 

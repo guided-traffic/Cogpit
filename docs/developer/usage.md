@@ -565,7 +565,41 @@ browser login), the dot turns red at once (its tooltip: **Login expired**), and 
 runs the login program, browser included, keeping your views. Cogpit never runs it again on its own
 meanwhile. A login program that changed since you allowed it is shown to you first, as at a connect.
 After a reconnect and after Log in again Cogpit asks the API server once more who you are, so the
-navigator's root names the user the renewed login belongs to (D-68).
+navigator's root names the user the renewed login belongs to (D-68). A login program that waits is
+ended after 5 minutes ([below](#a-login-that-waits-cancel-connecting-and-the-5-minute-bound)).
+
+### A login that waits: Cancel Connecting and the 5-minute bound
+
+Since 2026-10-16 night ([D-73](decisions.md#d-73-a-login-that-waits-cancel-connecting-and-a-bound),
+the owner's finding: a browser login he did not finish kept the cluster blinking with no way out).
+A context whose login program (an OIDC plugin such as kubelogin or pinniped) opens your browser
+waits for you to finish there. While it waits:
+
+- The connecting workspace says so under "Connecting to …": **Waiting for the login through
+  <program> since 14:28; it may wait for you in your browser. Cogpit ends it at 14:33.**, with a
+  **Cancel Connecting** button. The cluster's dot keeps blinking; its tooltip says the same.
+- **Cancel Connecting** is also in the window's Cluster menu and in every menu of the cluster (its
+  navigator rows, its hotbar tile, its welcome-page row) in place of Disconnect while it connects,
+  a cluster connecting in the background (restoring the last session) included. It ends the
+  connect at once and the login program Cogpit started for it; the cluster is not connected, and
+  its connection updates say "cancelled". **Connect** starts the login again, a new browser tab
+  included. A browser window the program opened stays open: close it yourself.
+- A login program that has not finished after **5 minutes** is ended by Cogpit: the connect fails
+  with "the login through <program> did not finish within 5 minutes; Connect starts it again" (the
+  dot red). The 5 minutes are fixed.
+- A connected cluster whose login is renewed (D-58) waits the same way: its tooltip says what it
+  waits for, Disconnect ends the program, and after 5 minutes the login is **Login expired** with
+  "…; Log in again starts it again".
+- After Cogpit ended a login program, it does not start it again by itself: only Connect or Log in
+  again does, so no browser tabs pile up.
+- The connect's own limit (15 s for the API server's first answer) no longer counts the time you
+  take in the browser.
+
+Agents see it in `ui_state`: `connection.waitingForLogin` (`program`, `since`, `until`) while a login
+program runs, and while connecting `connection.reason` "waiting for the login through <program>; it
+may wait for you to log in, in a browser". `cluster_disconnect` of a connecting cluster (its
+`context` for one connecting in the background) cancels the connect as the window's Cancel
+Connecting does; agents may run it without asking you (it stops only what your connect started).
 
 ### Connection Updates: the connection log
 
@@ -577,8 +611,10 @@ before, the warning icon on the welcome page and Show Connection Updates… in a
 menu), for any context, connected or not; one with nothing recorded says so.
 
 - The newest attempt comes first, with its kind, start, outcome and duration (green when it
-  worked, red when it failed, "running…" while it runs); its lines follow in the order they
-  happened: time of day, INFO, WARN or ERROR, the text and how long the step took.
+  worked, red when it failed, "running…" while it runs, "cancelled" after Cancel Connecting); its
+  lines follow in the order they happened: time of day, INFO, WARN or ERROR, the text and how long
+  the step took. A login program that waits writes when it began and when Cogpit ends it, then how
+  long it took or that Cogpit ended it (D-73).
 - A connect lists the kubeconfig file and context, the API server, how you log in (a client
   certificate by its name and expiry, a token "not shown", a login program by its name and
   whether you allowed it), how the server's certificate is checked, the proxy, the first answer

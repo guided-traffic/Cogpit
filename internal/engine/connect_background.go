@@ -65,14 +65,18 @@ func (s *Session) ConnectBackground(ctx context.Context, name string) error {
 	done := make(chan struct{})
 	if st.background == nil {
 		st.background = map[string]chan struct{}{}
+		st.bgCancel = map[string]context.CancelCauseFunc{}
 	}
-	st.background[name] = done
+	ctx, cancel := context.WithCancelCause(ctx) // Disconnect cancels it (D-73)
+	defer cancel(nil)
+	st.background[name], st.bgCancel[name] = done, cancel
 	st.bgGen++
 	gen := bgGenBase + st.bgGen
 	st.mu.Unlock()
 	defer func() {
 		st.mu.Lock()
 		delete(st.background, name)
+		delete(st.bgCancel, name)
 		st.mu.Unlock()
 		close(done)
 	}()
@@ -99,17 +103,24 @@ func (s *Session) ConnectBackground(ctx context.Context, name string) error {
 	if line := s.proxyLogLine(name); line != "" {
 		steps.step(LogInfo, cluster.StepProxy, line, 0)
 	}
-	cctx := withConnectSteps(ctx, steps)
+	login := s.newLoginNotes(name, steps) // what it waits for (loginwait.go, D-73)
+	cctx := withLoginWatch(withConnectSteps(ctx, steps), login.lw)
 	var b *Backend
 	err := s.safeCall("connect", func() (err error) { b, err = connector.Connect(cctx, name); return err })
+	login.connected()
 	if err == nil && b == nil {
 		err = errors.New("the connector returned no cluster")
 	}
 	if err != nil {
-		st.logs.finish(attempt, OutcomeFailed, LogError, err.Error())
 		dropEntry()
+		if errors.Is(context.Cause(cctx), errConnectCancelled) {
+			finishLeftConnect(cctx, &st.logs, attempt, err)
+			return fmt.Errorf("connect %s: %w", name, errConnectCancelled)
+		}
+		st.logs.finish(attempt, OutcomeFailed, LogError, err.Error())
 		return fmt.Errorf("connect %s: %w", name, err)
 	}
+	b.login = login
 	s.learnUser(cctx, name, b) // whoami.go, D-68
 
 	st.mu.Lock()
