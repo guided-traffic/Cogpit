@@ -93,6 +93,7 @@ cogpit/
 | `internal/update` | L4 | The macOS app's updater (2026-10-14): Sparkle 2 loaded at run time from the bundle through cgo, its reasons when there is none ([architecture §11](architecture.md#11-updates-internalupdate)) |
 | `internal/ui/fyneui` | L4 | The Fyne shell, the chat column included; `yamlview` the YAML viewer and editor, `termview` the terminal and log widgets |
 | `internal/ui/logo` | L4 | The logo ([D-24](decisions.md#d-24-logo)), every version of it (`Versions`, `Current`), rasterised for the app icon (`hack/icon`) and the GUI's tile (header, welcome page, About, the README's banner); imports no Fyne |
+| `internal/ui/nativedialog` | L4 | The system's file panels: on macOS NSOpenPanel and NSSavePanel as a sheet on a window, through cgo (elsewhere `ErrUnsupported`, and the caller shows its own dialog), and the owner-only store of the security-scoped bookmarks of what the user picked in them (`bookmarks.json`); imports no Fyne |
 | `internal/testkit` | – | In-memory source, fake API server, object builders, a local kubectl release host (`KubectlReleases`); `enginekit/` the real engine over an in-memory source for the window's tests, `fakellm/` a fake OpenAI-compatible endpoint for the agent's, `sigstoretest/` a sigstore instance of the tests' own; `integration/` holds cross-package and kind tests; imported by tests only (depguard's `no-testkit-in-product`) |
 
 ## Data flow

@@ -426,7 +426,7 @@ jobs:
         run: make test-darwin
 
       - name: Lint the packages with darwin-only files
-        run: make lint LINT_PKGS="./internal/locale/... ./internal/ui/fyneui/... ./internal/update/..."
+        run: make lint LINT_PKGS="./internal/locale/... ./internal/ui/fyneui/... ./internal/ui/nativedialog/... ./internal/update/..."
 
       - name: Build and package Cogpit.app
         run: make app
