@@ -22,10 +22,14 @@
 // length it names) with the app's public key, every item, and with -dmg that the release's item
 // names that disk image by its length and an EdDSA signature over its bytes the key verifies.
 // With -live it also fetches the feed Pages serves now (past its cache) and refuses a feed that
-// would drop one of its items: each draft builds on the feed served when the draft ran, so a
-// release whose appcast is approved after a newer one's would otherwise deploy its older feed over
-// the newer one (2026-10-16). An item may only be missing because its channel's -keep newest were
-// kept, that is when it is older than every item of its channel in the new feed.
+// would take back a release Pages offers: each draft builds on the feed served when the draft ran,
+// so a release whose appcast is approved after a newer one's would otherwise deploy its older feed
+// over the newer one (2026-10-16). It refuses when a channel's newest served item is newer than the
+// new feed's newest of that channel, or the channel is gone. The newer release wins: an older
+// served item the new feed lacks only because its draft ran before that item was deployed (v0.19.0's
+// draft before v0.18.0's deploy, 2026-10-16) is reported and left out, since Sparkle offers each
+// copy the newest item it may install; an item older than every item of its channel in the new
+// feed went with the channel's -keep newest and is not reported.
 //
 // Standard library only: it runs in the release pipeline beside no dependency's code.
 package main
@@ -498,7 +502,7 @@ func runVerify(args []string, stdout io.Writer) error {
 		}
 		o.live = live
 	}
-	items, err := verify(o)
+	items, gaps, err := verify(o)
 	if err != nil {
 		return err
 	}
@@ -506,59 +510,75 @@ func runVerify(args []string, stdout io.Writer) error {
 	for _, it := range items {
 		fmt.Fprintf(stdout, "  %s (%s, %s) %s, %d bytes\n", it.ShortVersion, it.Version, channelName(it.Channel), it.Enclosure.URL, it.Enclosure.Length)
 	}
+	if len(gaps) > 0 {
+		warn(stdout, fmt.Sprintf("the feed leaves out %s, which Pages serves now: its draft ran before that release's appcast was "+
+			"deployed; the newer release is deployed, and copies are offered it. Re-run this release's \"Appcast (draft)\" "+
+			"to keep the left-out items in the feed's history", strings.Join(gaps, ", ")))
+	}
 	return nil
 }
 
-func verify(o verifyOptions) ([]item, error) {
+// warn writes a warning, as a GitHub Actions annotation in a workflow.
+func warn(w io.Writer, msg string) {
+	if os.Getenv("GITHUB_ACTIONS") != "" {
+		fmt.Fprintf(w, "::warning::appcast: %s\n", msg)
+	} else {
+		fmt.Fprintf(w, "appcast: warning: %s\n", msg)
+	}
+}
+
+// verify returns the feed's items and, with o.live, the served items it leaves out below its
+// channels' newest (keepsLive).
+func verify(o verifyOptions) (items []item, gaps []string, err error) {
 	pub, err := publicKey(o.pubkey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	data, err := os.ReadFile(o.feed)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	content, err := verifySigned(data, pub)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	f, err := parse(content)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(f.Items) == 0 {
-		return nil, errors.New("the feed has no items")
+		return nil, nil, errors.New("the feed has no items")
 	}
 	if err := check(f.Items, ""); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if o.live != nil {
-		if err := keepsLive(o.live, f.Items, pub); err != nil {
-			return nil, err
+		if gaps, err = keepsLive(o.live, f.Items, pub); err != nil {
+			return nil, nil, err
 		}
 	}
 	if o.dmg == "" {
-		return f.Items, nil
+		return f.Items, gaps, nil
 	}
 	i := slices.IndexFunc(f.Items, func(it item) bool { return it.Version == o.version })
 	if i < 0 {
-		return nil, fmt.Errorf("the feed has no item of version %q", o.version)
+		return nil, nil, fmt.Errorf("the feed has no item of version %q", o.version)
 	}
 	it := f.Items[i]
 	dmg, err := os.ReadFile(o.dmg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sig, _ := base64.StdEncoding.DecodeString(it.Enclosure.EdSignature)
 	switch u, _ := url.Parse(it.Enclosure.URL); {
 	case path.Base(u.Path) != filepath.Base(o.dmg):
-		return nil, fmt.Errorf("item %s names %s, not %s", it.Version, it.Enclosure.URL, filepath.Base(o.dmg))
+		return nil, nil, fmt.Errorf("item %s names %s, not %s", it.Version, it.Enclosure.URL, filepath.Base(o.dmg))
 	case it.Enclosure.Length != int64(len(dmg)):
-		return nil, fmt.Errorf("item %s says %d bytes, the disk image has %d", it.Version, it.Enclosure.Length, len(dmg))
+		return nil, nil, fmt.Errorf("item %s says %d bytes, the disk image has %d", it.Version, it.Enclosure.Length, len(dmg))
 	case !ed25519.Verify(pub, dmg, sig):
-		return nil, fmt.Errorf("item %s: the disk image's signature does not verify with the app's update key", it.Version)
+		return nil, nil, fmt.Errorf("item %s: the disk image's signature does not verify with the app's update key", it.Version)
 	}
-	return f.Items, nil
+	return f.Items, gaps, nil
 }
 
 // fetchLive reads the feed Pages serves now, past its cache (ten minutes) with a query of the run,
@@ -585,37 +605,47 @@ func fetchLive(c *http.Client, feedURL string) ([]byte, error) {
 	return nil, fmt.Errorf("fetching the feed on Pages: HTTP %d", resp.StatusCode)
 }
 
-// keepsLive refuses a feed that drops an item of the served one (live), unless the item is older
-// than every item of its channel in the feed (its channel's newest were kept). The served feed
-// must verify with the same key, as the draft requires of the feed it builds on.
-func keepsLive(live []byte, next []item, pub ed25519.PublicKey) error {
+// keepsLive refuses a feed that would take back a release the served one (live) offers: a channel
+// whose newest served item is newer than the feed's newest of that channel, or a channel the feed
+// lacks. It returns the served items the feed leaves out below its channels' newest, each newer
+// than the oldest item its channel keeps in the feed (older ones went with the channel's keep).
+// The served feed must verify with the same key, as the draft requires of the feed it builds on.
+func keepsLive(live []byte, next []item, pub ed25519.PublicKey) ([]string, error) {
 	content, err := verifySigned(live, pub)
 	if err != nil {
-		return fmt.Errorf("the feed on Pages: %w", err)
+		return nil, fmt.Errorf("the feed on Pages: %w", err)
 	}
 	served, err := parse(content)
 	if err != nil {
-		return fmt.Errorf("the feed on Pages: %w", err)
+		return nil, fmt.Errorf("the feed on Pages: %w", err)
 	}
-	oldest := map[string]string{}
+	oldest, newest := map[string]string{}, map[string]string{}
 	has := map[string]bool{}
 	for _, it := range next {
 		has[it.Version] = true
 		if o, ok := oldest[it.Channel]; !ok || compareVersions(it.Version, o) < 0 {
 			oldest[it.Channel] = it.Version
 		}
-	}
-	var dropped []string
-	for _, it := range served.Items {
-		if o, ok := oldest[it.Channel]; has[it.Version] || ok && compareVersions(it.Version, o) < 0 {
-			continue
+		if n, ok := newest[it.Channel]; !ok || compareVersions(it.Version, n) > 0 {
+			newest[it.Channel] = it.Version
 		}
-		dropped = append(dropped, it.ShortVersion+" ("+channelName(it.Channel)+")")
 	}
-	if len(dropped) > 0 {
-		return fmt.Errorf("the feed would drop %s, which Pages serves now: its draft ran before that "+
-			"release's appcast was deployed (approve the appcasts in the order of the releases); re-run this "+
-			"release's \"Appcast (draft)\", which builds on the feed Pages serves now", strings.Join(dropped, ", "))
+	var withdrawn, gaps []string
+	for _, it := range served.Items {
+		what := it.ShortVersion + " (" + channelName(it.Channel) + ")"
+		n, ok := newest[it.Channel]
+		switch {
+		case has[it.Version]:
+		case !ok || compareVersions(it.Version, n) > 0:
+			withdrawn = append(withdrawn, what)
+		case compareVersions(it.Version, oldest[it.Channel]) > 0:
+			gaps = append(gaps, what)
+		}
 	}
-	return nil
+	if len(withdrawn) > 0 {
+		return nil, fmt.Errorf("the feed would take back %s, which Pages serves now and which is newer than this "+
+			"release: its draft ran before that release's appcast was deployed; re-run this release's \"Appcast (draft)\", "+
+			"which builds on the feed Pages serves now and adds this release to its history", strings.Join(withdrawn, ", "))
+	}
+	return gaps, nil
 }

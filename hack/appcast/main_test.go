@@ -189,7 +189,7 @@ func TestVerify(t *testing.T) {
 		return p
 	}
 	good := write(signFeed(priv, fill(draft, ed25519.Sign(priv, image))))
-	if items, err := verify(verifyOptions{feed: good, pubkey: pub, dmg: dmg, version: "0.5.0"}); err != nil || len(items) != 1 {
+	if items, _, err := verify(verifyOptions{feed: good, pubkey: pub, dmg: dmg, version: "0.5.0"}); err != nil || len(items) != 1 {
 		t.Fatalf("a good feed: %v", err)
 	}
 	_, otherPub := testKey(t)
@@ -203,7 +203,7 @@ func TestVerify(t *testing.T) {
 		"public key not key":  {feed: good, pubkey: "bm90IGEga2V5"},
 		"signed length wrong": {feed: write(bytes.Replace(signFeed(priv, fill(draft, ed25519.Sign(priv, image))), []byte("length: "), []byte("length: 1"), 1)), pubkey: pub},
 	} {
-		if _, err := verify(o); err == nil {
+		if _, _, err := verify(o); err == nil {
 			t.Errorf("%s: verified", name)
 		}
 	}
@@ -254,9 +254,11 @@ func signedFeed(t *testing.T, priv ed25519.PrivateKey, pub, channel string, vers
 	return feed
 }
 
-// verify with the served feed refuses a feed that would drop one of its items, the way v0.15.0's
-// appcast, approved after v0.16.0's, replaced the feed with 0.15.0 alone on 2026-10-16; an item
-// older than every item its channel keeps may go, and a re-run replaces its own item.
+// verify with the served feed refuses a feed that would take back a newer release Pages offers,
+// the way v0.15.0's appcast, approved after v0.16.0's, replaced the feed with 0.15.0 alone on
+// 2026-10-16; the newer release wins over an older item its draft never saw, the way v0.19.0's
+// draft ran before v0.18.0's appcast was deployed (2026-10-16), and that item is reported; an item
+// older than every item its channel keeps goes silently, and a re-run replaces its own item.
 func TestVerifyKeepsTheServedFeed(t *testing.T) {
 	priv, pub := testKey(t)
 	write := func(data []byte) string {
@@ -271,21 +273,27 @@ func TestVerifyKeepsTheServedFeed(t *testing.T) {
 		name       string
 		live, next []byte
 		ok         bool
+		gaps       string
 	}{
-		{"a release after the served ones", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0", "0.16.0", "0.17.0"), true},
-		{"a re-run of the newest", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), true},
-		{"the oldest left out by the channel's keep", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.16.0", "0.17.0"), true},
-		{"an older release approved after a newer one", signedFeed(t, priv, pub, "", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0"), false},
-		{"a draft made before the newest was deployed", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0", "0.17.0"), false},
-		{"a channel dropped", signedFeed(t, priv, pub, "beta", "0.16.0"), signedFeed(t, priv, pub, "", "0.17.0"), false},
-		{"a served feed another key signed", signedFeed(t, otherPriv, pub, "", "0.16.0"), signedFeed(t, priv, pub, "", "0.17.0"), false},
+		{"a release after the served ones", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0", "0.16.0", "0.17.0"), true, ""},
+		{"a re-run of the newest", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), true, ""},
+		{"the oldest left out by the channel's keep", signedFeed(t, priv, pub, "", "0.15.0", "0.16.0"), signedFeed(t, priv, pub, "", "0.16.0", "0.17.0"), true, ""},
+		{"a newer release drafted before an older one was deployed", signedFeed(t, priv, pub, "", "0.17.0", "0.18.0"), signedFeed(t, priv, pub, "", "0.17.0", "0.19.0"), true, "0.18.0 (stable)"},
+		{"a newer release in another channel's gap", signedFeed(t, priv, pub, "beta", "0.16.0", "0.17.0", "0.18.0"), signedFeed(t, priv, pub, "beta", "0.16.0", "0.17.0", "0.19.0"), true, "0.18.0 (beta)"},
+		{"an older release approved after a newer one", signedFeed(t, priv, pub, "", "0.16.0"), signedFeed(t, priv, pub, "", "0.15.0"), false, ""},
+		{"an older release drafted on an older feed", signedFeed(t, priv, pub, "", "0.17.0", "0.18.0", "0.19.0"), signedFeed(t, priv, pub, "", "0.17.0", "0.18.0"), false, ""},
+		{"a channel dropped", signedFeed(t, priv, pub, "beta", "0.16.0"), signedFeed(t, priv, pub, "", "0.17.0"), false, ""},
+		{"a served feed another key signed", signedFeed(t, otherPriv, pub, "", "0.16.0"), signedFeed(t, priv, pub, "", "0.17.0"), false, ""},
 	} {
-		_, err := verify(verifyOptions{feed: write(tt.next), pubkey: pub, live: tt.live})
+		_, gaps, err := verify(verifyOptions{feed: write(tt.next), pubkey: pub, live: tt.live})
 		if (err == nil) != tt.ok {
 			t.Errorf("%s: %v", tt.name, err)
 		}
-		if !tt.ok && err != nil && strings.Contains(tt.name, "approved after") && !strings.Contains(err.Error(), "would drop 0.16.0 (stable)") {
-			t.Errorf("%s: the error does not name the dropped item: %v", tt.name, err)
+		if got := strings.Join(gaps, ", "); got != tt.gaps {
+			t.Errorf("%s: left out %q, want %q", tt.name, got, tt.gaps)
+		}
+		if !tt.ok && err != nil && strings.Contains(tt.name, "approved after") && !strings.Contains(err.Error(), "would take back 0.16.0 (stable)") {
+			t.Errorf("%s: the error does not name the newer item: %v", tt.name, err)
 		}
 	}
 }

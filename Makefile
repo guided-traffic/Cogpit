@@ -593,7 +593,7 @@ appcast-draft: ## Draft the appcast with this release's item in dist/appcast (re
 appcast-sign: sparkle ## Sign the disk image and the drafted appcast into dist/site with SPARKLE_ED_PRIVATE_KEY (release pipeline's environment sparkle); VERSION=x.y.z
 	hack/macos/appcast.sh sign '$(VERSION)' '$(DIST)/macos' '$(APPCAST)' '$(DIST)/site' '$(SPARKLE_DIR)'
 
-appcast-verify: ## Check dist/site/appcast.xml and the disk image with SPARKLE_PUBLIC_ED_KEY, and that no item Pages serves is dropped, before Pages gets them; VERSION=x.y.z
+appcast-verify: ## Check dist/site/appcast.xml and the disk image with SPARKLE_PUBLIC_ED_KEY, and that it takes back no newer release Pages serves, before Pages gets them; VERSION=x.y.z
 	$(GO) run ./hack/appcast verify -feed '$(DIST)/site/appcast.xml' -pubkey '$(SPARKLE_PUBLIC_ED_KEY)' \
 		-dmg "$$(ls $(DIST)/macos/Cogpit-$(VERSION)-macos-*.dmg)" -version "$$(cat $(APPCAST)/version)" \
 		-live '$(SPARKLE_FEED_URL)'
