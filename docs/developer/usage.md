@@ -367,8 +367,14 @@ Not on Windows and Linux yet.
 
 The macOS app checks Cogpit's signed appcast with Sparkle 2 and offers a newer release in Sparkle's
 window, installed on your click ([D-4](decisions.md#d-4-packaging-and-updates)); Help › Check for
-Updates… checks now. Kept in `<user config dir>/Cogpit/preferences.json` with the other
-preferences.
+Updates… checks now. A release a scheduled check finds shows as a button at the top bar's right
+end, left of the layout toggles, not as Sparkle's window: "Update to v0.16.0" (# example: the
+version the feed names), "Update" when it names none or the bar has no room for the version (a
+narrow window beside a long context name); the tooltip names the version, and a click opens
+Sparkle's window with the release. The button stays until Sparkle's update session ends (the
+release installed or skipped, or put off with "Remind Me Later" until the next scheduled check)
+([D-54](decisions.md#d-54-the-layout-toggles-and-the-update-button)). Kept in
+`<user config dir>/Cogpit/preferences.json` with the other preferences.
 
 ```json
 {
@@ -379,7 +385,7 @@ preferences.
 
 | Field | Default | Meaning |
 |---|---|---|
-| `checkForUpdates` | `true` # default | Sparkle checks `https://guided-traffic.github.io/cogpit/appcast.xml` once a day; off, only Help › Check for Updates… checks |
+| `checkForUpdates` | `true` # default | Sparkle checks `https://guided-traffic.github.io/cogpit/appcast.xml` every hour, and at a launch when the last check is older than that (since 2026-10-16; once a day before); off, only Help › Check for Updates… checks |
 | `updateChannel` | `"stable"` # default | the only channel until Cogpit publishes prereleases; `beta` is refused for now |
 
 Security note: an agent or `cogpit-cli` may turn `checkForUpdates` on, never off; only you can, in

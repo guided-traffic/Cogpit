@@ -38,7 +38,7 @@ release pipeline ─► Cogpit-<v>-macos-arm64.dmg (the app, its cogpit-cli insi
         ─► EdDSA signature over the disk image, then over the feed (Sparkle's sign_update)
    "Appcast (deploy)" ─► checked with the public key ─► https://guided-traffic.github.io/cogpit/appcast.xml
                                    │
-Cogpit.app (Sparkle 2) ─► fetch the feed over HTTPS once a day, or on Help › Check for Updates…
+Cogpit.app (Sparkle 2) ─► fetch the feed over HTTPS every hour, or on Help › Check for Updates…
        ─► the feed's EdDSA signature with SUPublicEDKey from the app's Info.plist
        ─► an item newer than the running CFBundleVersion, for this macOS? ─► Sparkle's window, the user's click
        ─► download the disk image from the release ─► its EdDSA signature, before anything is extracted
@@ -52,6 +52,17 @@ in the app's `Info.plist` by [`hack/macos/sparkle.sh`](../../hack/macos/sparkle.
 is [`internal/update`](../../internal/update/); the pipeline's is
 [`build.yml`](../../.github/workflows/build.yml), [`hack/macos/appcast.sh`](../../hack/macos/appcast.sh)
 and [`hack/appcast`](../../hack/appcast/main.go).
+
+**How often a copy asks** (owner, 2026-10-16): every hour, `SUScheduledCheckInterval` 3600 in the
+`Info.plist` (Sparkle's default is a day; an hour is the least Sparkle 2.10.0 uses), and at a
+launch when the last check is older than that. Each check is one HTTPS request for the feed to
+GitHub Pages, which sees the copy's address, the time and the User-Agent Sparkle sends, the app's
+name and version beside Sparkle's (`Cogpit/0.16.0 Sparkle/2.10.0`), now up to 24 times a day
+instead of once. No system profile goes with it: `SUSendProfileInfo` is never set, and Sparkle's
+permission prompt, which would offer it, does not show because the `Info.plist` sets
+`SUEnableAutomaticChecks`. A check involves no kubeconfig, cluster or credential, and one that
+finds a release downloads nothing until the user chooses to install. Preferences › App › Check
+for updates automatically off stops the scheduled checks; Help › Check for Updates… still asks.
 
 | Check | Where | Prevents |
 |---|---|---|

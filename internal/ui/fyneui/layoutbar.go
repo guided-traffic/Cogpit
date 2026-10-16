@@ -1,6 +1,7 @@
 package fyneui
 
 import (
+	"math"
 	"runtime"
 
 	"fyne.io/fyne/v2"
@@ -56,12 +57,18 @@ type layoutBar struct {
 	updateBox             *fyne.Container // the Update button as a pill in the bar's middle (compactLayout)
 	navigator, dock, chat *tipButton
 	root                  *fyne.Container
+	label                 string  // the Update button's label with the version (updateLabel), shown where it fits
+	room                  float32 // the width the bar's row left for the Update button at its last layout
 }
 
+// updateShort is the Update button's label without a version, and where the bar has no room for
+// the version.
+const updateShort = "Update"
+
 func newLayoutBar(sh *shell) *layoutBar {
-	l := &layoutBar{sh: sh}
+	l := &layoutBar{sh: sh, label: updateShort}
 	l.update = newTipButton(sh, nil, "", func() { sh.dispatch("app.checkForUpdates", struct{}{}, nil) })
-	l.update.SetText("Update")
+	l.update.SetText(updateShort)
 	l.update.Importance = widget.HighImportance
 	l.updateBox = box(compactLayout{}, l.update)
 	l.showUpdate(false)
@@ -113,13 +120,98 @@ func (l *layoutBar) stateChanged() {
 }
 
 // updateChanged shows the Update button while the updater holds a newer release, its version in
-// the tooltip.
+// the label (where the bar has the room) and the tooltip.
 func (l *layoutBar) updateChanged(u engine.UpdateState) {
 	l.update.tip = "A newer Cogpit is available: show it in the update window"
 	if u.Version != "" {
 		l.update.tip = "Cogpit " + u.Version + " is available: show it in the update window"
 	}
+	if label := updateLabel(u.Version); label != l.label {
+		l.label = label
+		l.fit(l.room)
+	}
 	l.showUpdate(u.Available)
+}
+
+// updateLabel is the Update button's label for the version Sparkle names (the appcast item's
+// display version): "Update to v0.16.0", a leading v of the version's own not doubled; "Update"
+// without a version.
+func updateLabel(version string) string {
+	if len(version) > 1 && (version[0] == 'v' || version[0] == 'V') && isDigit(version[1]) {
+		version = version[1:]
+	}
+	switch {
+	case version == "":
+		return updateShort
+	case isDigit(version[0]):
+		return "Update to v" + version
+	}
+	return "Update to " + version // not a number ("beta"): no v before it
+}
+
+func isDigit(b byte) bool { return b >= '0' && b <= '9' }
+
+// fit gives the Update button its label with the version while that fits in room, the width the
+// bar's row leaves for the button, and "Update" otherwise: on a narrow window, or beside a long
+// context name, the version gives way first, and the window's least width stays the short label's.
+func (l *layoutBar) fit(room float32) {
+	l.room = room
+	text := updateShort
+	if l.label != updateShort && l.updateWidth(l.label) <= room {
+		text = l.label
+	}
+	if l.update.Text != text {
+		l.update.SetText(text)
+	}
+}
+
+// updateWidth is the Update button's least width with text as its label: its width now, changed
+// by the difference of the two texts' widths (the button's label is one line of bold text).
+func (l *layoutBar) updateWidth(text string) float32 {
+	return l.update.MinSize().Width - labelWidth(l.update.Text) + labelWidth(text)
+}
+
+// updateExtra is how much wider the Update button is now than it would be with "Update": 0 while
+// it is hidden or says "Update".
+func (l *layoutBar) updateExtra() float32 {
+	if !l.updateBox.Visible() || l.update.Text == updateShort {
+		return 0
+	}
+	return labelWidth(l.update.Text) - labelWidth(updateShort)
+}
+
+// labelWidth is the width of a button's label text: the theme's text size, bold.
+func labelWidth(text string) float32 {
+	th := fyne.CurrentApp().Settings().Theme()
+	return fyne.MeasureText(text, th.Size(theme.SizeNameText), fyne.TextStyle{Bold: true}).Width
+}
+
+// barRowLayout is the top bar's row: the left part (the logo, the history arrows, the context) at
+// the left and the right part (the Update button, the toggles, the bell) at the right end, each at
+// its least width and the row's height, where a border layout without a centre puts them; and it
+// tells the Update button the room it has, which picks its label (layoutBar.fit). The row's least
+// width counts the button's short label, so the version never widens the window's minimum.
+type barRowLayout struct{ t *topBar }
+
+func (r barRowLayout) MinSize([]fyne.CanvasObject) fyne.Size {
+	lm, rm := r.t.left.MinSize(), r.t.right.MinSize()
+	pad := fyne.CurrentApp().Settings().Theme().Size(theme.SizeNamePadding)
+	return fyne.NewSize(lm.Width+pad+rm.Width-r.t.layout.updateExtra(), max(lm.Height, rm.Height))
+}
+
+func (r barRowLayout) Layout(_ []fyne.CanvasObject, size fyne.Size) {
+	left, right, l := r.t.left, r.t.right, r.t.layout
+	pad := fyne.CurrentApp().Settings().Theme().Size(theme.SizeNamePadding)
+	lw := left.MinSize().Width
+	if l.updateBox.Visible() {
+		// The room beside the left part that the right part, but for the button, leaves.
+		l.fit(size.Width - lw - pad - (right.MinSize().Width - l.update.MinSize().Width))
+	}
+	rw := right.MinSize().Width
+	left.Move(fyne.Position{})
+	left.Resize(fyne.NewSize(lw, size.Height))
+	right.Move(fyne.NewPos(size.Width-rw, 0))
+	right.Resize(fyne.NewSize(rw, size.Height))
 }
 
 // showUpdate shows or hides the Update button with its place, so that a hidden one leaves no gap.
@@ -138,12 +230,15 @@ func (l *layoutBar) showUpdate(on bool) {
 
 // compactLayout gives its object its least width and the height of a line of bold text with the
 // theme's padding above and below, centred: the Update button as a pill, not a block as tall as
-// the bar (VS Code's is compact too).
+// the bar (VS Code's is compact too). The height is rounded up to an even number of units, so that
+// in the bar's even height the pill starts on a whole unit and every renderer puts its edges on the
+// same rows (at 25.7 units, 7.15 from the top, the offscreen renderer drew it a row lower).
 type compactLayout struct{}
 
 func (compactLayout) height() float32 {
 	th := fyne.CurrentApp().Settings().Theme()
-	return fyne.MeasureText("Mg", th.Size(theme.SizeNameText), fyne.TextStyle{Bold: true}).Height + 2*th.Size(theme.SizeNamePadding)
+	h := fyne.MeasureText("Mg", th.Size(theme.SizeNameText), fyne.TextStyle{Bold: true}).Height + 2*th.Size(theme.SizeNamePadding)
+	return 2 * float32(math.Ceil(float64(h)/2))
 }
 
 func (l compactLayout) MinSize(objs []fyne.CanvasObject) fyne.Size {

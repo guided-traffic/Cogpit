@@ -18,6 +18,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -229,7 +230,8 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 		sh.saveWidths))
 	sh.chatRow = container.NewStack(sh.center)
 	frame := container.NewBorder(
-		container.NewVBox(sh.top.root, newDivider(false), sh.conn.root, sh.drains.root, sh.helm.root, sh.helmHTTP.root, sh.drafts.root),
+		container.NewVBox(box(layout.NewCustomPaddedVBoxLayout(0), sh.top.root, sh.top.edge), // the line directly under the bar
+			sh.conn.root, sh.drains.root, sh.helm.root, sh.helmHTTP.root, sh.drafts.root),
 		container.NewVBox(newDivider(false), sh.status.root),
 		sh.hot.root, nil, sh.chatRow)
 	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)

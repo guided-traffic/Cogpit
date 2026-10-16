@@ -68,9 +68,11 @@ type topBar struct {
 	history     *titleHistory     // the history arrows and the bar's context menu (titlehistory.go)
 	notes       *notificationsUI  // the bell and its panel (notifications.go)
 	left        *fyne.Container
-	titleHeight float32 // the title bar's height the bar covers, in Fyne units; 0 without
-	titleLead   float32 // the window buttons' room last made (lead's width); 0 without
-	titleSet    bool    // setTitlebar ran: titleLead and titleHeight are what it applied
+	right       *fyne.Container // the Update button, the layout toggles and the bell
+	edge        *surface        // the line under the bar, directly under it (shell.go, F11)
+	titleHeight float32         // the title bar's height the bar covers, in Fyne units; 0 without
+	titleLead   float32         // the window buttons' room last made (lead's width); 0 without
+	titleSet    bool            // setTitlebar ran: titleLead and titleHeight are what it applied
 	root        fyne.CanvasObject
 	// layout is the Update button and the layout toggles left of the right end (layoutbar.go, F7).
 	layout *layoutBar
@@ -92,11 +94,16 @@ func newTopBar(sh *shell) *topBar {
 	t.left = container.NewHBox(t.lead, newLogo(), wordmark, t.history.root, newHGap(theme.SizeNameInnerPadding), newDivider(true),
 		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state)
 	t.layout = newLayoutBar(sh)
-	right := container.NewHBox(t.layout.root, t.notes.bell)
+	t.right = container.NewHBox(t.layout.root, t.notes.bell)
+	// The line under the bar lies directly under it (shell.go): what the bar centres then sits
+	// midway between the window's top and the line (F11, the owner: "hängt ein wenig zu hoch"; with
+	// a box's padding between the two the line lay 4 units lower, and in the dark theme, the
+	// window's background and the bar's nearly one colour, everything in the bar looked high).
+	t.edge = newDivider(false)
 	drag := newBarDragArea(func() { sh.titlebar.mouseDown() })
 	drag.secondary = t.history.showMenu
 	t.root = box(&topBarLayout{t: t}, newSurface(colorTopBar), drag,
-		inset(theme.SizeNameInnerPadding, "", container.NewBorder(nil, nil, t.left, right)))
+		inset(theme.SizeNameInnerPadding, "", box(barRowLayout{t: t}, t.left, t.right)))
 	return t
 }
 

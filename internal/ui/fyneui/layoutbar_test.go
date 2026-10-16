@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/test"
 
@@ -184,14 +185,14 @@ func TestLayoutMenuItems(t *testing.T) {
 	q.until(t, "the dock collapsed", func() bool { return !s.UIState().DockOpen && !mainMenuItem(t, sh, "Dock").Checked })
 }
 
-// The Update button shows only while the updater holds a newer release, its version in the
-// tooltip, and a click runs app.checkForUpdates (Sparkle's window); it goes when the update session
-// ends. An updater that cannot update this Cogpit (no key) never shows it, whatever it says.
+// The Update button shows only while the updater holds a newer release, its version in the label
+// and the tooltip, and a click runs app.checkForUpdates (Sparkle's window); it goes when the update
+// session ends. An updater that cannot update this Cogpit (no key) never shows it, whatever it says.
 func TestUpdateButtonShowsOnlyWithAnUpdate(t *testing.T) {
 	s, _ := settingsEngine(t)
 	n := &uiNotifier{}
 	s.SetUpdater(n)
-	sh, _, q := newEngineShell(t, s, Options{})
+	sh, w, q := newEngineShell(t, s, Options{})
 	b := sh.top.layout.update
 	if b.Visible() {
 		t.Fatal("the Update button shows without an update")
@@ -200,7 +201,8 @@ func TestUpdateButtonShowsOnlyWithAnUpdate(t *testing.T) {
 	q.until(t, "the Update button", func() bool {
 		return b.Visible() && sh.top.layout.updateBox.Visible() && strings.Contains(b.tip, "Cogpit 0.12.0 is available")
 	})
-	if b.Text != "Update" {
+	settle(w)
+	if b.Text != "Update to v0.12.0" {
 		t.Errorf("the button says %q", b.Text)
 	}
 	test.Tap(b)
@@ -219,6 +221,117 @@ func TestUpdateButtonShowsOnlyWithAnUpdate(t *testing.T) {
 	q2.drain()
 	if sh2.top.layout.update.Visible() || s2.UIState().Update.Available {
 		t.Fatal("a build without the update key shows the Update button")
+	}
+}
+
+// The Update button's label names the version Sparkle reports, a version's own v not doubled, and
+// says "Update" without one.
+func TestUpdateLabel(t *testing.T) {
+	for in, want := range map[string]string{
+		"": "Update", "0.16.0": "Update to v0.16.0", "v0.16.0": "Update to v0.16.0", "V1.2": "Update to v1.2",
+		"1.0.0-beta.1": "Update to v1.0.0-beta.1", "beta": "Update to beta", "v": "Update to v",
+	} {
+		if got := updateLabel(in); got != want {
+			t.Errorf("updateLabel(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// iconOf is a toggle's icon: its renderer's image.
+func iconOf(t *testing.T, b *tipButton) *canvas.Image {
+	t.Helper()
+	for _, o := range test.WidgetRenderer(b).Objects() {
+		if img, ok := o.(*canvas.Image); ok {
+			return img
+		}
+	}
+	t.Fatal("a toggle without its icon")
+	return nil
+}
+
+// The Update button sits on the bar's centre line, as the toggles' icons do, and the line under the
+// bar lies directly under it (F11): with a box's padding between the two, the line lay 4 units
+// below the bar's end, and in the dark theme, where the window's background and the bar's are
+// nearly one colour, everything in the bar looked 2 units high; the pill, 26 of the bar's 40 units,
+// most (the owner, 2026-10-16: "hängt ein wenig zu hoch").
+func TestUpdateButtonOnTheBarsCentreLine(t *testing.T) {
+	s := chatEngine(t)
+	n := &uiNotifier{}
+	s.SetUpdater(n)
+	sh, w, q := newEngineShell(t, s, Options{})
+	l := sh.top.layout
+	n.set(true, "0.16.0")
+	q.until(t, "the Update button and the toggles", func() bool {
+		return l.update.Visible() && l.navigator.Visible() && l.dock.Visible() && l.chat.Visible()
+	})
+	settle(w)
+	_, barEnd := absRect(sh.top.root)
+	edge, _ := absRect(sh.top.edge)
+	near(t, "the line under the bar", edge.Y, barEnd.Y)
+	pill := middleOf(l.update).Y
+	near(t, "the Update button's centre against the band above the line", pill, edge.Y/2)
+	for _, b := range []*tipButton{l.navigator, l.dock, l.chat} {
+		near(t, "the Update button's centre against a toggle's icon", pill, middleOf(iconOf(t, b)).Y)
+	}
+}
+
+// At the narrowest window the app allows (its content's least size, which Fyne makes the window's
+// minimum), the Update button with its version still fits beside the bar's left part. Where the
+// bar is the window's widest row, as beside a long context name and its kubeconfig file, the
+// version gives way: the button says "Update" until the window has the room, and the version never
+// widens the window's minimum; the two parts never overlap.
+func TestUpdateButtonAtTheNarrowestWindow(t *testing.T) {
+	s := chatEngine(t)
+	n := &uiNotifier{}
+	s.SetUpdater(n)
+	sh, w, q := newEngineShell(t, s, Options{})
+	n.set(true, "0.16.0")
+	q.until(t, "the Update button", func() bool { return sh.top.layout.update.Visible() })
+	settle(w)
+	w.Resize(w.Content().MinSize())
+	settle(w)
+	assertUpdateFits(t, sh, "Update to v0.16.0")
+
+	long := "arn:aws:eks:eu-central-1:123456789012:cluster/production-platform-blue-green-eu-central-1a" +
+		" [/Users/someone/Library/Application Support/Cloud/kubeconfigs/eks-production-platform-config]"
+	f := connectedFake(t, 10)
+	f.diag = engine.Diagnostics{} // a real cluster's status bar: no demo line, which is wider than the bar
+	f.update(func(u *engine.UIState) {
+		u.Context, u.Connection = long, engine.Connection{State: engine.Connected}
+		u.Update = engine.UpdateState{Available: true, Version: "0.16.0"}
+	})
+	sh2, w2, q2 := newTestShell(t, f, Options{})
+	q2.until(t, "the Update button", func() bool { return sh2.top.layout.update.Visible() })
+	// On macOS the bar makes room for the window buttons, which the status bar does not.
+	sh2.top.setTitlebar(titlebarLayout(titlebarGeometry{ButtonsMinX: 9, ButtonsMaxX: 61, Height: 28}, 1, 6, 4))
+	settle(w2)
+	least := w2.Content().MinSize().Width
+	if bar := sh2.top.root.MinSize().Width; bar != least {
+		t.Fatalf("the bar's least width %v is not the window's %v: the context is not long enough", bar, least)
+	}
+	w2.Resize(w2.Content().MinSize())
+	settle(w2)
+	assertUpdateFits(t, sh2, "Update")
+	extra := labelWidth("Update to v0.16.0") - labelWidth("Update")
+	w2.Resize(fyne.NewSize(least+extra+0.25, w2.Canvas().Size().Height)) // a quarter for the floats' rounding
+	settle(w2)
+	assertUpdateFits(t, sh2, "Update to v0.16.0")
+	if got := w2.Content().MinSize().Width; got != least {
+		t.Errorf("the version widened the window's minimum from %v to %v", least, got)
+	}
+}
+
+// assertUpdateFits checks the Update button's label and that it lies right of the bar's left part.
+func assertUpdateFits(t *testing.T, sh *shell, label string) {
+	t.Helper()
+	l := sh.top.layout
+	if l.update.Text != label {
+		t.Errorf("at %v the button says %q, want %q", sh.win.Canvas().Size(), l.update.Text, label)
+	}
+	_, leftEnd := absRect(sh.top.left)
+	pill, pillEnd := absRect(l.update)
+	if pill.X < leftEnd.X || pillEnd.X > sh.win.Canvas().Size().Width {
+		t.Errorf("the button at %v..%v, the left part ends at %v, the window at %v", pill.X, pillEnd.X, leftEnd.X, sh.win.Canvas().Size().Width)
 	}
 }
 

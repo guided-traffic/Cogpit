@@ -21,9 +21,12 @@
 #     when <public key> is given, else none, and the app's updater does not start
 #     (internal/update); SUEnableAutomaticChecks YES, so that Sparkle never asks for permission
 #     itself: Cogpit's preference "Check for updates automatically" drives automaticallyChecksForUpdates
-#     at every start; SUVerifyUpdateBeforeExtraction and SURequireSignedFeed YES, so that Sparkle
-#     checks the disk image's EdDSA signature before it extracts anything and accepts only an
-#     appcast signed with the same key (Sparkle 2.9 and later).
+#     at every start; SUScheduledCheckInterval 3600, so that the scheduled checks run every hour
+#     (owner, 2026-10-16; Sparkle's default is a day, and an hour is the least it accepts:
+#     minimumUpdateCheckInterval in Sparkle/SPUUpdaterSettings.m); SUVerifyUpdateBeforeExtraction
+#     and SURequireSignedFeed YES, so that Sparkle checks the disk image's EdDSA signature before it
+#     extracts anything and accepts only an appcast signed with the same key (Sparkle 2.9 and
+#     later).
 # The app's binary does not link Sparkle: it loads the framework at run time (internal/update), so
 # the binary needs no rpath.
 set -euo pipefail
@@ -89,6 +92,7 @@ bundle() {
 	plutil -replace CFBundleVersion -string "$version" "$plist"
 	plutil -replace SUFeedURL -string "$feed" "$plist"
 	plutil -replace SUEnableAutomaticChecks -bool YES "$plist"
+	plutil -replace SUScheduledCheckInterval -integer 3600 "$plist"
 	plutil -replace SUVerifyUpdateBeforeExtraction -bool YES "$plist"
 	plutil -replace SURequireSignedFeed -bool YES "$plist"
 	if [ -n "$key" ]; then

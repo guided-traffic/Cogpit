@@ -1,9 +1,45 @@
 package update
 
 import (
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
+
+// sparkleMinimumCheckInterval is the least scheduled-check interval Sparkle 2.10.0 uses, in
+// seconds: SPUUpdater clamps a shorter one up to it (minimumUpdateCheckInterval,
+// Sparkle/SPUUpdaterSettings.m).
+const sparkleMinimumCheckInterval = 60 * 60
+
+// The app bundle's Info.plist gets the settings this package relies on from hack/macos/sparkle.sh:
+// scheduled checks on (Cogpit's preference turns them off), every hour (owner, 2026-10-16), no
+// shorter than Sparkle allows, and the update verified before extraction against a signed feed.
+func TestSparkleScriptWritesTheSettings(t *testing.T) {
+	b, err := os.ReadFile("../../hack/macos/sparkle.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, line := range []string{
+		`plutil -replace SUEnableAutomaticChecks -bool YES "$plist"`,
+		`plutil -replace SUVerifyUpdateBeforeExtraction -bool YES "$plist"`,
+		`plutil -replace SURequireSignedFeed -bool YES "$plist"`,
+	} {
+		if !strings.Contains(script, line) {
+			t.Errorf("sparkle.sh does not run %s", line)
+		}
+	}
+	m := regexp.MustCompile(`plutil -replace SUScheduledCheckInterval -integer (\d+) "\$plist"`).FindStringSubmatch(script)
+	if m == nil {
+		t.Fatal("sparkle.sh sets no SUScheduledCheckInterval: Sparkle checks once a day")
+	}
+	if n, _ := strconv.Atoi(m[1]); n != 3600 || n < sparkleMinimumCheckInterval {
+		t.Errorf("SUScheduledCheckInterval %d, want 3600 (an hour; Sparkle's least is %d)", n, sparkleMinimumCheckInterval)
+	}
+}
 
 // What Sparkle's delegate reports is kept and tells the listeners on goroutines of their own: an
 // update held with its version, a repeat that changes nothing tells nobody, the session's end
