@@ -8,7 +8,7 @@ and the release pipeline signs and publishes its appcast
 key on 2026-10-15 and every release since v0.11.0 is built with it; v0.14.0 to v0.16.0 passed
 notarization on 2026-10-16, and since ~06:20 UTC that day Pages serves the signed feed with 0.16.0
 and 0.15.0 (the owner approved the appcasts; checked: the feed's signature and the 0.16.0 disk
-image's EdDSA signature against the public key); v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0. The first installed copy updated on 2026-10-16:
+image's EdDSA signature against the public key); v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC, its disk image attached) and v0.21.0 (23:39 UTC, its build under way when this was written) followed in the night, their appcasts waiting for the owner's approval. The first installed copy updated on 2026-10-16:
 the owner's, from 0.15.0 to 0.16.0, through the signed feed and Sparkle's install (a person's
 observation; [setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). `cogpit-cli` has no
 updater of its own: since 2026-10-14 it is part of the app bundle
@@ -156,7 +156,7 @@ another owner, moves the feed: the copies installed before stop finding updates,
 error the user sees, and only a manual download brings them back. Dormant until a release built
 with the update key has files to install (the environment `sparkle`, Pages and the key set up
 2026-10-15; every release since v0.11.0 is built with the key: v0.11.0 and v0.12.0 have no files,
-v0.13.0 has its disk image since 2026-10-15 23:52 UTC, v0.14.0 to v0.19.0 theirs since 2026-10-16, the signed feed serves 0.19.0 to 0.15.0).
+v0.13.0 has its disk image since 2026-10-15 23:52 UTC, v0.14.0 to v0.20.0 theirs since 2026-10-16, the signed feed serves 0.19.0 to 0.15.0 until the owner approves v0.20.0's and v0.21.0's appcasts).
 What bounds it: nothing in the code; the rename is a GitHub setting. A custom domain for Pages, or
 a redirect page at the old path, would keep the URL stable; neither is set up.
 
