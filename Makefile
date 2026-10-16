@@ -1,7 +1,7 @@
 # Cogpit — developer targets. CI (.github/workflows/release.yml) runs the same ones, one job each:
-# lint, parity, gosec, vuln, cyclo, test-unit-coverage, test-race-ui (sharded), test-race-rest,
-# kind-up with test-kind, kind-drain-up with test-kind-drain, envtest-bin with test-envtest,
-# coverage-report, and test-darwin with app on macOS (docs/developer/releasing.md#ci).
+# lint with check-nodemo, parity, gosec, vuln, cyclo, test-unit-coverage, test-race-ui (sharded),
+# test-race-rest, kind-up with test-kind, kind-drain-up with test-kind-drain, envtest-bin with
+# test-envtest, coverage-report, and test-darwin with app on macOS (docs/developer/releasing.md#ci).
 #
 # Go: go.mod declares go 1.27.2; GOTOOLCHAIN=auto fetches it when the local Go is older.
 # Kubeconfig safety: every target that talks to a cluster uses KIND_KUBECONFIG, a separate file;
@@ -44,6 +44,9 @@ GOLANGCI_LINT   := $(BIN)/golangci-lint
 VERSION         ?= 0.0.1
 # Linker flags for build; the dist targets set the version (-X …/internal/buildinfo.version).
 GO_LDFLAGS      ?=
+# Build tags for build; the dist targets set the release's (DIST_TAGS: no demo cluster, D-67).
+# Empty: a development build, with the synthetic demo cluster.
+GO_TAGS         ?=
 APP_ID          := io.guided-traffic.cogpit
 # The code-signing identifier of the cogpit-cli in Cogpit.app/Contents/MacOS (D-16); the release's
 # Developer ID signature uses the same (hack/macos/release.sh, cli_identifier).
@@ -60,14 +63,14 @@ help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
 
 build: ## Build bin/cogpit (cgo, Fyne) and bin/cogpit-cli (pure Go)
-	$(GO) build -ldflags '$(GO_LDFLAGS)' -o $(BIN)/cogpit ./cmd/cogpit
-	CGO_ENABLED=0 $(GO) build -ldflags '$(GO_LDFLAGS)' -o $(BIN)/cogpit-cli ./cmd/cogpit-cli
+	$(GO) build -tags '$(GO_TAGS)' -ldflags '$(GO_LDFLAGS)' -o $(BIN)/cogpit ./cmd/cogpit
+	CGO_ENABLED=0 $(GO) build -tags '$(GO_TAGS)' -ldflags '$(GO_LDFLAGS)' -o $(BIN)/cogpit-cli ./cmd/cogpit-cli
 
 run: build ## Run Cogpit against the kind cluster (make kind-up first)
 	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
 	$(BIN)/cogpit --kubeconfig $(KIND_KUBECONFIG) --context $(KIND_CONTEXT)
 
-run-demo: build ## Run Cogpit on the synthetic demo cluster (10,000 pods, 1,000 events/s)
+run-demo: build ## Run Cogpit on the synthetic demo cluster (10,000 pods, 1,000 events/s); development builds only, a release has none (D-67)
 	$(BIN)/cogpit --demo
 
 test: test-unit-race ## All tests that need no cluster (race detector on); test-kind needs make kind-up
@@ -216,6 +219,23 @@ LINT_PKGS       ?= ./...
 
 lint: $(GOLANGCI_LINT) ## golangci-lint: the team's linters plus depguard layering
 	$(GOLANGCI_LINT) run $(LINT_PKGS)
+
+# The release build's variant (DIST_TAGS, D-67), which no other check builds, for CI's lint job:
+# internal/demo is linked into neither binary with the tags and into both without them (so the
+# check is not empty), the packages with nodemo files and their tests lint with the tags, and the
+# tests written for the variant (TestNoDemo*) run.
+NODEMO_PKGS     := ./cmd/... ./internal/engine/...
+DEMO_PKG        := github.com/guided-traffic/cogpit/internal/demo
+
+.PHONY: check-nodemo
+check-nodemo: $(GOLANGCI_LINT) ## The release build's variant (DIST_TAGS): no internal/demo in either binary, its lint and its tests
+	@for b in ./cmd/cogpit ./cmd/cogpit-cli; do \
+		$(GO) list -deps $$b | grep -x '$(DEMO_PKG)' >/dev/null || { echo "$$b: no $(DEMO_PKG) in a development build"; exit 1; }; \
+		if $(GO) list -deps -tags '$(DIST_TAGS)' $$b | grep -x '$(DEMO_PKG)' >/dev/null; then \
+			echo "$$b: $(DEMO_PKG) in the release build"; exit 1; fi; \
+	done; echo "$(DEMO_PKG): in both binaries without -tags $(DIST_TAGS), in neither with it"
+	$(GOLANGCI_LINT) run --build-tags '$(DIST_TAGS)' $(NODEMO_PKGS)
+	$(TEST_ENV) $(GO) test -tags '$(DIST_TAGS)' -run '^TestNoDemo' ./internal/engine/ ./cmd/cogpit-cli/
 
 parity: ## Check the parity checklists and the numbers the progress pages report (D-15); PARITY_FLAGS=-rows skips the numbers
 	$(GO) run ./hack/parity -check $(PARITY_FLAGS)
@@ -531,14 +551,25 @@ DIST            := $(CURDIR)/dist
 # The one variable the version is set in, for both binaries (internal/buildinfo; its
 # TestMakefileSetsTheVersion checks that this names it: the linker ignores a -X for a missing symbol).
 DIST_LDFLAGS     = -s -w -X github.com/guided-traffic/cogpit/internal/buildinfo.version=$(VERSION)
+# The build tags of a release (owner, 2026-10-16, D-67): nodemo leaves the synthetic demo cluster
+# out of both binaries (package internal/demo, the flags --demo, --demo-pods and --demo-events, the
+# context "demo"); development builds, make run-demo, the tests and make showcase keep it. The tag
+# selects internal/engine's connector_nodemo.go and cmd/cogpit's nodemo.go; internal/engine's
+# TestReleaseBuildsLeaveTheDemoOut checks that dist-app passes these and that they name that tag,
+# dist-app that both binaries recorded them, and CI's lint job the variant itself (check-nodemo).
+DIST_TAGS        = nodemo
 MACOS_SIGN      ?=
 
 .PHONY: dist-app dist-macos dist-macos-sign dist-macos-notarize dist-checksums
 
-dist-app: ## The macOS app with cogpit-cli inside, zipped, in dist/ (macOS only); VERSION=x.y.z
+dist-app: ## The macOS app with cogpit-cli inside, built with DIST_TAGS (no demo cluster), zipped, in dist/ (macOS only); VERSION=x.y.z
 	@test "$$($(GO) env GOOS)" = darwin || { echo "dist-app runs on macOS only"; exit 1; }
 	@test "$(origin VERSION)" != file || { echo "dist-app needs VERSION=x.y.z: the binaries would report release $(VERSION)"; exit 1; }
-	$(MAKE) app GO_LDFLAGS='$(DIST_LDFLAGS)'
+	$(MAKE) app GO_LDFLAGS='$(DIST_LDFLAGS)' GO_TAGS='$(DIST_TAGS)'
+	@for b in $(APP_MACOS)/cogpit $(APP_MACOS)/cogpit-cli; do \
+		$(GO) version -m $$b | grep -Ex '[[:space:]]+build[[:space:]]+-tags=$(DIST_TAGS)' >/dev/null || \
+			{ echo "$$b: not built with -tags=$(DIST_TAGS), so it would ship the demo cluster"; exit 1; }; \
+	done
 	@mkdir -p $(DIST)
 	ditto -c -k --keepParent $(BIN)/Cogpit.app $(DIST)/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip
 	@echo "dist/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip"

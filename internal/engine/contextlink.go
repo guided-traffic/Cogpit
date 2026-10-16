@@ -77,7 +77,7 @@ func (s *Session) ContextLinks() ([]ContextLink, error) {
 // ContextLink returns one context's link. The demo cluster's says why it has none; a context no
 // source offers is an error.
 func (s *Session) ContextLink(id string) (ContextLink, error) {
-	if id == DemoContext {
+	if IsDemoContext(id) {
 		return ContextLink{Context: id, Contexts: []string{id},
 			Reason: "the demo cluster is Cogpit's own (--demo): it comes from no kubeconfig file"}, nil
 	}

@@ -161,7 +161,7 @@ func (sh *shell) disconnect() {
 func (sh *shell) removeItem(contextID string) *fyne.MenuItem {
 	c, ok := sh.eng.Registry().Get("cluster.remove")
 	links := sh.tabs.welcome.links
-	if !ok || contextID == "" || contextID == engine.DemoContext {
+	if !ok || contextID == "" || engine.IsDemoContext(contextID) {
 		return nil
 	}
 	links.refresh()

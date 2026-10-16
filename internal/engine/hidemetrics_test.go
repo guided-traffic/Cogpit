@@ -1,3 +1,7 @@
+//go:build !nodemo
+
+// These tests count the demo cluster's metrics requests: a development build only (D-67).
+
 package engine
 
 import (

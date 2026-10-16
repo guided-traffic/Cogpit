@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"runtime/debug"
 	"slices"
 	"sync"
 	"time"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
-	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 	"github.com/guided-traffic/cogpit/internal/metrics"
@@ -25,8 +23,15 @@ import (
 // DemoContext is the context name of the synthetic demo cluster.
 const DemoContext = "demo"
 
-// errDemoUnavailable is returned when the demo package provides no source.
+// errDemoUnavailable is returned when the demo package provides no source, and by a release
+// build, which has no demo cluster (connector_nodemo.go).
 var errDemoUnavailable = errors.New("the demo cluster is not available in this build")
+
+// IsDemoContext reports whether a context id names the synthetic demo cluster: never in a release
+// build (DemoBuilt false, D-67), where a kubeconfig context may be called "demo" like any other.
+func IsDemoContext(id string) bool {
+	return DemoBuilt && id == DemoContext
+}
 
 // ClusterConnector is the Connector of the desktop app and the CLI: the contexts of the user's
 // kubeconfig files through package cluster, and optionally the synthetic demo cluster.
@@ -36,10 +41,10 @@ type ClusterConnector struct {
 	// context comes from a source file read on its own and nothing is merged (D-28).
 	KubeconfigPaths []string
 	// IncludeDemo offers the demo cluster as the context DemoContext. It shadows a kubeconfig
-	// context of the same name.
+	// context of the same name. A release build has no demo cluster and ignores it (DemoBuilt, D-67).
 	IncludeDemo bool
-	// DemoOptions size the demo cluster.
-	DemoOptions demo.Options
+	// DemoOptions size the demo cluster; a release build's are empty.
+	DemoOptions DemoOptions
 	// WarmPeriod is how long the cache keeps an unused informer; zero means
 	// cache.DefaultWarmPeriod.
 	WarmPeriod time.Duration
@@ -74,6 +79,12 @@ func (c *ClusterConnector) metricsOptions() metrics.Options {
 	return o
 }
 
+// demoOffered reports whether the connector offers the demo cluster: asked to, in a build that has
+// one.
+func (c *ClusterConnector) demoOffered() bool {
+	return DemoBuilt && c.IncludeDemo
+}
+
 func (c *ClusterConnector) logger() *slog.Logger {
 	if c.Logger != nil {
 		return c.Logger
@@ -81,8 +92,8 @@ func (c *ClusterConnector) logger() *slog.Logger {
 	return slog.Default()
 }
 
-// Contexts returns the kubeconfig contexts, sorted by name, and the demo cluster last when
-// IncludeDemo is set. If the kubeconfig cannot be loaded, the demo entry is still returned,
+// Contexts returns the kubeconfig contexts, sorted by name, and the demo cluster last when it is
+// offered (demoOffered). If the kubeconfig cannot be loaded, the demo entry is still returned,
 // together with the error.
 func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
 	var ctxs []kubeconfig.Context
@@ -92,7 +103,7 @@ func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
 	}
 	out := make([]ContextInfo, 0, len(ctxs)+1)
 	for _, k := range ctxs {
-		if c.IncludeDemo && k.Name == DemoContext {
+		if c.demoOffered() && k.Name == DemoContext {
 			c.logger().Warn("engine: the kubeconfig context is shadowed by the demo cluster", "context", k.Name)
 			continue
 		}
@@ -102,7 +113,7 @@ func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
 		})
 	}
 	out, err = c.withSourceContexts(out, err)
-	if c.IncludeDemo {
+	if c.demoOffered() {
 		out = append(out, ContextInfo{Name: DemoContext, Namespace: "default", Demo: true})
 	}
 	if err != nil {
@@ -117,7 +128,7 @@ func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
 // watches its custom resource definitions (Backend.CustomResources) and answers its commands'
 // Enabled from the connected user's access reviews (Backend.Access, accessreviews.go).
 func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, error) {
-	if c.IncludeDemo && name == DemoContext {
+	if c.demoOffered() && name == DemoContext {
 		return c.connectDemo()
 	}
 	opts, sourceID, err := c.connectOptions(name)
@@ -212,48 +223,4 @@ func servedProfiles(all []*model.KindProfile, served map[schema.GroupVersionReso
 		}
 	}
 	return out
-}
-
-// demoProfiles keeps the built-in profiles of the kinds the demo cluster serves, as discovery does
-// for a real cluster: a kind the demo has no objects for is not offered, rather than shown as an
-// error.
-func demoProfiles() []*model.KindProfile {
-	served := map[schema.GroupVersionResource]bool{}
-	for _, gvr := range demo.Resources() {
-		served[gvr] = true
-	}
-	return withApplications(servedProfiles(kinds.Builtin(), served))
-}
-
-// connectDemo builds the synthetic cluster and starts its churn.
-func (c *ClusterConnector) connectDemo() (*Backend, error) {
-	dc := demo.New(c.DemoOptions)
-	src := dc.Source()
-	if src == nil {
-		return nil, errDemoUnavailable
-	}
-	ch := cache.New(src, cache.Options{WarmPeriod: c.WarmPeriod, Logger: c.Logger})
-	churn, cancel := context.WithCancel(context.Background())
-	log := c.logger()
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Error("engine: demo churn panicked", "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
-			}
-		}()
-		dc.Start(churn)
-	}()
-	var once sync.Once
-	return &Backend{
-		Context: DemoContext, Namespace: "default", Cache: ch, Profiles: demoProfiles(), Demo: true,
-		Metrics:   metrics.NewHub(metrics.Fixed(dc.Metrics()), c.metricsOptions()),
-		DemoStats: func() any { return dc.Stats() },
-		Close: func() {
-			once.Do(func() {
-				cancel()
-				dc.Stop()
-				ch.Close()
-			})
-		},
-	}, nil
 }

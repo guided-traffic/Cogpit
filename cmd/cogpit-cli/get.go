@@ -63,7 +63,7 @@ func runGet(ctx context.Context, args []string, e *env) int {
 	fs := newFlags("get", "<kind> [name] --context <context> [flags]", getAbout)
 	var o getOptions
 	o.register(fs)
-	fs.StringVar(&o.context, "context", "", "the context to read: an id as 'cogpit-cli contexts' lists it (\"<context> [<file>]\"), a context name only one file defines, or demo; required")
+	fs.StringVar(&o.context, "context", "", "the context to read: an id as 'cogpit-cli contexts' lists it (\"<context> [<file>]\") or a context name only one file defines; required")
 	namespace := fs.String("n", "", "namespaces, comma-separated; empty: every namespace, or for a named object the context's namespace")
 	fs.StringVar(namespace, "namespace", "", "same as -n")
 	fs.StringVar(&o.output, "o", outTable, "output format: table, json or yaml")
@@ -75,7 +75,7 @@ func runGet(ctx context.Context, args []string, e *env) int {
 	}
 	switch {
 	case len(fs.positional) == 0:
-		return fs.usageError(e, "a kind is required, e.g. `cogpit-cli get pods --context demo`")
+		return fs.usageError(e, "a kind is required, e.g. `cogpit-cli get pods --context <context>`")
 	case len(fs.positional) > 2:
 		return fs.usageError(e, "get takes a kind and at most one name")
 	case o.context == "":

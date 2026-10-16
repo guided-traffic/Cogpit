@@ -2,8 +2,6 @@ package engine
 
 import (
 	"context"
-	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -11,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 	"github.com/guided-traffic/cogpit/internal/testkit"
@@ -213,34 +210,9 @@ func TestApplicationsReleaseTheWorkloads(t *testing.T) {
 	}
 }
 
-// TestDemoApplications: the demo cluster's deployments carry the recommended labels, so its
-// Applications view groups them: every row an instance of its namespace, with a manager and a
-// version, and its drawer's workloads all of that namespace.
-func TestDemoApplications(t *testing.T) {
-	c := &ClusterConnector{KubeconfigPaths: []string{filepath.Join(t.TempDir(), "none")}, IncludeDemo: true,
-		DemoOptions: demo.Options{Pods: 300, Deployments: 60, Services: 3, Namespaces: 6, Nodes: 3, NoChurn: true}}
-	s := New(Options{Connector: c, SnapshotInterval: 5 * time.Millisecond})
-	t.Cleanup(s.Close)
-	if err := s.Connect(context.Background(), DemoContext); err != nil {
-		if errors.Is(err, errDemoUnavailable) {
-			t.Skip("the demo package is a stub in this tree")
-		}
-		t.Fatal(err)
-	}
-	apps, _ := s.Backend().Profile(kinds.ApplicationsKey)
-	openView(s, kinds.ApplicationsKey)
-	snap := waitTable(t, s, kinds.ApplicationsKey, func(t *TableSnapshot) bool { return t.Synced && len(t.Rows) > 0 })
-	for _, r := range snap.Rows {
-		if r.Ref.Namespace == "kube-system" || r.Cells[apps.ColumnIndex("managedBy")].Text == "" ||
-			r.Cells[apps.ColumnIndex("version")].Text == "" || r.Cells[apps.ColumnIndex("workloads")].Num == 0 {
-			t.Errorf("row %s: %+v", r.Ref.Key(), r.Cells)
-		}
-	}
-	t.Logf("%d applications of 60 deployments", len(snap.Rows))
-}
-
 // TestApplicationsOfferedWithWorkloads: the connector offers Applications on a cluster that serves
-// a workload kind, once, and not on one that serves none.
+// a workload kind, once, and not on one that serves none (the demo cluster's:
+// TestDemoOffersApplicationsOnce).
 func TestApplicationsOfferedWithWorkloads(t *testing.T) {
 	pods, _ := kinds.ByKey("pods")
 	jobs, _ := kinds.ByKey("jobs")
@@ -250,16 +222,6 @@ func TestApplicationsOfferedWithWorkloads(t *testing.T) {
 	got := withApplications([]*model.KindProfile{pods, jobs})
 	if len(got) != 3 || got[2] != kinds.Applications() {
 		t.Errorf("with jobs: %+v", got)
-	}
-	demo := demoProfiles()
-	n := 0
-	for _, p := range demo {
-		if p.Key == kinds.ApplicationsKey {
-			n++
-		}
-	}
-	if n != 1 {
-		t.Errorf("the demo cluster offers Applications %d times", n)
 	}
 }
 

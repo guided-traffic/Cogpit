@@ -214,6 +214,16 @@ func settingOf(context string, o *metrics.Override, q metrics.QuerySettings, kep
 	return s
 }
 
+// noPrometheusDetection refuses a Prometheus setting for a backend without detection: the demo
+// cluster, whose metrics are its own, or a connection without a metrics client.
+func noPrometheusDetection(b *Backend) error {
+	why := "no metrics client for this connection"
+	if b.Demo {
+		why = "the demo cluster's metrics are its own"
+	}
+	return fmt.Errorf("%w: %s has no Prometheus detection (%s)", ErrNotApplicable, b.Context, why)
+}
+
 // PrometheusSetting returns the connected cluster's Prometheus setting.
 func (s *Session) PrometheusSetting() (PrometheusSetting, error) {
 	b := s.Backend()
@@ -221,7 +231,7 @@ func (s *Session) PrometheusSetting() (PrometheusSetting, error) {
 		return PrometheusSetting{}, ErrNotConnected
 	}
 	if b.PrometheusDetector == nil {
-		return PrometheusSetting{}, fmt.Errorf("%w: %s has no Prometheus detection (the demo cluster's metrics are its own)", ErrNotApplicable, b.Context)
+		return PrometheusSetting{}, noPrometheusDetection(b)
 	}
 	d := b.PrometheusDetector
 	return settingOf(b.Context, d.Override(), d.Query(), b.MetricsSettings != nil), nil
@@ -247,7 +257,7 @@ func (s *Session) SetPrometheusSetting(o *metrics.Override, q metrics.QuerySetti
 		return PrometheusSetting{}, ErrNotConnected
 	}
 	if b.PrometheusDetector == nil || b.Metrics == nil {
-		return PrometheusSetting{}, fmt.Errorf("%w: %s has no Prometheus detection (the demo cluster's metrics are its own)", ErrNotApplicable, b.Context)
+		return PrometheusSetting{}, noPrometheusDetection(b)
 	}
 	if o != nil {
 		c := *o

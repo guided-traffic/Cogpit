@@ -91,7 +91,7 @@ func (p *settingsPage) clusterNodeShellSection() fyne.CanvasObject {
 			shown = engine.DefaultNodeShellImage
 		}
 		switch {
-		case p.shown.Context == engine.DemoContext:
+		case engine.IsDemoContext(p.shown.Context):
 			image.Disable()
 			secret.Disable()
 			maxDuration.Disable()

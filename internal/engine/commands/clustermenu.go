@@ -76,7 +76,7 @@ func registerClusterMenu(g *registrar) {
 			"to the synced folder its file is in (the default ~/.kube too): every context of that file or folder is no longer offered " +
 			"and its tabs close, the login programs allowed for them are forgotten and a connection made from one is closed. The " +
 			"files stay on disk as they are; Cogpit never edits or deletes a kubeconfig. Refused, with the reason, for a context of " +
-			"a file $KUBECONFIG names and for the demo cluster. The GUI asks the user first, naming the path and every context " +
+			"a file $KUBECONFIG names and for one that comes from no kubeconfig file. The GUI asks the user first, naming the path and every context " +
 			"that leaves; a folder's removal is bound to the contexts it named." +
 			guiOnly,
 		Enabled: func(s *engine.Session, p clusterRemoveParams) error {

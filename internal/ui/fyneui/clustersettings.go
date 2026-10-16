@@ -202,7 +202,7 @@ func (p *settingsPage) clusterGeneralSection() fyne.CanvasObject {
 			path.style = fyne.TextStyle{Monospace: true}
 			path.SetText(kubeconfig.DisplayText(v.Kubeconfig, maxShownPath))
 			open.Enable()
-		case ctx == engine.DemoContext:
+		case engine.IsDemoContext(ctx):
 			path.SetText("None: the demo cluster is generated in memory.")
 			open.Disable()
 		default:
@@ -302,7 +302,7 @@ func (p *settingsPage) clusterMetricsSection() fyne.CanvasObject {
 		hideSync()
 		v := p.clusterView()
 		switch {
-		case p.shown.Context == engine.DemoContext:
+		case engine.IsDemoContext(p.shown.Context):
 			button.Disable()
 			line.SetText("The demo cluster's metrics are its own.")
 		case !v.Connected:

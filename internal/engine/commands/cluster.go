@@ -22,7 +22,7 @@ func connectResult(u engine.UIState) ConnectResult {
 }
 
 type connectParams struct {
-	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it: <context> [<file>] (a bare context name works when one file only defines it), demo for the synthetic demo cluster"`
+	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it: <context> [<file>] (a bare context name works when one file only defines it)"`
 }
 
 // ConnectLogResult is cluster.connectLog's result.
@@ -39,7 +39,7 @@ func registerCluster(g *registrar) {
 	add(g, engine.Spec[struct{}]{
 		ID: "cluster.contexts", Label: "List Contexts", Danger: engine.DangerRead,
 		Description: "Lists the kubeconfig contexts Cogpit can connect to (name, cluster, user, default namespace, server, " +
-			"whether it is the kubeconfig's current context) and the synthetic demo cluster if offered. Every context comes " +
+			"whether it is the kubeconfig's current context). Every context comes " +
 			"from a kubeconfig file read on its own, never merged with another (kubeconfig_sources lists the files: ~/.kube, " +
 			"the files $KUBECONFIG names, and those the user added). It is named \"<context> [<file>]\", so a name that two " +
 			"files share gives two contexts, and carries source, " +
@@ -74,7 +74,7 @@ func registerCluster(g *registrar) {
 
 	add(g, engine.Spec[connectParams]{
 		ID: "cluster.connect", Label: "Connect to Cluster", MenuPath: "Cluster/Connect to Cluster", Shortcut: "Cmd+P", Danger: engine.DangerUI,
-		Description: "Connects to a kubeconfig context (or the demo cluster), replacing the current connection, and shows its most " +
+		Description: "Connects to a context as cluster_contexts lists it, replacing the current connection, and shows its most " +
 			"recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay. Connecting only reads from the cluster. " +
 			"A context whose credential plugin, or whose connection without the certificate check (insecure-skip-tls-verify), " +
 			"the user has not allowed in Cogpit's window ends in state error saying so: only the user allows it there. " +

@@ -40,7 +40,7 @@ env:
 
 jobs:
   # golangci-lint with the team's linters and depguard's layering (the import rules of
-  # docs/developer/architecture.md §3).
+  # docs/developer/architecture.md §3), and the release build's variant.
   lint:
     name: Code Linting
     runs-on: ${{ vars.LINUX_RUNNER || 'self-hosted' }}
@@ -56,6 +56,12 @@ jobs:
 
       - name: Lint
         run: make lint
+
+      # The release build's variant (D-67), which no other job builds: make dist-app builds with the
+      # tag nodemo, so internal/demo must be in neither binary with it, and the packages with nodemo
+      # files lint and pass their TestNoDemo* tests with it.
+      - name: The release build's variant (-tags nodemo)
+        run: make check-nodemo
 
   # The parity checklists and the numbers the progress pages report (D-15).
   parity:

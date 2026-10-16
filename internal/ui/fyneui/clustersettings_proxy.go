@@ -40,7 +40,7 @@ func (p *settingsPage) clusterProxySection() fyne.CanvasObject {
 		v := p.clusterView()
 		p.setEntry(entry, entry, proxySetting, v.Proxy)
 		switch {
-		case p.shown.Context == engine.DemoContext:
+		case engine.IsDemoContext(p.shown.Context):
 			entry.Disable()
 			note.SetText("The demo cluster is generated in memory: it has no traffic to route.")
 		case v.Connected:

@@ -58,7 +58,7 @@ func (p *settingsPage) clusterAgentsSection() fyne.CanvasObject {
 		on := p.sh.ui.ClusterSettings[ctx].AgentWrites // the UI state's, so the check follows at once
 		check.SetChecked(on)
 		switch {
-		case ctx == engine.DemoContext:
+		case engine.IsDemoContext(ctx):
 			check.Disable()
 			note.SetText(agentWritesDemo)
 		case on:

@@ -14,7 +14,6 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/app"
 	"github.com/guided-traffic/cogpit/internal/cluster"
-	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/model"
@@ -36,9 +35,9 @@ type env struct {
 	dirs    app.Dirs
 	dirsErr error
 
-	// demo sizes the synthetic demo cluster (the context "demo"); the zero value is the app's
-	// default size.
-	demo demo.Options
+	// demo sizes the synthetic demo cluster (the context "demo") of a development build; the zero
+	// value is the app's default size. A release build has no demo cluster (engine.DemoBuilt, D-67).
+	demo engine.DemoOptions
 
 	// mcpTransport is what `mcp` serves on; nil means stdin and stdout.
 	mcpTransport sdk.Transport
@@ -133,9 +132,10 @@ type sessionOptions struct {
 
 // newSession builds a headless engine: no window, so no confirmer (a command that needs the
 // user's confirmation is refused), the same kubeconfig sources and credential plugin approvals
-// as the app (app.Dirs.KubeconfigSources), the demo cluster as the context "demo", every command
-// registered. No drain or Helm journal and no hotbar: their commands are refused or disabled. The
-// returned function closes the session.
+// as the app (app.Dirs.KubeconfigSources), a development build's demo cluster as the context
+// "demo" (a release build ignores IncludeDemo, D-67), every command registered. No drain or Helm
+// journal and no hotbar: their commands are refused or disabled. The returned function closes the
+// session.
 func (e *env) newSession(opts sessionOptions) (*engine.Session, func(), error) {
 	if e.dirsErr != nil || e.dirs.Config == "" {
 		// The app falls back to merging the kubeconfig files as kubectl does, which runs their

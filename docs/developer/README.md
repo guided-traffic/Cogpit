@@ -86,7 +86,7 @@ cogpit/
 | `internal/locale` | L1 | The computer's date and time format: macOS's region through CoreFoundation, else the environment's locale ([D-31](decisions.md#d-31-every-timestamp-in-the-local-time-zone-and-format)) |
 | `internal/helm` | L2 | Helm on the SDK, in-process: the releases from the cached Secrets and ConfigMaps, chart repositories from Helm's `repositories.yaml`, install, upgrade, rollback and uninstall, crash-safe through the engine's journal ([architecture §8](architecture.md#8-helm-internalhelm)) |
 | `internal/metrics` | L2 | Metrics providers (the Metrics Server and Prometheus through the API server's service proxy, together), the hub that polls while subscribed, its TTL cache and series ([architecture §9](architecture.md#9-metrics-internalmetrics)) |
-| `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source`, and its synthetic Metrics Server (a `metrics.Provider`: demo and metrics are both L2, so the import is allowed) |
+| `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source`, and its synthetic Metrics Server (a `metrics.Provider`: demo and metrics are both L2, so the import is allowed); development builds only: its one importer, `engine/connector_demo.go`, is left out by the release's tag `nodemo` ([D-67](decisions.md#d-67-the-demo-cluster-stays-out-of-releases)) |
 | `internal/engine`, `internal/engine/commands` | L3 | Session, command registry, UI state, snapshots, drawer, streams, confirmation, audit log; the commands one file per area |
 | `internal/mcp` | L4 | MCP server over the registry |
 | `internal/app` | L4 | The wiring both binaries share (2026-10-13): Cogpit's directories, the kubeconfig sources (so the app and `cogpit-cli` offer the same contexts and honour the same plugin approvals), the audit log |
@@ -133,7 +133,7 @@ Through the `Makefile`, as in the team's other repositories (`make help` lists e
 
 | Task | Command |
 |---|---|
-| Build | `make build` |
+| Build | `make build` (a development build, with the demo cluster; `GO_TAGS=nodemo` builds a release's variant) |
 | Run the app | `make run` (kind cluster), `make run-demo` (demo cluster), `bin/cogpit` (your kubeconfig) |
 | Unit tests with the race detector | `make test-unit-race` |
 | Cluster tests | `make kind-up && make test-kind` |

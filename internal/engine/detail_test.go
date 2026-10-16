@@ -3,8 +3,6 @@ package engine
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -12,7 +10,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
@@ -205,34 +202,5 @@ func TestStreamsNeedAConnection(t *testing.T) {
 	}
 	if _, err := s.OpenLogs(ctx, "logs-99"); err == nil {
 		t.Error("an unknown tab opened")
-	}
-}
-
-func TestClusterConnectorContextsAndDemo(t *testing.T) {
-	missing := filepath.Join(t.TempDir(), "no-such-kubeconfig")
-	c := &ClusterConnector{KubeconfigPaths: []string{missing}, IncludeDemo: true, DemoOptions: demo.Options{Pods: 20, Services: 3, Namespaces: 2, Nodes: 2, NoChurn: true}}
-	list, err := c.Contexts()
-	if len(list) == 0 || !list[len(list)-1].Demo || list[len(list)-1].Name != DemoContext {
-		t.Errorf("demo entry missing: %+v (err %v)", list, err)
-	}
-	if _, statErr := os.Stat(missing); statErr == nil {
-		t.Error("the connector created a kubeconfig file")
-	}
-
-	b, err := c.Connect(context.Background(), DemoContext)
-	if errors.Is(err, errDemoUnavailable) {
-		t.Skip("the demo package is a stub in this tree")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer b.Close()
-	if !b.Demo || b.Context != DemoContext || b.Conn != nil || b.CanWrite() || len(b.Profiles) == 0 || b.DemoStats == nil {
-		t.Errorf("demo backend %+v", b)
-	}
-	// Only the kinds the demo serves get a view, as discovery decides on a real cluster, and the
-	// Applications made of its deployments (applications.go).
-	if len(b.Profiles) != len(demo.Resources())+1 {
-		t.Errorf("demo offers %d views for %d served kinds and Applications", len(b.Profiles), len(demo.Resources()))
 	}
 }

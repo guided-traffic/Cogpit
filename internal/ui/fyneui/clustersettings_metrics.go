@@ -151,7 +151,7 @@ func metricsSourceLine(v engine.ClusterSettingsView, name string) string {
 	switch {
 	case name == string(metrics.SourceNone):
 		return "No metrics are asked of this cluster."
-	case !v.Connected || v.Context == engine.DemoContext && v.MetricsInUse == "":
+	case !v.Connected || engine.IsDemoContext(v.Context) && v.MetricsInUse == "":
 		return "Applies while this cluster is connected."
 	case v.MetricsInUse == "":
 		return "In use: looking for the providers…"

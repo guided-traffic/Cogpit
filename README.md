@@ -29,8 +29,8 @@ change.
 
 > **Pre-alpha.** Cogpit runs on macOS on Apple silicon today; Windows and Linux are planned after
 > the macOS beta. The views and actions are in place, some of them still in part, but nothing has
-> been walked through by testers on real clusters yet: try it on the built-in demo cluster or a
-> test cluster first. Where it stands, feature by feature:
+> been walked through by testers on real clusters yet: try it on a test cluster first. Where it
+> stands, feature by feature:
 > [ROADMAP.md](ROADMAP.md).
 
 ## ✨ Features
@@ -224,17 +224,15 @@ dark theme too.
 
 **Download** the latest [release](https://github.com/guided-traffic/cogpit/releases):
 `Cogpit-<version>-macos-arm64.dmg`, Cogpit for Apple silicon, signed and notarized by Apple. Open it
-and drag Cogpit into Applications. No cluster at hand? Pick the **demo** cluster on the welcome page
-or in the navigator's list of clusters (⌘P): a synthetic cluster of 10,000 pods that lives inside
-Cogpit.
+and drag Cogpit into Applications.
 
 **`cogpit-cli` comes inside the app**, at `/Applications/Cogpit.app/Contents/MacOS/cogpit-cli`: it
 lists your contexts, prints any kind's objects as Cogpit's views show them, and connects agents to
 Cogpit's MCP tools. Help › Copy MCP command gives you the one command that registers it with
 Claude Code, once ([reference](docs/developer/usage.md#cogpit-cli)).
 
-**Build from source** with Go and the Xcode Command Line Tools: `make run-demo` starts Cogpit on the
-demo cluster ([run from source](docs/developer/usage.md#run-the-mvp)).
+**Build from source** with Go and the Xcode Command Line Tools: `make run-demo` starts a
+development build on its synthetic demo cluster ([run from source](docs/developer/usage.md#run-the-mvp)).
 
 ## 📚 Documentation
 

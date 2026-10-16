@@ -43,7 +43,9 @@ jobs:
           cache: none
 
       # Sparkle (D-4) goes into the bundle with the update key's public half, a repository variable
-      # (not a secret: every installed copy shows it); unset, the app has no updater.
+      # (not a secret: every installed copy shows it); unset, the app has no updater. Both binaries
+      # are built with the Makefile's DIST_TAGS, which leave the demo cluster out (D-67), and
+      # dist-app fails unless both recorded them.
       - name: Build and zip Cogpit.app
         env:
           SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}

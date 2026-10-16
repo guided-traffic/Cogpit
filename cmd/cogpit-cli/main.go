@@ -23,7 +23,6 @@ import (
 	"github.com/guided-traffic/cogpit/internal/app"
 	"github.com/guided-traffic/cogpit/internal/buildinfo"
 	"github.com/guided-traffic/cogpit/internal/cluster"
-	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/helm"
 	"github.com/guided-traffic/cogpit/internal/locale"
 )
@@ -58,7 +57,6 @@ func main() {
 		stdin: os.Stdin, stdout: os.Stdout, stderr: os.Stderr,
 		logger: logger, level: level,
 		dirs: dirs, dirsErr: dirsErr,
-		demo: demo.Options{},
 		// Times as the shell's locale writes them (LC_ALL, LC_TIME, LANG), as command-line tools
 		// do; the desktop app reads the computer's region instead (D-31).
 		timeLayout: locale.Environment(os.Getenv).Layout,

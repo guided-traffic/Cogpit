@@ -15,7 +15,6 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/app"
 	"github.com/guided-traffic/cogpit/internal/buildinfo"
-	"github.com/guided-traffic/cogpit/internal/demo"
 )
 
 // syncBuffer is a bytes.Buffer safe for the engine's goroutines that log.
@@ -60,8 +59,7 @@ func newTestEnv(t *testing.T) *testEnv {
 			logger: slog.New(slog.NewTextHandler(errOut, &slog.HandlerOptions{Level: slog.LevelWarn})),
 			level:  new(slog.LevelVar),
 			dirs:   app.Dirs{Config: filepath.Join(home, "config", app.DirName), Home: home},
-			demo: demo.Options{Pods: 40, Services: 6, Namespaces: 3, Nodes: 3, Deployments: 4, Events: 20,
-				NoChurn: true, Seed: 7},
+			demo:   testDemo(), // demo_test.go; a release build has none (nodemo_test.go)
 		},
 		home: home, out: out, errOut: errOut,
 	}

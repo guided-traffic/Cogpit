@@ -105,7 +105,7 @@ the kind cluster Docker, `kind` and `kubectl`.
 git clone https://github.com/guided-traffic/cogpit.git
 cd Cogpit
 
-make run-demo                 # synthetic cluster: 10,000 pods, 1,000 watch events per second
+make run-demo                 # synthetic cluster: 10,000 pods, 1,000 watch events per second (development builds only)
 
 make kind-up                  # a kind cluster "cogpit" with its own kubeconfig (.cache/kind/kubeconfig)
 make run                      # Cogpit connected to it; make kind-down removes it
@@ -113,6 +113,13 @@ make run                      # Cogpit connected to it; make kind-down removes i
 make build && bin/cogpit      # your own clusters: syncs ~/.kube (config included) and offers the files $KUBECONFIG names, each file on its own
 make app                      # bin/Cogpit.app (ad-hoc signed), starts by double-click
 ```
+
+The demo cluster is for development: a build from source (`make build`, `make app`, `go run
+./cmd/cogpit`) offers it as the context `demo` on the welcome page and in the navigator, a release
+leaves it out. The release pipeline builds with the tag `nodemo` (the Makefile's `DIST_TAGS`), so
+the release's binaries contain neither the demo cluster nor its flags; `make build
+GO_TAGS=nodemo` builds the same variant from source (owner, 2026-10-16,
+[D-67](decisions.md#d-67-the-demo-cluster-stays-out-of-releases)).
 
 `make kind-up` seeds the namespace `cogpit-demo` ([hack/kind](../../hack/kind/README.md)): deployments
 `web` and `api`, a crash-looping pod, a completed job, a `toolbox` pod with a shell, and the Service
@@ -177,9 +184,9 @@ rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, 
 |---|---|---|
 | `--kubeconfig <files>` | empty: the files `$KUBECONFIG` lists # default | kubeconfig files, separated by `:`, offered as sources of their own for this run, each read alone and removable until the next start; `~/.kube` is synced either way (a bare `--context` name resolves to the one file that defines it) |
 | `--context <name>` | empty: start on the welcome page, under the tabs of the last run, nothing connected # default | connect to this context at start; one Cogpit refuses (no such context) says why in a toast and shows the navigator's clusters with the search focused, as ⌘P does; a connect that fails says why on the welcome page |
-| `--demo` | `false` # default | connect to the synthetic demo cluster |
-| `--demo-pods <n>` | `10000` # default | pods in the demo cluster |
-| `--demo-events <n>` | `1000` # default | watch events per second in the demo cluster |
+| `--demo` | `false` # default | connect to the synthetic demo cluster; a development build's only, a release has no demo cluster and refuses the flag ([D-67](decisions.md#d-67-the-demo-cluster-stays-out-of-releases)) |
+| `--demo-pods <n>` | `10000` # default | pods in the demo cluster; development builds only |
+| `--demo-events <n>` | `1000` # default | watch events per second in the demo cluster; development builds only |
 | `--mcp-addr <addr>` | `127.0.0.1:0` # default | MCP listen address; anything but a loopback address is refused. Port 0 binds the port Cogpit kept in `mcp-port` (a free one the first time, or when the kept one is taken, which it then keeps); a port given here binds that port for this run and is not kept |
 | `--no-mcp` | `false` # default | do not start the external MCP server; without it, click the MCP item in the status bar to switch the server off and on (the choice is remembered; `--no-mcp` wins over it), or its gear for the MCP details |
 | `--perf <duration>` | `0` # default | measure main-loop latency while auto-scrolling the table, print it as JSON and quit |
@@ -218,7 +225,7 @@ codes: `0` done, `1` the command failed, `2` the command line is wrong. `cogpit-
 | Command | Flags | What it does |
 |---|---|---|
 | `cogpit-cli contexts` | `--kubeconfig <files>` (empty: the files `$KUBECONFIG` lists # default), `-o table` # default (`json`, `yaml`), `-v` (`false` # default) | lists every context as `<context> [<file>]`, with its namespace, server and whether its login (a credential plugin, or a token file outside its folder) is `approved`, `required` or `changed`, and `not checked` under CERTIFICATE for a context whose cluster sets `insecure-skip-tls-verify` (the last column; Cogpit's default), followed for a source's context by whether you allowed connecting to it so (`not checked, required` # example; `approved`, `required` or `changed`, A28); `json` and `yaml` are the `cluster_contexts` tool's result (`insecure: true`); reads the kubeconfig files only |
-| `cogpit-cli get <kind> [name]` | `--context <context>` (required; an id as `contexts` lists it, a context name only one file defines, or `demo`), `-n`/`--namespace <ns,...>` (empty: every namespace, for a named object the context's namespace # default), `-o table` # default (`json`, `yaml`), `--filter <text>` (empty # default), `--timeout 1m` # default, `--kubeconfig <files>`, `-v` | connects through a headless engine, waits for the cache's first list of the kind and prints it as Cogpit's view does (its columns, those empty in every row left out), then exits; `json` and `yaml` print the `resources_list` result for a list (at most 1,000 rows; stderr says when there are more) and the object's manifest for a named object (managed fields dropped, Secret values redacted). `<kind>` is a kind key (`pods`, `certificates.cert-manager.io`), or a Kubernetes kind or view title that names one kind (`Pod`). Connected to a context that skips the certificate check (`insecure-skip-tls-verify`, allowed once in Cogpit's window), it writes one line to stderr, `cogpit-cli: warning: TLS not checked for <context>. Certificate checks are off for this context …` (A29), and stdout stays the result |
+| `cogpit-cli get <kind> [name]` | `--context <context>` (required; an id as `contexts` lists it, `demo` in a development build too, or a context name only one file defines), `-n`/`--namespace <ns,...>` (empty: every namespace, for a named object the context's namespace # default), `-o table` # default (`json`, `yaml`), `--filter <text>` (empty # default), `--timeout 1m` # default, `--kubeconfig <files>`, `-v` | connects through a headless engine, waits for the cache's first list of the kind and prints it as Cogpit's view does (its columns, those empty in every row left out), then exits; `json` and `yaml` print the `resources_list` result for a list (at most 1,000 rows; stderr says when there are more) and the object's manifest for a named object (managed fields dropped, Secret values redacted). `<kind>` is a kind key (`pods`, `certificates.cert-manager.io`), or a Kubernetes kind or view title that names one kind (`Pod`). Connected to a context that skips the certificate check (`insecure-skip-tls-verify`, allowed once in Cogpit's window), it writes one line to stderr, `cogpit-cli: warning: TLS not checked for <context>. Certificate checks are off for this context …` (A29), and stdout stays the result |
 | `cogpit-cli mcp` | `--headless` (`false` # default), `--kubeconfig <files>` (the headless engine only), `-v` | serves Cogpit's MCP tools over stdin and stdout for agents that speak only stdio: with Cogpit running, every call is forwarded to it (its confirmations and audit log apply; a restart of Cogpit, a new port and a regenerated token are followed); without it, or with `--headless`, an engine of its own serves them, and what needs your confirmation is refused. stdout carries the protocol only; logs go to stderr |
 | `cogpit-cli version` | – | prints the version, the Go version and the platform (`--version` too): a release's `cogpit-cli 0.7.0 (go1.27.2, darwin/arm64)` # example, a development build's `dev` and its commit, `cogpit-cli dev 0691fb3277bb-dirty (…)` # example ([which build reports what](releasing.md#the-version-a-build-reports)) |
 
@@ -226,7 +233,7 @@ codes: `0` done, `1` the command failed, `2` the command line is wrong. `cogpit-
 cogpit-cli contexts                                         # every context Cogpit offers
 cogpit-cli get pods -n kube-system --kubeconfig .cache/kind/kubeconfig --context kind-cogpit   # example: kind's system pods
 cogpit-cli get deployments web -n cogpit-demo -o yaml --kubeconfig .cache/kind/kubeconfig --context kind-cogpit   # example: one manifest
-cogpit-cli get services --context demo                      # the synthetic demo cluster
+cogpit-cli get services --context demo                      # the synthetic demo cluster (a development build's bin/cogpit-cli)
 ```
 
 Security note on `mcp`: the bridge sends the token from Cogpit's token file only to the loopback
@@ -346,7 +353,7 @@ cogpit://open?context=kind-dev%20%5Bconfig%5D&view=pods&namespace=team-a&name=we
 
 | Parameter | Value | Without it |
 |---|---|---|
-| `context` | a context id as `cluster_contexts` lists it (`<context> [<file>]`), or a kubeconfig context name that one source file alone defines; `demo` for the demo cluster | the connected cluster |
+| `context` | a context id as `cluster_contexts` lists it (`<context> [<file>]`), or a kubeconfig context name that one source file alone defines; in a development build `demo` for the demo cluster | the connected cluster |
 | `view` | a kind key (`pods`, `deployments`, `gateways.gateway.networking.k8s.io`) or a page key (`cluster/overview`) | the view the connect shows |
 | `namespace` | a namespace: with `name` the object's; without it the namespace filter | the filter as it is |
 | `name` | an object of the view's kind: its drawer opens; needs `view` to be a kind, not a page | no drawer |
@@ -515,7 +522,8 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Node shell dock tab | id `nodeShell-<n>`, title `Node shell: <node>` | `Node shell: worker-1` # example |
 | Cogpit Metrics (Cluster Settings › Cogpit Metrics, [D-61](decisions.md#d-61-cogpit-metrics-the-bundled-metrics-stack)) | namespace `cogpit-metrics`, labelled `app.kubernetes.io/managed-by=cogpit` and `app.kubernetes.io/part-of=cogpit-metrics` (deleted with the last component only with these labels); Helm releases `cogpit-prometheus`, `cogpit-kube-state-metrics`, `cogpit-node-exporter`; Prometheus's Service `cogpit-prometheus-server` (port 80, `http`), which detection ranks first; cluster roles and bindings `cogpit-prometheus-server` and `cogpit-kube-state-metrics` | `cogpit-metrics/cogpit-prometheus-server:http` |
 | Prometheus settings | `<user config dir>/Cogpit/metrics.json`, owner-only (0600): per context the Prometheus you named (namespace, service, port, path prefix) and, since 2026-10-16, how it is asked when not the defaults (`format`: `prometheus-operator` or `cadvisor`; `keepEmptyContainers`; `https`); never the kubeconfig | `{"prometheus":{},"query":{"kind-dev":{"https":true}}}` # example |
-| Demo context | `demo` (the synthetic cluster) | |
+| Demo context | `demo` (the synthetic cluster), development builds only; in a release `demo` is a kubeconfig context name like any other ([D-67](decisions.md#d-67-the-demo-cluster-stays-out-of-releases)) | |
+| Release build tag | `nodemo` (the Makefile's `DIST_TAGS`; `make dist-app` checks both binaries recorded it, `go version -m <binary>` shows `-tags=nodemo`) | |
 | Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
 | Release artifacts (planned) | `Cogpit-<version>-macos-universal.dmg`; the desktop app for Windows and Linux (M11), each with `cogpit-cli` inside | `Cogpit-0.1.0-macos-universal.dmg` # example |
 | Deep links (macOS) | `cogpit://open?context=<context id>&view=<view key>&namespace=<namespace>&name=<name>`, the scheme registered in the app's `CFBundleURLTypes` (name `io.guided-traffic.cogpit`); audited as `deeplink.open` with origin `deeplink` | `cogpit://open?view=pods&namespace=team-a` # example |
@@ -546,8 +554,9 @@ Identifiers the documentation uses:
 
 | Target | What it does |
 |---|---|
-| `make build` | `bin/cogpit` (cgo, Fyne) and `bin/cogpit-cli` (pure Go) |
-| `make run`, `make run-demo` | run against the kind cluster, or the demo cluster |
+| `make build` | `bin/cogpit` (cgo, Fyne) and `bin/cogpit-cli` (pure Go), a development build with the demo cluster; `GO_TAGS=nodemo` builds the release's variant without it |
+| `make run`, `make run-demo` | run against the kind cluster, or the demo cluster (development builds only) |
+| `make check-nodemo` | the release build's variant (CI's lint job): `internal/demo` in neither binary with `-tags nodemo` and in both without, the packages with `nodemo` files linted with the tag, and their `TestNoDemo*` tests ([D-67](decisions.md#d-67-the-demo-cluster-stays-out-of-releases)) |
 | `make test-unit-race`, `make test` | every test without a cluster, race detector on, the patched terminal widget's (`make test-fork`) first |
 | `make test-unit` | every test without a cluster, without the race detector |
 | `make test-kind` | cluster tests against the kind cluster (build tag `kind`) |

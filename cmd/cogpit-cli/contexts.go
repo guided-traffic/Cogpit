@@ -10,14 +10,13 @@ import (
 
 const contextsAbout = `Lists the contexts Cogpit offers, as the app's navigator and the MCP tool cluster_contexts list
 them: every context of ~/.kube, of the files --kubeconfig (else $KUBECONFIG) names, and of the
-files and sync folders added in Cogpit, each file read on its own and named "<context> [<file>]",
-and the synthetic demo cluster "demo". LOGIN says whether a context logs in through a credential
-plugin or a token file outside its folder, and whether the user allowed it in Cogpit's window:
-approved, required or changed. CERTIFICATE says "not checked" for a context whose cluster sets
-insecure-skip-tls-verify: whoever answers at its server's address gets its credential; Cogpit
-connects to it only once the user allowed that in Cogpit's window, and the column says whether
-("not checked, required"). Listing reads the kubeconfig files only; it runs no plugin and prints no
-credential.`
+files and sync folders added in Cogpit, each file read on its own and named "<context> [<file>]".
+LOGIN says whether a context logs in through a credential plugin or a token file outside its
+folder, and whether the user allowed it in Cogpit's window: approved, required or changed.
+CERTIFICATE says "not checked" for a context whose cluster sets insecure-skip-tls-verify: whoever
+answers at its server's address gets its credential; Cogpit connects to it only once the user
+allowed that in Cogpit's window, and the column says whether ("not checked, required"). Listing
+reads the kubeconfig files only; it runs no plugin and prints no credential.`
 
 func runContexts(ctx context.Context, args []string, e *env) int {
 	fs := newFlags("contexts", "[flags]", contextsAbout)

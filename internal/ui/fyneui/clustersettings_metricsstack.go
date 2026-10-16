@@ -98,7 +98,7 @@ func (sec *stackSection) request() {
 	p := sec.p
 	v := p.clusterView()
 	switch {
-	case p.shown.Context == engine.DemoContext:
+	case engine.IsDemoContext(p.shown.Context):
 		sec.disable("The demo cluster's metrics are its own: nothing is installed into it.")
 		return
 	case !v.Connected:

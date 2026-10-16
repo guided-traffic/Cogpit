@@ -23,7 +23,6 @@ import (
 	"github.com/guided-traffic/cogpit/internal/app"
 	"github.com/guided-traffic/cogpit/internal/buildinfo"
 	"github.com/guided-traffic/cogpit/internal/cluster"
-	"github.com/guided-traffic/cogpit/internal/demo"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 	"github.com/guided-traffic/cogpit/internal/helm"
@@ -46,9 +45,7 @@ func run(previousCrash string) int {
 	var (
 		kubeconfig  = flag.String("kubeconfig", "", "kubeconfig files, separated by '"+string(os.PathListSeparator)+"', offered as sources of their own for this run; default: the files $KUBECONFIG lists. ~/.kube is always a sync folder")
 		contextName = flag.String("context", "", "connect to this context at start; without it Cogpit starts on the welcome page")
-		demoMode    = flag.Bool("demo", false, "connect to the synthetic demo cluster (10,000 pods, 1,000 watch events per second)")
-		demoPods    = flag.Int("demo-pods", 10000, "pods in the demo cluster")
-		demoEvents  = flag.Float64("demo-events", 1000, "watch events per second in the demo cluster")
+		demo        = registerDemoFlags() // a development build's --demo, --demo-pods, --demo-events (demo.go); a release has none (D-67)
 		mcpAddr     = flag.String("mcp-addr", "127.0.0.1:0", "MCP listen address; loopback only")
 		noMCP       = flag.Bool("no-mcp", false, "do not start the MCP server")
 		perf        = flag.Duration("perf", 0, "measure main-loop latency while auto-scrolling the table for this long, print the result as JSON and quit")
@@ -93,8 +90,6 @@ func run(previousCrash string) int {
 	clusterSettings := openClusterSettings(logger) // the session's, and the connector's proxies
 	connector := &engine.ClusterConnector{
 		KubeconfigPaths: filepath.SplitList(*kubeconfig),
-		IncludeDemo:     true,
-		DemoOptions:     demo.Options{Pods: *demoPods, EventsPerSecond: *demoEvents},
 		Logger:          logger,
 		Sources:         openKubeconfigSources(logger, cluster.NamedKubeconfigFiles(filepath.SplitList(*kubeconfig))),
 		MetricsSettings: openMetricsSettings(logger),
@@ -102,6 +97,7 @@ func run(previousCrash string) int {
 		// Discovery answers kept for the next connection, shared with cogpit-cli (D-65).
 		DiscoveryCacheDir: discoveryCacheDir(),
 	}
+	demo.offer(connector) // the demo cluster, in a development build only
 	// Every time the window writes is in the computer's region format (D-31), read once here.
 	timeFormat := locale.System()
 	logger.Debug("time format", "source", timeFormat.Source, "date", timeFormat.Layout.Date, "time", timeFormat.Layout.Time)
@@ -132,9 +128,7 @@ func run(previousCrash string) int {
 		logger.Warn("the last run of Cogpit crashed", "report", previousCrash)
 		opts.StartWarning = crashNotice(previousCrash, at, s.TimeFormat())
 	}
-	if *demoMode {
-		opts.AutoConnect = engine.DemoContext
-	}
+	demo.autoConnect(&opts)
 	if !*noMCP {
 		srv, err := mcp.New(s, mcp.Options{Addr: *mcpAddr, Version: buildinfo.Version(), Logger: logger})
 		if err != nil {

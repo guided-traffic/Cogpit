@@ -41,7 +41,7 @@ func (c *ClusterConnector) withSourceContexts(out []ContextInfo, err error) ([]C
 // defines it; defined in several files, it is refused with the ids to choose from. Without
 // sources the name is returned unchanged.
 func (c *ClusterConnector) ResolveContext(name string) (string, error) {
-	if c.Sources == nil || (c.IncludeDemo && name == DemoContext) {
+	if c.Sources == nil || (c.demoOffered() && name == DemoContext) {
 		return name, nil
 	}
 	if _, _, ok, err := c.Sources.Find(name); err != nil || ok {

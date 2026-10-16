@@ -56,7 +56,7 @@ internal/mcp agent update     L4 MCP server; built-in agent; update check and in
 internal/app                  L4 the wiring both binaries share: Cogpit's directories, kubeconfig sources, audit log
 internal/engine               L3 Session, command registry, UI state, jobs, events, confirmation, audit log
 internal/engine/commands      L3 the commands, one file per area
-internal/helm metrics demo    L2 Helm SDK; metrics from the Metrics Server and Prometheus; the synthetic demo cluster
+internal/helm metrics demo    L2 Helm SDK; metrics from the Metrics Server and Prometheus; the synthetic demo cluster (development builds only: releases build with -tags nodemo, D-67)
 internal/cluster cache        L1 connections and auth; shared informers (the cache)
 internal/terminal             L1 terminal sessions: a local shell on a PTY, pod and node shells, attach
 internal/kubectl              L1 kubectl for terminals: client version, skew, verified download (release host and sigstore's log only)
