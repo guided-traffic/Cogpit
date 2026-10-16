@@ -195,7 +195,10 @@ stringData:
 	if value(get(), "password") != "rotated" {
 		t.Fatal("a refused save wrote")
 	}
-	if !testkit.WaitFor(ctx, func() bool { o, err := s.Lookup(ref); return err == nil && o.GetResourceVersion() == other.GetResourceVersion() }) {
+	if !testkit.WaitFor(ctx, func() bool {
+		o, err := s.Lookup(ref)
+		return err == nil && o.GetResourceVersion() == other.GetResourceVersion()
+	}) {
 		t.Fatal("the cache never saw the other client's change")
 	}
 	stale["resourceVersion"] = other.GetResourceVersion()

@@ -80,15 +80,15 @@ func builtinResource(res string) bool {
 	return false
 }
 
-// realSession connects a session with every command to the real cluster and opens views, each
+// realBudgetSession connects a session with every command to the real cluster and opens views, each
 // until its table synced.
-type realSession struct {
+type realBudgetSession struct {
 	t   *testing.T
 	ctx context.Context
 	s   *engine.Session
 }
 
-func (r realSession) open(view string) {
+func (r realBudgetSession) open(view string) {
 	r.t.Helper()
 	if _, err := r.s.Dispatch(r.ctx, engine.Invocation{ID: "ui.openView", Params: json.RawMessage(`{"view":"` + view + `"}`), Origin: engine.OriginGUI}); err != nil {
 		r.t.Fatalf("open %s: %v", view, err)
@@ -99,7 +99,7 @@ func (r realSession) open(view string) {
 }
 
 // settled reports whether every informer the cache holds has synced.
-func (r realSession) settled() bool {
+func (r realBudgetSession) settled() bool {
 	for _, st := range r.s.Backend().Cache.Stats() {
 		if !st.Synced {
 			return false
@@ -108,7 +108,7 @@ func (r realSession) settled() bool {
 	return true
 }
 
-func (r realSession) waitSettled() {
+func (r realBudgetSession) waitSettled() {
 	r.t.Helper()
 	if !testkit.WaitFor(r.ctx, r.settled) {
 		r.t.Fatal("the cache never settled")
@@ -116,7 +116,7 @@ func (r realSession) waitSettled() {
 }
 
 // agent dispatches a command as an external agent and decodes its result into out.
-func (r realSession) agent(id string, params, out any) {
+func (r realBudgetSession) agent(id string, params, out any) {
 	r.t.Helper()
 	raw, _ := json.Marshal(params)
 	res, err := r.s.Dispatch(r.ctx, engine.Invocation{ID: id, Params: raw, Origin: engine.OriginExternalAgent})
@@ -152,7 +152,7 @@ func TestRealBudgetsAndMemory(t *testing.T) {
 	if err := s.Connect(ctx, contextName); err != nil {
 		t.Fatalf("connect: %v", err)
 	}
-	r := realSession{t: t, ctx: ctx, s: s}
+	r := realBudgetSession{t: t, ctx: ctx, s: s}
 	r.open("pods")
 	for _, v := range realViews {
 		r.open(v)

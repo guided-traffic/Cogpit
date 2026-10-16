@@ -5,11 +5,8 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
-
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
@@ -18,25 +15,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
 
-// realCluster returns the kubeconfig and context of a real cluster someone lends for a test run,
-// or skips: COGPIT_REAL_KUBECONFIG names the file (passed to Cogpit alone, never merged into the
-// user's), COGPIT_REAL_CONTEXT the context (default: the file's current context). Never set in CI.
-func realCluster(t *testing.T) (kubeconfig, contextName string) {
-	t.Helper()
-	kubeconfig = os.Getenv("COGPIT_REAL_KUBECONFIG")
-	if kubeconfig == "" {
-		t.Skip("COGPIT_REAL_KUBECONFIG is not set: these tests run against a real cluster lent for them")
-	}
-	contextName = os.Getenv("COGPIT_REAL_CONTEXT")
-	if contextName == "" {
-		cfg, err := clientcmd.LoadFromFile(kubeconfig)
-		if err != nil {
-			t.Fatal(err)
-		}
-		contextName = cfg.CurrentContext
-	}
-	return kubeconfig, contextName
-}
+// realCluster (realcluster_test.go) names the real cluster or skips the test.
 
 // realMetricsSession connects the engine to the real cluster, its metrics tuned by opts.
 func realMetricsSession(ctx context.Context, t *testing.T, opts metrics.Options) (*engine.Session, func(id string, params any) any) {
