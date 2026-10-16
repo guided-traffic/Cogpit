@@ -157,6 +157,9 @@ type pluginRun struct {
 	timer   *time.Timer   // its bound
 	ended   time.Time     // when it ended
 	ending  *LoginEndedError
+	// watches were told its begin: each is told its end too, also when its connection stopped
+	// using the plugin meanwhile (a cancelled connect unregisters before the run ends).
+	watches []*LoginWatch
 }
 
 // loginEnds is a connection's part: the runs Cogpit ended, or refused to start after it ended one,
@@ -199,8 +202,10 @@ func (p *pluginHold) current() (LoginRun, bool) {
 func (p *pluginHold) begin(lock *sync.Mutex) {
 	now := time.Now()
 	p.mu.Lock()
+	var told []*LoginWatch
 	if prev := p.run; prev != nil {
 		p.finishLocked(prev, now) // the lock serialises the runs: the previous one ended
+		told = prev.watches
 	}
 	bound := p.bound
 	if bound <= 0 {
@@ -210,9 +215,9 @@ func (p *pluginHold) begin(lock *sync.Mutex) {
 		command: slices.Clone(p.command), done: make(chan struct{})}
 	run.timer = time.AfterFunc(bound, func() { p.end(run, ErrLoginTimedOut) })
 	p.run = run
-	watches := p.watchesLocked()
+	run.watches = p.watchesLocked()
 	p.mu.Unlock()
-	notifyAll(watches)
+	notifyAll(unionWatches(told, run.watches))
 	go func() {
 		// refreshCredsLocked holds the Authenticator's lock until cmd.Run returned: taking it is
 		// the run's end, the only one client-go lets Cogpit see.
@@ -230,9 +235,20 @@ func (p *pluginHold) finish(run *pluginRun) {
 		return
 	}
 	p.finishLocked(run, time.Now())
-	watches := p.watchesLocked()
+	watches := unionWatches(run.watches, p.watchesLocked())
 	p.mu.Unlock()
 	notifyAll(watches)
+}
+
+// unionWatches is a and b without a watch twice.
+func unionWatches(a, b []*LoginWatch) []*LoginWatch {
+	out := slices.Clone(a)
+	for _, w := range b {
+		if !slices.Contains(out, w) {
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 func (p *pluginHold) finishLocked(run *pluginRun, now time.Time) {
