@@ -560,7 +560,7 @@ DIST_LDFLAGS     = -s -w -X github.com/guided-traffic/cogpit/internal/buildinfo.
 DIST_TAGS        = nodemo
 MACOS_SIGN      ?=
 
-.PHONY: dist-app dist-macos dist-macos-sign dist-macos-notarize dist-checksums
+.PHONY: dist-app dist-dmg-template dist-macos dist-macos-sign dist-macos-notarize dist-checksums
 
 dist-app: ## The macOS app with cogpit-cli inside, built with DIST_TAGS (no demo cluster), zipped, in dist/ (macOS only); VERSION=x.y.z
 	@test "$$($(GO) env GOOS)" = darwin || { echo "dist-app runs on macOS only"; exit 1; }
@@ -574,7 +574,10 @@ dist-app: ## The macOS app with cogpit-cli inside, built with DIST_TAGS (no demo
 	ditto -c -k --keepParent $(BIN)/Cogpit.app $(DIST)/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip
 	@echo "dist/Cogpit_$(VERSION)_darwin_$$($(GO) env GOARCH).zip"
 
-dist-macos: ## The macOS download in dist/macos from dist-app's zip: the disk image, the app and its cogpit-cli signed and notarized with the release secrets, MACOS_SIGN=adhoc for a local check, else the zip unsigned (macOS only); VERSION=x.y.z
+dist-dmg-template: ## The disk image's window as a template without the app (D-70: packaging/dmg/, dmgbuild pinned in hack/macos/dmgbuild-requirements.txt, Python 3.10+), in dist/ for dist-macos; after dist-app (macOS only); VERSION=x.y.z
+	hack/macos/dmg-template.sh '$(VERSION)' '$(BIN)/Cogpit.app' '$(DIST)'
+
+dist-macos: ## The macOS download in dist/macos from dist-app's zip and dist-dmg-template's template: the disk image, the app and its cogpit-cli signed and notarized with the release secrets, MACOS_SIGN=adhoc for a local check, else the zip unsigned (macOS only); VERSION=x.y.z
 	MACOS_SIGN='$(MACOS_SIGN)' hack/macos/release.sh '$(VERSION)' '$(DIST)' '$(DIST)/macos'
 
 dist-macos-sign: ## The release pipeline's first macOS job: dist-macos's signing and disk image, the disk image submitted to Apple's notary service without waiting, the submission recorded in dist/macos/notary-submission.json; VERSION=x.y.z

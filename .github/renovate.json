@@ -240,6 +240,16 @@
       ]
     },
     {
+      "description": "dmgbuild and its dependencies (hack/macos/dmgbuild-requirements.txt, D-70), pinned with their hashes: they make the template of the disk image's window in the app's job, outside the signing job, but their output ships in every disk image, so a person reads the changes and never merges them on their own. If Renovate cannot write the new hashes, take them from PyPI (https://pypi.org/pypi/<name>/<version>/json, the wheel's sha256).",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchFileNames": [
+        "hack/macos/dmgbuild-requirements.txt"
+      ],
+      "automerge": false
+    },
+    {
       "description": "Cogpit Metrics' bundled chart (internal/helm/metricsstack.go MetricsChartVersion, D-61): Renovate proposes prometheus-community's new prometheus chart version but cannot replace the embedded archive, so TestBundledMetricsChartIsPinned fails until make metrics-bundle puts it in and MetricsChartSHA256 is set to the digest it prints; the chart's templates are installed into users' clusters with cluster-wide roles, so a person reads its changes and never merges it on its own",
       "matchManagers": [
         "custom.regex"

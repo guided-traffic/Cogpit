@@ -108,9 +108,10 @@ signing_mode() {
 # there.
 cleanup() (
 	set +e
-	if [ -d "$work/mnt" ] && mount | grep -q " on $work/mnt "; then
-		hdiutil detach -quiet -force "$work/mnt"
-	fi
+	for m in "$work/mnt" "$work/template-mnt"; do
+		# mount names the real path (/private/var/… for $TMPDIR's /var/…)
+		if [ -d "$m" ] && mount | grep -qF " on $(cd "$m" && pwd -P) ("; then hdiutil detach -quiet -force "$m"; fi
+	done
 	if [ -f "$keychain" ]; then security delete-keychain "$keychain"; fi
 	if [ -f "$work/keychains" ]; then
 		saved=()
@@ -271,15 +272,37 @@ check_nested() {
 	log "$n Mach-O files in $(basename "$bundle"), each signed ${want:-ad-hoc} with the hardened runtime"
 }
 
-# build_dmg puts the app and a link to /Applications into the disk image and signs it.
+# build_dmg puts the signed app into the template of the disk image's window (D-70) and signs the
+# disk image. The template comes from the job that built the app (hack/macos/dmg-template.sh,
+# dmgbuild: code from PyPI, which never runs here); this job only checks it and fills it in with
+# Apple's tools. The check: the template is a writable HFS+ image whose volume is "Cogpit
+# <version>" and holds exactly the window's settings (.DS_Store), its background, the volume's icon
+# and the link to /Applications, nothing else. Then it is resized to fit the app, the app copied in
+# (no Finder flags: an xattr on the bundle fails codesign's strict check; Finder hides an app's
+# .app anyway), and the image converted to a compressed one.
 build_dmg() {
 	group "Disk image $(basename "$dmg")"
-	local stage="$work/dmg"
-	mkdir "$stage"
-	ditto "$app" "$stage/Cogpit.app"
-	ln -s /Applications "$stage/Applications"
-	retry 3 hdiutil create -quiet -ov -volname "Cogpit $version" -srcfolder "$stage" -fs HFS+ \
-		-format UDZO -imagekey zlib-level=9 "$dmg"
+	local template="$in/Cogpit-$version-template.dmg" rw="$work/template.dmg" mnt="$work/template-mnt" mb found want
+	[ -f "$template" ] || die "no disk image template $template (make dist-dmg-template VERSION=$version)"
+	cp "$template" "$rw"
+	hdiutil imageinfo "$rw" | grep -qx 'Format: UDRW' || die "$template is not a writable disk image (UDRW)"
+	mb=$(($(du -sm "$app" | cut -f1) * 12 / 10 + 32))
+	retry 3 hdiutil resize -quiet -size "${mb}m" "$rw"
+	mkdir "$mnt"
+	retry 3 hdiutil attach -quiet -readwrite -nobrowse -noautoopen -noverify -mountpoint "$mnt" "$rw"
+	[ "$(diskutil info "$mnt" | sed -n 's/^ *Volume Name: *//p')" = "Cogpit $version" ] ||
+		{ hdiutil detach -quiet "$mnt"; die "the template's volume is not named Cogpit $version"; }
+	found="$(cd "$mnt" && find . -mindepth 1 ! -path './.fseventsd' ! -path './.fseventsd/*' | LC_ALL=C sort | tr '\n' ' ')"
+	want="./.DS_Store ./.VolumeIcon.icns ./.background.tiff ./Applications "
+	if [ "$found" != "$want" ] || [ "$(readlink "$mnt/Applications")" != /Applications ] ||
+		[ -L "$mnt/.DS_Store" ] || [ -L "$mnt/.background.tiff" ] || [ -L "$mnt/.VolumeIcon.icns" ]; then
+		hdiutil detach -quiet "$mnt"
+		die "the template holds $found, want $want with Applications linking to /Applications"
+	fi
+	ditto "$app" "$mnt/Cogpit.app"
+	rm -rf "$mnt/.fseventsd" # the events log macOS starts on a writable volume
+	retry 3 hdiutil detach -quiet "$mnt"
+	retry 3 hdiutil convert -quiet "$rw" -format UDZO -imagekey zlib-level=9 -ov -o "$dmg"
 	sign "$dmg"
 	check_signature "$dmg" image
 	endgroup
@@ -427,9 +450,11 @@ check_dmg() {
 	local mnt="$work/mnt" entries
 	mkdir -p "$mnt"
 	hdiutil attach -quiet -readonly -nobrowse -noautoopen -mountpoint "$mnt" "$dmg"
-	entries="$(find "$mnt" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort | tr '\n' ' ')"
+	entries="$(find "$mnt" -mindepth 1 -maxdepth 1 -exec basename {} \; | LC_ALL=C sort | tr '\n' ' ')"
 	log "contents: $entries"
-	[ "$entries" = "Applications Cogpit.app " ] || die "$(basename "$dmg") holds $entries, not Applications and Cogpit.app"
+	# The window's settings, background and the volume's icon (D-70), the link and the app.
+	[ "$entries" = ".DS_Store .VolumeIcon.icns .background.tiff Applications Cogpit.app " ] ||
+		die "$(basename "$dmg") holds $entries, not the window's files, Applications and Cogpit.app"
 	[ "$(readlink "$mnt/Applications")" = /Applications ] || die "Applications in $(basename "$dmg") does not link to /Applications"
 	codesign --verify --strict --deep --verbose=2 "$mnt/Cogpit.app"
 	codesign --verify --strict --verbose=2 "$mnt/Cogpit.app/Contents/MacOS/$cli_name"

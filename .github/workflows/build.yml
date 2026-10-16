@@ -77,11 +77,24 @@ jobs:
           unzip -l "dist/Cogpit_${version}_darwin_arm64.zip" Cogpit.app/Contents/MacOS/cogpit-cli
           unzip -l "dist/Cogpit_${version}_darwin_arm64.zip" | tail -n 1
 
+      # The disk image's window as a template without the app (D-70): dmgbuild, pinned with its
+      # hashes, is code from PyPI, so it runs here, never in the job with the signing identity,
+      # which checks the template's contents and fills it in with Apple's tools only.
+      - name: Set up Python for dmgbuild
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Build the disk image's template
+        run: make dist-dmg-template VERSION="${GITHUB_REF_NAME#v}"
+
       - name: Upload the app
         uses: actions/upload-artifact@v7
         with:
           name: macos-app
-          path: dist/Cogpit_*_darwin_*.zip
+          path: |
+            dist/Cogpit_*_darwin_*.zip
+            dist/Cogpit-*-template.dmg
           if-no-files-found: error
           retention-days: 7
 

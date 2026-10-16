@@ -328,6 +328,17 @@ jobs "Vulnerability Check" and "GoSec Security Scan" in
   Developer ID certificate and the API key (environment `release`) and the update key (environment
   `sparkle`) in [`build.yml`](../../.github/workflows/build.yml): whoever can move such a tag in its
   repository runs code in those jobs. Live for every release run.
+- **The disk image's window is made by code from PyPI** (since 2026-10-16,
+  [D-70](../developer/decisions.md#d-70-the-disk-images-window)): dmgbuild and its two
+  dependencies, pinned by version and hash ([`dmgbuild-requirements.txt`](../../hack/macos/dmgbuild-requirements.txt),
+  never merged by Renovate on its own), run in the app's job "Cogpit.app (macOS arm64)", which
+  holds no secret, and make a template without the app. The signing job runs none of it: it checks
+  that the template is a writable image of the volume "Cogpit <version>" holding exactly
+  `.DS_Store`, `.background.tiff`, `.VolumeIcon.icns` and the link to `/Applications`, then copies
+  the signed app in with Apple's tools. What the check does not cover: the bytes of those three
+  files, which Finder reads on every Mac that opens the disk image (a crafted `.DS_Store`, TIFF or
+  icon from a compromised release of these packages, or of the app job's own dependencies, would
+  reach users inside a signed, notarized image). Live for every release built since this change.
 - **What Renovate cannot see:** sigstore's trusted root, refreshed by hand
   ([trust boundaries › H-35](trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search)),
   the terminal widget's copy in `third_party/`, which moves to a new upstream commit by hand
