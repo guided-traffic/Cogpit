@@ -47,18 +47,18 @@ func TestPagesFollowARefusal(t *testing.T) {
 		}
 		return m.Synced && n == 2
 	}
-	m, _, err := s.WorkloadsOverview(ctx, nil, false)
+	m, _, err := s.WorkloadsOverview(ctx, "", nil, false)
 	if err != nil || !counted(m) {
 		t.Fatalf("an agent's Workloads Overview: %+v, %v", m, err)
 	}
-	cm, err := s.ClusterOverview(ctx, nil, false)
+	cm, err := s.ClusterOverview(ctx, "", nil, false)
 	if err != nil || !cm.Synced || cm.Error != "" {
 		t.Fatalf("an agent's cluster Overview: %+v, %v", cm, err)
 	}
 
 	s.UpdateUI(func(u *UIState) { u.View, u.Sort = WorkloadsOverview, s.ViewSort(WorkloadsOverview) })
 	waitFor(t, "the page's kinds read in team-a, counted without an error", func() bool {
-		m, _, err := s.WorkloadsOverview(ctx, nil, false)
+		m, _, err := s.WorkloadsOverview(ctx, "", nil, false)
 		return err == nil && counted(m)
 	})
 	waitFor(t, "no read in all namespaces left", func() bool {
@@ -109,7 +109,7 @@ func TestPagesFollowTheAccessReviews(t *testing.T) {
 				return
 			}
 			waitFor(t, "the accessible namespaces' pods counted", func() bool {
-				m, _, err := s.WorkloadsOverview(context.Background(), nil, false)
+				m, _, err := s.WorkloadsOverview(context.Background(), "", nil, false)
 				if err != nil {
 					t.Fatal(err)
 				}

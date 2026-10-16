@@ -21,7 +21,8 @@ import (
 //
 // A job ends when its work ends, when it is cancelled (job.cancel, the tab's Cancel button: the tab
 // stays with the outcome), when the user closes its tab (closing stops the job, it undoes nothing
-// written so far), when the connected cluster changes or goes, or when the session closes. Jobs are
+// written so far), when its cluster is interrupted or disconnected (not when the window shows another
+// cluster, D-69), or when the session closes. Jobs are
 // not journaled: a crash ends one, and what it had written stays; each job's command says why that
 // is harmless (D-11). A job's goroutine recovers from a panic at its boundary, which fails the job.
 //
@@ -121,7 +122,7 @@ func (j *JobTab) clone() *JobTab {
 // JobSpec describes a job StartJob starts.
 type JobSpec struct {
 	// Command is the command that starts it; Title the tab's title; Context the cluster it acts
-	// on, the connected one.
+	// on, a connected one (D-69: shown or not).
 	Command, Title, Context string
 	// Parent is the starting command's context: the job's context keeps its values (the origin, the
 	// confirmation the user gave and the UIDs it bound; engine.Confirmed, ConfirmedUID) but not its
@@ -189,7 +190,7 @@ func (j *Job) Step(i int) (JobStep, bool) {
 // Errors that cancel a job.
 var (
 	errJobTabClosed      = errors.New("its tab was closed")
-	errJobClusterChanged = errors.New("the connected cluster changed")
+	errJobClusterChanged = errors.New("its cluster was disconnected")
 	// errJobInterrupted stops a job when its cluster stops answering (D-58): as after a crash
 	// (S8), nothing a job does continues by itself after the connection is back; what it wrote
 	// stays, and the step under way may or may not have reached the cluster.
@@ -221,8 +222,11 @@ func (s *Session) StartJob(spec JobSpec) (DockTab, error) {
 		return DockTab{}, errors.New("a job needs work to do")
 	}
 	u := s.UIState()
-	if u.Connection.State != Connected || u.Context != spec.Context {
-		return DockTab{}, fmt.Errorf("%w: the job acts on %q", ErrWrongCluster, spec.Context)
+	switch st := u.connectionState(spec.Context); { // its cluster, shown or not (D-69)
+	case st == "":
+		return DockTab{}, &NotConnectedError{Context: spec.Context}
+	case st != Connected:
+		return DockTab{}, fmt.Errorf("the job acts on %q, whose connection is %s", spec.Context, st)
 	}
 	steps := slices.Clone(spec.Steps)
 	for i := range steps {
@@ -390,8 +394,10 @@ func (s *Session) JobCancellable(id string) error {
 	return nil
 }
 
-// followJobs cancels the jobs whose tab a UI state change closed, and every job when the connected
-// cluster changed or went. UpdateUI calls it after the change.
+// followJobs cancels the jobs whose tab a UI state change closed, those whose cluster's connection
+// was interrupted, and those whose cluster was disconnected. Showing another cluster ends no job
+// (D-69): a drain goes on while the window shows another cluster. UpdateUI calls it after the
+// change.
 func (s *Session) followJobs(old, now UIState) {
 	s.jobs.mu.Lock()
 	var cancels []func()
@@ -399,16 +405,14 @@ func (s *Session) followJobs(old, now UIState) {
 		has := func(dock []DockTab) bool {
 			return slices.ContainsFunc(dock, func(t DockTab) bool { return t.ID == id })
 		}
+		was, is := old.connectionState(r.context), now.connectionState(r.context)
 		switch {
 		case has(old.Dock) && !has(now.Dock): // this change closed it (StartJob registers a job before its tab opens)
 			cancels = append(cancels, func() { r.cancel(errJobTabClosed) })
-		case now.Context == r.context && old.Connection.State == Connected &&
-			(now.Connection.State == Interrupted || now.Connection.State == LoginExpired):
+		case was == Connected && (is == Interrupted || is == LoginExpired):
 			cancels = append(cancels, func() { r.cancel(errJobInterrupted) })
-		case now.Connection.State != Connected || now.Context != r.context:
-			if old.Connection.State.Live() && old.Context == r.context {
-				cancels = append(cancels, func() { r.cancel(errJobClusterChanged) })
-			}
+		case was.Live() && !is.Live():
+			cancels = append(cancels, func() { r.cancel(errJobClusterChanged) })
 		}
 	}
 	s.jobs.mu.Unlock()

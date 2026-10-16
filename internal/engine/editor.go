@@ -285,11 +285,12 @@ func (s *Session) OpenEditTab(ctx context.Context, ref model.ObjectRef) (EditorS
 	return st, created, err
 }
 
-// OpenCreateTab opens a Create resource tab holding text.
-func (s *Session) OpenCreateTab(text string) (EditorState, error) {
-	b := s.Backend()
-	if b == nil {
-		return EditorState{}, ErrNotConnected
+// OpenCreateTab opens a Create resource tab holding text, for a connected context's cluster ("" the
+// shown one, D-69).
+func (s *Session) OpenCreateTab(contextID, text string) (EditorState, error) {
+	b, err := s.TargetBackend(contextID)
+	if err != nil {
+		return EditorState{}, err
 	}
 	if len(text) > MaxManifestBytes {
 		return EditorState{}, fmt.Errorf("%w: larger than the %s an editor takes", ErrManifest, model.FormatBytes(MaxManifestBytes))
@@ -324,7 +325,7 @@ func (s *Session) EditorState(ctx context.Context, id string) (EditorState, erro
 	}
 	st.BaseResourceVersion = e.baseRV
 	st.CanUndoRevert = e.canUndo()
-	if b := s.Backend(); b != nil && b.Context == e.tab.Context {
+	if b := s.BackendOf(e.tab.Context); b != nil && e.tab.Context != "" { // the tab's cluster, shown or not (D-69)
 		obj, err := cachedObject(ctx, b, e.target)
 		switch {
 		case errors.Is(err, ErrNotFound):
@@ -365,12 +366,9 @@ func (s *Session) editTarget(id string) (editor, *Backend, ObjectWriter, error) 
 	if e.tab.Type != DockEdit {
 		return editor{}, nil, nil, fmt.Errorf("dock tab %q is a %s tab, not an Edit tab", id, e.tab.Type)
 	}
-	b := s.Backend()
-	if b == nil {
-		return editor{}, nil, nil, ErrNotConnected
-	}
-	if e.tab.Context != b.Context {
-		return editor{}, nil, nil, fmt.Errorf("%w: the Edit tab %q belongs to context %q, connected is %q", ErrWrongCluster, id, e.tab.Context, b.Context)
+	b, err := s.TargetBackend(e.tab.Context) // the tab's cluster, shown or not (D-69)
+	if err != nil {
+		return editor{}, nil, nil, err
 	}
 	w, err := b.ObjectWriter()
 	if err != nil {
@@ -587,7 +585,7 @@ func (s *Session) EditScalesToZero(id, text string) bool {
 	if n, ok := replicasOf(edited); !ok || n != 0 {
 		return false
 	}
-	b := s.Backend()
+	b := s.BackendOf(e.tab.Context) // the tab's cluster, shown or not (D-69)
 	if b == nil {
 		return true
 	}

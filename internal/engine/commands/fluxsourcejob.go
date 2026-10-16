@@ -62,7 +62,11 @@ type fluxJobNode struct {
 // or why it cannot be written), each object bound to the UID the user confirmed. It returns the
 // job's tab, or an error with nothing started.
 func fluxStartSourceJob(ctx context.Context, s *engine.Session, a fluxAction, id, title string, plans []fluxSourcePlan) (any, error) {
-	b, w, err := fluxActionsOf(s)
+	contextID := ""
+	if len(plans) > 0 {
+		contextID = plans[0].ref.Context // the objects' cluster, shown or not (D-69)
+	}
+	b, w, err := fluxActionsOf(s, contextID)
 	if err != nil {
 		return nil, err
 	}

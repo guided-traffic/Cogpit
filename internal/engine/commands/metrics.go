@@ -11,6 +11,7 @@ import (
 // the open view and drawer.
 
 type metricsGetParams struct {
+	engine.OnCluster
 	Kind      string `json:"kind" jsonschema:"pods or nodes"`
 	Namespace string `json:"namespace,omitempty" jsonschema:"pods only: the namespace; omitted: all namespaces"`
 	Name      string `json:"name,omitempty" jsonschema:"one pod (with its namespace) or one node; omitted: all of them"`
@@ -47,9 +48,9 @@ func registerMetrics(g *registrar) {
 			"Every pod of a user who may list pods in some namespaces only is read namespace by namespace: forbidden then names " +
 			"the namespaces whose pods' metrics the user may not read, whose pods are left out. " +
 			"Requests and limits are in object_get's containers sections; node capacity in its Capacity and Allocatable tables.",
-		Enabled: func(s *engine.Session, _ metricsGetParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p metricsGetParams) error { _, err := connectedOn(s, p.Context); return err },
 		Run: func(ctx context.Context, s *engine.Session, p metricsGetParams) (any, error) {
-			return s.MetricsGet(ctx, p.Kind, p.Namespace, p.Name, p.Limit)
+			return s.MetricsGet(ctx, p.Context, p.Kind, p.Namespace, p.Name, p.Limit)
 		},
 	})
 }

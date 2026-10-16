@@ -128,11 +128,12 @@ func (s *Session) endSessions(w *connWatch, sessions []*trackedSession, at time.
 }
 
 // OperationContext returns a context for a multi-step cluster operation (a Helm action; a drain
-// runs as a job, which the interruption stops) that ends, with ErrConnectionLost as its cause, when
-// the connection is interrupted or its login expires: the operation stops there and stays in its
-// journal (D-11, S8). cancel releases it.
-func (s *Session) OperationContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	w := s.connWatch()
+// runs as a job, which the interruption stops) on a connected context, "" the shown one (D-69),
+// that ends, with ErrConnectionLost as its cause, when that cluster's connection is interrupted or
+// its login expires: the operation stops there and stays in its journal (D-11, S8). cancel
+// releases it.
+func (s *Session) OperationContext(ctx context.Context, contextID string) (context.Context, context.CancelFunc) {
+	w := s.connWatch(contextID)
 	ctx, cancel := context.WithCancelCause(ctx)
 	if w == nil {
 		return ctx, func() { cancel(nil) }

@@ -33,7 +33,7 @@ type rollbackParams struct {
 }
 
 type pendingHelmParams struct {
-	All bool `json:"all,omitempty" jsonschema:"list the pending Helm actions of every context, not only the connected one's"`
+	All bool `json:"all,omitempty" jsonschema:"list the pending Helm actions of every context, not only the shown cluster's"`
 }
 
 // releaseSecretVerbs are the requests the Helm SDK makes on a release's own records in its
@@ -147,7 +147,7 @@ func registerHelm(g *registrar) {
 		ID: "helm.dismissOperation", Label: "Dismiss Unfinished Helm Action", Danger: engine.DangerUI,
 		Description: "Forgets an unfinished Helm action from helm_pendingOperations without changing the cluster: the release " +
 			"stays as it is (pending-rollback or uninstalling, unless someone changed it). The reference's context " +
-			"defaults to the connected one.",
+			"defaults to the shown one.",
 		Enabled: func(s *engine.Session, p refParams) error {
 			if s.HelmOps() == nil {
 				return engine.ErrNoHelmJournal
@@ -183,7 +183,7 @@ func registerHelm(g *registrar) {
 // helmWritable is the writable check of the release actions: a cluster that can run them, a
 // journal to record them in, and no action on the release running.
 func helmWritable(s *engine.Session, ref model.ObjectRef) error {
-	b, err := writable(s)
+	b, err := writableOn(s, ref.Context) // the release's cluster, shown or not (D-69)
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func previousRevision(obj *unstructured.Unstructured) int {
 // confirmed: a release that moved to a new revision since (its newest release Secret's UID
 // changed) is refused.
 func releaseTarget(ctx context.Context, s *engine.Session, ref model.ObjectRef) (engine.HelmWriter, model.ObjectRef, *unstructured.Unstructured, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, ref.Context) // the release's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, ref, nil, err
 	}
@@ -240,7 +240,7 @@ func releaseTarget(ctx context.Context, s *engine.Session, ref model.ObjectRef) 
 		return nil, ref, nil, err
 	}
 	if ref.Context != b.Context {
-		return nil, ref, nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+		return nil, ref, nil, fmt.Errorf("%w: the shown cluster changed", engine.ErrWrongCluster)
 	}
 	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
 		return nil, ref, nil, err
@@ -325,7 +325,7 @@ func runHelmOp(ctx context.Context, s *engine.Session, op engine.PendingHelmOp, 
 		return err
 	}
 	userToast(s, engine.LevelInfo, starting)
-	octx, cancel := s.OperationContext(ctx)
+	octx, cancel := s.OperationContext(ctx, op.Context)
 	opErr := helmSafely(s, op, func() error { return run(octx) })
 	if errors.Is(context.Cause(octx), engine.ErrConnectionLost) && opErr != nil {
 		opErr = fmt.Errorf("%w: %w", engine.ErrConnectionLost, opErr)

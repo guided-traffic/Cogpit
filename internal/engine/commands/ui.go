@@ -228,8 +228,10 @@ func registerUI(g *registrar) {
 			"text and the status filter do not hide it (resetting them if they do) and opens its detail drawer. It leaves " +
 			"the selection (the checked rows) as it is in the same view and clears it when the view changes, as ui_openView " +
 			"does; to check the object too, call ui_select afterwards. Use it after " +
-			"resources_find. Reads only the cache. Returns {view, ref, found}; found is false when the object is not in the cache.",
-		Enabled: func(s *engine.Session, _ refParams) error { _, err := connected(s); return err },
+			"resources_find. An object of another connected cluster shows that cluster in the window first, as cluster_connect " +
+			"of a connected context does (no request, nothing connected anew); one of a context that is not connected is an " +
+			"error. Reads only the cache. Returns {view, ref, found}; found is false when the object is not in the cache.",
+		Enabled: func(s *engine.Session, p refParams) error { _, err := connectedOn(s, p.Ref.Context); return err },
 		Run:     navigate,
 	})
 }
@@ -237,6 +239,11 @@ func registerUI(g *registrar) {
 // navigate implements ui.navigate. It decides from the cache, not from the view's snapshot, so it
 // is correct before the view's first snapshot exists.
 func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) {
+	if c := p.Ref.Context; c != "" && c != s.UIState().Context {
+		if err := s.Show(c); err != nil { // another connected cluster: shown first (D-69), never connected
+			return nil, err
+		}
+	}
 	ref, prof, err := s.ResolveRef(p.Ref)
 	if err != nil {
 		return nil, err

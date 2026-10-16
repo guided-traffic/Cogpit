@@ -68,7 +68,8 @@ func TestDetailWithEventsNewestFirst(t *testing.T) {
 	if err != nil || !missing.Missing {
 		t.Errorf("missing object: %+v %v", missing, err)
 	}
-	if _, err := s.Detail(model.ObjectRef{Context: "other", Kind: "pods", Namespace: "shop", Name: "web-0"}); !errors.Is(err, ErrWrongCluster) {
+	// A context that is not connected (D-69: any connected one would be read).
+	if _, err := s.Detail(model.ObjectRef{Context: "other", Kind: "pods", Namespace: "shop", Name: "web-0"}); !errors.Is(err, ErrNotConnected) {
 		t.Errorf("foreign context: %v", err)
 	}
 	if _, err := s.Detail(model.ObjectRef{Kind: "pods", Name: "web-0"}); err == nil {

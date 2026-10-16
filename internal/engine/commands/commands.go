@@ -109,18 +109,31 @@ const labelDelete = "Delete"
 // watches the kind they read. The kind is a parameter, hence the wildcard.
 var cacheReads = []engine.Verb{{Verb: "list", Resource: "*"}, {Verb: "watch", Resource: "*"}}
 
-// connected is the Enabled check of commands that need a cluster.
-func connected(s *engine.Session) (*engine.Backend, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, errors.New("no cluster connected")
+// connected is the Enabled check of commands that need the cluster the window shows.
+func connected(s *engine.Session) (*engine.Backend, error) { return connectedOn(s, "") }
+
+// connectedOn is the Enabled check of commands that need a connected cluster: the context's, ""
+// the one the window shows (D-69: a command on an object uses its reference's context, one with a
+// context parameter that context). A context that is not connected is an error that says so
+// (engine.NotConnectedError): no command connects a cluster by itself.
+func connectedOn(s *engine.Session, contextID string) (*engine.Backend, error) {
+	b, err := s.TargetBackend(contextID)
+	if err != nil {
+		if contextID == "" {
+			return nil, errors.New("no cluster connected")
+		}
+		return nil, err
 	}
 	return b, nil
 }
 
-// writable is the Enabled check of commands that change a cluster.
-func writable(s *engine.Session) (*engine.Backend, error) {
-	b, err := connected(s)
+// writable is the Enabled check of commands that change the cluster the window shows.
+func writable(s *engine.Session) (*engine.Backend, error) { return writableOn(s, "") }
+
+// writableOn is the Enabled check of commands that change a connected context's cluster, "" the
+// shown one.
+func writableOn(s *engine.Session, contextID string) (*engine.Backend, error) {
+	b, err := connectedOn(s, contextID)
 	if err != nil {
 		return nil, err
 	}
@@ -130,9 +143,10 @@ func writable(s *engine.Session) (*engine.Backend, error) {
 	return b, nil
 }
 
-// streamable is the Enabled check of commands that open logs, shells or terminals.
-func streamable(s *engine.Session, what string) (*engine.Backend, error) {
-	b, err := connected(s)
+// streamableOn is the Enabled check of commands that open logs, shells or terminals on a connected
+// context's cluster, "" the shown one.
+func streamableOn(s *engine.Session, contextID, what string) (*engine.Backend, error) {
+	b, err := connectedOn(s, contextID)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +154,26 @@ func streamable(s *engine.Session, what string) (*engine.Backend, error) {
 		return nil, errors.New(what + " are not available on the demo cluster")
 	}
 	return b, nil
+}
+
+// contextOf is the context parameter of a command's parameters (engine.OnCluster), "" without one
+// or for the shown cluster.
+func contextOf(p any) string {
+	if t, ok := p.(engine.Targeted); ok {
+		return t.TargetContext()
+	}
+	return ""
+}
+
+// refsContext is the context a selection's references name (the first that names one; Dispatch
+// refuses references of several clusters), "" for the shown cluster.
+func refsContext(refs []model.ObjectRef) string {
+	for _, r := range refs {
+		if r.Context != "" {
+			return r.Context
+		}
+	}
+	return ""
 }
 
 // cachedTarget is the Enabled check of actions on one object: the reference must be of the kind

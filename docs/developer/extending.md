@@ -35,6 +35,16 @@ Ordered checklists for the common additions. The packages they name are in
      window runs (a new GUI-only command needs a decision of the owner,
      [conventions](conventions.md#commands-not-handlers));
    - a parameter struct with `json` and `jsonschema` tags (the schema agents read);
+   - **its cluster** (several clusters are connected at once since 2026-10-16,
+     [D-69](decisions.md#d-69-several-clusters-connected-at-once), [architecture §4.3](architecture.md#several-clusters-connected-d-69)):
+     a command on an object takes the cluster of its `ref`'s context, one on a dock tab its tab's
+     (the parameter type implements `engine.DockTargeted`), and one that reads or acts on a cluster
+     without either embeds `engine.OnCluster`, an optional `context`, the shown cluster by default.
+     Its `enabled` and `run` reach the backend through that context (`connectedOn`, `writableOn`,
+     `streamableOn` in [`commands.go`](../../internal/engine/commands/commands.go),
+     `Session.TargetBackend`, `KindIn`, `ObjectsIn`), never through `Session.Backend()`, which is
+     the window's shown cluster; only commands on the window's own state (`ui.*`, the open view)
+     use that;
    - `enabled`, returning the reason when disabled;
    - `verbs` (every API verb and resource it uses) and `danger` (`Read`, `UI`, `Mutating`,
      `Destructive`). When the parameters name an object (`ref`), the registry asks the access

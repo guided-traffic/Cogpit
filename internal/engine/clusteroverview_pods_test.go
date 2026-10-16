@@ -77,7 +77,7 @@ func TestClusterOverviewPodsHistory(t *testing.T) {
 		var m *ClusterOverviewModel
 		waitFor(t, "the pods' history", func() bool {
 			var err error
-			if m, err = s.ClusterOverview(context.Background(), nil, true); err != nil {
+			if m, err = s.ClusterOverview(context.Background(), "", nil, true); err != nil {
 				t.Fatal(err)
 			}
 			// With kube-state-metrics, also the cache's count after the history's three samples: the

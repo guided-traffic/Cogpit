@@ -26,7 +26,7 @@ func TestArgoDashboardWaitsForTheDefinitions(t *testing.T) {
 	// Bounded by the caller's context while the definitions are held: not synced.
 	short, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	m, _, err := s.ArgoCDDashboard(short, nil, false)
+	m, _, err := s.ArgoCDDashboard(short, "", nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestArgoDashboardWaitsForTheDefinitions(t *testing.T) {
 	}
 	done := make(chan result, 1)
 	go func() {
-		m, _, err := s.ArgoCDDashboard(context.Background(), nil, false)
+		m, _, err := s.ArgoCDDashboard(context.Background(), "", nil, false)
 		done <- result{m, err}
 	}()
 	release()

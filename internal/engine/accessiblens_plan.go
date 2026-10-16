@@ -493,7 +493,7 @@ func (b *Backend) noteRefused(p *model.KindProfile) bool {
 // on changed outside it: answers of the access reviews, a refusal of the API server.
 func (st *state) replan(b *Backend) {
 	st.mu.Lock()
-	if st.closed || b == nil || st.backend != b {
+	if st.closed || b == nil || st.shown != b {
 		st.mu.Unlock()
 		return
 	}

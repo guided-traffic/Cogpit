@@ -15,7 +15,10 @@ func registerRevert(g *registrar) {
 		Description: "Replaces an Edit tab's text with the object as Cogpit's cache holds it now and bases the edit on that " +
 			"version, as a freshly opened tab is. changed says whether the text held unsaved changes; editor_undoRevert puts " +
 			"them back while the text is unchanged since. Writes nothing to the cluster. A Secret's tab is the user's only (D-19).",
-		Enabled: func(s *engine.Session, _ editorParams) error { _, err := writable(s); return err },
+		Enabled: func(s *engine.Session, p editorParams) error {
+			_, err := writableOn(s, tabContext(s, p.ID))
+			return err
+		},
 		Run: func(ctx context.Context, s *engine.Session, p editorParams) (any, error) {
 			return s.RevertEdit(ctx, p.ID)
 		},
@@ -25,8 +28,8 @@ func registerRevert(g *registrar) {
 		ID: "editor.undoRevert", Label: "Undo Revert", Danger: engine.DangerUI,
 		Description: "Puts back the text an Edit tab's last editor_revert replaced, based on the version it was based on, while " +
 			"the tab still holds what the revert left (editor_get's canUndoRevert). Writes nothing to the cluster.",
-		Enabled: func(s *engine.Session, _ editorParams) error {
-			_, err := connected(s)
+		Enabled: func(s *engine.Session, p editorParams) error {
+			_, err := connectedOn(s, tabContext(s, p.ID))
 			return err
 		},
 		Run: func(ctx context.Context, s *engine.Session, p editorParams) (any, error) {

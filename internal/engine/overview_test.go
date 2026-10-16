@@ -97,7 +97,7 @@ func TestWorkloadsOverviewPage(t *testing.T) {
 	defer wcancel()
 	testkit.WaitFor(wctx, func() bool {
 		var err error
-		m, _, err = s.WorkloadsOverview(context.Background(), nil, false)
+		m, _, err = s.WorkloadsOverview(context.Background(), "", nil, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,7 +124,7 @@ func TestWorkloadsOverviewPage(t *testing.T) {
 	src.Set(testkit.PodsGVR, overviewPod("shop", "web-1", "Running"))
 	waitTable(t, s, WorkloadsOverview, func(t *TableSnapshot) bool { return len(t.Rows) == 2 })
 	waitFor(t, "the pending pod to run", func() bool {
-		m, _, _ := s.WorkloadsOverview(context.Background(), nil, false)
+		m, _, _ := s.WorkloadsOverview(context.Background(), "", nil, false)
 		return m.Kinds[0].Count == 2 && slices.Equal(m.Kinds[0].Statuses, []StatusCount{{model.StatusOK, 2}})
 	})
 
@@ -144,7 +144,7 @@ func TestWorkloadsOverviewPage(t *testing.T) {
 	s.UpdateUI(func(u *UIState) { u.View, u.Sort = "pods", s.ViewSort("pods") })
 
 	// Built on demand when the page is closed, for other namespaces, with its events.
-	m, events, err := s.WorkloadsOverview(context.Background(), []string{"infra"}, true)
+	m, events, err := s.WorkloadsOverview(context.Background(), "", []string{"infra"}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,14 +163,14 @@ func TestWorkloadsOverviewWithoutEventsStartsNoEventsWatch(t *testing.T) {
 	src := testkit.NewMemorySource()
 	src.Set(testkit.PodsGVR, overviewPod("shop", "web-0", "Running"))
 	s := overviewSession(t, src)
-	if _, events, err := s.WorkloadsOverview(context.Background(), nil, false); err != nil || events != nil {
+	if _, events, err := s.WorkloadsOverview(context.Background(), "", nil, false); err != nil || events != nil {
 		t.Fatalf("overview without events: %v, events %v", err, events)
 	}
 	evp, _ := s.Backend().Profile("events")
 	if s.Backend().Cached(evp) {
 		t.Error("the overview without events started the events watch")
 	}
-	if _, events, err := s.WorkloadsOverview(context.Background(), nil, true); err != nil || events == nil {
+	if _, events, err := s.WorkloadsOverview(context.Background(), "", nil, true); err != nil || events == nil {
 		t.Fatalf("overview with events: %v, events %v", err, events)
 	}
 	if !s.Backend().Cached(evp) {

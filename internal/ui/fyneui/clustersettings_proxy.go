@@ -45,7 +45,7 @@ func (p *settingsPage) clusterProxySection() fyne.CanvasObject {
 			note.SetText("The demo cluster is generated in memory: it has no traffic to route.")
 		case v.Connected:
 			entry.Enable()
-			note.SetText("Applies at the next connect; the connection open now keeps its way to the server.")
+			note.SetText("Applies at the next connect, after Disconnect; the connection open now keeps its way to the server.")
 		default:
 			entry.Enable()
 			note.SetText("Applies when Cogpit next connects to this cluster.")

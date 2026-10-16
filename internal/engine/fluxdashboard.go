@@ -427,14 +427,13 @@ func (w *fluxDashboardWorker) rebuild() {
 // While the page is open it is the page's latest build; otherwise it is built once from the cache:
 // the page's handles are held for the call, which waits (bounded by ctx and 15 seconds) for their
 // initial lists, and released after.
-func (s *Session) FluxDashboard(ctx context.Context, namespaces []string, table bool) (*FluxDashboardModel, *TableSnapshot, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, nil, ErrNotConnected
+func (s *Session) FluxDashboard(ctx context.Context, contextID string, namespaces []string, table bool) (*FluxDashboardModel, *TableSnapshot, error) {
+	b, err := s.TargetBackend(contextID) // the context's cluster, "" the shown one (D-69)
+	if err != nil {
+		return nil, nil, err
 	}
-	u := s.UIState()
 	if namespaces == nil {
-		namespaces = u.Namespaces
+		namespaces = s.windowNamespaces(b)
 	}
 	params := viewParams{namespaces: slices.Clone(namespaces), sort: fluxIssuesSort}
 	s.state.mu.Lock()

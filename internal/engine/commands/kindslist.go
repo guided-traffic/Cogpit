@@ -8,19 +8,23 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model/kinds"
 )
 
-// kinds.list (G17; resources.go registers it): every kind the connected cluster serves as Cogpit
+// kinds.list (G17; resources.go registers it): every kind a connected cluster serves as Cogpit
 // shows it, with what an agent can do with its objects: the tools of an object's row menu and
 // drawer, of a selection's menu and the kind's other tools (its create dialog), whether Cogpit's
 // cache holds it now, and, with all, the built-in kinds the cluster does not serve.
 
 type kindsListParams struct {
+	engine.OnCluster
 	All bool `json:"all,omitempty" jsonschema:"also list the built-in kinds the cluster does not serve, each with notServed"`
 }
 
-// listKinds is kinds.list's result for the connected backend.
+// listKinds is kinds.list's result for a connected backend.
 func listKinds(s *engine.Session, b *engine.Backend, p kindsListParams) []KindInfo {
 	all := b.AllProfiles()
-	filter := s.UIState().Namespaces
+	var filter []string
+	if u := s.UIState(); u.Context == b.Context { // the window's filter, of the shown cluster only (D-69)
+		filter = u.Namespaces
+	}
 	reg := s.Registry()
 	cmds := reg.Commands()
 	out := make([]KindInfo, 0, len(all))

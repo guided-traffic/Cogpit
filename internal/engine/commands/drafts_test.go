@@ -69,6 +69,9 @@ func TestDraftRestoredAfterARestart(t *testing.T) {
 			offers <- ev.Message
 		}
 	})
+	if err := h2.s.Disconnect(); err != nil { // a connect again would only show the open connection (D-69)
+		t.Fatal(err)
+	}
 	if err := h2.s.Connect(context.Background(), "test"); err != nil {
 		t.Fatal(err)
 	}

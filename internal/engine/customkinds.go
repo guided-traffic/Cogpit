@@ -250,7 +250,7 @@ func (ck *customKinds) rebuild() {
 func (s *Session) customKindsChanged(b *Backend) {
 	st := s.state
 	st.mu.Lock()
-	if st.closed || st.backend != b {
+	if st.closed || st.shown != b {
 		st.mu.Unlock()
 		return
 	}

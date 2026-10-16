@@ -43,6 +43,7 @@ type HelmOps struct {
 	running  map[helmKey]bool
 	lastRev  uint64
 	lastConn ConnectionState
+	lastCtx  string // the shown cluster the notice was last offered for (D-69)
 }
 
 // NewHelmOps returns the tracker for a journal.
@@ -76,11 +77,13 @@ func (h *HelmOps) onEvent(ev Event) {
 		return
 	}
 	h.lastRev = u.Revision
-	prev := h.lastConn
-	h.lastConn = u.Connection.State
+	prev, prevCtx := h.lastConn, h.lastCtx
+	h.lastConn, h.lastCtx = u.Connection.State, u.Context
 	s := h.s
 	h.mu.Unlock()
-	if s == nil || u.Connection.State == prev {
+	// A connect, a reconnect, or another connected cluster shown (D-69): the notice is the shown
+	// cluster's.
+	if s == nil || (u.Connection.State == prev && u.Context == prevCtx) {
 		return
 	}
 	if u.Connection.State == Connected && !u.Connection.Demo {
@@ -127,8 +130,8 @@ func (h *HelmOps) offer(s *Session, ctxName string) {
 // at a newer revision than the one it started from (or is gone). Without a synced release list (no
 // permission, a slow cluster, another cluster connected meanwhile) nothing is dropped.
 func (h *HelmOps) dropFinished(s *Session, ctxName string, pending []PendingHelmOp) []PendingHelmOp {
-	b := s.Backend()
-	if b == nil || b.Context != ctxName {
+	b := s.BackendOf(ctxName) // its cluster, shown or not (D-69)
+	if b == nil {
 		return pending
 	}
 	p, ok := b.Profile(helm.ReleaseKind)
@@ -139,7 +142,7 @@ func (h *HelmOps) dropFinished(s *Session, ctxName string, pending []PendingHelm
 	defer hd.Release()
 	deadline := time.Now().Add(offerWait)
 	for !hd.HasSynced() {
-		if s.Backend() != b || time.Now().After(deadline) || s.isClosed() {
+		if !s.state.holds(b) || time.Now().After(deadline) || s.isClosed() {
 			s.log.Warn("engine: unfinished Helm actions offered without checking their releases", "context", ctxName, "err", hd.Err())
 			return pending
 		}
@@ -346,7 +349,7 @@ func (p PendingHelmOp) Ref() model.ObjectRef {
 	return model.ObjectRef{Context: p.Context, Kind: helm.ReleaseKind, Namespace: p.Namespace, Name: p.Release}
 }
 
-// PendingHelmOps returns the pending release actions of the connected context (all: of every
+// PendingHelmOps returns the pending release actions of the shown cluster's context (all: of every
 // context), oldest first, with their status and their release's state from the cache. It reads
 // the journal and the cache, never the API server.
 func (s *Session) PendingHelmOps(all bool) ([]PendingHelmOpInfo, error) {
@@ -378,7 +381,7 @@ func (s *Session) PendingHelmOps(all bool) ([]PendingHelmOpInfo, error) {
 		default:
 			info.Status = HelmOpStatusInterrupted
 		}
-		if b != nil && e.Context == b.Context {
+		if s.BackendOf(e.Context) != nil { // every connected cluster's (D-69)
 			info.ReleaseStatus, info.ReleaseRevision = s.releaseState(e.Ref())
 		}
 		out = append(out, info)

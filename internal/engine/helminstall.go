@@ -94,14 +94,14 @@ func (h sdkHelm) InstallChart(ctx context.Context, req helm.InstallRequest) (int
 // version the chart is listed with), its editor filled with the chart's values.yaml: the chart is
 // downloaded (bounded, checked against the index's digest) and kept with the tab. A tab already
 // open on the chart is activated, and reloaded at version when that is another one.
-func (s *Session) OpenHelmInstallTab(ctx context.Context, repository, chart, version string) (EditorState, bool, error) {
+func (s *Session) OpenHelmInstallTab(ctx context.Context, contextID, repository, chart, version string) (EditorState, bool, error) {
 	repos := s.opts.HelmRepos
 	if repos == nil {
 		return EditorState{}, false, ErrNoHelmRepos
 	}
-	b := s.Backend()
-	if b == nil {
-		return EditorState{}, false, ErrNotConnected
+	b, err := s.TargetBackend(contextID) // the cluster it installs into, "" the shown one (D-69)
+	if err != nil {
+		return EditorState{}, false, err
 	}
 	for _, t := range s.UIState().Dock {
 		if t.Type != DockHelmInstall || t.HelmInstall == nil || t.Context != b.Context ||

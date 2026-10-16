@@ -30,6 +30,7 @@ type installTabParams struct {
 }
 
 type installParams struct {
+	engine.OnCluster
 	Tab string `json:"tab,omitempty" jsonschema:"a Helm Install dock tab id as helm_chart_installTab returned it, e.g. helmInstall-1: install its chart and version with its values (editor_setText changes them); give tab, or repository, chart, version and values"`
 	// TextRevision binds an install from a tab to the text the user reviewed.
 	TextRevision uint64 `json:"textRevision,omitempty" jsonschema:"with tab: the tab's text revision the install takes the values at (editor_get and editor_setText return it); the install is refused when the text changed since"`
@@ -88,7 +89,7 @@ func registerHelmInstall(g *registrar) {
 			if _, err := helmRepos(s); err != nil {
 				return err
 			}
-			b, err := writable(s)
+			b, err := writableOn(s, p.Ref.Context) // the cluster the tab installs into (D-69)
 			if err != nil {
 				return err
 			}
@@ -103,7 +104,7 @@ func registerHelmInstall(g *registrar) {
 			if p.Version == "" {
 				p.Version = s.DrawerChartVersionOf(p.Ref) // Install from the drawer installs the version it shows
 			}
-			st, created, err := s.OpenHelmInstallTab(ctx, repo, chart, p.Version)
+			st, created, err := s.OpenHelmInstallTab(ctx, p.Ref.Context, repo, chart, p.Version)
 			if err != nil {
 				return nil, err
 			}
@@ -124,7 +125,7 @@ func registerHelmInstall(g *registrar) {
 			"the same parameters as helm_chart_install." + privateReads,
 		Enabled: func(s *engine.Session, p installParams) error { return installEnabled(s, p) },
 		Run: func(ctx context.Context, s *engine.Session, p installParams) (any, error) {
-			b, err := writable(s)
+			b, err := writableOn(s, installContext(s, p))
 			if err != nil {
 				return nil, err
 			}
@@ -184,13 +185,13 @@ func registerHelmInstall(g *registrar) {
 			if s.HelmOps() == nil {
 				return engine.ErrNoHelmJournal
 			}
-			if b := s.Backend(); b != nil && s.HelmOps().Running(b.Context, p.Namespace, p.Name) {
+			if b := s.BackendOf(installContext(s, p)); b != nil && s.HelmOps().Running(b.Context, p.Namespace, p.Name) {
 				return fmt.Errorf("a Helm action on release %s is running", p.Name)
 			}
 			return nil
 		},
 		Targets: func(s *engine.Session, p installParams) ([]model.ObjectRef, error) {
-			b, err := connected(s)
+			b, err := connectedOn(s, installContext(s, p))
 			if err != nil {
 				return nil, err
 			}
@@ -235,7 +236,7 @@ func installEnabled(s *engine.Session, p installParams) error {
 	if _, err := helmRepos(s); err != nil {
 		return err
 	}
-	b, err := writable(s)
+	b, err := writableOn(s, installContext(s, p))
 	if err != nil {
 		return err
 	}
@@ -270,6 +271,18 @@ func installEnabled(s *engine.Session, p installParams) error {
 // installSourceOf resolves what an install installs: a tab's chart, version and values (with
 // bound, the text revision the request names must be the tab's), or a chart version downloaded
 // from its repository now, checked against the index's digest.
+// installContext is the cluster an install goes to: its context parameter, else its Helm Install
+// tab's cluster, else the shown one (D-69).
+func installContext(s *engine.Session, p installParams) string {
+	if p.Context == "" && p.Tab != "" {
+		return tabContext(s, p.Tab)
+	}
+	return p.Context
+}
+
+// TargetDockTab makes an install from a tab the tab's cluster's for Dispatch (target.go).
+func (p installParams) TargetDockTab() string { return p.Tab }
+
 func installSourceOf(ctx context.Context, s *engine.Session, p installParams, bound bool) (installSource, error) {
 	if p.Tab != "" {
 		t, err := s.HelmInstallTab(p.Tab)
@@ -358,7 +371,7 @@ func installDetail(s *engine.Session, p installParams) string {
 }
 
 func runInstall(ctx context.Context, s *engine.Session, p installParams) (any, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, installContext(s, p))
 	if err != nil {
 		return nil, err
 	}

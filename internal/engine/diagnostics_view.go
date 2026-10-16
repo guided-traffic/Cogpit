@@ -94,12 +94,51 @@ type DiagnosticsReport struct {
 	Discovery *cluster.DiscoveryInfo `json:"discovery,omitempty"`
 	// Snapshots counts the table snapshots built since start.
 	Snapshots uint64 `json:"snapshots"`
+	// Clusters sums up every connected cluster (D-69), shown or not, by context id: what each one
+	// costs, its requests, watches, objects and memory; the fields above are the reported one's in
+	// full. Empty while nothing is connected.
+	Clusters []DiagCluster `json:"clusters,omitempty"`
 }
 
-// DiagnosticsReport returns the connected cluster's counters as the Diagnostics view shows them,
-// with the memory per kind estimated.
+// DiagCluster is one connected cluster's sums in the Diagnostics view.
+type DiagCluster struct {
+	Context  string `json:"context"`
+	Shown    bool   `json:"shown,omitempty"` // the cluster the window shows
+	Requests int64  `json:"requests"`
+	Open     int    `json:"open"`
+	Warm     int    `json:"warm"`
+	Objects  int    `json:"objects"`
+	Bytes    int64  `json:"bytes"`
+}
+
+// DiagnosticsReport returns the shown cluster's counters as the Diagnostics view shows them, with
+// the memory per kind estimated, and every connected cluster's sums.
 func (s *Session) DiagnosticsReport() DiagnosticsReport {
-	return ReportOf(s.diagnostics(true), s.Backend() != nil)
+	r, _ := s.DiagnosticsReportOf("")
+	return r
+}
+
+// DiagnosticsReportOf is DiagnosticsReport for a connected context's cluster, "" the shown one
+// (D-69); a context that is not connected is a NotConnectedError.
+func (s *Session) DiagnosticsReportOf(contextID string) (DiagnosticsReport, error) {
+	shown := s.Backend()
+	b := shown
+	if contextID != "" {
+		var err error
+		if b, err = s.TargetBackend(contextID); err != nil {
+			return DiagnosticsReport{}, err
+		}
+	}
+	r := ReportOf(s.diagnosticsOf(s.UIState().Context, b, true), b != nil)
+	for _, c := range s.Backends() {
+		one := r
+		if c != b {
+			one = ReportOf(s.diagnosticsOf(c.Context, c, true), true)
+		}
+		r.Clusters = append(r.Clusters, DiagCluster{Context: c.Context, Shown: c == shown, Requests: one.Requests,
+			Open: one.Open, Warm: one.Warm, Objects: one.Objects, Bytes: one.Bytes})
+	}
+	return r, nil
 }
 
 // ReportOf arranges the counters for the Diagnostics view: requests by verb and by verb and

@@ -452,13 +452,13 @@ func argoCompareRefs(a, b model.ObjectRef) int {
 // attention, its Needs attention table. While the page is open with those namespaces it is the
 // page's latest build; otherwise it is built once from the cache, waiting (bounded by ctx and 15
 // seconds) for the kinds' initial lists.
-func (s *Session) ArgoCDDashboard(ctx context.Context, namespaces []string, attention bool) (*ArgoCDDashboardModel, *TableSnapshot, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, nil, ErrNotConnected
+func (s *Session) ArgoCDDashboard(ctx context.Context, contextID string, namespaces []string, attention bool) (*ArgoCDDashboardModel, *TableSnapshot, error) {
+	b, err := s.TargetBackend(contextID) // the context's cluster, "" the shown one (D-69)
+	if err != nil {
+		return nil, nil, err
 	}
 	if namespaces == nil {
-		namespaces = s.UIState().Namespaces
+		namespaces = s.windowNamespaces(b)
 	}
 	s.state.mu.Lock()
 	page := s.state.argo

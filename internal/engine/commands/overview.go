@@ -10,7 +10,8 @@ import (
 // builds it from the cache; ui.openView "workloads/overview" shows it, and agents read it here.
 
 type overviewParams struct {
-	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to count; omitted: the namespace filter the user has set"`
+	engine.OnCluster
+	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to count; omitted: the namespace filter the user has set (every namespace for a cluster the window does not show)"`
 	Events     bool     `json:"events,omitempty" jsonschema:"true: include the page's events table, the events of those namespaces as the page lists them (newest first)"`
 }
 
@@ -31,9 +32,9 @@ func registerOverview(g *registrar) {
 			"as counts per status token (ok, succeeded, pending, warning, error, terminating, unknown, and none); with events, " +
 			"also the events of those namespaces. Read from the cache. ui_openView with view workloads/overview shows the page " +
 			"to the user.",
-		Enabled: func(s *engine.Session, _ overviewParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p overviewParams) error { _, err := connectedOn(s, p.Context); return err },
 		Run: func(ctx context.Context, s *engine.Session, p overviewParams) (any, error) {
-			m, events, err := s.WorkloadsOverview(ctx, p.Namespaces, p.Events)
+			m, events, err := s.WorkloadsOverview(ctx, p.Context, p.Namespaces, p.Events)
 			if err != nil {
 				return nil, err
 			}

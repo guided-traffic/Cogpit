@@ -37,7 +37,7 @@ func tabsOpen(s *engine.Session) error {
 func registerTabs(g *registrar) {
 	add(g, engine.Spec[tabOpenParams]{
 		ID: "ui.tab.open", Label: "Open in Tab", Danger: engine.DangerUI, Verbs: cacheReads,
-		Description: "Opens a view of the connected cluster in a tab of the tab bar: in the preview tab (which the next " +
+		Description: "Opens a view of the shown cluster in a tab of the tab bar: in the preview tab (which the next " +
 			"view opened in preview replaces; ui_openView does the same), or with fixed in a new fixed tab that stays until " +
 			"closed. A fixed tab of the cluster already showing the view is activated instead; asked for fixed, a preview " +
 			"tab showing the view becomes fixed. A new tab starts with the namespace filter of the tab before it. Returns " +
@@ -129,7 +129,7 @@ func registerTabs(g *registrar) {
 	})
 }
 
-// viewKey checks a view key against the connected cluster and returns its canonical form: a page
+// viewKey checks a view key against the shown cluster and returns its canonical form: a page
 // key, or the key of a kind the cluster serves.
 func viewKey(s *engine.Session, view string) (string, error) {
 	if _, page := engine.PageTitle(view); page {

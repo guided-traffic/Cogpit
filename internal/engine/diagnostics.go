@@ -10,15 +10,17 @@ import (
 // diagnosticsInterval is the shortest time between two EventDiagnostics.
 const diagnosticsInterval = time.Second
 
-// Diagnostics returns the request counters and cache stats of the connected backend, without the
-// memory estimate (the status bar and the diagnostics loop read it every second).
-func (s *Session) Diagnostics() Diagnostics { return s.diagnostics(false) }
+// Diagnostics returns the request counters and cache stats of the shown cluster's backend, without
+// the memory estimate (the status bar reads it every second).
+func (s *Session) Diagnostics() Diagnostics {
+	return s.diagnosticsOf(s.UIState().Context, s.Backend(), false)
+}
 
-// diagnostics is Diagnostics, with each watch's memory estimated when memory is set (the
-// Diagnostics view and diagnostics_get: cache.Cache.StatsWithMemory).
-func (s *Session) diagnostics(memory bool) Diagnostics {
-	d := Diagnostics{Context: s.UIState().Context, Snapshots: s.state.snapshots.Load(), Informers: []cache.InformerStats{}}
-	b := s.Backend()
+// diagnosticsOf is the counters of one backend, with each watch's memory estimated when memory is
+// set (the Diagnostics view and diagnostics_get: cache.Cache.StatsWithMemory). Without a backend
+// they are empty and name contextID.
+func (s *Session) diagnosticsOf(contextID string, b *Backend, memory bool) Diagnostics {
+	d := Diagnostics{Context: contextID, Snapshots: s.state.snapshots.Load(), Informers: []cache.InformerStats{}}
 	if b == nil {
 		return d
 	}
@@ -53,8 +55,9 @@ func (s *Session) demoStats(b *Backend) (out any) {
 	return b.DemoStats()
 }
 
-// diagnosticsLoop emits EventDiagnostics at most once per second while connected, and only when
-// a counter moved.
+// diagnosticsLoop emits EventDiagnostics at most once per second while a cluster is connected, and
+// only when a counter of one of the connected clusters moved (D-69: every connected cluster's, not
+// only the shown one's).
 func (s *Session) diagnosticsLoop(stop <-chan struct{}) {
 	t := time.NewTicker(diagnosticsInterval)
 	defer t.Stop()
@@ -65,12 +68,15 @@ func (s *Session) diagnosticsLoop(stop <-chan struct{}) {
 			return
 		case <-t.C:
 		}
-		d := s.Diagnostics()
-		var events int64
-		for _, inf := range d.Informers {
-			events += inf.Events
+		fp := fmt.Sprint(s.state.snapshots.Load())
+		for _, b := range s.Backends() {
+			d := s.diagnosticsOf(b.Context, b, false)
+			var events int64
+			for _, inf := range d.Informers {
+				events += inf.Events
+			}
+			fp += fmt.Sprint(" ", b.Context, d.Requests.Total, len(d.Informers), events)
 		}
-		fp := fmt.Sprint(d.Snapshots, d.Requests.Total, len(d.Informers), events)
 		if fp == last {
 			continue
 		}

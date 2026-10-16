@@ -14,7 +14,7 @@ func registerWelcome(g *registrar) {
 	add(g, engine.Spec[struct{}]{
 		ID: "ui.welcome.open", Label: "Welcome", MenuPath: "Help/Welcome", Danger: engine.DangerUI,
 		Description: "Shows Cogpit's welcome page in the workspace, as Help › Welcome does: the clusters to connect with one " +
-			"click, Add Kubeconfigs and the documentation. Over a connected cluster it leaves the active tab, which keeps its " +
+			"click, Add Kubeconfigs and the documentation. Over the shown cluster it leaves the active tab, which keeps its " +
 			"view, filter, selection and drawer and shows them again when it is selected (ui_tab_select) or a view is opened. " +
 			"The page shows by itself while no cluster is connected and while no tab is active; ui_state reports it as welcome. " +
 			"Refused while a connect runs. Returns the new UI state.",

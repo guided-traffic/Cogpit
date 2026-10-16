@@ -134,7 +134,7 @@ func TestPrometheusOverrideFromTheSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitSource(s2, "Prometheus (monitoring/prometheus-server)")
-	if set, _ := s2.PrometheusSetting(); !set.Auto || set.Address != "" {
+	if set, _ := s2.PrometheusSetting(""); !set.Auto || set.Address != "" {
 		t.Errorf("after auto: %+v", set)
 	}
 	if again, _ := engine.NewMetricsSettings(dir); again.Override("fake") != nil {

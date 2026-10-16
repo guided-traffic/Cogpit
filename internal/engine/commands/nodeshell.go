@@ -59,7 +59,7 @@ func nodeShellEnabled(s *engine.Session, ref model.ObjectRef) error {
 	if _, err := cachedOfKind(s, ref, nodeKindKey); err != nil {
 		return err
 	}
-	b, err := streamable(s, "node shells")
+	b, err := streamableOn(s, ref.Context, "node shells") // the node's cluster, shown or not (D-69)
 	if err != nil {
 		return err
 	}
@@ -72,11 +72,11 @@ func nodeShellEnabled(s *engine.Session, ref model.ObjectRef) error {
 // errNoNodeShells disables node.shell on a connection without the node shell's writes.
 var errNoNodeShells = errors.New("this cluster connection cannot open node shells")
 
-// nodeShellDetail is node.shell's sentence in the confirmation, from the connected context's
-// settings.
+// nodeShellDetail is node.shell's sentence in the confirmation, from the node's context's
+// settings (D-69: the reference's cluster, the shown one without a context).
 func nodeShellDetail(s *engine.Session, p refParams) string {
 	ctx := ""
-	if b := s.Backend(); b != nil {
+	if b := s.BackendOf(p.Ref.Context); b != nil {
 		ctx = b.Context
 	}
 	return engine.NodeShellDetail(p.Ref.Name, s.NodeShellSettings(ctx))

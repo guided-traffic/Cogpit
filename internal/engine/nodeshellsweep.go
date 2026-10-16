@@ -93,8 +93,8 @@ const (
 // sweepNodeShells deletes the pods the journal names for ctxName, as the connected cluster has
 // them, and tells the user what it did.
 func (s *Session) sweepNodeShells(ctxName string) {
-	b := s.Backend()
-	if b == nil || b.Context != ctxName {
+	b := s.BackendOf(ctxName) // its cluster, shown or not by now (D-69)
+	if b == nil || ctxName == "" {
 		return
 	}
 	acts, ok := b.Writer().(NodeShellActions)
@@ -112,7 +112,7 @@ func (s *Session) sweepNodeShells(ctxName string) {
 		if e.Context != ctxName || e.OwnedElsewhere() || s.shells.busy(e.key()) {
 			continue
 		}
-		if s.Backend() != b { // another cluster connected meanwhile: its own connect sweeps it
+		if !s.state.holds(b) { // disconnected meanwhile: its next connect sweeps it
 			return
 		}
 		what := fmt.Sprintf("%s/%s (node %s)", e.Namespace, e.Name, e.Node)

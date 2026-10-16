@@ -33,7 +33,7 @@ func registerDock(g *registrar) {
 		Description: "Opens a dock tab that follows a container's log (the last 1,000 lines, then new ones), or activates " +
 			"the tab already open for that pod and container. Returns the tab.",
 		Enabled: func(s *engine.Session, p containerParams) error {
-			if _, err := streamable(s, "logs"); err != nil {
+			if _, err := streamableOn(s, p.Ref.Context, "logs"); err != nil {
 				return err
 			}
 			return podRef(p.Ref)
@@ -70,7 +70,7 @@ func registerDock(g *registrar) {
 		Description: "Opens a dock tab with an interactive shell in a container (bash, else ash, else sh). Anything typed " +
 			"there runs with the container's privileges, so an agent's request waits for the user's acceptance. Returns the tab.",
 		Enabled: func(s *engine.Session, p containerParams) error {
-			if _, err := streamable(s, "shells"); err != nil {
+			if _, err := streamableOn(s, p.Ref.Context, "shells"); err != nil {
 				return err
 			}
 			return podRef(p.Ref)
@@ -96,13 +96,17 @@ func registerDock(g *registrar) {
 		},
 	})
 
-	add(g, engine.Spec[struct{}]{
+	add(g, engine.Spec[engine.OnCluster]{
 		ID: "terminal.open", Label: "New Terminal", MenuPath: "View/New Terminal", Shortcut: "Cmd+Shift+T", Danger: engine.DangerUI,
-		Description: "Opens a dock tab with a local shell whose kubectl is bound to the connected context and to the " +
-			"namespace filter if it names exactly one namespace. Returns the tab.",
-		Enabled: func(s *engine.Session, _ struct{}) error { _, err := streamable(s, "terminals"); return err },
-		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
-			b, err := streamable(s, "terminals")
+		Description: "Opens a dock tab with a local shell whose kubectl is bound to a connected context (the shown cluster's " +
+			"unless context names another) and, for the shown cluster, to the namespace filter if it names exactly one " +
+			"namespace. Returns the tab.",
+		Enabled: func(s *engine.Session, p engine.OnCluster) error {
+			_, err := streamableOn(s, p.Context, "terminals")
+			return err
+		},
+		Run: func(_ context.Context, s *engine.Session, p engine.OnCluster) (any, error) {
+			b, err := streamableOn(s, p.Context, "terminals")
 			if err != nil {
 				return nil, err
 			}

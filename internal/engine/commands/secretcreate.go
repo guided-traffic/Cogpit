@@ -61,6 +61,7 @@ type metaEntryParams struct {
 }
 
 type secretCreateParams struct {
+	engine.OnCluster
 	Name        string              `json:"name" jsonschema:"the Secret's name: a DNS-1123 subdomain (lowercase letters, digits, '-' and '.', at most 253 characters)"`
 	Namespace   string              `json:"namespace,omitempty" jsonschema:"the namespace to create it in; empty uses the namespace filter's single namespace, else the context's default"`
 	Type        string              `json:"type,omitempty" jsonschema:"the Secret's type: Opaque (the default), kubernetes.io/service-account-token, kubernetes.io/dockercfg, kubernetes.io/dockerconfigjson, kubernetes.io/basic-auth, kubernetes.io/ssh-auth, kubernetes.io/tls or bootstrap.kubernetes.io/token"`
@@ -86,7 +87,7 @@ func registerSecretCreate(g *registrar) {
 		createSecretKind, engine.DangerMutating,
 		func(p secretCreateParams) string { return p.Namespace }, buildSecret)
 	spec.Prefill = func(s *engine.Session, p secretCreateParams) (secretCreateParams, error) {
-		ns, err := s.CreateNamespace(p.Namespace)
+		ns, err := s.CreateNamespace(p.Context, p.Namespace)
 		p.Namespace = ns
 		return p, err
 	}
@@ -108,7 +109,7 @@ func registerSecretCreate(g *registrar) {
 // buildSecret builds the Secret's manifest from the dialog's fields, checked as the API server
 // would check them. No error names a value.
 func buildSecret(s *engine.Session, p secretCreateParams) (map[string]any, model.ObjectRef, error) {
-	obj, ref, err := createSecretKind.object(s, p.Name, p.Namespace)
+	obj, ref, err := createSecretKind.object(s, p.Context, p.Name, p.Namespace)
 	if err != nil {
 		return nil, ref, err
 	}

@@ -405,7 +405,7 @@ func (a *Agent) runCall(st *turnState, call toolCall) bool {
 		}
 		var shown string
 		content, shown = frameResult(call.Function.Name, data)
-		if note := a.s.StaleNote(); note != "" && r.cmd.Danger == engine.DangerRead { // the cache's data as of an interruption (D-58)
+		if note := a.s.StaleNoteFor(inv); note != "" && r.cmd.Danger == engine.DangerRead { // the cache's data as of an interruption (D-58)
 			content += "\n" + note
 		}
 		tc = a.toolDone(c, idx, func(t *engine.ChatToolCall) { t.State, t.Result = engine.ChatToolDone, shown })

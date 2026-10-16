@@ -343,6 +343,8 @@ func TestApplyFromTabBoundToTheReviewedText(t *testing.T) {
 	}
 }
 
+// TestEditTabOfAnotherCluster: an Edit tab works on its own cluster while the window shows another
+// one (D-69); once its cluster is disconnected its commands are refused and nothing is written.
 func TestEditTabOfAnotherCluster(t *testing.T) {
 	h, _ := editHarness(t, engine.Options{})
 	var opened commands.EditResult
@@ -350,9 +352,14 @@ func TestEditTabOfAnotherCluster(t *testing.T) {
 	if err := h.s.Connect(context.Background(), "other"); err != nil {
 		t.Fatal(err)
 	}
+	var diff engine.EditDiff
+	h.must(t, engine.OriginGUI, "editor.diff", map[string]any{"id": opened.Tab.ID}, &diff) // test stays connected
+	if err := h.s.DisconnectContext("test"); err != nil {
+		t.Fatal(err)
+	}
 	for _, cmd := range []string{"editor.diff", "object.dryRun", "object.apply"} {
-		if err := h.run(t, engine.OriginGUI, cmd, map[string]any{"id": opened.Tab.ID}, nil); !errors.Is(err, engine.ErrWrongCluster) {
-			t.Errorf("%s of a tab of another cluster: %v", cmd, err)
+		if err := h.run(t, engine.OriginGUI, cmd, map[string]any{"id": opened.Tab.ID}, nil); !errors.Is(err, engine.ErrNotConnected) {
+			t.Errorf("%s of a tab of a disconnected cluster: %v", cmd, err)
 		}
 	}
 	if len(h.writer.Calls()) != 0 {

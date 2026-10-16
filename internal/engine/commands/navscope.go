@@ -22,10 +22,11 @@ func registerNavScope(g *registrar) {
 			"cluster's row do: section:local, the Local Kubeconfigs section listing every cluster Cogpit offers, or " +
 			"cluster:<context id>, that cluster's resource tree. The tab bar shows the tabs of the scope: every tab at the " +
 			"section, the cluster's tabs at a cluster (ui_tab_select's index, next and previous count those). Going up to " +
-			"the section keeps the connection. A cluster that is not the connected one is connected first, as " +
-			"cluster_connect does (Cogpit holds one connection; connecting only reads), and a failed connect leaves the " +
-			"section with connection saying why. Every connect drills into its cluster, and without a connected cluster " +
-			"the scope is the section. Returns the new UI state; navigatorScope is the scope.",
+			"the section keeps the connection. A cluster that is not the shown one is shown as cluster_connect shows it: " +
+			"one that is connected already at once, from the cache, another one connected first (connecting only reads; " +
+			"the cluster shown before stays connected); a failed connect leaves the section with connection saying why. " +
+			"Every connect drills into its cluster, and without a shown cluster the scope is the section. Returns the new UI " +
+			"state; navigatorScope is the scope.",
 		Run: func(ctx context.Context, s *engine.Session, p navScopeParams) (any, error) {
 			return s.SetNavigatorScope(ctx, p.Scope)
 		},

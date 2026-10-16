@@ -186,9 +186,9 @@ func (s *Session) ConfigMapSavable(ref model.ObjectRef) error {
 	if ref.Kind != configMapsKind {
 		return fmt.Errorf("%w: this applies to %s", ErrNotApplicable, configMapsKind)
 	}
-	b := s.Backend()
-	if b == nil {
-		return ErrNotConnected
+	b, err := s.TargetBackend(ref.Context) // the Config Map's cluster, shown or not (D-69)
+	if err != nil {
+		return err
 	}
 	if _, err := b.ObjectWriter(); err != nil {
 		return err

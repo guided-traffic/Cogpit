@@ -20,7 +20,7 @@ import (
 // confirmation per object, and none is as common on many objects at once).
 
 type selectionParams struct {
-	Refs []model.ObjectRef `json:"refs" jsonschema:"the objects, as ui_state's selected lists them: objects of any kind of the connected cluster, at most 500"`
+	Refs []model.ObjectRef `json:"refs" jsonschema:"the objects, as ui_state's selected lists them: objects of any kind of one connected cluster (their refs' context; the shown cluster without one), at most 500"`
 }
 
 // DeleteManyResult is object.deleteMany's result when every object was deleted.
@@ -128,7 +128,7 @@ func selectionTargets(s *engine.Session, refs []model.ObjectRef) ([]model.Object
 // shows which are left, and Delete of those finishes what the user asked for; nothing needs
 // repairing (D-11).
 func deleteMany(ctx context.Context, s *engine.Session, p selectionParams) (any, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, refsContext(p.Refs)) // the selection's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, err
 	}

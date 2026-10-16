@@ -276,15 +276,22 @@ func TestDrainConfirmedForAnotherClusterDoesNotRun(t *testing.T) {
 		t.Errorf("drain after a cluster switch: %v", err)
 	}
 	c.during = nil
-	var dis *engine.DisabledError
-	if err := h.run(t, engine.OriginGUI, "node.cordon", map[string]any{"ref": model.ObjectRef{Context: "test", Kind: "nodes", Name: "worker-1"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "another cluster") {
-		t.Errorf("cordon naming the old context: %v", err)
-	}
 	if len(w.Calls()) != 0 {
 		t.Errorf("writes reached the other cluster: %v", w.Calls())
 	}
 	if entries, _ := journal.List(); len(entries) != 0 {
 		t.Errorf("journal %+v", entries)
+	}
+	// test stayed connected (D-69): a command that names it acts there, while other is shown.
+	if err := h.run(t, engine.OriginGUI, "node.cordon", map[string]any{"ref": model.ObjectRef{Context: "test", Kind: "nodes", Name: "worker-1"}}, nil); err != nil {
+		t.Errorf("cordon naming test while other is shown: %v", err)
+	}
+	if err := h.s.DisconnectContext("test"); err != nil {
+		t.Fatal(err)
+	}
+	var dis *engine.DisabledError
+	if err := h.run(t, engine.OriginGUI, "node.uncordon", map[string]any{"ref": model.ObjectRef{Context: "test", Kind: "nodes", Name: "worker-1"}}, nil); !errors.As(err, &dis) || !strings.Contains(dis.Reason, "not connected") {
+		t.Errorf("uncordon naming a disconnected context: %v", err)
 	}
 }
 

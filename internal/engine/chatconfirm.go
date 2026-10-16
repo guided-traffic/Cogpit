@@ -33,8 +33,12 @@ func (s *Session) AsksUser(inv Invocation) bool {
 			return false
 		}
 	}
+	target := targetContext(s, p) // the command's cluster (D-69, target.go)
 	s.mu.Lock()
-	allowed := s.agentWritesLocked(s.ui.Context)
+	if target == "" {
+		target = s.ui.Context
+	}
+	allowed := s.agentWritesLocked(target)
 	hasConfirmer := s.confirmer != nil
 	s.mu.Unlock()
 	return hasConfirmer && NeedsConfirmation(danger, inv.Origin, allowed, agentsAsk)

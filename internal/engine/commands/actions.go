@@ -22,7 +22,7 @@ func registerActions(g *registrar) {
 		Description: "Restarts a Deployment the way kubectl rollout restart does: it sets the pod template's restartedAt " +
 			"annotation and the controller replaces every pod. Always asks the user to confirm.",
 		Enabled: func(s *engine.Session, p refParams) error {
-			if _, err := writable(s); err != nil {
+			if _, err := writableOn(s, p.Ref.Context); err != nil {
 				return err
 			}
 			return cachedTarget(s, p.Ref, kindDeployments, "restart applies to deployments")
@@ -48,7 +48,7 @@ func registerActions(g *registrar) {
 		Enabled: func(s *engine.Session, p refParams) error { return cachedAny(s, p.Ref) },
 		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return objectTarget(s, p.Ref) },
 		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
-			b, err := writable(s)
+			b, err := writableOn(s, p.Ref.Context) // the object's cluster, shown or not (D-69)
 			if err != nil {
 				return nil, err
 			}
@@ -65,10 +65,10 @@ func registerActions(g *registrar) {
 	})
 }
 
-// act runs one write on one object of the connected cluster, after checking that the user
+// act runs one write on one object of its connected cluster, after checking that the user
 // confirmed it for this cluster, and reports it as a toast.
 func act(ctx context.Context, s *engine.Session, ref model.ObjectRef, done string, write func(engine.Actions, model.ObjectRef) error) (any, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, ref.Context) // the object's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func act(ctx context.Context, s *engine.Session, ref model.ObjectRef, done strin
 		return nil, err
 	}
 	if ref.Context != b.Context {
-		return nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+		return nil, fmt.Errorf("%w: the shown cluster changed", engine.ErrWrongCluster)
 	}
 	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
 		return nil, err

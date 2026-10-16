@@ -95,10 +95,10 @@ var ErrNoMetricsStack = fmt.Errorf("%w: this cluster connection cannot install c
 // MetricsStack returns the stack's state from the cache, waiting for the releases', the
 // namespace's and the StorageClasses' first lists (bounded). It sends nothing but the cache's own
 // lists and watches.
-func (s *Session) MetricsStack(ctx context.Context) (MetricsStackState, error) {
-	b := s.Backend()
-	if b == nil {
-		return MetricsStackState{}, ErrNotConnected
+func (s *Session) MetricsStack(ctx context.Context, contextID string) (MetricsStackState, error) {
+	b, err := s.TargetBackend(contextID) // the context's cluster, "" the shown one (D-69)
+	if err != nil {
+		return MetricsStackState{}, err
 	}
 	if _, err := b.HelmInstaller(); err != nil {
 		return MetricsStackState{}, ErrNoMetricsStack
@@ -128,7 +128,7 @@ func (s *Session) MetricsStack(ctx context.Context) (MetricsStackState, error) {
 	case !errors.Is(err, ErrNotFound):
 		unknown(err)
 	}
-	st.Storage = s.metricsStorage(ctx)
+	st.Storage = s.metricsStorage(ctx, b.Context)
 	st.StorageText = st.Storage.String()
 	return st, nil
 }
@@ -160,8 +160,8 @@ func MetricsNamespaceObject() *unstructured.Unstructured {
 
 // metricsStorage is where an install's Prometheus would keep its history: the cluster's default
 // StorageClass from the cache, else emptyDir (none, or the classes cannot be read).
-func (s *Session) metricsStorage(ctx context.Context) helm.MetricsStorage {
-	objs, err := s.Objects(ctx, "storageclasses", nil)
+func (s *Session) metricsStorage(ctx context.Context, contextID string) helm.MetricsStorage {
+	objs, err := s.ObjectsIn(ctx, contextID, "storageclasses", nil)
 	if err != nil {
 		return helm.MetricsStorage{}
 	}
@@ -206,8 +206,8 @@ func (p MetricsStackPlan) Destructive() bool { return len(p.Remove) > 0 || p.Del
 // alone, one switched off that has one is removed; the namespace Cogpit created goes when nothing is
 // left in its keeping, also when an earlier Apply was interrupted after the last uninstall. Nothing
 // is planned while the state is not known.
-func (s *Session) PlanMetricsStack(ctx context.Context, want map[helm.MetricsComponent]bool) (MetricsStackPlan, error) {
-	st, err := s.MetricsStack(ctx)
+func (s *Session) PlanMetricsStack(ctx context.Context, contextID string, want map[helm.MetricsComponent]bool) (MetricsStackPlan, error) {
+	st, err := s.MetricsStack(ctx, contextID)
 	if err != nil {
 		return MetricsStackPlan{}, err
 	}
@@ -254,7 +254,7 @@ func (s *Session) WaitMetricsStack(ctx context.Context, p MetricsStackPlan) (Met
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	for {
-		st, err := s.MetricsStack(ctx)
+		st, err := s.MetricsStack(ctx, p.State.Context)
 		if err != nil {
 			return st, err
 		}

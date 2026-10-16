@@ -495,8 +495,8 @@ func TestPortForwardFailsToStart(t *testing.T) {
 	}
 }
 
-// Every forward of a context ends when the session leaves it: the listener closes, the
-// connection to the pod ends.
+// A context's forwards go on while the window shows another cluster (D-69), and every one ends
+// when the context is disconnected: the listener closes, the connection to the pod ends.
 func TestPortForwardsEndWithTheBackend(t *testing.T) {
 	h, fw := newForwardHarness(t, engine.Options{})
 	var a, b engine.Forward
@@ -508,16 +508,27 @@ func TestPortForwardsEndWithTheBackend(t *testing.T) {
 	if err := h.s.Connect(context.Background(), "other"); err != nil {
 		t.Fatal(err)
 	}
+	if fw.open() != 2 {
+		t.Errorf("%d tunnels open while another cluster is shown", fw.open())
+	}
+	other := a.Ref
+	other.Context = "other"
+	if _, err := h.s.ForwardOf(other); err == nil {
+		t.Error("the shown context has the other context's forward")
+	}
+	if f, err := h.s.ForwardOf(a.Ref); err != nil || !f.Listening() {
+		t.Errorf("test's forward while other is shown: %+v %v", f, err)
+	}
+	if err := h.s.DisconnectContext(a.Ref.Context); err != nil {
+		t.Fatal(err)
+	}
 	for _, f := range []engine.Forward{a, b} {
 		if _, err := ask(t, f.Address); err == nil {
-			t.Errorf("%s still answers after the cluster was left", f.Ref.Name)
+			t.Errorf("%s still answers after its cluster was disconnected", f.Ref.Name)
 		}
 	}
 	if fw.open() != 0 {
-		t.Errorf("%d tunnels open after the cluster was left", fw.open())
-	}
-	if _, err := h.s.ForwardOf(a.Ref); err == nil {
-		t.Error("the new context has the old context's forward")
+		t.Errorf("%d tunnels open after its cluster was disconnected", fw.open())
 	}
 }
 

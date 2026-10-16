@@ -15,7 +15,8 @@ import (
 // (UIState.Overview), set by the page's controls and by agents alike.
 
 type clusterOverviewParams struct {
-	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces whose issues to list (a node's issues are always listed); omitted: the namespace filter the user has set"`
+	engine.OnCluster
+	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces whose issues to list (a node's issues are always listed); omitted: the namespace filter the user has set (every namespace for a cluster the window does not show)"`
 	Series     bool     `json:"series,omitempty" jsonschema:"true: include each chart's points over its time range (while the page is open; otherwise there are none)"`
 	NoIssues   bool     `json:"noIssues,omitempty" jsonschema:"true: leave the issues out (the charts only)"`
 }
@@ -42,9 +43,12 @@ func registerClusterOverview(g *registrar) {
 			"metrics history (with series: true, their points), otherwise the current CPU and memory come from one read " +
 			"of the nodes' metrics. ui_openView with view cluster/overview shows the page to the user; ui_select with an " +
 			"issue's ref opens its details there.",
-		Enabled: func(s *engine.Session, _ clusterOverviewParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p clusterOverviewParams) error {
+			_, err := connectedOn(s, p.Context)
+			return err
+		},
 		Run: func(ctx context.Context, s *engine.Session, p clusterOverviewParams) (any, error) {
-			m, err := s.ClusterOverview(ctx, p.Namespaces, p.Series)
+			m, err := s.ClusterOverview(ctx, p.Context, p.Namespaces, p.Series)
 			if err == nil && p.NoIssues {
 				m.Issues = nil
 			}

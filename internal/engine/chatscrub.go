@@ -14,9 +14,9 @@ import (
 // (Invocation.ReadsLikeUser), so its results carry values the filter did not see; this is the step
 // that keeps them off the disk.
 
-// ErrScrubContext refuses to scrub for a context other than the connected one: the Secrets the
-// filter knows are the connected cluster's.
-var ErrScrubContext = errors.New("the conversation's cluster is not the connected one, so its Secrets are not known")
+// ErrScrubContext refuses to scrub for a context that is not connected: the Secrets the filter
+// knows are the connected clusters'.
+var ErrScrubContext = errors.New("the conversation's cluster is not connected, so its Secrets are not known")
 
 // ScrubSecretValues returns texts with the values of the Secrets of kubeContext's cluster replaced,
 // as the agents' filter replaces them (AgentView.Text). It first takes the Secrets as an agent's
@@ -26,8 +26,8 @@ var ErrScrubContext = errors.New("the conversation's cluster is not the connecte
 // text when the Secrets could not be read; the caller then keeps nothing of the texts. It never
 // logs or returns a value it replaced.
 func (s *Session) ScrubSecretValues(ctx context.Context, kubeContext string, texts ...string) ([]string, error) {
-	b := s.Backend()
-	if b == nil || b.Context != kubeContext {
+	b := s.BackendOf(kubeContext) // any connected cluster's (D-69)
+	if b == nil || kubeContext == "" {
 		return nil, ErrScrubContext
 	}
 	if err := b.agentSecrets(ctx); err != nil {
@@ -35,7 +35,7 @@ func (s *Session) ScrubSecretValues(ctx context.Context, kubeContext string, tex
 	}
 	out := make([]string, len(texts))
 	err := s.safeCall("chat.scrub", func() error {
-		v := &AgentView{m: b.secretMatcher()}
+		v := &AgentView{m: scrubberOf(b.secretMatcher())}
 		for i, t := range texts {
 			out[i] = v.Text(t)
 		}

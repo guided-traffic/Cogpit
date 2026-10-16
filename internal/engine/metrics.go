@@ -837,10 +837,10 @@ const DefaultMetricsLimit = 500
 // the pods of a namespace, or all pods, or all nodes; a fresh result (within 15 seconds) is
 // served without a request, else one `get` or `list` is sent. Nothing keeps polling afterwards.
 // No metrics-server is a result with a status, not an error.
-func (s *Session) MetricsGet(ctx context.Context, kind, namespace, name string, limit int) (*MetricsResult, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, ErrNotConnected
+func (s *Session) MetricsGet(ctx context.Context, contextID, kind, namespace, name string, limit int) (*MetricsResult, error) {
+	b, err := s.TargetBackend(contextID) // the context's cluster, "" the shown one (D-69)
+	if err != nil {
+		return nil, err
 	}
 	if limit <= 0 {
 		limit = DefaultMetricsLimit

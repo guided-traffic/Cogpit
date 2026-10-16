@@ -30,7 +30,7 @@ func TestArgoDashboard(t *testing.T) {
 	waitFor(t, "Argo CD's kinds", func() bool { return hasKind(s, kinds.ArgoClustersKey) })
 
 	// Closed page: built once from the cache.
-	m, attention, err := s.ArgoCDDashboard(context.Background(), nil, true)
+	m, attention, err := s.ArgoCDDashboard(context.Background(), "", nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestArgoDashboard(t *testing.T) {
 	waitTable(t, s, ArgoCDDashboard, func(t *TableSnapshot) bool { return t.Synced && len(t.Rows) == 2 })
 	src.Set(testkit.ArgoApplicationsGVR, testkit.ArgoApplication("argocd", "drift", "Synced", "Healthy"))
 	waitTable(t, s, ArgoCDDashboard, func(t *TableSnapshot) bool { return len(t.Rows) == 1 && t.Rows[0].Ref.Name == "broken" })
-	m, _, err = s.ArgoCDDashboard(context.Background(), nil, false)
+	m, _, err = s.ArgoCDDashboard(context.Background(), "", nil, false)
 	if err != nil || len(m.OutOfSync) != 0 || len(m.All) != 3 {
 		t.Errorf("the open page's model %+v %v", m, err)
 	}

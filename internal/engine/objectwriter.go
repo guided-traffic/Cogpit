@@ -71,23 +71,20 @@ const mappingTimeout = 15 * time.Second
 // "<plural>.<group>") through the writer's discovery mapping, so that agents can edit kinds no view
 // shows yet. The reference is normalised as ResolveRef does it.
 func (s *Session) ResolveTarget(ctx context.Context, ref model.ObjectRef) (ObjectTarget, *Backend, error) {
-	b := s.Backend()
-	if b == nil {
-		return ObjectTarget{}, nil, ErrNotConnected
+	b, err := s.TargetBackend(ref.Context) // the reference's cluster, shown or not (D-69)
+	if err != nil {
+		return ObjectTarget{}, nil, err
 	}
 	if p, ok := b.Profile(ref.Kind); ok {
 		r, _, err := s.ResolveRef(ref)
 		if err != nil {
 			return ObjectTarget{}, nil, err
 		}
-		if r.Context != b.Context { // the user switched clusters in between
-			return ObjectTarget{}, nil, fmt.Errorf("%w: the connected cluster changed", ErrWrongCluster)
+		if r.Context != b.Context { // the shown cluster changed in between (a reference without a context)
+			return ObjectTarget{}, nil, fmt.Errorf("%w: the shown cluster changed", ErrWrongCluster)
 		}
 		gv := schema.GroupVersion{Group: p.Group, Version: p.Version}
 		return ObjectTarget{Ref: r, GVR: p.GVR(), APIVersion: gv.String(), Kind: p.Kind, Namespaced: p.Namespaced, profile: p}, b, nil
-	}
-	if ref.Context != "" && ref.Context != b.Context {
-		return ObjectTarget{}, nil, fmt.Errorf("%w: %s is in context %q, connected is %q", ErrWrongCluster, ref.String(), ref.Context, b.Context)
 	}
 	if ref.Name == "" {
 		return ObjectTarget{}, nil, errors.New("the reference has no name")
@@ -175,8 +172,11 @@ func (s *Session) targetUIDs(ctx context.Context, targets []model.ObjectRef) []s
 // the cache holds already: it starts no watch and waits for nothing (a create's targets need
 // neither). A target it does not hold gets "", which leaves that target unbound (ConfirmedUID).
 func (s *Session) cachedTargetUIDs(targets []model.ObjectRef) []string {
-	b := s.Backend()
-	if b == nil || len(targets) == 0 {
+	if len(targets) == 0 {
+		return nil
+	}
+	b := s.BackendOf(targets[0].Context) // the targets' cluster (one: oneCluster, D-69)
+	if b == nil {
 		return nil
 	}
 	uids := make([]string, len(targets))

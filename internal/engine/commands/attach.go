@@ -18,7 +18,7 @@ func registerAttach(g *registrar) {
 			"Anything typed reaches the process, so an agent's request waits for the user's acceptance. Closing the tab " +
 			"detaches; the process goes on. Returns the tab.",
 		Enabled: func(s *engine.Session, p containerParams) error {
-			if _, err := streamable(s, "attach sessions"); err != nil {
+			if _, err := streamableOn(s, p.Ref.Context, "attach sessions"); err != nil {
 				return err
 			}
 			return podRef(p.Ref)

@@ -29,12 +29,9 @@ func (s *Session) streamTab(tabID string, types ...DockType) (DockTab, *Backend,
 	if !typeOK {
 		return DockTab{}, nil, fmt.Errorf("dock tab %q is a %s tab", tabID, tab.Type)
 	}
-	b := s.Backend()
-	if b == nil {
-		return DockTab{}, nil, ErrNotConnected
-	}
-	if tab.Context != "" && tab.Context != b.Context {
-		return DockTab{}, nil, fmt.Errorf("%w: dock tab %q belongs to context %q, connected is %q", ErrWrongCluster, tabID, tab.Context, b.Context)
+	b, err := s.TargetBackend(tab.Context) // the tab's cluster, shown or not (D-69)
+	if err != nil {
+		return DockTab{}, nil, err
 	}
 	if b.Conn == nil {
 		return DockTab{}, nil, fmt.Errorf("%s: %w", tab.Type, ErrDemoCluster)
@@ -68,7 +65,7 @@ func (s *Session) OpenTerminal(ctx context.Context, tabID string) (terminal.Sess
 	}
 	if tab.Type != DockTerminal {
 		// A session in the cluster ends when the connection is interrupted (D-58, S7).
-		if err := s.writeBlocked(DangerMutating); err != nil {
+		if err := s.writeBlocked(DangerMutating, b.Context); err != nil {
 			return nil, err
 		}
 		cctx, cancel := context.WithCancel(ctx)
@@ -80,7 +77,7 @@ func (s *Session) OpenTerminal(ctx context.Context, tabID string) (terminal.Sess
 		return b.watch.trackSession(tab.ID, sess, cancel), nil
 	}
 	ns := b.Namespace
-	if u := s.UIState(); len(u.Namespaces) == 1 {
+	if u := s.UIState(); len(u.Namespaces) == 1 && u.Context == b.Context { // the window's filter, of the tab's cluster only
 		ns = u.Namespaces[0]
 	}
 	opts, err := s.LocalTerminalOptions(b.Context, terminal.LocalOptions{

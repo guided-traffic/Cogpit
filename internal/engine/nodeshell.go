@@ -236,9 +236,9 @@ func nodeShellName() string {
 // caller (node.shell) was confirmed: the pod is created only for the confirmed context, node and
 // detail (image, pull secret, maximum duration), else ErrWrongCluster or ErrTargetsChanged.
 func (s *Session) StartNodeShell(ctx context.Context, ref model.ObjectRef) (DockTab, error) {
-	b := s.Backend()
-	if b == nil {
-		return DockTab{}, ErrNotConnected
+	b, err := s.TargetBackend(ref.Context) // the node's cluster, shown or not (D-69)
+	if err != nil {
+		return DockTab{}, err
 	}
 	w, ok := b.Writer().(NodeShellActions)
 	if !ok {

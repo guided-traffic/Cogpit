@@ -232,14 +232,14 @@ func checkFluxDashboard(t *testing.T, u gitopsUser, page bool) {
 		s.OpenTab(engine.FluxDashboard, false)
 		if !testkit.WaitFor(ctx, func() bool {
 			var err error
-			m, _, err = s.FluxDashboard(ctx, []string{}, false)
+			m, _, err = s.FluxDashboard(ctx, "", []string{}, false)
 			return err == nil && m.Synced && m.Error == "" && fluxCounts(m) == u.flux
 		}) {
 			t.Fatalf("the page never counted %q: %+v (reads %v)", u.flux, m, srv.RequestsIn())
 		}
 	} else {
 		var err error
-		m, _, err = s.FluxDashboard(ctx, []string{}, true)
+		m, _, err = s.FluxDashboard(ctx, "", []string{}, true)
 		if err != nil || !m.Synced || m.Error != "" || fluxCounts(m) != u.flux {
 			t.Fatalf("an agent's read: %+v, %v, want %q (reads %v)", m, err, u.flux, srv.RequestsIn())
 		}
@@ -265,14 +265,14 @@ func checkArgoDashboard(t *testing.T, u gitopsUser, page bool) {
 		s.OpenTab(engine.ArgoCDDashboard, false)
 		if !testkit.WaitFor(ctx, func() bool {
 			var err error
-			m, _, err = s.ArgoCDDashboard(ctx, []string{}, false)
+			m, _, err = s.ArgoCDDashboard(ctx, "", []string{}, false)
 			return err == nil && m.Synced && m.Error == "" && argoCounts(m) == u.argo && argoKindsClean(m)
 		}) {
 			t.Fatalf("the page never counted %q: %+v (reads %v)", u.argo, m, srv.RequestsIn())
 		}
 	} else {
 		var err error
-		m, _, err = s.ArgoCDDashboard(ctx, []string{}, true)
+		m, _, err = s.ArgoCDDashboard(ctx, "", []string{}, true)
 		if err != nil || !m.Synced || m.Error != "" || argoCounts(m) != u.argo || !argoKindsClean(m) {
 			t.Fatalf("an agent's read: %+v, %v, want %q (reads %v)", m, err, u.argo, srv.RequestsIn())
 		}

@@ -37,6 +37,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🗂️ Every cluster from your kubeconfig files and synced folders, side by side.
 - 🧭 Lens's navigator levels: All Clusters (Local Kubeconfigs) lists every cluster and the tabs of all of them, the one list to choose a cluster from, with a + to add kubeconfigs; › drills into one cluster's resources and its tabs, ‹ All Clusters goes back up.
 - 📌 A hotbar of pinned clusters at the window's edge, in banks of twelve: F1–F12 to switch cluster, ⇧F1–⇧F12 to switch bank.
+- 🔀 Several clusters connected at once (since 2026-10-16): switching to another cluster leaves the one you were on connected, its logs, shells, port forwards and running jobs going on; switching back within five minutes shows it at once without asking the cluster again, later its lists load anew. A cluster stays connected until you disconnect it or quit; agents may work on any connected cluster. The window's marks for the clusters in the background come next *(planned)*.
 - 🪪 One short name per cluster wherever the window names it: the name you gave it in its Settings, else its context's name after the last "@" ("kubernetes-admin@prod-eu" shows as "prod-eu"); the full name in every tooltip, and the navigator's search finds it by either. The navigator's root says who you are logged in as there, as the API server confirms it at every connect (`kubectl auth whoami`'s question), your groups in the tooltip of the small box beside it; "(kubeconfig)" marks the kubeconfig's user name where the API server does not say, and while the cluster connects the last user it confirmed shows dimmed, with when it was last seen ([D-68](decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)).
 - ⌨️ A command palette on ⌘⇧P (Ctrl+Shift+P): every action the menus offer, Switch to any view, the hotbar's clusters and banks; ⌘P (Cluster › Connect to Cluster…) to search a cluster by name in the navigator's list, ↵ to connect, Escape to go back.
 - 👋 A welcome page whenever no cluster is open (and from Help › Welcome): your clusters one click away, Add Kubeconfigs, the documentation. Disconnect a cluster, or remove it from Cogpit, which unlinks the kubeconfig file you added and never touches the file.
@@ -359,7 +360,7 @@ cogpit://open?context=kind-dev%20%5Bconfig%5D&view=pods&namespace=team-a&name=we
 
 | Parameter | Value | Without it |
 |---|---|---|
-| `context` | a context id as `cluster_contexts` lists it (`<context> [<file>]`), or a kubeconfig context name that one source file alone defines; in a development build `demo` for the demo cluster | the connected cluster |
+| `context` | a context id as `cluster_contexts` lists it (`<context> [<file>]`), or a kubeconfig context name that one source file alone defines; in a development build `demo` for the demo cluster | the cluster the window shows |
 | `view` | a kind key (`pods`, `deployments`, `gateways.gateway.networking.k8s.io`) or a page key (`cluster/overview`) | the view the connect shows |
 | `namespace` | a namespace: with `name` the object's; without it the namespace filter | the filter as it is |
 | `name` | an object of the view's kind: its drawer opens; needs `view` to be a kind, not a page | no drawer |
@@ -443,10 +444,12 @@ a write of the cut part can run again unasked
 
 ### When the connection breaks
 
-Since 2026-10-16 ([D-58](decisions.md#d-58-standby-and-lost-connections)). Cogpit checks the
+Since 2026-10-16 ([D-58](decisions.md#d-58-standby-and-lost-connections)). Cogpit checks each
 connected cluster when the Mac wakes, when its network changes (Wi-Fi, a VPN), when a watch breaks,
-and every 15 seconds; two checks without an answer (one after a wake) and the connection is
-**interrupted**:
+and every 15 seconds, the ones in the background too (D-69); two checks without an answer (one
+after a wake) and the connection is **interrupted**. The banner is the shown cluster's; an
+interrupted cluster in the background disables the changes to it only, and its state is in
+`ui_state`'s `connections`:
 
 - The cluster's dot blinks green, slowly (half a second on, half a second dimmed), everywhere it
   shows: the top bar, the status bar, its hotbar tile, the navigator, the welcome page. No word

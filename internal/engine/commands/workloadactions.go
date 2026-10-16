@@ -52,7 +52,7 @@ func restartSpec(id, menuPath, kind, noun string) engine.Spec[refParams] {
 			if _, err := cachedOfKind(s, p.Ref, kind); err != nil {
 				return err
 			}
-			_, _, err := restartsOf(s)
+			_, _, err := restartsOf(s, p.Ref.Context)
 			return err
 		},
 		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
@@ -85,8 +85,8 @@ func restartSpec(id, menuPath, kind, noun string) engine.Spec[refParams] {
 var errConnectionCannotRestart = errors.New("this connection cannot restart workloads")
 
 // restartsOf is the writable check of the Restart commands.
-func restartsOf(s *engine.Session) (*engine.Backend, engine.WorkloadRestarts, error) {
-	b, err := writable(s)
+func restartsOf(s *engine.Session, contextID string) (*engine.Backend, engine.WorkloadRestarts, error) {
+	b, err := writableOn(s, contextID) // the object's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, nil, err
 	}

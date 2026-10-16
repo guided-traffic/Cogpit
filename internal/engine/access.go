@@ -39,7 +39,7 @@ func (s *Session) permitted(c *Command, p any) error {
 	if len(c.Verbs) == 0 {
 		return nil
 	}
-	b := s.Backend()
+	b := s.BackendOf(targetContext(s, p)) // the command's cluster's reviews (D-69, target.go)
 	if b == nil || b.Access == nil {
 		return nil
 	}

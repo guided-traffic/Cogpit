@@ -218,6 +218,9 @@ func TestConnectThroughTheClusterProxy(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := proxy.Total()
+	if err := s.Disconnect(); err != nil { // a connect again would only show the open connection (D-69)
+		t.Fatal(err)
+	}
 	if err := s.Connect(context.Background(), "fake"); err != nil {
 		t.Fatal(err)
 	}
@@ -231,6 +234,9 @@ func TestConnectThroughTheClusterProxy(t *testing.T) {
 		cs.Proxy = proxy.URLWithUser("alice", "wrong-"+proxySecret).String()
 		return nil
 	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Disconnect(); err != nil {
 		t.Fatal(err)
 	}
 	err := s.Connect(context.Background(), "fake")

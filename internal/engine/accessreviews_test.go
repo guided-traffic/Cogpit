@@ -608,7 +608,10 @@ func TestAccessReviewsStopWithTheBackend(t *testing.T) {
 	old := s.Backend()
 	old.Access.Allowed("apps", listPods)
 	waitCond(t, "the reviews to start", func() bool { rev.mu.Lock(); defer rev.mu.Unlock(); return rev.inFlight == 2 })
-	connectTest(t, s) // a new backend; the old one closes
+	if err := s.Disconnect(); err != nil { // the old backend closes (D-69: a connect again only shows it)
+		t.Fatal(err)
+	}
+	connectTest(t, s) // a new backend
 	waitCond(t, "the old reviews to end", func() bool {
 		rev.mu.Lock()
 		defer rev.mu.Unlock()

@@ -37,7 +37,7 @@ type AgentResult interface {
 
 // AgentView filters text for an agent: the cached Secrets' values and Flux's credential fields.
 type AgentView struct {
-	m *secretMatcher // nil: no Secret cached, nothing to replace
+	m valueScrubber // nil: no Secret cached, nothing to replace
 	// likeUser is a private turn's view (D-10, H-94): the text as the window shows it, a chart's
 	// README framed (A31).
 	likeUser bool
@@ -67,10 +67,51 @@ func GuardAgentMarkers(ctx context.Context, text string) error {
 	return nil
 }
 
-// agentView returns the view of the connected backend's cache: its matcher is built again only
-// when the cached Secrets changed.
+// agentView returns the view of the connected backends' caches: the cached Secrets of every
+// connected cluster, shown or not (D-69; D-52's case 4: a log line of one cluster that prints a
+// Secret value of another connected cluster is replaced too). Each backend's matcher is built
+// again only when its cached Secrets changed.
 func (s *Session) agentView() *AgentView {
-	return &AgentView{m: s.Backend().secretMatcher()}
+	var chain scrubChain
+	for _, b := range s.Backends() {
+		if m := b.secretMatcher(); m != nil {
+			chain = append(chain, m)
+		}
+	}
+	switch len(chain) {
+	case 0:
+		return &AgentView{}
+	case 1:
+		return &AgentView{m: chain[0]}
+	}
+	return &AgentView{m: chain}
+}
+
+// valueScrubber replaces the Secret values it knows in a text: one cluster's matcher, or a chain
+// of several clusters' (scrubChain).
+type valueScrubber interface {
+	scrub(s string) (string, bool)
+}
+
+// scrubChain is the matchers of several connected clusters, applied in turn.
+type scrubChain []*secretMatcher
+
+func (c scrubChain) scrub(s string) (string, bool) {
+	changed := false
+	for _, m := range c {
+		var ch bool
+		s, ch = m.scrub(s)
+		changed = changed || ch
+	}
+	return s, changed
+}
+
+// scrubberOf is a matcher as a valueScrubber: nil, not a nil pointer in an interface, without one.
+func scrubberOf(m *secretMatcher) valueScrubber {
+	if m == nil {
+		return nil
+	}
+	return m
 }
 
 // forAgent filters an agent's command result; likeUser: a private turn's, whose view only frames a

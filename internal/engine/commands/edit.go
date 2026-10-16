@@ -61,11 +61,13 @@ type diffParams struct {
 }
 
 type createParams struct {
+	engine.OnCluster
 	YAML      string `json:"yaml" jsonschema:"one or more manifests separated by ---, or a v1 List"`
 	Namespace string `json:"namespace,omitempty" jsonschema:"namespace for objects whose manifest names none; empty uses the namespace filter if it names exactly one namespace, else the context's default namespace"`
 }
 
 type createTabParams struct {
+	engine.OnCluster
 	YAML     string `json:"yaml,omitempty" jsonschema:"text to start the tab with, e.g. a manifest for the user to review and create"`
 	Template string `json:"template,omitempty" jsonschema:"start from a template instead: its kind, e.g. Deployment (resource_templates lists them); default Pod"`
 }
@@ -139,7 +141,7 @@ func registerEdit(g *registrar) {
 			"now: lines with op \"-\" (removed), \"+\" (added) or \"=\" (context), with line numbers. Also checks that the text " +
 			"still names the same object. stale means the object changed since the edit's base version: its changes show " +
 			"as reverted, and an apply would be refused with a conflict.",
-		Enabled: func(s *engine.Session, _ diffParams) error { _, err := writable(s); return err },
+		Enabled: func(s *engine.Session, p diffParams) error { _, err := writableOn(s, tabContext(s, p.ID)); return err },
 		Run: func(ctx context.Context, s *engine.Session, p diffParams) (any, error) {
 			n := engine.DefaultDiffContext
 			if p.Context != nil {
@@ -154,7 +156,7 @@ func registerEdit(g *registrar) {
 		Description: "Sends an Edit tab's text (or yaml) to the API server as an update with dryRun=All: the server " +
 			"validates it and runs admission, and stores nothing. Carries the edit's base resourceVersion, so a concurrent " +
 			"change is reported as a conflict (then the tab compares with the newer version). Needs the update permission.",
-		Enabled: func(s *engine.Session, _ editParams) error { _, err := writable(s); return err },
+		Enabled: func(s *engine.Session, p editParams) error { _, err := writableOn(s, tabContext(s, p.ID)); return err },
 		Run: func(ctx context.Context, s *engine.Session, p editParams) (any, error) {
 			return s.DryRunEdit(ctx, p.ID, p.YAML)
 		},
@@ -173,7 +175,7 @@ func registerEdit(g *registrar) {
 		Refuse: func(ctx context.Context, s *engine.Session, p applyParams) error {
 			return s.GuardSecretEditor(ctx, p.ID, p.YAML) // a Secret: the GUI only (D-19), before asking
 		},
-		Enabled: func(s *engine.Session, _ applyParams) error { _, err := writable(s); return err },
+		Enabled: func(s *engine.Session, p applyParams) error { _, err := writableOn(s, tabContext(s, p.ID)); return err },
 		Targets: func(s *engine.Session, p applyParams) ([]model.ObjectRef, error) {
 			st, err := editTabRef(s, p.ID)
 			if err != nil {
@@ -194,7 +196,7 @@ func registerEdit(g *registrar) {
 			"land in namespace, else in the namespace filter's single namespace, else in the context's default. Secrets are " +
 			"created by the user in Cogpit's window only: for an agent or the CLI each Secret in the text is refused (D-19). Returns one item per object. An agent's request waits for the user's acceptance; " +
 			"when the text holds a RoleBinding or ClusterRoleBinding it always does, also where the user allowed agent writes.",
-		Enabled:   func(s *engine.Session, _ createParams) error { _, err := writable(s); return err },
+		Enabled:   func(s *engine.Session, p createParams) error { _, err := writableOn(s, p.Context); return err },
 		AgentsAsk: func(_ *engine.Session, p createParams) bool { return engine.TextHoldsRBAC(p.YAML) }, // H-27, A1
 		Refuse: func(ctx context.Context, _ *engine.Session, p createParams) error {
 			return engine.GuardSecretText(ctx, p.YAML) // a Secret: the GUI only (D-19), before asking
@@ -202,13 +204,13 @@ func registerEdit(g *registrar) {
 		Targets: func(s *engine.Session, p createParams) ([]model.ObjectRef, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
 			defer cancel()
-			return s.CreateTargets(ctx, p.YAML, p.Namespace)
+			return s.CreateTargets(ctx, p.Context, p.YAML, p.Namespace)
 		},
 		Run: func(ctx context.Context, s *engine.Session, p createParams) (any, error) {
-			res, err := s.CreateObjects(ctx, p.YAML, p.Namespace)
+			res, err := s.CreateObjects(ctx, p.Context, p.YAML, p.Namespace)
 			if err == nil && res.Failed == 0 && res.Created > 0 {
-				s.CreatedText(p.YAML)      // a Create tab holding this text has nothing unsaved: its draft goes (drafts.go)
-				revealCreated(ctx, s, res) // A102
+				s.CreatedText(p.Context, p.YAML) // a Create tab holding this text has nothing unsaved: its draft goes (drafts.go)
+				revealCreated(ctx, s, res)       // A102
 			}
 			return res, err
 		},
@@ -218,7 +220,7 @@ func registerEdit(g *registrar) {
 		ID: "resource.createTab", Label: "Create Resource", MenuPath: "View/Create Resource", Danger: engine.DangerUI,
 		Description: "Opens a Create resource dock tab with yaml, with a template (resource_templates lists them), or with " +
 			"an example Pod. Writes nothing: the user reviews the text and creates it, or object_create does. Returns the tab.",
-		Enabled: func(s *engine.Session, _ createTabParams) error { _, err := writable(s); return err },
+		Enabled: func(s *engine.Session, p createTabParams) error { _, err := writableOn(s, p.Context); return err },
 		Run: func(ctx context.Context, s *engine.Session, p createTabParams) (any, error) {
 			if err := engine.GuardSecretText(ctx, p.YAML); err != nil { // a Secret's text: the GUI only (D-19)
 				return nil, err
@@ -237,7 +239,7 @@ func registerEdit(g *registrar) {
 			} else if p.Template != "" {
 				return nil, errors.New("give yaml or template, not both")
 			}
-			st, err := s.OpenCreateTab(text)
+			st, err := s.OpenCreateTab(p.Context, text)
 			if err != nil {
 				return nil, err
 			}
@@ -256,7 +258,7 @@ func registerEdit(g *registrar) {
 // editable is object.edit's Enabled check. It must not block: a kind with a profile is checked
 // against the cache without waiting; a kind without one is resolved when the command runs.
 func editable(s *engine.Session, ref model.ObjectRef) error {
-	b, err := writable(s)
+	b, err := writableOn(s, ref.Context) // the object's cluster, shown or not (D-69)
 	if err != nil {
 		return err
 	}
@@ -304,7 +306,7 @@ func objectTarget(s *engine.Session, ref model.ObjectRef) ([]model.ObjectRef, er
 // cache when its kind has a profile (checked without waiting); other kinds are resolved when the
 // command runs.
 func cachedAny(s *engine.Session, ref model.ObjectRef) error {
-	b, err := writable(s)
+	b, err := writableOn(s, ref.Context) // the object's cluster, shown or not (D-69)
 	if err != nil {
 		return err
 	}

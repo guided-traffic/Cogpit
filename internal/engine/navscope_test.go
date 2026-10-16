@@ -87,13 +87,15 @@ func TestNavScopeFollowsTheConnection(t *testing.T) {
 	}
 	wantScope(t, s.UIState(), NavScopeLocal)
 
-	// Into a cluster that is not connected: connected first, as cluster.connect does.
+	// Into a cluster that is not shown: shown as cluster.connect shows it. test stayed connected
+	// while prod was shown (D-69), so neither the connect again to test above nor this drill connects:
+	// prod's connect is the only one since n.
 	u, err = s.SetNavigatorScope(ctx, NavScopeCluster("test"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	wantScope(t, u, NavScopeCluster("test"))
-	if u.Context != "test" || u.Connection.State != Connected || fc.connectCount() != n+3 {
+	if u.Context != "test" || u.Connection.State != Connected || fc.connectCount() != n+1 {
 		t.Errorf("drilled into test: %s %q, %d connects", u.Connection.State, u.Context, fc.connectCount())
 	}
 

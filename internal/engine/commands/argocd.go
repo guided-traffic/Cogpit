@@ -48,7 +48,7 @@ type argoSyncParams struct {
 }
 
 type argoSyncManyParams struct {
-	Refs  []model.ObjectRef `json:"refs" jsonschema:"the Applications (kind applications.argoproj.io) of the connected cluster, at most 500"`
+	Refs  []model.ObjectRef `json:"refs" jsonschema:"the Applications (kind applications.argoproj.io) of one connected cluster (their refs' context; the shown cluster without one), at most 500"`
 	Prune bool              `json:"prune,omitempty" jsonschema:"true: delete the resources each Application manages that are no longer in Git; the user always confirms a sync with prune"`
 }
 
@@ -58,7 +58,7 @@ type argoRefreshParams struct {
 }
 
 type argoRefreshManyParams struct {
-	Refs []model.ObjectRef `json:"refs" jsonschema:"the Applications (kind applications.argoproj.io) of the connected cluster, at most 500"`
+	Refs []model.ObjectRef `json:"refs" jsonschema:"the Applications (kind applications.argoproj.io) of one connected cluster (their refs' context; the shown cluster without one), at most 500"`
 	Hard bool              `json:"hard,omitempty" jsonschema:"true: a hard refresh, which also discards Argo CD's cached manifests; false or omitted: a normal refresh"`
 }
 
@@ -94,7 +94,8 @@ func (e *ArgoManyError) Error() string {
 }
 
 type argoDashboardParams struct {
-	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to count; omitted: the namespace filter the user has set"`
+	engine.OnCluster
+	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to count; omitted: the namespace filter the user has set (every namespace for a cluster the window does not show)"`
 	Attention  bool     `json:"attention,omitempty" jsonschema:"true: include the page's Needs attention table, the Applications not Healthy or not Synced with their message"`
 }
 
@@ -116,16 +117,16 @@ func registerArgoCD(g *registrar) {
 			"token, the out-of-sync Applications and all of them (what the Applications card's Sync and Refresh take), " +
 			"and the recent activity (operations and syncs, newest first); with attention, the Applications not Healthy " +
 			"or not Synced with their message. Read from the cache. ui_openView with view argocd/dashboard shows the page.",
-		Enabled: func(s *engine.Session, _ argoDashboardParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p argoDashboardParams) error { _, err := connectedOn(s, p.Context); return err },
 		Run: func(ctx context.Context, s *engine.Session, p argoDashboardParams) (any, error) {
-			m, attention, err := s.ArgoCDDashboard(ctx, p.Namespaces, p.Attention)
+			m, attention, err := s.ArgoCDDashboard(ctx, p.Context, p.Namespaces, p.Attention)
 			if err != nil {
 				return nil, err
 			}
 			return ArgoDashboardResult{ArgoCDDashboardModel: *m, Attention: attention}, nil
 		},
 	})
-	add(g, engine.Spec[struct{}]{
+	add(g, engine.Spec[engine.OnCluster]{
 		ID: "argocd.openUI", Label: "Open Argo CD UI", MenuPath: "Argo CD/Open Argo CD UI", Danger: engine.DangerMutating,
 		Verbs: serviceForwardVerbs,
 		Description: "Opens Argo CD's own web UI: finds the argocd-server Service by its label " +
@@ -133,18 +134,18 @@ func registerArgoCD(g *registrar) {
 			"port 80) to 127.0.0.1, or reuses that forward while it runs, as service.portForward does. Returns the " +
 			"forward with its URL; the GUI opens it in the browser, an agent gets the URL. The user must accept an " +
 			"agent's request.",
-		Enabled: func(s *engine.Session, _ struct{}) error {
-			b, err := connected(s)
+		Enabled: func(s *engine.Session, p engine.OnCluster) error {
+			b, err := connectedOn(s, p.Context)
 			if err != nil {
 				return err
 			}
 			if _, ok := b.Profile(kinds.ArgoApplicationsKey); !ok {
 				return errors.New("the cluster serves no Argo CD Applications")
 			}
-			return s.CanForward()
+			return s.CanForward(p.Context)
 		},
-		Targets: func(s *engine.Session, _ struct{}) ([]model.ObjectRef, error) {
-			ref, _, _, err := argoServer(s)
+		Targets: func(s *engine.Session, p engine.OnCluster) ([]model.ObjectRef, error) {
+			ref, _, _, err := argoServer(s, p.Context)
 			if err != nil {
 				return nil, err
 			}
@@ -258,10 +259,14 @@ const argoServerLabel = "app.kubernetes.io/name=argocd-server"
 
 // argoServer finds the argocd-server Service in the cache and the port to forward: 443 (https),
 // else 80 (http). It reads the Services through the cache, waiting for their first list (bounded).
-func argoServer(s *engine.Session) (model.ObjectRef, uint16, bool, error) {
+func argoServer(s *engine.Session, contextID string) (model.ObjectRef, uint16, bool, error) {
+	b, err := connectedOn(s, contextID) // the context's cluster, "" the shown one (D-69)
+	if err != nil {
+		return model.ObjectRef{}, 0, false, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
 	defer cancel()
-	svcs, err := s.Objects(ctx, kindServices, nil)
+	svcs, err := s.ObjectsIn(ctx, b.Context, kindServices, nil)
 	if err != nil {
 		return model.ObjectRef{}, 0, false, err
 	}
@@ -270,7 +275,7 @@ func argoServer(s *engine.Session) (model.ObjectRef, uint16, bool, error) {
 		if svc.GetLabels()[name] != value {
 			continue
 		}
-		ref := model.ObjectRef{Kind: kindServices, Namespace: svc.GetNamespace(), Name: svc.GetName()}
+		ref := model.ObjectRef{Context: b.Context, Kind: kindServices, Namespace: svc.GetNamespace(), Name: svc.GetName()}
 		var http uint16
 		for _, p := range model.NestedSlice(svc.Object, "spec", "ports") {
 			n, _ := model.NestedInt64(p, "port")
@@ -290,13 +295,13 @@ func argoServer(s *engine.Session) (model.ObjectRef, uint16, bool, error) {
 }
 
 // runArgoOpenUI reuses the forward of argocd-server while it listens, else starts it.
-func runArgoOpenUI(ctx context.Context, s *engine.Session, _ struct{}) (any, error) {
-	ref, port, https, err := argoServer(s)
+func runArgoOpenUI(ctx context.Context, s *engine.Session, p engine.OnCluster) (any, error) {
+	ref, port, https, err := argoServer(s, p.Context)
 	if err != nil {
 		return nil, err
 	}
-	if b := s.Backend(); b != nil {
-		fref := model.ObjectRef{Context: b.Context, Kind: engine.PortForwardKind, Namespace: ref.Namespace, Name: engine.ForwardName(ref, port)}
+	{
+		fref := model.ObjectRef{Context: ref.Context, Kind: engine.PortForwardKind, Namespace: ref.Namespace, Name: engine.ForwardName(ref, port)}
 		if f, err := s.LookupForward(fref); err == nil && f.Listening() {
 			return f, nil
 		}
@@ -386,7 +391,7 @@ func argoEnabled(s *engine.Session, ref model.ObjectRef) (*unstructured.Unstruct
 	if err != nil {
 		return nil, err
 	}
-	if _, _, err := argoActionsOf(s); err != nil {
+	if _, _, err := argoActionsOf(s, ref.Context); err != nil {
 		return nil, err
 	}
 	return obj, nil
@@ -416,8 +421,8 @@ func argoManyEnabled(s *engine.Session, refs []model.ObjectRef) error {
 var errConnectionCannotArgo = errors.New("this connection cannot change Argo CD applications")
 
 // argoActionsOf is the writable check of Argo CD's actions.
-func argoActionsOf(s *engine.Session) (*engine.Backend, engine.ArgoCDActions, error) {
-	b, err := writable(s)
+func argoActionsOf(s *engine.Session, contextID string) (*engine.Backend, engine.ArgoCDActions, error) {
+	b, err := writableOn(s, contextID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -428,10 +433,10 @@ func argoActionsOf(s *engine.Session) (*engine.Backend, engine.ArgoCDActions, er
 	return b, w, nil
 }
 
-// argoOne runs an action on one Application of the connected cluster after checking that the user
+// argoOne runs an action on one Application of its connected cluster after checking that the user
 // confirmed it for this cluster, with the version the cluster serves Applications at.
 func argoOne(ctx context.Context, s *engine.Session, ref model.ObjectRef, do func(engine.ArgoCDActions, string, model.ObjectRef) error) (model.ObjectRef, error) {
-	b, w, err := argoActionsOf(s)
+	b, w, err := argoActionsOf(s, ref.Context) // the Application's cluster, shown or not (D-69)
 	if err != nil {
 		return ref, err
 	}
@@ -440,7 +445,7 @@ func argoOne(ctx context.Context, s *engine.Session, ref model.ObjectRef, do fun
 		return ref, err
 	}
 	if ref.Context != b.Context {
-		return ref, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+		return ref, fmt.Errorf("%w: the shown cluster changed", engine.ErrWrongCluster)
 	}
 	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
 		return ref, err
@@ -463,7 +468,7 @@ func argoOne(ctx context.Context, s *engine.Session, ref model.ObjectRef, do fun
 // those left finishes what the user asked for (D-11).
 func argoMany(ctx context.Context, s *engine.Session, id, label string, refs []model.ObjectRef, action string,
 	do func(context.Context, engine.ArgoCDActions, string, model.ObjectRef) error) (any, error) {
-	b, w, err := argoActionsOf(s)
+	b, w, err := argoActionsOf(s, refsContext(refs))
 	if err != nil {
 		return nil, err
 	}

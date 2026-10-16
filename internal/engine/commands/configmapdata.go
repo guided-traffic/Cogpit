@@ -71,7 +71,7 @@ func registerConfigMapData(g *registrar) {
 			if p.Ref.Kind != kindConfigMaps {
 				return fmt.Errorf("%w: this applies to %s", engine.ErrNotApplicable, kindConfigMaps)
 			}
-			_, err := connected(s) // the Config Map is read when the command runs, after its kind is listed
+			_, err := connectedOn(s, p.Ref.Context) // the Config Map is read when the command runs, after its kind is listed
 			return err
 		},
 		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
@@ -137,7 +137,7 @@ func configMapDataEnabled(s *engine.Session, ref model.ObjectRef) error {
 	if ref.Kind != kindConfigMaps {
 		return fmt.Errorf("%w: this applies to %s", engine.ErrNotApplicable, kindConfigMaps)
 	}
-	if _, err := writable(s); err != nil {
+	if _, err := writableOn(s, ref.Context); err != nil {
 		return err
 	}
 	return s.ConfigMapSavable(ref)

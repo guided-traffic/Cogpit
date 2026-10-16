@@ -11,7 +11,7 @@ import (
 // restored and discarded. None of them writes to a cluster.
 
 type draftsParams struct {
-	All bool `json:"all,omitempty" jsonschema:"list the drafts of every context, not only the connected one's"`
+	All bool `json:"all,omitempty" jsonschema:"list the drafts of every context, not only the shown cluster's"`
 }
 
 type draftParams struct {

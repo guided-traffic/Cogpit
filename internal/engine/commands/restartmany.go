@@ -68,7 +68,7 @@ func registerRestartMany(g *registrar) {
 					return fmt.Errorf("%s: %w", r.String(), err)
 				}
 			}
-			_, _, err := restartsOf(s)
+			_, _, err := restartsOf(s, refsContext(p.Refs))
 			return err
 		},
 		Targets: func(s *engine.Session, p selectionParams) ([]model.ObjectRef, error) {
@@ -96,7 +96,7 @@ func registerRestartMany(g *registrar) {
 // pod template's restartedAt annotation, which its controller rolls out whether Cogpit runs or
 // not: harmless, as Restart of those not restarted finishes what the user asked for (D-11).
 func restartMany(ctx context.Context, s *engine.Session, p selectionParams) (any, error) {
-	b, rw, err := restartsOf(s)
+	b, rw, err := restartsOf(s, refsContext(p.Refs))
 	if err != nil {
 		return nil, err
 	}

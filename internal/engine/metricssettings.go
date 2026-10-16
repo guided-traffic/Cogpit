@@ -224,11 +224,11 @@ func noPrometheusDetection(b *Backend) error {
 	return fmt.Errorf("%w: %s has no Prometheus detection (%s)", ErrNotApplicable, b.Context, why)
 }
 
-// PrometheusSetting returns the connected cluster's Prometheus setting.
-func (s *Session) PrometheusSetting() (PrometheusSetting, error) {
-	b := s.Backend()
-	if b == nil {
-		return PrometheusSetting{}, ErrNotConnected
+// PrometheusSetting returns a connected cluster's Prometheus setting, "" the shown cluster's (D-69).
+func (s *Session) PrometheusSetting(contextID string) (PrometheusSetting, error) {
+	b, err := s.TargetBackend(contextID)
+	if err != nil {
+		return PrometheusSetting{}, err
 	}
 	if b.PrometheusDetector == nil {
 		return PrometheusSetting{}, noPrometheusDetection(b)
@@ -237,24 +237,25 @@ func (s *Session) PrometheusSetting() (PrometheusSetting, error) {
 	return settingOf(b.Context, d.Override(), d.Query(), b.MetricsSettings != nil), nil
 }
 
-// SetPrometheusOverride sets the connected cluster's Prometheus (nil: detect by name again) and
-// keeps its query settings: SetPrometheusSetting with them.
-func (s *Session) SetPrometheusOverride(o *metrics.Override) (PrometheusSetting, error) {
-	b := s.Backend()
+// SetPrometheusOverride sets a connected cluster's Prometheus ("" the shown one; nil: detect by
+// name again) and keeps its query settings: SetPrometheusSetting with them.
+func (s *Session) SetPrometheusOverride(contextID string, o *metrics.Override) (PrometheusSetting, error) {
+	b := s.BackendOf(contextID)
 	if b == nil || b.PrometheusDetector == nil {
-		return s.SetPrometheusSetting(o, metrics.QuerySettings{})
+		return s.SetPrometheusSetting(contextID, o, metrics.QuerySettings{})
 	}
-	return s.SetPrometheusSetting(o, b.PrometheusDetector.Query())
+	return s.SetPrometheusSetting(contextID, o, b.PrometheusDetector.Query())
 }
 
-// SetPrometheusSetting sets the connected cluster's Prometheus (nil: detect by name again) and how
-// it is asked (q), keeps both in Cogpit's preferences for that context, and makes the next poll that
-// needs Prometheus detect again with them: a drawer that is open asks the new one for its history at
-// once. It writes nothing to the cluster or the kubeconfig and sends no request itself.
-func (s *Session) SetPrometheusSetting(o *metrics.Override, q metrics.QuerySettings) (PrometheusSetting, error) {
-	b := s.Backend()
-	if b == nil {
-		return PrometheusSetting{}, ErrNotConnected
+// SetPrometheusSetting sets a connected cluster's Prometheus ("" the shown one, D-69; nil: detect by
+// name again) and how it is asked (q), keeps both in Cogpit's preferences for that context, and
+// makes the next poll that needs Prometheus detect again with them: a drawer that is open asks the
+// new one for its history at once. It writes nothing to the cluster or the kubeconfig and sends no
+// request itself.
+func (s *Session) SetPrometheusSetting(contextID string, o *metrics.Override, q metrics.QuerySettings) (PrometheusSetting, error) {
+	b, err := s.TargetBackend(contextID)
+	if err != nil {
+		return PrometheusSetting{}, err
 	}
 	if b.PrometheusDetector == nil || b.Metrics == nil {
 		return PrometheusSetting{}, noPrometheusDetection(b)

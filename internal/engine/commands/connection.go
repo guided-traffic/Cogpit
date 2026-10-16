@@ -21,8 +21,12 @@ type ConnectionResult struct {
 	Connection engine.Connection `json:"connection"`
 }
 
-func connectionResult(s *engine.Session) ConnectionResult {
+func connectionResult(s *engine.Session, contextID string) ConnectionResult {
 	u := s.UIState()
+	if contextID != "" && contextID != u.Context {
+		c, _ := u.ConnectionOf(contextID)
+		return ConnectionResult{Context: contextID, Connection: c.Connection}
+	}
 	return ConnectionResult{Context: u.Context, Connection: u.Connection}
 }
 
@@ -36,30 +40,40 @@ var (
 )
 
 func registerConnection(g *registrar) {
-	add(g, engine.Spec[struct{}]{
+	add(g, engine.Spec[engine.OnCluster]{
 		ID: "cluster.reconnect", Label: "Reconnect Now", MenuPath: "File/Reconnect Now", Danger: engine.DangerUI,
-		Description: "Tries at once to reach the connected cluster while its connection is interrupted (ui_state's " +
-			"connection.state is interrupted: the computer slept, the network or a VPN went away) and starts the " +
-			"backoff of the attempts again (1, 2, 4, 8, 16, then every 30 seconds). Cogpit reconnects by itself; " +
-			"this only does not wait. Sends no credentials and runs no login program. Returns the connection.",
-		Enabled: func(s *engine.Session, _ struct{}) error {
-			if s.UIState().Connection.State != engine.Interrupted {
+		Description: "Tries at once to reach a connected cluster (context, else the shown one) while its connection is " +
+			"interrupted (ui_state's connection.state, or its entry of connections, is interrupted: the computer slept, the " +
+			"network or a VPN went away) and starts the backoff of the attempts again (1, 2, 4, 8, 16, then every 30 " +
+			"seconds). Cogpit reconnects by itself; this only does not wait. Sends no credentials and runs no login program. " +
+			"Returns the connection.",
+		Enabled: func(s *engine.Session, p engine.OnCluster) error {
+			u := s.UIState()
+			st := u.Connection.State
+			if p.Context != "" && p.Context != u.Context {
+				c, ok := u.ConnectionOf(p.Context)
+				if !ok {
+					return &engine.NotConnectedError{Context: p.Context}
+				}
+				st = c.Connection.State
+			}
+			if st != engine.Interrupted {
 				return errConnNotInterrupted
 			}
 			return nil
 		},
-		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
-			if err := s.Reconnect(); err != nil {
+		Run: func(_ context.Context, s *engine.Session, p engine.OnCluster) (any, error) {
+			if err := s.ReconnectContext(p.Context); err != nil {
 				return nil, err
 			}
-			return connectionResult(s), nil
+			return connectionResult(s, p.Context), nil
 		},
 	})
 
 	add(g, engine.Spec[struct{}]{
 		ID: "cluster.login", Label: "Log In Again", MenuPath: "File/Log In Again", Danger: engine.DangerUI,
 		GUIOnly: engine.ErrGUIOnly,
-		Description: "Renews the connected cluster's login after it expired (ui_state's connection.state is loginExpired): " +
+		Description: "Renews the shown cluster's login after it expired (ui_state's connection.state is loginExpired): " +
 			"the context's credential plugin runs once, and may open a browser for the user to log in. The cache, the tabs " +
 			"and the views stay. A plugin whose program changed since the user allowed it is not run: then the context is " +
 			"connected anew, which asks the user first. Returns the connection." + guiOnly,
@@ -80,7 +94,7 @@ func registerConnection(g *registrar) {
 			if err := s.Login(); err != nil {
 				return nil, err
 			}
-			return connectionResult(s), nil
+			return connectionResult(s, ""), nil
 		},
 	})
 
@@ -96,7 +110,7 @@ func registerConnection(g *registrar) {
 			"is gone. Anything typed there runs with the container's or the node's privileges, so an agent's request waits for " +
 			"the user's acceptance; a node shell's always does. Returns the tab.",
 		Enabled: func(s *engine.Session, p dockParams) error {
-			if _, err := streamable(s, "shells"); err != nil {
+			if _, err := streamableOn(s, tabContext(s, p.ID), "shells"); err != nil {
 				return err
 			}
 			tab, ok := s.UIState().DockTab(p.ID)

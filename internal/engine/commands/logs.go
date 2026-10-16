@@ -52,7 +52,7 @@ func registerLogs(g *registrar) {
 			if !slices.Contains(engine.WorkloadLogKinds, p.Ref.Kind) {
 				return fmt.Errorf("%w: logs of all pods are offered for %v", engine.ErrNotApplicable, engine.WorkloadLogKinds)
 			}
-			if _, err := streamable(s, "logs"); err != nil {
+			if _, err := streamableOn(s, p.Ref.Context, "logs"); err != nil {
 				return err
 			}
 			_, err := s.Lookup(p.Ref)
@@ -112,7 +112,7 @@ func registerLogs(g *registrar) {
 			if tab.Ref.Kind != kindPods {
 				return fmt.Errorf("%w: the tab shows %s %s already", engine.ErrNotApplicable, tab.Ref.Kind, tab.Ref.Name)
 			}
-			if _, err := streamable(s, "logs"); err != nil {
+			if _, err := streamableOn(s, tabContext(s, p.ID), "logs"); err != nil {
 				return err
 			}
 			_, err = s.PodController(*tab.Ref)
@@ -153,7 +153,7 @@ func registerLogs(g *registrar) {
 			if _, err := s.LogsTab(p.ID); err != nil {
 				return err
 			}
-			_, err := streamable(s, "logs")
+			_, err := streamableOn(s, tabContext(s, p.ID), "logs")
 			return err
 		},
 		Run: func(ctx context.Context, s *engine.Session, p logSourceParams) (any, error) {
@@ -172,7 +172,7 @@ func registerLogs(g *registrar) {
 			if _, err := s.LogsTab(p.ID); err != nil {
 				return err
 			}
-			_, err := streamable(s, "logs")
+			_, err := streamableOn(s, tabContext(s, p.ID), "logs")
 			return err
 		},
 		Run: func(_ context.Context, s *engine.Session, p dockParams) (any, error) {
@@ -194,7 +194,7 @@ func registerLogs(g *registrar) {
 			if _, err := s.LogsTab(p.ID); err != nil {
 				return err
 			}
-			_, err := streamable(s, "logs")
+			_, err := streamableOn(s, tabContext(s, p.ID), "logs")
 			return err
 		},
 		Run: func(_ context.Context, s *engine.Session, p logJumpParams) (any, error) {

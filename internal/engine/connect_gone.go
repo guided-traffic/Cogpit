@@ -38,10 +38,10 @@ func (s *Session) settleGoneConnect(id string, b *Backend) {
 		s.forgetGoneContext(id, text, false)
 		return
 	}
-	if s.Backend() == b {
+	if s.state.holds(b) {
 		s.CloseGoneSourceConnection() // or the watcher's close of it, under way, wins
 	}
-	if s.Backend() == b {
+	if s.state.holds(b) {
 		return // still connected: the sources say the file is there after all
 	}
 	// Closed here or by the watcher, whose change of the UI may still be on its way: the reason

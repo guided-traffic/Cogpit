@@ -240,7 +240,7 @@ func TestArgoTilesNameTheStatusFilter(t *testing.T) {
 	src.Set(testkit.ArgoApplicationsGVR, testkit.ArgoApplication("team", "fresh", "", ""))
 	s := newCRDSession(t, src)
 	waitFor(t, "Argo CD's kinds", func() bool { return hasKind(s, kinds.ArgoApplicationsKey) })
-	m, _, err := s.ArgoCDDashboard(context.Background(), nil, true)
+	m, _, err := s.ArgoCDDashboard(context.Background(), "", nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}

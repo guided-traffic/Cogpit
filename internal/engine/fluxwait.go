@@ -58,9 +58,9 @@ func (s *Session) WaitFluxReconciled(ctx context.Context, ref model.ObjectRef, u
 	if err != nil {
 		return FluxReconciled{}, err
 	}
-	b := s.Backend()
-	if b == nil || b.Context != ref.Context {
-		return FluxReconciled{}, fmt.Errorf("%w: the connected cluster changed", ErrWrongCluster)
+	b, err := s.TargetBackend(ref.Context) // the object's cluster, shown or not (D-69)
+	if err != nil {
+		return FluxReconciled{}, err
 	}
 	h, err := b.readFollowing(ctx, p, p.Title, b.inNamespace(p, ref.Namespace))
 	if err != nil {

@@ -80,7 +80,7 @@ func registerPortForward(g *registrar) {
 			if err != nil {
 				return err
 			}
-			if err := s.CanForward(); err != nil {
+			if err := s.CanForward(p.Ref.Context); err != nil {
 				return err
 			}
 			if p.Port == 0 {
@@ -122,7 +122,7 @@ func registerPortForward(g *registrar) {
 			if err != nil {
 				return err
 			}
-			if err := s.CanForward(); err != nil {
+			if err := s.CanForward(p.Ref.Context); err != nil {
 				return err
 			}
 			if len(model.NestedStringMap(svc.Object, "spec", "selector")) == 0 {
@@ -193,7 +193,7 @@ func registerPortForward(g *registrar) {
 			if _, err := cachedForward(s, p.Ref); err != nil {
 				return err
 			}
-			return s.CanForward()
+			return s.CanForward(p.Ref.Context)
 		},
 		Prefill: func(s *engine.Session, p editForwardParams) (editForwardParams, error) {
 			f, err := cachedForward(s, p.Ref)
@@ -288,7 +288,7 @@ func registerPortForward(g *registrar) {
 
 // startForward starts a forward for a confirmed command and says so.
 func startForward(ctx context.Context, s *engine.Session, spec engine.ForwardSpec) (any, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, spec.Target.Context) // the target's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, err
 	}

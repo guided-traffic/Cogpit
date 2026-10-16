@@ -107,7 +107,7 @@ func TestPrometheusQuerySettings(t *testing.T) {
 
 	s := session(t)
 	waitService(s, "monitoring/prometheus-server:80")
-	if set, _ := s.PrometheusSetting(); set.Format != "auto" || !set.FilterEmptyContainers || set.HTTPS {
+	if set, _ := s.PrometheusSetting(""); set.Format != "auto" || !set.FilterEmptyContainers || set.HTTPS {
 		t.Errorf("the defaults: %+v", set)
 	}
 	res, err := dispatch(s, "cluster.setPrometheus", `{"address":"auto","format":"prometheus-operator","filterEmptyContainers":false,"https":true}`)
@@ -129,7 +129,7 @@ func TestPrometheusQuerySettings(t *testing.T) {
 	s.Close()
 	s2 := session(t)
 	waitService(s2, "monitoring/prometheus-server:80 (https)")
-	if set, _ := s2.PrometheusSetting(); set.Format != "prometheus-operator" || set.FilterEmptyContainers || !set.HTTPS {
+	if set, _ := s2.PrometheusSetting(""); set.Format != "prometheus-operator" || set.FilterEmptyContainers || !set.HTTPS {
 		t.Errorf("read back: %+v", set)
 	}
 	// The whole setting back to the defaults: nothing is kept for the context.

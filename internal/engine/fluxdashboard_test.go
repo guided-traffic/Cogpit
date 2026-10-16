@@ -61,7 +61,7 @@ func TestFluxDashboardPage(t *testing.T) {
 	waitFor(t, "the Flux kinds", func() bool { return hasKind(s, fluxKsKey) && hasKind(s, fluxGitKey) })
 
 	// Read once, the page not open: from the cache, waiting for the initial lists.
-	m, table, err := s.FluxDashboard(context.Background(), nil, true)
+	m, table, err := s.FluxDashboard(context.Background(), "", nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestFluxDashboardPage(t *testing.T) {
 	if rowNames(snap) != "paused" {
 		t.Errorf("team-a: %s", summary(snap))
 	}
-	m, _, _ = s.FluxDashboard(context.Background(), nil, false)
+	m, _, _ = s.FluxDashboard(context.Background(), "", nil, false)
 	if got := dashboardText(m); got != "Kustomizations 1: Suspended 1; Git Repositories 0: " {
 		t.Errorf("team-a model %s", got)
 	}
@@ -106,7 +106,7 @@ func TestFluxDashboardPage(t *testing.T) {
 	if snap.Rows[0].Ref.Kind != fluxHrKey || snap.Rows[0].Cells[1].Text != "HelmRelease" {
 		t.Errorf("helm release row %+v", snap.Rows[0])
 	}
-	m, _, _ = s.FluxDashboard(context.Background(), nil, false)
+	m, _, _ = s.FluxDashboard(context.Background(), "", nil, false)
 	if got := dashboardText(m); !strings.HasPrefix(got, "Helm Releases 1: Not Ready 1; Kustomizations 4: Ready 3, Suspended 1") {
 		t.Errorf("model with Helm releases %s", got)
 	}
@@ -122,7 +122,7 @@ func TestFluxDashboardWithoutFlux(t *testing.T) {
 	src.Set(testkit.PodsGVR, testkit.Pod("default", "web-0"))
 	s := newCRDSession(t, src)
 	waitFor(t, "the definitions to be listed", func() bool { set := s.Backend().customSet(); return set != nil && set.synced })
-	m, table, err := s.FluxDashboard(context.Background(), nil, true)
+	m, table, err := s.FluxDashboard(context.Background(), "", nil, true)
 	if err != nil || len(m.Kinds) != 0 || table.Error != "The cluster serves no Flux kinds." {
 		t.Fatalf("%+v %s %v", m, summary(table), err)
 	}

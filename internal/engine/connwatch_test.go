@@ -234,7 +234,7 @@ func TestAStreamThatBreaksChecksAtOnce(t *testing.T) {
 	opts := fastWatch
 	opts.Heartbeat = time.Hour
 	s, p := watchedSession(t, opts)
-	w := s.connWatch()
+	w := s.connWatch("")
 	p.set(func(f *fakeProber) { f.down = true })
 	from, _, err := func() (time.Time, time.Time, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -260,7 +260,7 @@ func TestAStreamThatBreaksChecksAtOnce(t *testing.T) {
 func TestAStreamThatBreaksAfterTheReconnectStillResumes(t *testing.T) {
 	opts := fastWatch
 	s, p := watchedSession(t, opts)
-	w := s.connWatch()
+	w := s.connWatch("")
 	opened := s.Now()
 	p.set(func(f *fakeProber) { f.down = true })
 	waitState(t, s, Interrupted)
@@ -357,7 +357,7 @@ func TestALoginRejectedAgainStaysExpired(t *testing.T) {
 // TestDrainJobStopsWhenInterrupted).
 func TestAnOperationStopsAtTheInterruption(t *testing.T) {
 	s, p := watchedSession(t, fastWatch)
-	ctx, cancel := s.OperationContext(context.Background())
+	ctx, cancel := s.OperationContext(context.Background(), "")
 	defer cancel()
 	p.set(func(f *fakeProber) { f.down = true })
 	select {
@@ -376,10 +376,10 @@ func TestADemoClusterHasNoWatch(t *testing.T) {
 	src := testkit.NewMemorySource()
 	s, _ := newTestSession(t, src, 10*time.Millisecond)
 	connectTest(t, s)
-	if s.connWatch() != nil {
+	if s.connWatch("") != nil {
 		t.Fatal("a watch without a connection")
 	}
-	if err := s.writeBlocked(DangerDestructive); err != nil {
+	if err := s.writeBlocked(DangerDestructive, ""); err != nil {
 		t.Fatal(err)
 	}
 	s.NoteWake() // nil-safe

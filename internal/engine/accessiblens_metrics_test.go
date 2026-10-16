@@ -133,7 +133,7 @@ func TestPodMetricsPerNamespaceOfThePlan(t *testing.T) {
 	}
 
 	// Agents: metrics.get of every pod reads the same namespaces.
-	res, err := s.MetricsGet(context.Background(), "pods", "", "", 0)
+	res, err := s.MetricsGet(context.Background(), "", "pods", "", "", 0)
 	if err != nil || res.Status != metrics.StatusAvailable {
 		t.Fatalf("metrics.get: %+v, %v", res, err)
 	}
@@ -163,7 +163,7 @@ func TestPodMetricsClusterWideForAUserWhoMayList(t *testing.T) {
 	if n := s.Backend().Metrics.Subscribed(); n != 2 {
 		t.Errorf("%d scopes polled, want 2 (every pod, node-1)", n)
 	}
-	if _, err := s.MetricsGet(context.Background(), "pods", "", "", 0); err != nil {
+	if _, err := s.MetricsGet(context.Background(), "", "pods", "", "", 0); err != nil {
 		t.Fatal(err)
 	}
 	if got := prov.listed(); slices.ContainsFunc(got, func(ns string) bool { return ns != "" }) {

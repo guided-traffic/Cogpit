@@ -266,12 +266,9 @@ func (s *Session) RestoreConfigMapDraft(_ context.Context, id string) (ConfigMap
 		d.wmu.Unlock()
 		return ConfigMapDraftRestored{}, err
 	}
-	b := s.Backend()
-	switch {
-	case b == nil:
-		err = ErrNotConnected
-	case b.Context != dr.Context:
-		err = fmt.Errorf("%w: the draft of %s belongs to context %q; connect to it to restore the draft", ErrWrongCluster, dr.what(), dr.Context)
+	b := s.BackendOf(dr.Context) // the draft's cluster, shown or not (D-69)
+	if b == nil {
+		err = fmt.Errorf("%w: the draft of %s belongs to context %q; connect to it to restore the draft", ErrNotConnected, dr.what(), dr.Context)
 	}
 	if err != nil {
 		d.wmu.Unlock()

@@ -89,6 +89,7 @@ type FindMatch struct {
 }
 
 type listParams struct {
+	engine.OnCluster
 	Kind       string   `json:"kind" jsonschema:"kind key: the plural for built-in kinds (pods), <plural>.<group> for custom resources (orders.acme.cert-manager.io); kinds_list lists them"`
 	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to list; empty lists all"`
 	Filter     string   `json:"filter,omitempty" jsonschema:"search text as in the view's search box: every term must occur in a cell, case-insensitively"`
@@ -97,6 +98,7 @@ type listParams struct {
 }
 
 type findParams struct {
+	engine.OnCluster
 	Kind  string `json:"kind,omitempty" jsonschema:"kind key to search (pods, or <plural>.<group> for a custom resource); empty searches every built-in kind that has the field and the custom resource kinds already in Cogpit's cache"`
 	Field string `json:"field" jsonschema:"field to match: name, namespace, label (key=value) or a kind's own field such as clusterIP, podIP or node; kinds_list lists them"`
 	Value string `json:"value" jsonschema:"value to look for"`
@@ -120,7 +122,7 @@ type objectWithRelated struct {
 func registerResources(g *registrar) {
 	add(g, engine.Spec[kindsListParams]{
 		ID: "kinds.list", Label: "List Kinds", Danger: engine.DangerRead,
-		Description: "Lists the kinds the connected cluster serves, as Cogpit shows them: kind key (what other tools take as " +
+		Description: "Lists the kinds a connected cluster serves (the shown one unless context names another), as Cogpit shows them: kind key (what other tools take as " +
 			"kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields " +
 			"resources_find can search by. Built-in kinds come first and keep their plural as the key (pods); then the kinds " +
 			"of the cluster's custom resource definitions, keyed <plural>.<group> (gateways.gateway.networking.k8s.io), " +
@@ -133,9 +135,9 @@ func registerResources(g *registrar) {
 			"selection's menu, commands the kind's other tools (its create dialog); cached says whether Cogpit's cache holds " +
 			"the kind now (no request to read it; resources_find without kind searches it). With all, the built-in kinds the " +
 			"cluster does not serve follow, marked notServed.",
-		Enabled: func(s *engine.Session, _ kindsListParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p kindsListParams) error { _, err := connectedOn(s, p.Context); return err },
 		Run: func(_ context.Context, s *engine.Session, p kindsListParams) (any, error) {
-			b, err := connected(s)
+			b, err := connectedOn(s, p.Context)
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +150,7 @@ func registerResources(g *registrar) {
 		Description: "Lists objects of one kind from Cogpit's cache, as table rows: reference, status and the cells by column " +
 			"title. Optional namespaces, search text and states filter as in the view; rows are sorted by name. total counts every " +
 			"row that passes the filters, returned the rows in the result (limit, default 100, at most 1000). Makes no API request once the kind is cached.",
-		Enabled: func(s *engine.Session, _ listParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p listParams) error { _, err := connectedOn(s, p.Context); return err },
 		Run:     listResources,
 	})
 
@@ -159,7 +161,7 @@ func registerResources(g *registrar) {
 			"built-in kind that has the field, and the custom resource kinds, Secrets and Helm releases only if already cached (a view or a " +
 			"lookup used them); name such a kind to search it. Returns {count, matches: [{ref, field, values}]}; pass a match's ref to " +
 			"ui_navigate to show it to the user.",
-		Enabled: func(s *engine.Session, _ findParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p findParams) error { _, err := connectedOn(s, p.Context); return err },
 		Run:     findResources,
 	})
 
@@ -176,7 +178,7 @@ func registerResources(g *registrar) {
 			"objects a workload controls (a Deployment's replica sets and pods, a Cron Job's jobs and pods, the pods of the " +
 			"other workloads); at most 200, relatedTotal counts them all." + privateReads + " For it a Secret's Data section " +
 			"holds each value as the drawer's Show reveals it, and its YAML the values as an Edit tab holds them.",
-		Enabled: func(s *engine.Session, _ objectParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p objectParams) error { _, err := connectedOn(s, p.Ref.Context); return err },
 		Run: func(ctx context.Context, s *engine.Session, p objectParams) (any, error) {
 			m, err := s.DetailWait(ctx, p.Ref)
 			if err != nil {
@@ -218,11 +220,11 @@ func listResources(ctx context.Context, s *engine.Session, p listParams) (any, e
 	if err != nil {
 		return nil, err
 	}
-	b, prof, err := s.Kind(p.Kind)
+	b, prof, err := s.KindIn(p.Context, p.Kind) // the context's cluster, "" the shown one (D-69)
 	if err != nil {
 		return nil, err
 	}
-	objs, err := s.Objects(ctx, prof.Key, p.Namespaces)
+	objs, err := s.ObjectsIn(ctx, p.Context, prof.Key, p.Namespaces)
 	if err != nil {
 		return nil, err
 	}
@@ -276,13 +278,13 @@ func findResources(ctx context.Context, s *engine.Session, p findParams) (any, e
 	if err != nil {
 		return nil, err
 	}
-	b, err := connected(s)
+	b, err := connectedOn(s, p.Context)
 	if err != nil {
 		return nil, err
 	}
 	var profs []*model.KindProfile
 	if p.Kind != "" {
-		_, prof, err := s.Kind(p.Kind)
+		_, prof, err := s.KindIn(p.Context, p.Kind)
 		if err != nil {
 			return nil, err
 		}
@@ -325,7 +327,7 @@ func findResources(ctx context.Context, s *engine.Session, p findParams) (any, e
 					errs[i] = fmt.Errorf("internal error: %v", r)
 				}
 			}()
-			objs[i], errs[i] = s.Objects(ctx, prof.Key, nil)
+			objs[i], errs[i] = s.ObjectsIn(ctx, p.Context, prof.Key, nil)
 		}()
 	}
 	wg.Wait()

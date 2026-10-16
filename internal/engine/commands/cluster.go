@@ -94,8 +94,10 @@ func registerCluster(g *registrar) {
 
 	add(g, engine.Spec[connectParams]{
 		ID: "cluster.connect", Label: "Connect to Cluster", MenuPath: "Cluster/Connect to Cluster", Shortcut: "Cmd+P", Danger: engine.DangerUI,
-		Description: "Connects to a context as cluster_contexts lists it, replacing the current connection, and shows its most " +
-			"recently used tab, or else its Pods view in the preview tab; the other clusters' tabs stay. Connecting only reads from the cluster. " +
+		Description: "Connects to a context as cluster_contexts lists it and shows it in the window: its most recently used " +
+			"tab, or else its Pods view in the preview tab; the other clusters' tabs stay. Several clusters stay connected at " +
+			"once (ui_state's connections): the cluster shown before stays connected, and a context that is connected already " +
+			"is only shown, from Cogpit's cache, without a request. Connecting only reads from the cluster. " +
 			"A context whose credential plugin, or whose connection without the certificate check (insecure-skip-tls-verify), " +
 			"the user has not allowed in Cogpit's window ends in state error saying so: only the user allows it there. " +
 			"Returns {context, state, error, tlsUnchecked}; state is connected or error; tlsUnchecked is set when the " +

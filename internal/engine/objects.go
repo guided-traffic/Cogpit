@@ -19,18 +19,25 @@ var (
 	ErrNotFound     = errors.New("not found in the cache")
 	ErrUnknownKind  = errors.New("unknown kind")
 	ErrNotSynced    = errors.New("the cache has not finished listing")
-	ErrWrongCluster = errors.New("the reference names another cluster than the connected one")
+	ErrWrongCluster = errors.New("the reference names another cluster than the one acted on")
 )
 
 // syncTimeout bounds how long a read waits for an informer's initial list.
 const syncTimeout = 15 * time.Second
 
-// Kind returns the connected backend and its profile for a kind key, built-in or custom. The error
-// names the served kinds, custom ones included, so an agent can correct itself.
+// Kind returns the shown cluster's backend and its profile for a kind key, built-in or custom
+// (KindIn of ""). The error names the served kinds, custom ones included, so an agent can correct
+// itself.
 func (s *Session) Kind(kind string) (*Backend, *model.KindProfile, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, nil, ErrNotConnected
+	return s.KindIn("", kind)
+}
+
+// KindIn is Kind for a connected context's cluster, "" the shown one (D-69); a context that is not
+// connected is a NotConnectedError.
+func (s *Session) KindIn(contextID, kind string) (*Backend, *model.KindProfile, error) {
+	b, err := s.TargetBackend(contextID)
+	if err != nil {
+		return nil, nil, err
 	}
 	p, ok := b.Profile(kind)
 	if !ok {
@@ -44,21 +51,19 @@ func (s *Session) Kind(kind string) (*Backend, *model.KindProfile, error) {
 	return b, p, nil
 }
 
-// ResolveRef checks a reference against the connected cluster and normalises it: the kind must be
-// served, a context must be empty or the connected one (and is filled in), a namespaced kind needs
-// a namespace, and a cluster-scoped kind's namespace is dropped.
+// ResolveRef checks a reference against its cluster and normalises it: a context names a connected
+// cluster (D-69: shown or not; a NotConnectedError otherwise), an empty one the shown cluster (and is
+// filled in); the kind must be served there, a namespaced kind needs a namespace, and a
+// cluster-scoped kind's namespace is dropped.
 func (s *Session) ResolveRef(ref model.ObjectRef) (model.ObjectRef, *model.KindProfile, error) {
 	_, ref, p, err := s.resolve(ref)
 	return ref, p, err
 }
 
 func (s *Session) resolve(ref model.ObjectRef) (*Backend, model.ObjectRef, *model.KindProfile, error) {
-	b, p, err := s.Kind(ref.Kind)
+	b, p, err := s.KindIn(ref.Context, ref.Kind) // the reference's cluster (D-69)
 	if err != nil {
 		return nil, ref, nil, err
-	}
-	if ref.Context != "" && ref.Context != b.Context {
-		return nil, ref, nil, fmt.Errorf("%w: %s is in context %q, connected is %q", ErrWrongCluster, ref.String(), ref.Context, b.Context)
 	}
 	if ref.Name == "" {
 		return nil, ref, nil, errors.New("the reference has no name")
@@ -88,12 +93,17 @@ func waitSynced(ctx context.Context, h *cache.Handle, kind string) error {
 	return fmt.Errorf("%w %s yet", ErrNotSynced, kind)
 }
 
-// Objects returns the cached objects of a kind, in the given namespaces (empty: all), acquiring a
-// cache handle for the call and waiting for the initial list (bounded by ctx and 15 seconds). The
-// handle is released afterwards and the informer stays warm. Objects are shared and must not be
-// modified.
+// Objects returns the shown cluster's cached objects of a kind (ObjectsIn of "").
 func (s *Session) Objects(ctx context.Context, kind string, namespaces []string) ([]*unstructured.Unstructured, error) {
-	b, p, err := s.Kind(kind)
+	return s.ObjectsIn(ctx, "", kind, namespaces)
+}
+
+// ObjectsIn returns a connected context's cached objects of a kind ("" the shown cluster's, D-69),
+// in the given namespaces (empty: all), acquiring a cache handle for the call and waiting for the
+// initial list (bounded by ctx and 15 seconds). The handle is released afterwards and the informer
+// stays warm. Objects are shared and must not be modified.
+func (s *Session) ObjectsIn(ctx context.Context, contextID, kind string, namespaces []string) ([]*unstructured.Unstructured, error) {
+	b, p, err := s.KindIn(contextID, kind)
 	if err != nil {
 		return nil, err
 	}

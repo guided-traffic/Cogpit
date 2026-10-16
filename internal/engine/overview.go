@@ -445,14 +445,13 @@ func (k *overviewKindState) count(context string, nsSet map[string]struct{}) Ove
 // events, its events table. While the page is open with those namespaces it is the page's latest
 // build; otherwise it is built once from the cache: the kinds' handles are held for the call, which
 // waits (bounded by ctx and 15 seconds) for their initial lists, and released after.
-func (s *Session) WorkloadsOverview(ctx context.Context, namespaces []string, events bool) (*WorkloadsOverviewModel, *TableSnapshot, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, nil, ErrNotConnected
+func (s *Session) WorkloadsOverview(ctx context.Context, contextID string, namespaces []string, events bool) (*WorkloadsOverviewModel, *TableSnapshot, error) {
+	b, err := s.TargetBackend(contextID) // the context's cluster, "" the shown one (D-69)
+	if err != nil {
+		return nil, nil, err
 	}
-	u := s.UIState()
 	if namespaces == nil {
-		namespaces = u.Namespaces
+		namespaces = s.windowNamespaces(b)
 	}
 	s.state.mu.Lock()
 	page := s.state.page

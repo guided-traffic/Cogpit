@@ -33,17 +33,14 @@ func (s *Session) restoreDraft(ctx context.Context, d *Drafts, id string) (strin
 	if err != nil {
 		return "", err
 	}
-	b := s.Backend()
-	if b == nil {
-		return "", ErrNotConnected
-	}
-	if b.Context != dr.Context {
-		return "", fmt.Errorf("%w: the draft of %s belongs to context %q; connect to it to restore the draft", ErrWrongCluster, dr.what(), dr.Context)
+	b := s.BackendOf(dr.Context) // the draft's cluster, shown or not (D-69)
+	if b == nil || dr.Context == "" {
+		return "", fmt.Errorf("%w: the draft of %s belongs to context %q; connect to it to restore the draft", ErrNotConnected, dr.what(), dr.Context)
 	}
 	var tabID string
 	switch dr.Type {
 	case DockCreate:
-		st, err := s.OpenCreateTab(dr.Text)
+		st, err := s.OpenCreateTab(dr.Context, dr.Text)
 		if err != nil {
 			return "", err
 		}
@@ -72,7 +69,7 @@ func (s *Session) restoreEditTab(ctx context.Context, b *Backend, dr Draft) (str
 		return "", err
 	}
 	if b2 != b {
-		return "", fmt.Errorf("%w: the connected cluster changed", ErrWrongCluster)
+		return "", fmt.Errorf("%w: the draft's cluster was connected anew", ErrWrongCluster)
 	}
 	if RedactedKind(t.APIVersion, t.Kind) { // never kept (D-19); read refuses such a file anyway
 		return "", ErrSecretGUIOnly

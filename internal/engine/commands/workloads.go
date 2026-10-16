@@ -41,12 +41,12 @@ func registerWorkloads(g *registrar) {
 			if _, err := cachedOfKind(s, p.Ref, cronJobKindKey); err != nil {
 				return err
 			}
-			_, _, err := workloadActionsOf(s)
+			_, _, err := workloadActionsOf(s, p.Ref.Context)
 			return err
 		},
 		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
 		Run: func(ctx context.Context, s *engine.Session, p refParams) (any, error) {
-			b, w, err := workloadActionsOf(s)
+			b, w, err := workloadActionsOf(s, p.Ref.Context)
 			if err != nil {
 				return nil, err
 			}
@@ -55,7 +55,7 @@ func registerWorkloads(g *registrar) {
 				return nil, err
 			}
 			if ref.Context != b.Context {
-				return nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+				return nil, fmt.Errorf("%w: the shown cluster changed", engine.ErrWrongCluster)
 			}
 			if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
 				return nil, err
@@ -89,7 +89,7 @@ func registerWorkloads(g *registrar) {
 			if _, err := cachedOfKind(s, p.Ref, kindPods); err != nil {
 				return err
 			}
-			_, _, err := workloadActionsOf(s)
+			_, _, err := workloadActionsOf(s, p.Ref.Context)
 			return err
 		},
 		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
@@ -129,7 +129,7 @@ func scaleSpec(id, menuPath, kind, noun string, order int) engine.Spec[scalePara
 			if _, err := cachedOfKind(s, p.Ref, kind); err != nil {
 				return err
 			}
-			_, _, err := workloadActionsOf(s)
+			_, _, err := workloadActionsOf(s, p.Ref.Context)
 			return err
 		},
 		Escalate: func(_ *engine.Session, p scaleParams) bool { return p.Replicas != nil && *p.Replicas == 0 },
@@ -199,7 +199,7 @@ func suspendSpec(suspend bool) engine.Spec[refParams] {
 			case !suspended && !suspend:
 				return fmt.Errorf("%w: cron job %s is not suspended", engine.ErrNotApplicable, p.Ref.Name)
 			}
-			_, _, err = workloadActionsOf(s)
+			_, _, err = workloadActionsOf(s, p.Ref.Context)
 			return err
 		},
 		Targets: func(s *engine.Session, p refParams) ([]model.ObjectRef, error) { return targetOf(s, p.Ref) },
@@ -216,8 +216,8 @@ func suspendSpec(suspend bool) engine.Spec[refParams] {
 }
 
 // workloadActionsOf is the writable check of the workload commands.
-func workloadActionsOf(s *engine.Session) (*engine.Backend, engine.WorkloadActions, error) {
-	b, err := writable(s)
+func workloadActionsOf(s *engine.Session, contextID string) (*engine.Backend, engine.WorkloadActions, error) {
+	b, err := writableOn(s, contextID) // the object's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, nil, err
 	}

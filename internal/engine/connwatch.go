@@ -679,43 +679,71 @@ func (w *connWatch) connection(old Connection) Connection {
 	}
 }
 
-// publish writes the watch's state into the UI state, unless another connect took over.
+// publish writes the watch's state into the UI state: the shown cluster's Connection, or its entry
+// of Connections while another cluster is shown (D-69); nothing once its backend left the pool or
+// another connect of its context took over.
 func (w *connWatch) publish() {
-	if w.s.Backend() != w.b {
+	if !w.s.state.holds(w.b) {
 		return
 	}
 	w.s.UpdateUI(func(u *UIState) {
-		if u.connGen != w.gen || u.Context != w.b.Context || !u.Connection.State.Live() {
+		if u.connGen == w.gen && u.Context == w.b.Context && u.Connection.State.Live() {
+			u.Connection = w.connection(u.Connection) // syncConnections mirrors it into its entry
 			return
 		}
-		u.Connection = w.connection(u.Connection)
+		if i := u.connectionIndex(w.b.Context, w.gen); i >= 0 && u.Connections[i].Connection.State.Live() {
+			u.Connections[i].Connection = w.connection(u.Connections[i].Connection)
+		}
 	})
 }
 
-// connWatch returns the connected backend's watch; nil without one (the demo cluster, no cluster).
-func (s *Session) connWatch() *connWatch {
-	if b := s.Backend(); b != nil {
+// needsNewConnect reports whether the connection's login expired and only a new connect may renew
+// it, its credential plugin having changed since it was allowed (D-26): connecting the context
+// again then connects anew instead of showing the pooled backend. Nil-safe.
+func (w *connWatch) needsNewConnect() bool {
+	if w == nil {
+		return false
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.state == LoginExpired && w.needsApproval
+}
+
+// connWatch returns the watch of a connected context's backend, the shown one for ""; nil without
+// one (the demo cluster, a context that is not connected).
+func (s *Session) connWatch(contextID string) *connWatch {
+	if b := s.BackendOf(contextID); b != nil {
 		return b.watch
 	}
 	return nil
 }
 
 // NoteWake tells the session that the computer woke from sleep (macOS's
-// NSWorkspaceDidWakeNotification): the connection is checked at once, and an interrupted one tried
-// at once.
-func (s *Session) NoteWake() { s.connWatch().kick(kickWake) }
+// NSWorkspaceDidWakeNotification): every connection is checked at once, and an interrupted one
+// tried at once (D-69 item 7: every connected cluster, shown or not).
+func (s *Session) NoteWake() {
+	for _, b := range s.Backends() {
+		b.watch.kick(kickWake)
+	}
+}
 
 // NoteNetworkChange tells the session that the computer's network changed (an interface came or
-// went, a VPN): as NoteWake, but a single failed check does not interrupt the connection.
-func (s *Session) NoteNetworkChange() { s.connWatch().kick(kickNetwork) }
+// went, a VPN): as NoteWake, but a single failed check does not interrupt a connection.
+func (s *Session) NoteNetworkChange() {
+	for _, b := range s.Backends() {
+		b.watch.kick(kickNetwork)
+	}
+}
 
-// writeBlocked is the reason a command of danger d cannot start: a write on a connection that is
-// interrupted or whose login expired (S4). Reads and UI commands run on.
-func (s *Session) writeBlocked(d Danger) error {
+// writeBlocked is the reason a command of danger d on a context's cluster ("" the shown one)
+// cannot start: a write on a connection that is interrupted or whose login expired (S4). Each
+// cluster's connection decides for its own commands (D-69): an interrupted cluster the window does
+// not show blocks the writes to it, not those to the shown one. Reads and UI commands run on.
+func (s *Session) writeBlocked(d Danger, contextID string) error {
 	if s == nil || (d != DangerMutating && d != DangerDestructive) {
 		return nil
 	}
-	switch s.connWatch().current() {
+	switch s.connWatch(contextID).current() {
 	case Interrupted:
 		return errConnInterrupted
 	case LoginExpired:
@@ -727,10 +755,17 @@ func (s *Session) writeBlocked(d Danger) error {
 // errNotInterrupted refuses cluster.reconnect on a connection that works.
 var errNotInterrupted = errors.New("the connection is not interrupted")
 
-// Reconnect tries to reach an interrupted cluster at once and starts the backoff again
-// (cluster.reconnect, the banner's Reconnect now).
-func (s *Session) Reconnect() error {
-	w := s.connWatch()
+// Reconnect tries to reach the shown cluster at once while its connection is interrupted and starts
+// the backoff again (cluster.reconnect, the banner's Reconnect now).
+func (s *Session) Reconnect() error { return s.ReconnectContext("") }
+
+// ReconnectContext is Reconnect for a connected context, "" the shown one (cluster.reconnect with a
+// context, D-69).
+func (s *Session) ReconnectContext(contextID string) error {
+	if s.BackendOf(contextID) == nil && contextID != "" {
+		return &NotConnectedError{Context: contextID}
+	}
+	w := s.connWatch(contextID)
 	if w.current() != Interrupted {
 		return errNotInterrupted
 	}
@@ -745,10 +780,12 @@ var ErrNeedsNewConnect = errors.New("the login program of this context changed s
 // errNotExpired refuses cluster.login on a connection whose login works.
 var errNotExpired = errors.New("the login has not expired")
 
-// Login renews an expired login (cluster.login, the banner's Log in again): the context's
-// credential plugin may run once, with its browser if it needs one.
+// Login renews the shown cluster's expired login (cluster.login, the banner's Log in again): the
+// context's credential plugin may run once, with its browser if it needs one. Another connected
+// cluster's login follows today's renewal (D-58) and is renewed when it is shown (D-69 item 4's
+// setting comes later).
 func (s *Session) Login() error {
-	w := s.connWatch()
+	w := s.connWatch("")
 	if w.current() != LoginExpired {
 		return errNotExpired
 	}
@@ -759,14 +796,38 @@ func (s *Session) Login() error {
 	return nil
 }
 
-// StaleNote is what an agent's read is told while the connection is interrupted or its login expired
-// (D-58): the cache's data is the cluster's state as of then, and writes are refused. "" otherwise.
-// The MCP server and the built-in agent add it to the results of read commands.
+// StaleNote is what an agent's read of the shown cluster is told while its connection is
+// interrupted or its login expired (D-58): the cache's data is the cluster's state as of then, and
+// writes are refused. "" otherwise.
 func (s *Session) StaleNote() string {
 	u := s.UIState()
-	since := u.Connection.Since.UTC().Format(time.RFC3339)
-	name := kubeconfig.DisplayText(u.Context, 200)
-	switch u.Connection.State {
+	return staleNote(u.Context, u.Connection)
+}
+
+// StaleNoteFor is StaleNote for the cluster an invocation reads (D-69): the context its parameters
+// name (a context parameter, an object's reference, a dock tab's cluster), else the shown one. The
+// MCP server and the built-in agent add it to the results of read commands.
+func (s *Session) StaleNoteFor(inv Invocation) string {
+	contextID := ""
+	if cmd, ok := s.reg.Get(inv.ID); ok {
+		if p, err := cmd.decode(inv.Params); err == nil {
+			contextID = targetContext(s, p)
+		}
+	}
+	u := s.UIState()
+	if contextID == "" || contextID == u.Context {
+		return staleNote(u.Context, u.Connection)
+	}
+	if c, ok := u.ConnectionOf(contextID); ok {
+		return staleNote(contextID, c.Connection)
+	}
+	return ""
+}
+
+func staleNote(contextID string, c Connection) string {
+	since := c.Since.UTC().Format(time.RFC3339)
+	name := kubeconfig.DisplayText(contextID, 200)
+	switch c.State {
 	case Interrupted:
 		return fmt.Sprintf("Note from Cogpit: the connection to %s is interrupted since %s and Cogpit is reconnecting by itself; "+
 			"this is data from %s, the cluster's state as Cogpit's cache last saw it. Writes are refused until the connection is back "+

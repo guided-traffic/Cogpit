@@ -42,6 +42,7 @@ type Drains struct {
 	running  map[drainKey]*runningDrain
 	lastRev  uint64
 	lastConn ConnectionState
+	lastCtx  string // the shown cluster the notice was last offered for (D-69)
 }
 
 // runningDrain is a drain running in this process: its latest progress and its job's dock tab.
@@ -82,11 +83,13 @@ func (d *Drains) onEvent(ev Event) {
 		return
 	}
 	d.lastRev = u.Revision
-	prev := d.lastConn
-	d.lastConn = u.Connection.State
+	prev, prevCtx := d.lastConn, d.lastCtx
+	d.lastConn, d.lastCtx = u.Connection.State, u.Context
 	s := d.s
 	d.mu.Unlock()
-	if s == nil || u.Connection.State == prev {
+	// A connect, a reconnect, or another connected cluster shown (D-69): the notice is the shown
+	// cluster's.
+	if s == nil || (u.Connection.State == prev && u.Context == prevCtx) {
 		return
 	}
 	switch u.Connection.State {
@@ -141,8 +144,8 @@ const offerWait = syncTimeout
 // toast for each, and returns the others. Without a synced node list (no permission to list
 // nodes, a slow cluster, another cluster connected meanwhile) nothing is dropped.
 func (d *Drains) dropMissingNodes(s *Session, ctxName string, pending []PendingDrain) []PendingDrain {
-	b := s.Backend()
-	if b == nil || b.Context != ctxName {
+	b := s.BackendOf(ctxName) // its cluster, shown or not (D-69)
+	if b == nil {
 		return pending
 	}
 	p, ok := b.Profile(nodeKind)
@@ -153,13 +156,13 @@ func (d *Drains) dropMissingNodes(s *Session, ctxName string, pending []PendingD
 	defer h.Release()
 	deadline := time.Now().Add(offerWait)
 	for !h.HasSynced() {
-		if s.Backend() != b || time.Now().After(deadline) || s.isClosed() {
+		if !s.state.holds(b) || time.Now().After(deadline) || s.isClosed() {
 			s.log.Warn("engine: unfinished drains offered without checking their nodes", "context", ctxName, "err", h.Err())
 			return pending
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if s.Backend() != b {
+	if !s.state.holds(b) {
 		return pending
 	}
 	exists := map[string]bool{}
@@ -410,9 +413,9 @@ type PendingDrainInfo struct {
 	Elsewhere bool `json:"elsewhere,omitempty"`
 }
 
-// PendingDrains returns the pending drains of the connected context (all: of every context),
-// oldest first, with their status and their node's state from the cache. It reads the journal
-// and the cache, never the API server.
+// PendingDrains returns the pending drains of the shown cluster's context (all: of every context),
+// oldest first, with their status and, for every connected cluster's (D-69), their node's state from
+// the cache. It reads the journal and the cache, never the API server.
 func (s *Session) PendingDrains(all bool) ([]PendingDrainInfo, error) {
 	d := s.opts.Drains
 	if d == nil {
@@ -445,8 +448,8 @@ func (s *Session) PendingDrains(all bool) ([]PendingDrainInfo, error) {
 		default:
 			info.Status = DrainStatusInterrupted
 		}
-		if b != nil && e.Context == b.Context {
-			info.NodeState = s.nodeState(e.Node)
+		if s.BackendOf(e.Context) != nil {
+			info.NodeState = s.nodeState(e.Context, e.Node)
 		}
 		out = append(out, info)
 	}
@@ -463,8 +466,8 @@ func (s *Session) PendingDrains(all bool) ([]PendingDrainInfo, error) {
 // starting a list. ok is false when the cache does not hold the cluster's pods now (no view or
 // drawer reads them: the Nodes view does, through its pods-by-node index). A drain's job shows
 // them as its steps until the drain lists the node's pods itself (commands/drainjob.go).
-func (s *Session) CachedNodePods(node string) (pods []*unstructured.Unstructured, ok bool) {
-	b := s.Backend()
+func (s *Session) CachedNodePods(contextID, node string) (pods []*unstructured.Unstructured, ok bool) {
+	b := s.BackendOf(contextID) // the node's cluster, shown or not (D-69)
 	if b == nil || b.Cache == nil {
 		return nil, false
 	}
@@ -486,8 +489,8 @@ func (s *Session) CachedNodePods(node string) (pods []*unstructured.Unstructured
 }
 
 // nodeState reads a node's schedulability from the cache, without waiting.
-func (s *Session) nodeState(node string) string {
-	obj, err := s.Lookup(model.ObjectRef{Kind: nodeKind, Name: node})
+func (s *Session) nodeState(contextID, node string) string {
+	obj, err := s.Lookup(model.ObjectRef{Context: contextID, Kind: nodeKind, Name: node})
 	switch {
 	case errors.Is(err, ErrNotFound):
 		return DrainNodeMissing

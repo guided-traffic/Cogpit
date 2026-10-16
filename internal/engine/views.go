@@ -18,8 +18,10 @@ import (
 // ErrClosed is returned by a Session that was closed.
 var ErrClosed = errors.New("the session is closed")
 
-// state holds the connected backend, the open view with its cache handle and coalesced snapshots,
-// the drawer's watch, and the diagnostics loop.
+// state holds the pool of connected backends (pool.go, D-69) and the window's view state: the
+// backend the window shows, the open view with its cache handle and coalesced snapshots, the
+// pages, the drawer's watch; and the diagnostics loop. R3's windows (D-52) later get a view state
+// each; the pool stays one.
 //
 // Lock order: state.mu before Session.mu. Session.mu is never held while state.mu is taken
 // (UpdateUI releases it before calling uiChanged); state.mu may be held while Session.mu is taken
@@ -28,27 +30,32 @@ var ErrClosed = errors.New("the session is closed")
 type state struct {
 	s *Session
 
-	// connMu serialises Connect calls, so that the UI state follows one connection at a time.
+	// connMu serialises Connect calls and Disconnect of the shown cluster, so that the UI state
+	// follows one connect at a time.
 	connMu sync.Mutex
 
 	mu            sync.Mutex
 	closed        bool
 	connectSeq    uint64
 	connectCancel context.CancelFunc
-	backend       *Backend
-	appliedRev    uint64
-	view          *viewWorker
-	page          *overviewWorker        // the open page's worker (overview.go); nil unless a page is open
-	cluster       *clusterOverviewWorker // the cluster Overview's worker (clusteroverview.go); nil unless it is open
-	flux          *fluxDashboardWorker   // the Flux dashboard's worker (fluxdashboard.go); nil unless it is open
-	argo          *argoDashWorker        // the Argo CD Dashboard's worker (argocd_dashboard.go); nil unless it is open
-	vanished      *TableSnapshot         // the open view after the cluster stopped serving its kind (customkinds.go)
-	drawer        *drawerWatch
-	drawerSort    map[string]SortSpec // the drawer tables' order last applied (UIState.DrawerSort)
-	diagStop      chan struct{}
-	sorts         map[string]SortSpec  // the sort order remembered per view
-	rowCaches     map[string]*rowCache // rows per view of the current backend, reused across visits
-	dockSeq       map[DockType]int
+	pool          map[string]*pooled // every connected backend, by context id (pool.go)
+
+	// The window's view state. shown is the backend the window shows, one of the pool's; nil while
+	// none is (connecting, failed, disconnected). The workers below read it only.
+	shown      *Backend
+	appliedRev uint64
+	view       *viewWorker
+	page       *overviewWorker        // the open page's worker (overview.go); nil unless a page is open
+	cluster    *clusterOverviewWorker // the cluster Overview's worker (clusteroverview.go); nil unless it is open
+	flux       *fluxDashboardWorker   // the Flux dashboard's worker (fluxdashboard.go); nil unless it is open
+	argo       *argoDashWorker        // the Argo CD Dashboard's worker (argocd_dashboard.go); nil unless it is open
+	vanished   *TableSnapshot         // the open view after the cluster stopped serving its kind (customkinds.go)
+	drawer     *drawerWatch
+	drawerSort map[string]SortSpec  // the drawer tables' order last applied (UIState.DrawerSort)
+	diagStop   chan struct{}        // the diagnostics loop's, while the pool holds a backend
+	sorts      map[string]SortSpec  // the sort order remembered per view
+	rowCaches  map[string]*rowCache // rows per view of the shown backend, reused across visits
+	dockSeq    map[DockType]int
 
 	logs connectLogs // the last connect attempt of each context (connectlog.go); has its own lock
 
@@ -80,8 +87,15 @@ func (st *state) uiChanged(_, now UIState) {
 }
 
 func (st *state) reconcileLocked(now UIState) {
-	b := st.backend
-	st.followMetricsSource(b, now) // the cluster's Metrics source, before anything polls (metricssource.go)
+	for _, e := range st.pool {
+		st.followMetricsSource(e.b, now) // each cluster's Metrics source, before anything polls (metricssource.go)
+	}
+	b := st.shown
+	if b != nil && now.Context != b.Context {
+		// The UI state does not name the shown backend yet (a pooled cluster being shown,
+		// showConnected): no view of the other cluster's state starts on it.
+		b = nil
+	}
 
 	// The view: one worker for the open kind of the current backend, read in all namespaces or in
 	// each namespace the user named (accessiblens_plan.go); a new plan reads the kind again.
@@ -149,41 +163,8 @@ func (st *state) reconcileLocked(now UIState) {
 	}
 }
 
-// detachLocked stops everything bound to the current backend and returns it for closing outside
-// the lock.
-func (st *state) detachLocked() *Backend {
-	if st.view != nil {
-		st.view.stop()
-		st.view = nil
-	}
-	if st.page != nil {
-		st.page.stop()
-		st.page = nil
-	}
-	if st.cluster != nil {
-		st.cluster.stop()
-		st.cluster = nil
-	}
-	if st.flux != nil {
-		st.flux.stop()
-		st.flux = nil
-	}
-	st.detachArgoLocked()
-	if st.drawer != nil {
-		st.drawer.stop()
-		st.drawer = nil
-	}
-	if st.diagStop != nil {
-		close(st.diagStop)
-		st.diagStop = nil
-	}
-	old := st.backend
-	st.backend = nil
-	clear(st.rowCaches)
-	return old
-}
-
-// close disconnects and stops every loop. It waits a bounded time for the engine's goroutines.
+// close disconnects every cluster and stops every loop. It waits a bounded time for the engine's
+// goroutines.
 func (st *state) close() {
 	st.mu.Lock()
 	if st.closed {
@@ -194,9 +175,15 @@ func (st *state) close() {
 	if st.connectCancel != nil {
 		st.connectCancel()
 	}
-	old := st.detachLocked()
+	st.detachViewsLocked()
+	var all []*Backend
+	for id := range st.pool {
+		all = append(all, st.removeLocked(id))
+	}
 	st.mu.Unlock()
-	old.close(st.s.log)
+	for _, b := range all {
+		b.close(st.s.log)
+	}
 
 	done := make(chan struct{})
 	go func() {
@@ -210,11 +197,14 @@ func (st *state) close() {
 	}
 }
 
-// Backend returns the connected backend, or nil. It is shared: callers must not modify it.
+// Backend returns the backend of the cluster the window shows, or nil while none is (D-69: other
+// clusters may be connected; BackendOf returns any connected context's). The window's views and
+// commands on the window's state use it; a command on an object or with a context parameter uses
+// its cluster's (TargetBackend). It is shared: callers must not modify it.
 func (s *Session) Backend() *Backend {
 	s.state.mu.Lock()
 	defer s.state.mu.Unlock()
-	return s.state.backend
+	return s.state.shown
 }
 
 // Contexts lists the contexts the connector offers. With a partial result (the kubeconfig failed
@@ -238,9 +228,11 @@ func (s *Session) Contexts() ([]ContextInfo, error) {
 // cluster serves them, else its first kind. The UI state follows the connection's lifecycle:
 // Connecting, then Connected or ConnectError with the message.
 //
-// The previous backend is released when the connection starts, not when it succeeds, so that
-// UIState.Context always names the cluster the engine acts on: a command can never act on the old
-// cluster while the UI already names the new one. A later Connect supersedes a pending one.
+// Several clusters stay connected (D-69, pool.go): a context that is connected already is only
+// shown, from its cache, without a request (one whose login program changed since it was allowed
+// is connected anew, D-26); the cluster shown before stays connected, and the window's views on it
+// stop when the connect starts, so that UIState.Context always names the cluster the window shows.
+// A later Connect supersedes a pending one.
 func (s *Session) Connect(ctx context.Context, name string) error {
 	st := s.state
 	connector := s.opts.Connector
@@ -278,10 +270,21 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	}
 
 	st.mu.Lock()
-	old := st.detachLocked()
+	if e := st.pool[name]; e != nil && !e.b.watch.needsNewConnect() {
+		// Connected already (D-69): only shown, from its cache; nothing is asked of the cluster.
+		st.showLocked(e)
+		st.mu.Unlock()
+		s.showConnected(e.b, e.gen)
+		return nil
+	}
+	stale := st.removeLocked(name) // its login program changed since it was allowed: connected anew (D-26)
+	st.leaveLocked()               // the cluster shown so far stays connected (D-69)
 	st.mu.Unlock()
-	old.close(s.log)
+	stale.close(s.log)
 	s.UpdateUI(func(u *UIState) {
+		if stale != nil {
+			u.dropConnection(name, 0)
+		}
 		u.Context = name
 		u.Connection = Connection{State: Connecting}
 		u.View = ""
@@ -323,6 +326,16 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		st.logs.finish(attempt, OutcomeAbandoned, LogInfo, "Superseded by a newer connect")
 		return fmt.Errorf("connect %s: superseded by a newer connect", name)
 	}
+	if e := st.pool[b.Context]; e != nil {
+		// The connector named the cluster by a context id the pool holds already: that connection
+		// stays, with its streams, and is shown; the new one closes.
+		st.showLocked(e)
+		st.mu.Unlock()
+		b.close(s.log)
+		st.logs.finish(attempt, OutcomeAbandoned, LogInfo, "Connected already as "+b.Context)
+		s.showConnected(e.b, e.gen)
+		return nil
+	}
 	s.attachCustomKinds(b)
 	s.noteAccessReviews(b, steps) // their first answers, when they come (accessreviews.go)
 	s.attachAccess(b)
@@ -333,11 +346,9 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	b.watch = newConnWatch(s, b, seq) // nil for the demo cluster (connwatch.go, D-58)
 	logConnectedSteps(steps, b)
 	st.logs.finish(attempt, OutcomeOK, LogInfo, "Connected to "+name)
-	st.backend = b
-	st.diagStop = make(chan struct{})
-	diagStop := st.diagStop
+	st.addLocked(&pooled{b: b, gen: seq})
+	st.shown = b
 	st.mu.Unlock()
-	s.goSafe("diagnostics", func() { s.diagnosticsLoop(diagStop) })
 
 	view := defaultView(b)
 	sort := s.ViewSort(view)
@@ -384,7 +395,7 @@ func (s *Session) ViewSort(view string) SortSpec {
 	st := s.state
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	p := st.backend.viewProfile(view) // a kind's profile, or a page's table profile
+	p := st.shown.viewProfile(view) // a kind's profile, or a page's table profile
 	if sp, ok := st.sorts[view]; ok && (p == nil || p.ColumnIndex(sp.Column) >= 0) {
 		return sp
 	}

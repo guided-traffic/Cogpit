@@ -24,7 +24,7 @@ func registerCopy(g *registrar) {
 		Description: "Returns an object's name, as the detail drawer's Copy does for the user, who gets it on the " +
 			"clipboard. Works for every kind; the object must be in Cogpit's cache.",
 		Enabled: func(s *engine.Session, p refParams) error {
-			if _, err := connected(s); err != nil {
+			if _, err := connectedOn(s, p.Ref.Context); err != nil {
 				return err
 			}
 			_, _, err := s.ResolveRef(p.Ref)

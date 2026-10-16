@@ -31,6 +31,7 @@ type (
 		Regex     *bool  `json:"regex,omitempty"`
 	}
 	probeCreateTab struct {
+		engine.OnCluster
 		YAML     string `json:"yaml,omitempty"`
 		Template string `json:"template,omitempty"`
 	}
@@ -38,7 +39,7 @@ type (
 
 // paletteProbes lists the real commands the palette tests register, by parameter type.
 var paletteProbes = map[string]func(t testing.TB, f *fakeEngine, cmd *engine.Command){
-	"ui.palette.open": probe[struct{}], "ui.palette.close": probe[struct{}], "terminal.open": probe[struct{}],
+	"ui.palette.open": probe[struct{}], "ui.palette.close": probe[struct{}], "terminal.open": probe[engine.OnCluster],
 	"resource.createTab": probe[probeCreateTab], "ui.closeDrawer": probe[struct{}],
 	"cluster.connect": probe[probeContext], "ui.openView": probe[probeView], "ui.setFilter": probe[probeFilter],
 	"hotbar.addCluster": probe[hotbarClusterParams], "hotbar.removeCluster": probe[hotbarClusterParams],

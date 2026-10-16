@@ -81,7 +81,7 @@ func newDrainJob(s *engine.Session, b *engine.Backend, node model.ObjectRef, set
 	dj := &drainJob{b: b, node: node, pods: map[string]int{}, phase: map[string]drainPhase{}, waiting: map[string]string{}}
 	ref := node
 	dj.steps = []engine.JobStep{{Ref: &ref, Text: stepText(b, node)}}
-	if cached, ok := s.CachedNodePods(node.Name); ok {
+	if cached, ok := s.CachedNodePods(b.Context, node.Name); ok {
 		dj.setPods(previewPods(cached, settings))
 	}
 	return dj

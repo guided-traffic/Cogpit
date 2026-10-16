@@ -13,10 +13,16 @@ import (
 type UIState struct {
 	// Revision increases with every change.
 	Revision uint64 `json:"revision"`
-	// Context is the kubeconfig context of the active cluster, empty before connecting.
+	// Context is the kubeconfig context of the cluster the window shows (D-69: other clusters may
+	// be connected too, Connections lists them), empty before connecting.
 	Context string `json:"context"`
 	// Connection is the state of the connection to Context.
 	Connection Connection `json:"connection"`
+	// Connections are the clusters the engine holds a connection to (D-69), sorted by context id:
+	// the shown one (Context, its entry mirroring Connection), the one being connected, and every
+	// cluster the window left connected, each with its connection's state and whether it is cold
+	// (connections.go). Empty while nothing is connected.
+	Connections []ConnectedCluster `json:"connections,omitempty"`
 	// User is who Cogpit is logged in as on Context (whoami.go, D-68): the username and groups the
 	// API server confirmed at the connect, the kubeconfig's user entry's name where it did not, or
 	// while not connected the last username it confirmed and when; nil without a context, for the
@@ -131,7 +137,8 @@ type UIState struct {
 	connGen   uint64    // the connect that made the connection Connected: its watch writes Connection (connwatch.go)
 }
 
-// Connection is the state of the active cluster connection.
+// Connection is the state of one cluster connection: the shown cluster's (UIState.Connection), or
+// another connected cluster's (ConnectedCluster.Connection).
 type Connection struct {
 	State ConnectionState `json:"state"`
 	Error string          `json:"error,omitempty"` // set in ConnectError, and in Disconnected when Cogpit closed the connection (its kubeconfig file went away); never contains a credential
@@ -305,6 +312,7 @@ func (u UIState) Clone() UIState {
 			out.ColumnOrder[view] = slices.Clone(ids)
 		}
 	}
+	out.Connections = slices.Clone(u.Connections)
 	out.Selected = slices.Clone(u.Selected)
 	if u.Drawer != nil {
 		d := *u.Drawer

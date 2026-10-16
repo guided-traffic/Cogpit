@@ -524,9 +524,9 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 		}
 	}
 	u := s.UIState()
-	v.Connected = u.Context == context && u.Connection.State.Live()
+	v.Connected = u.connectionState(context).Live() // shown or not (D-69)
 	v.MetricsSource = MetricsSourceName(cs.MetricsSource)
-	if b := s.Backend(); v.Connected && b != nil && b.Context == context {
+	if b := s.BackendOf(context); v.Connected && b != nil && context != "" {
 		v.MetricsInUse = metricsInUse(b.Metrics)
 	}
 	return v, nil

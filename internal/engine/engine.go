@@ -79,11 +79,15 @@ func (e *ParamsError) Unwrap() error { return e.Err }
 type DisabledError struct {
 	Command string
 	Reason  string
+	err     error // the reason's error, for errors.Is (a context that is not connected: ErrNotConnected)
 }
 
 func (e *DisabledError) Error() string {
 	return fmt.Sprintf("command %s is disabled: %s", e.Command, e.Reason)
 }
+
+// Unwrap returns the error the reason comes from, if any.
+func (e *DisabledError) Unwrap() error { return e.err }
 
 // Options configure a Session.
 type Options struct {
@@ -323,8 +327,13 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	if err := cmd.refuseOrigin(inv.Origin); err != nil {
 		return nil, err
 	}
+	// A command acts on one cluster: references of several connected clusters are refused before
+	// anything is checked or asked (D-69, target.go).
+	if err := oneCluster(paramsRefs(p)); err != nil {
+		return nil, fmt.Errorf("command %s: %w", cmd.ID, err)
+	}
 	if err := s.safeCall(cmd.ID, func() error { return cmd.enabled(s, p) }); err != nil {
-		return nil, &DisabledError{Command: cmd.ID, Reason: err.Error()}
+		return nil, &DisabledError{Command: cmd.ID, Reason: err.Error(), err: err}
 	}
 	if cmd.refuse != nil { // before any confirmation: never ask the user for what is refused anyway
 		octx := withInvocation(ctx, inv)
@@ -333,8 +342,18 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		}
 	}
 
+	// The cluster the command reads or acts on (D-69, target.go): its parameters' context, dock
+	// tab or reference, else the shown cluster. The allowance of agent writes is that cluster's,
+	// and so is the context its confirmation names.
+	var target string
+	if err := s.safeCall(cmd.ID, func() error { target = targetContext(s, p); return nil }); err != nil {
+		return nil, err
+	}
 	s.mu.Lock()
-	uiContext := s.ui.Context
+	uiContext := target
+	if uiContext == "" {
+		uiContext = s.ui.Context
+	}
 	allowed := s.agentWritesLocked(uiContext) // the run's or the kept allowance (allowance.go)
 	confirmer := s.confirmer
 	s.mu.Unlock()
@@ -357,6 +376,9 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 		var targets []model.ObjectRef
 		if err := s.safeCall(cmd.ID, func() (err error) { targets, err = cmd.targets(s, p); return err }); err != nil {
 			return nil, err
+		}
+		if err := oneCluster(targets); err != nil { // one confirmation names one context (D-69)
+			return nil, fmt.Errorf("command %s: %w", cmd.ID, err)
 		}
 		if confirmer == nil {
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrConfirmationUnavailable)
@@ -392,8 +414,8 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 			return nil, fmt.Errorf("command %s: %w", cmd.ID, ErrDeclined)
 		}
 		// The connection may have broken while the user read the dialog (D-58).
-		if err := s.writeBlocked(danger); err != nil {
-			return nil, &DisabledError{Command: cmd.ID, Reason: err.Error()}
+		if err := s.writeBlocked(danger, req.Context); err != nil {
+			return nil, &DisabledError{Command: cmd.ID, Reason: err.Error(), err: err}
 		}
 		ctx = context.WithValue(ctx, confirmedKey{}, req)
 		auditContext = req.Context
@@ -414,7 +436,7 @@ func (s *Session) Dispatch(ctx context.Context, inv Invocation) (result any, err
 	private := inv.privateTurn()
 	err = s.safeCall(cmd.ID, func() (err error) { result, err = cmd.run(ctx, s, p); return err })
 	if err == nil && inv.Origin.IsAgent() && !private && needsAgentSecrets(result) { // the Secrets it is read against (agentsecrets.go)
-		if err = s.Backend().agentSecrets(ctx); err != nil {
+		if err = s.BackendOf(target).agentSecrets(ctx); err != nil { // the read cluster's Secrets (D-69)
 			result = nil
 		}
 	}
@@ -454,6 +476,7 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.mu.Lock()
 	old := s.ui.Clone()
 	fn(&s.ui)
+	s.ui.syncConnections()          // the shown cluster's entry of Connections (connections.go, D-69)
 	s.ui.syncStates()               // a status filter ends with its view (statusfilter.go)
 	s.ui.syncTabs(old, s.viewTitle) // the active tab follows the view, whoever changed it (tabs.go)
 	s.ui.syncWelcome()              // the welcome page shows while the workspace has nothing else (welcome.go)
@@ -471,7 +494,7 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.state.uiChanged(old, now)
 	s.users.flush(s)                          // a connection that ended was its user's last sighting (whoami_store.go)
 	s.endClosedNodeShells(old.Dock, now.Dock) // a closed node shell tab's pod goes (nodeshell.go)
-	s.followJobs(old, now)                    // a closed job tab, or another cluster, ends its job (jobs.go)
+	s.followJobs(old, now)                    // a closed job tab, or its cluster's end, ends its job (jobs.go)
 	s.emit(Event{Type: EventUIState, UIState: &now})
 	return now
 }

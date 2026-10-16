@@ -47,12 +47,17 @@ Reporting a vulnerability: [`SECURITY.md`](../../SECURITY.md).
 
 - **Isolation between clusters:** Cogpit is a single-user desktop app with no server side; the
   isolation that matters is between the clusters open in one process. An action, an editor apply,
-  a terminal or an agent's tool call must reach only the cluster whose view started it. Cogpit holds
-  one connection at a time; a write confirmed for one context refuses to run after the user
-  switched to another (`CheckConfirmedContext` in [`confirm.go`](../../internal/engine/confirm.go)),
-  and each terminal is bound to its context by its own kubeconfig. No page covers this yet; it is
-  due when several clusters can be open at once
-  ([G4](../parity/gaps.md#g4-engine-and-command-registry)). The owner asked on 2026-10-14 evening
+  a terminal or an agent's tool call must reach only the cluster whose view started it. Since
+  2026-10-16 several clusters stay connected at once
+  ([D-69](../developer/decisions.md#d-69-several-clusters-connected-at-once) stage 1): every command
+  acts on the cluster its parameters name (a reference's context, a dock tab's, a `context`
+  parameter; the shown cluster without one), references of two clusters in one command are refused,
+  a write confirmed for one context refuses to run on another (`CheckConfirmedContext` in
+  [`confirm.go`](../../internal/engine/confirm.go)), its cluster's connection, access reviews and the
+  allowance of agent writes decide for it, and each terminal is bound to its context by its own
+  kubeconfig ([architecture §4.3](../developer/architecture.md#several-clusters-connected-d-69)). What
+  agents can do with clusters the window does not show is
+  [H-115](agents-and-mcp.md#h-115-agents-read-and-act-on-connected-clusters-the-window-does-not-show). The owner asked on 2026-10-14 evening
   for a hotbar tile dragged out of the window to open another Cogpit window with that cluster; it
   is designed (2026-10-15, [D-52](../developer/decisions.md#d-52-several-windows), postponed by
   the owner until the rest is done: one UI state per window, which window agents' `ui_*` tools drive, which window

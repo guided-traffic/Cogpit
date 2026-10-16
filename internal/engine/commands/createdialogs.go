@@ -89,8 +89,8 @@ func (k createKind) verb() engine.Verb {
 // enabled is the Enabled check of a create command: a cluster Cogpit can write to, and the create
 // verb not denied by the access reviews in the namespace the object would land in. It does not
 // block and does not judge the parameters: Targets and Run do.
-func (k createKind) enabled(s *engine.Session, namespace string) error {
-	b, err := writable(s)
+func (k createKind) enabled(s *engine.Session, contextID, namespace string) error {
+	b, err := writableOn(s, contextID)
 	if err != nil {
 		return err
 	}
@@ -99,20 +99,20 @@ func (k createKind) enabled(s *engine.Session, namespace string) error {
 	}
 	ns := ""
 	if k.namespaced {
-		if ns, err = s.CreateNamespace(namespace); err != nil {
+		if ns, err = s.CreateNamespace(b.Context, namespace); err != nil {
 			return err
 		}
 	}
-	return s.CreatePermitted(ns, k.verb())
+	return s.CreatePermitted(b.Context, ns, k.verb())
 }
 
 // object starts a new object's manifest and its reference for the confirmation: the name checked
 // against the API server's rule for the kind, a namespaced kind's namespace resolved
 // (engine.CreateNamespace) and checked.
-func (k createKind) object(s *engine.Session, name, namespace string) (map[string]any, model.ObjectRef, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, model.ObjectRef{}, engine.ErrNotConnected
+func (k createKind) object(s *engine.Session, contextID, name, namespace string) (map[string]any, model.ObjectRef, error) {
+	b, err := s.TargetBackend(contextID) // the context's cluster, "" the shown one (D-69)
+	if err != nil {
+		return nil, model.ObjectRef{}, err
 	}
 	name = strings.TrimSpace(name)
 	if err := checkName(k.noun, name, k.nameRule); err != nil {
@@ -121,7 +121,7 @@ func (k createKind) object(s *engine.Session, name, namespace string) (map[strin
 	meta := map[string]any{fieldName: name}
 	ref := model.ObjectRef{Context: b.Context, Kind: engine.KindKeyFor(b, k.gvr), Name: name}
 	if k.namespaced {
-		ns, err := s.CreateNamespace(namespace)
+		ns, err := s.CreateNamespace(b.Context, namespace)
 		if err != nil {
 			return nil, model.ObjectRef{}, err
 		}
@@ -150,7 +150,7 @@ func createSpec[P any](id, label, menuPath, description string, k createKind, da
 	return engine.Spec[P]{
 		ID: id, Label: label, MenuPath: menuPath, Kinds: []string{k.gvr.Resource}, Danger: danger,
 		Verbs: []engine.Verb{k.verb()}, Description: description,
-		Enabled: func(s *engine.Session, p P) error { return k.enabled(s, namespace(p)) },
+		Enabled: func(s *engine.Session, p P) error { return k.enabled(s, contextOf(p), namespace(p)) },
 		Targets: func(s *engine.Session, p P) ([]model.ObjectRef, error) {
 			_, ref, err := build(s, p)
 			if err != nil {
@@ -163,7 +163,7 @@ func createSpec[P any](id, label, menuPath, description string, k createKind, da
 			if err != nil {
 				return nil, err
 			}
-			item, err := s.CreateManifest(ctx, obj)
+			item, err := s.CreateManifest(ctx, contextOf(p), obj)
 			if err == nil && item.Created {
 				revealCreated(ctx, s, engine.CreateResult{Items: []engine.CreateItem{item}, Created: 1}) // A102
 			}
@@ -177,10 +177,12 @@ func createSpec[P any](id, label, menuPath, description string, k createKind, da
 // default namespace (a dialog shows it filled in, Prefill).
 
 type namespaceCreateParams struct {
+	engine.OnCluster
 	Name string `json:"name" jsonschema:"the namespace's name: a DNS-1123 label (lowercase letters, digits and '-', starting and ending with a letter or digit, at most 63 characters)"`
 }
 
 type serviceAccountCreateParams struct {
+	engine.OnCluster
 	Name      string `json:"name" jsonschema:"the account's name: a DNS-1123 subdomain (lowercase letters, digits, '-' and '.', at most 253 characters)"`
 	Namespace string `json:"namespace,omitempty" jsonschema:"the namespace to create it in; empty uses the namespace filter's single namespace, else the context's default"`
 }
@@ -195,12 +197,14 @@ type policyRuleParams struct {
 }
 
 type roleCreateParams struct {
+	engine.OnCluster
 	Name      string             `json:"name" jsonschema:"the role's name: no '/' or '%', not '.' or '..'"`
 	Namespace string             `json:"namespace,omitempty" jsonschema:"the namespace to create it in; empty uses the namespace filter's single namespace, else the context's default"`
 	Rules     []policyRuleParams `json:"rules,omitempty" jsonschema:"what the role allows, at most 100 rules; none creates a role that grants nothing until rules are added"`
 }
 
 type clusterRoleCreateParams struct {
+	engine.OnCluster
 	Name  string             `json:"name" jsonschema:"the cluster role's name: no '/' or '%', not '.' or '..' (system:... names are allowed)"`
 	Rules []policyRuleParams `json:"rules,omitempty" jsonschema:"what the cluster role allows, at most 100 rules; none creates a role that grants nothing until rules are added"`
 }
@@ -218,6 +222,7 @@ type subjectParams struct {
 }
 
 type roleBindingCreateParams struct {
+	engine.OnCluster
 	Name      string          `json:"name" jsonschema:"the binding's name: no '/' or '%', not '.' or '..'"`
 	Namespace string          `json:"namespace,omitempty" jsonschema:"the namespace the binding grants the role in; empty uses the namespace filter's single namespace, else the context's default"`
 	RoleRef   roleRefParams   `json:"roleRef" jsonschema:"the role it grants: a Role of the binding's namespace or a ClusterRole, whose permissions then apply in the binding's namespace only"`
@@ -225,12 +230,14 @@ type roleBindingCreateParams struct {
 }
 
 type clusterRoleBindingCreateParams struct {
+	engine.OnCluster
 	Name        string          `json:"name" jsonschema:"the binding's name: no '/' or '%', not '.' or '..'"`
 	ClusterRole string          `json:"clusterRole" jsonschema:"the name of the cluster role it grants, in every namespace and on cluster-scoped resources"`
 	Subjects    []subjectParams `json:"subjects" jsonschema:"who gets the cluster role: at least one, at most 100; a ServiceAccount names its namespace"`
 }
 
 type resourceQuotaCreateParams struct {
+	engine.OnCluster
 	Name      string            `json:"name" jsonschema:"the quota's name: a DNS-1123 subdomain (lowercase letters, digits, '-' and '.')"`
 	Namespace string            `json:"namespace,omitempty" jsonschema:"the namespace it limits; empty uses the namespace filter's single namespace, else the context's default"`
 	Hard      map[string]string `json:"hard" jsonschema:"the hard limits, at least one: a resource (pods, services, configmaps, secrets, persistentvolumeclaims, requests.cpu, requests.memory, requests.storage, limits.cpu, limits.memory, count/deployments.apps, ...) and its quantity (10, 500m, 4Gi)"`
@@ -242,7 +249,7 @@ func registerCreateDialogs(g *registrar) {
 		createNamespaceKind, engine.DangerMutating,
 		func(namespaceCreateParams) string { return "" },
 		func(s *engine.Session, p namespaceCreateParams) (map[string]any, model.ObjectRef, error) {
-			return createNamespaceKind.object(s, p.Name, "")
+			return createNamespaceKind.object(s, p.Context, p.Name, "")
 		}))
 
 	sa := createSpec("serviceAccount.create", "Create Service Account", "ServiceAccount/Create",
@@ -250,10 +257,10 @@ func registerCreateDialogs(g *registrar) {
 		createServiceAccountKind, engine.DangerMutating,
 		func(p serviceAccountCreateParams) string { return p.Namespace },
 		func(s *engine.Session, p serviceAccountCreateParams) (map[string]any, model.ObjectRef, error) {
-			return createServiceAccountKind.object(s, p.Name, p.Namespace)
+			return createServiceAccountKind.object(s, p.Context, p.Name, p.Namespace)
 		})
 	sa.Prefill = func(s *engine.Session, p serviceAccountCreateParams) (serviceAccountCreateParams, error) {
-		ns, err := s.CreateNamespace(p.Namespace)
+		ns, err := s.CreateNamespace(p.Context, p.Namespace)
 		p.Namespace = ns
 		return p, err
 	}
@@ -267,7 +274,7 @@ func registerCreateDialogs(g *registrar) {
 		createRoleKind, engine.DangerMutating,
 		func(p roleCreateParams) string { return p.Namespace },
 		func(s *engine.Session, p roleCreateParams) (map[string]any, model.ObjectRef, error) {
-			obj, ref, err := createRoleKind.object(s, p.Name, p.Namespace)
+			obj, ref, err := createRoleKind.object(s, p.Context, p.Name, p.Namespace)
 			if err != nil {
 				return nil, ref, err
 			}
@@ -276,7 +283,7 @@ func registerCreateDialogs(g *registrar) {
 			return obj, ref, err
 		})
 	role.Prefill = func(s *engine.Session, p roleCreateParams) (roleCreateParams, error) {
-		ns, err := s.CreateNamespace(p.Namespace)
+		ns, err := s.CreateNamespace(p.Context, p.Namespace)
 		p.Namespace = ns
 		return p, err
 	}
@@ -293,7 +300,7 @@ func registerCreateDialogs(g *registrar) {
 		createClusterRoleKind, engine.DangerMutating,
 		func(clusterRoleCreateParams) string { return "" },
 		func(s *engine.Session, p clusterRoleCreateParams) (map[string]any, model.ObjectRef, error) {
-			obj, ref, err := createClusterRoleKind.object(s, p.Name, "")
+			obj, ref, err := createClusterRoleKind.object(s, p.Context, p.Name, "")
 			if err != nil {
 				return nil, ref, err
 			}
@@ -314,7 +321,7 @@ func registerCreateDialogs(g *registrar) {
 		createRoleBindingKind, engine.DangerMutating,
 		func(p roleBindingCreateParams) string { return p.Namespace },
 		func(s *engine.Session, p roleBindingCreateParams) (map[string]any, model.ObjectRef, error) {
-			obj, ref, err := createRoleBindingKind.object(s, p.Name, p.Namespace)
+			obj, ref, err := createRoleBindingKind.object(s, p.Context, p.Name, p.Namespace)
 			if err != nil {
 				return nil, ref, err
 			}
@@ -327,7 +334,7 @@ func registerCreateDialogs(g *registrar) {
 			return obj, ref, err
 		})
 	rb.Prefill = func(s *engine.Session, p roleBindingCreateParams) (roleBindingCreateParams, error) {
-		ns, err := s.CreateNamespace(p.Namespace)
+		ns, err := s.CreateNamespace(p.Context, p.Namespace)
 		p.Namespace = ns
 		return p, err
 	}
@@ -335,10 +342,10 @@ func registerCreateDialogs(g *registrar) {
 	rb.AgentsAsk = func(*engine.Session, roleBindingCreateParams) bool { return true }
 	rb.Undoable = true // escalated, still a grant deleting the binding takes back (A101)
 	rb.Escalate = func(s *engine.Session, p roleBindingCreateParams) bool {
-		return grantsAll(s, p.RoleRef.Kind, p.RoleRef.Name, p.Namespace)
+		return grantsAll(s, p.Context, p.RoleRef.Kind, p.RoleRef.Name, p.Namespace)
 	}
 	rb.Detail = func(s *engine.Session, p roleBindingCreateParams) string {
-		ns, _ := s.CreateNamespace(p.Namespace)
+		ns, _ := s.CreateNamespace(p.Context, p.Namespace)
 		return bindingDetail(canonicalRoleKind(p.RoleRef.Kind), strings.TrimSpace(p.RoleRef.Name), ns, p.Subjects)
 	}
 	add(g, rb)
@@ -351,7 +358,7 @@ func registerCreateDialogs(g *registrar) {
 		createClusterRoleBindingKind, engine.DangerDestructive,
 		func(clusterRoleBindingCreateParams) string { return "" },
 		func(s *engine.Session, p clusterRoleBindingCreateParams) (map[string]any, model.ObjectRef, error) {
-			obj, ref, err := createClusterRoleBindingKind.object(s, p.Name, "")
+			obj, ref, err := createClusterRoleBindingKind.object(s, p.Context, p.Name, "")
 			if err != nil {
 				return nil, ref, err
 			}
@@ -376,7 +383,7 @@ func registerCreateDialogs(g *registrar) {
 		createResourceQuotaKind, engine.DangerMutating,
 		func(p resourceQuotaCreateParams) string { return p.Namespace },
 		func(s *engine.Session, p resourceQuotaCreateParams) (map[string]any, model.ObjectRef, error) {
-			obj, ref, err := createResourceQuotaKind.object(s, p.Name, p.Namespace)
+			obj, ref, err := createResourceQuotaKind.object(s, p.Context, p.Name, p.Namespace)
 			if err != nil {
 				return nil, ref, err
 			}
@@ -385,7 +392,7 @@ func registerCreateDialogs(g *registrar) {
 			return obj, ref, err
 		})
 	quota.Prefill = func(s *engine.Session, p resourceQuotaCreateParams) (resourceQuotaCreateParams, error) {
-		ns, err := s.CreateNamespace(p.Namespace)
+		ns, err := s.CreateNamespace(p.Context, p.Namespace)
 		p.Namespace = ns
 		return p, err
 	}
@@ -596,25 +603,25 @@ func buildHard(hard map[string]string) (map[string]any, error) {
 // cluster-admin, or a role Cogpit's cache holds already (no watch is started for it) whose rules
 // allow every verb on every resource of every API group. Such a binding is confirmed for every
 // origin (Escalate).
-func grantsAll(s *engine.Session, kind, name, namespace string) bool {
+func grantsAll(s *engine.Session, contextID, kind, name, namespace string) bool {
 	kind, name = canonicalRoleKind(kind), strings.TrimSpace(name)
 	if kind == rbacKindClusterRole && name == clusterAdminRole {
 		return true
 	}
-	b := s.Backend()
+	b := s.BackendOf(contextID) // the binding's cluster, "" the shown one (D-69)
 	if b == nil || name == "" {
 		return false
 	}
 	var ref model.ObjectRef
 	switch kind {
 	case rbacKindClusterRole:
-		ref = model.ObjectRef{Kind: engine.KindKeyFor(b, createClusterRoleKind.gvr), Name: name}
+		ref = model.ObjectRef{Context: b.Context, Kind: engine.KindKeyFor(b, createClusterRoleKind.gvr), Name: name}
 	case rbacKindRole:
-		ns, err := s.CreateNamespace(namespace)
+		ns, err := s.CreateNamespace(b.Context, namespace)
 		if err != nil {
 			return false
 		}
-		ref = model.ObjectRef{Kind: engine.KindKeyFor(b, createRoleKind.gvr), Namespace: ns, Name: name}
+		ref = model.ObjectRef{Context: b.Context, Kind: engine.KindKeyFor(b, createRoleKind.gvr), Namespace: ns, Name: name}
 	default:
 		return false
 	}

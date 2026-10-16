@@ -209,55 +209,66 @@ func (s *Session) WatchKubeconfigs(interval time.Duration) (stop func()) {
 	return stop
 }
 
-// CloseGoneSourceConnection closes the connection if it was made from a kubeconfig source's file
-// and that file is gone, or its source was removed (Lens closes a cluster whose file leaves a
-// synced folder; captured 2026-10-12). The UI is left Disconnected, with the reason in
-// Connection.Error, a warning toast, and the reason in the context's connect log. It reports
-// whether it closed a connection.
+// CloseGoneSourceConnection closes every connection, shown or not (D-69), made from a kubeconfig
+// source's file that is gone, or whose source was removed (Lens closes a cluster whose file leaves
+// a synced folder; captured 2026-10-12). For the shown cluster the UI is left Disconnected, with
+// the reason in Connection.Error; every closed one gets a warning toast and the reason in its
+// context's connect log. It reports whether it closed a connection.
 //
 // Only a plain fact closes a connection: the file does not exist, or no source covers it. A file
 // that is merely being rewritten, or does not parse for a moment, leaves the connection alone (it
 // was built from the file as it was); so does a context dropped from a file that stays.
 func (s *Session) CloseGoneSourceConnection() bool {
 	k := s.KubeconfigSources()
-	b := s.Backend()
-	if k == nil || b == nil || b.SourceFile == "" {
+	if k == nil {
 		return false
 	}
-	var reason string
-	path := kubeconfig.DisplayText(b.SourceFile, 400)
-	switch k.Fate(b.SourceFile) {
-	case FileGone:
-		reason = "its kubeconfig file " + path + " is gone"
-	case FileUnlisted:
-		reason = "its kubeconfig source was removed (the file " + path + " is untouched)"
-	default:
-		return false
+	closed := false
+	for _, b := range s.Backends() { // every connected cluster's, shown or not (D-69)
+		if b.SourceFile == "" {
+			continue
+		}
+		var reason string
+		path := kubeconfig.DisplayText(b.SourceFile, 400)
+		switch k.Fate(b.SourceFile) {
+		case FileGone:
+			reason = "its kubeconfig file " + path + " is gone"
+		case FileUnlisted:
+			reason = "its kubeconfig source was removed (the file " + path + " is untouched)"
+		default:
+			continue
+		}
+		if s.disconnectBackend(b, "Disconnected from "+kubeconfig.DisplayText(b.Context, 200)+": "+reason+".") {
+			closed = true
+		}
 	}
-	return s.disconnectBackend(b, "Disconnected from "+kubeconfig.DisplayText(b.Context, 200)+": "+reason+".")
+	return closed
 }
 
-// disconnectBackend closes b if it is still the connected backend and leaves the UI Disconnected,
-// naming the reason. It reports whether it did. A connect that started meanwhile is not touched.
+// disconnectBackend closes b if it is still connected and, when the window shows it, leaves the
+// UI Disconnected, naming the reason; another connected cluster's entry of Connections goes. It
+// reports whether it did. A connect that started meanwhile is not touched.
 func (s *Session) disconnectBackend(b *Backend, reason string) bool {
 	st := s.state
 	st.mu.Lock()
-	if st.closed || st.backend != b {
+	e := st.pooledLocked(b)
+	if st.closed || e == nil {
 		st.mu.Unlock()
 		return false
 	}
-	old := st.detachLocked()
+	st.removeLocked(b.Context)
 	st.mu.Unlock()
-	old.close(s.log)
+	b.close(s.log)
 	// A disconnect of Cogpit's own: an attempt that "failed", its line an error, so the context is
 	// marked (connectlog.go).
 	a := st.logs.begin(b.Context, AttemptDisconnect, LogError, reason)
 	st.logs.finish(a, OutcomeFailed, LogError, "")
 	s.UpdateUI(func(u *UIState) {
+		u.dropConnection(b.Context, e.gen)
 		// Connecting: b's own connect, between publishing b and saying Connected, which then
 		// leaves the UI as this leaves it (connect_gone.go). A newer connect detaches b first.
 		if u.Context != b.Context || !activeConnection(u.Connection.State) {
-			return // another connect took over
+			return // another cluster is shown, or another connect took over
 		}
 		u.Connection = Connection{State: Disconnected, Error: reason}
 		u.View = ""

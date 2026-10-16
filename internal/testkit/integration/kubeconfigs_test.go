@@ -325,6 +325,9 @@ func TestExecPluginRunsOnlyOnceAllowed(t *testing.T) {
 	if c := contextIDs(t, s)[id]; c.Exec != engine.ExecChanged {
 		t.Fatalf("after the change: %+v", c)
 	}
+	if err := s.Disconnect(); err != nil { // a connect again would only show the open connection (D-69)
+		t.Fatal(err)
+	}
 	if res := connect(engine.OriginGUI); res.State != engine.ConnectError || !strings.Contains(res.Error, "changed since you allowed it") {
 		t.Fatalf("connect after the change: %+v", res)
 	}

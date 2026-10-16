@@ -148,8 +148,7 @@ func (s *Session) helmEditorState(st *EditorState, e editor) {
 		return
 	}
 	st.BaseRevision = e.helm.revision
-	b := s.Backend()
-	if b == nil || b.Context != e.tab.Context {
+	if s.BackendOf(e.tab.Context) == nil { // the tab's cluster, shown or not (D-69)
 		return
 	}
 	obj, err := s.Lookup(*e.tab.Ref)

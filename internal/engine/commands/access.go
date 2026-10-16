@@ -29,17 +29,17 @@ var reviewVerbs = []engine.Verb{
 }
 
 func registerAccess(g *registrar) {
-	add(g, engine.Spec[struct{}]{
+	add(g, engine.Spec[engine.OnCluster]{
 		ID: "cluster.refreshAccess", Label: "Refresh Access Reviews", MenuPath: "Cluster/Refresh Access Reviews",
 		Danger: engine.DangerRead, Verbs: reviewVerbs,
-		Description: "Asks the API server again what the connected user may do (SelfSubjectRulesReview per namespace, " +
+		Description: "Asks the API server of a connected cluster (context, else the shown one) again what the user may do (SelfSubjectRulesReview per namespace, " +
 			"SelfSubjectAccessReview where rules cannot answer) and drops the answers Cogpit kept since connecting: use it " +
 			"after the user's roles changed. Until the new answers arrive, commands are offered and kinds shown; then menus " +
 			"grey what the user may not do (\"not permitted: ...\") and the sidebar hides kinds they may not list. Returns " +
 			"{context, namespaces}: the namespaces reviewed at once. Writes nothing.",
-		Enabled: func(s *engine.Session, _ struct{}) error { _, err := reviewable(s); return err },
-		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
-			b, err := reviewable(s)
+		Enabled: func(s *engine.Session, p engine.OnCluster) error { _, err := reviewable(s, p.Context); return err },
+		Run: func(_ context.Context, s *engine.Session, p engine.OnCluster) (any, error) {
+			b, err := reviewable(s, p.Context)
 			if err != nil {
 				return nil, err
 			}
@@ -56,8 +56,8 @@ func registerAccess(g *registrar) {
 var errNoAccessReviews = errors.New("this cluster has no access reviews to refresh (the demo cluster allows everything)")
 
 // reviewable is the Enabled check of cluster.refreshAccess: a connected cluster with access reviews.
-func reviewable(s *engine.Session) (*engine.Backend, error) {
-	b, err := connected(s)
+func reviewable(s *engine.Session, contextID string) (*engine.Backend, error) {
+	b, err := connectedOn(s, contextID)
 	if err != nil {
 		return nil, err
 	}

@@ -339,7 +339,7 @@ func realDashboard(ctx context.Context, t *testing.T, s *engine.Session, apps dy
 				}
 			}
 		}
-		m, _, err := s.ArgoCDDashboard(ctx, []string{argoNS}, false)
+		m, _, err := s.ArgoCDDashboard(ctx, "", []string{argoNS}, false)
 		if err != nil || !m.Served || !m.Synced {
 			return false
 		}

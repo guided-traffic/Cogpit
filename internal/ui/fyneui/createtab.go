@@ -160,7 +160,7 @@ func (c *createTab) create(closeAfter bool) {
 	c.createBtn.Disable()
 	c.closeBtn.Disable()
 	c.setStatus("Creating…", colorMuted)
-	c.sh.dispatch("object.create", createParams{YAML: text}, func(res any, err error) {
+	c.sh.dispatch("object.create", createParams{YAML: text, Context: c.tab.Context}, func(res any, err error) {
 		c.busy = false
 		c.createBtn.Enable()
 		c.closeBtn.Enable()

@@ -167,11 +167,12 @@ func (fs *forwardSet) stopAll() {
 	}
 }
 
-// forwardsOf returns the connected backend, its port forwarder and the forwards' profile.
-func (s *Session) forwardsOf() (*Backend, PortForwarder, *model.KindProfile, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, nil, nil, ErrNotConnected
+// forwardsOf returns a connected context's backend ("" the shown one, D-69: its forwards are its
+// own and run on whatever the window shows), its port forwarder and the forwards' profile.
+func (s *Session) forwardsOf(contextID string) (*Backend, PortForwarder, *model.KindProfile, error) {
+	b, err := s.TargetBackend(contextID)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	prof, ok := b.Profile(PortForwardKind)
 	if !ok || !prof.Local {
@@ -184,9 +185,10 @@ func (s *Session) forwardsOf() (*Backend, PortForwarder, *model.KindProfile, err
 	return b, fw, prof, nil
 }
 
-// CanForward reports why the connected cluster cannot forward ports, or nil.
-func (s *Session) CanForward() error {
-	_, _, _, err := s.forwardsOf()
+// CanForward reports why a connected context's cluster ("" the shown one) cannot forward ports, or
+// nil.
+func (s *Session) CanForward(contextID string) error {
+	_, _, _, err := s.forwardsOf(contextID)
 	return err
 }
 
@@ -196,7 +198,7 @@ func (s *Session) CanForward() error {
 // Starting): the forward then goes on in the background. A forward that cannot listen or whose
 // first connection fails is not left running; its error is returned.
 func (s *Session) StartForward(ctx context.Context, spec ForwardSpec) (Forward, error) {
-	b, fw, prof, err := s.forwardsOf()
+	b, fw, prof, err := s.forwardsOf(spec.Target.Context)
 	if err != nil {
 		return Forward{}, err
 	}
@@ -329,7 +331,7 @@ func newUID() string {
 // StopForward stops a forward: its listener closes and its connection to the pod ends. The
 // forward stays, phase Stopped, and Edit starts it again.
 func (s *Session) StopForward(ref model.ObjectRef) (Forward, error) {
-	b, _, prof, err := s.forwardsOf()
+	b, _, prof, err := s.forwardsOf(ref.Context)
 	if err != nil {
 		return Forward{}, err
 	}
@@ -357,7 +359,7 @@ func (s *Session) StopForward(ref model.ObjectRef) (Forward, error) {
 
 // RemoveForward stops a forward and deletes it.
 func (s *Session) RemoveForward(ref model.ObjectRef) (Forward, error) {
-	b, _, prof, err := s.forwardsOf()
+	b, _, prof, err := s.forwardsOf(ref.Context)
 	if err != nil {
 		return Forward{}, err
 	}
@@ -386,7 +388,7 @@ func (fs *forwardSet) take(key string) *forwardRun {
 
 // ForwardOf returns a forward and its state: the running forward's own, else what its object says.
 func (s *Session) ForwardOf(ref model.ObjectRef) (Forward, error) {
-	b, _, prof, err := s.forwardsOf()
+	b, _, prof, err := s.forwardsOf(ref.Context)
 	if err != nil {
 		return Forward{}, err
 	}
@@ -400,7 +402,7 @@ func (s *Session) forwardOf(b *Backend, prof *model.KindProfile, ref model.Objec
 // LookupForward is ForwardOf without waiting for the local store's first list: Enabled checks
 // use it. A forward that runs is found at once, before its object reaches the store.
 func (s *Session) LookupForward(ref model.ObjectRef) (Forward, error) {
-	b, _, prof, err := s.forwardsOf()
+	b, _, prof, err := s.forwardsOf(ref.Context)
 	if err != nil {
 		return Forward{}, err
 	}

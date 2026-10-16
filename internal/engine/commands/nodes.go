@@ -54,7 +54,7 @@ type drainParams struct {
 }
 
 type pendingDrainsParams struct {
-	All bool `json:"all,omitempty" jsonschema:"list the pending drains of every context, not only the connected one's"`
+	All bool `json:"all,omitempty" jsonschema:"list the pending drains of every context, not only the shown cluster's"`
 }
 
 // drainDetail names, for the confirmation, the drain options that lose data or end pods for good,
@@ -153,7 +153,7 @@ func registerNodes(g *registrar) {
 			if _, err := cachedOfKind(s, p.Ref, nodeKindKey); err != nil {
 				return err
 			}
-			b, _, err := nodeActionsOf(s)
+			b, _, err := nodeActionsOf(s, p.Ref.Context)
 			if err != nil {
 				return err
 			}
@@ -200,7 +200,7 @@ func registerNodes(g *registrar) {
 		ID: "node.dismissDrain", Label: "Dismiss Unfinished Drain", Danger: engine.DangerUI,
 		Description: "Forgets an unfinished drain from node_pendingDrains without changing the cluster: the node stays " +
 			"as it is (cordoned and partly drained, unless someone changed it). The reference's context defaults to " +
-			"the connected one.",
+			"the shown one.",
 		Enabled: func(s *engine.Session, p refParams) error {
 			if s.Drains() == nil {
 				return engine.ErrNoDrainJournal
@@ -244,8 +244,8 @@ func cachedOfKind(s *engine.Session, ref model.ObjectRef, kind string) (*unstruc
 }
 
 // nodeActionsOf is the writable check of the node commands.
-func nodeActionsOf(s *engine.Session) (*engine.Backend, engine.NodeActions, error) {
-	b, err := writable(s)
+func nodeActionsOf(s *engine.Session, contextID string) (*engine.Backend, engine.NodeActions, error) {
+	b, err := writableOn(s, contextID) // the node's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -279,7 +279,7 @@ func nodeToggleEnabled(s *engine.Session, ref model.ObjectRef, wantCordoned bool
 	case !cordoned && wantCordoned:
 		return fmt.Errorf("%w: node %s is not cordoned", engine.ErrNotApplicable, ref.Name)
 	}
-	b, _, err := nodeActionsOf(s)
+	b, _, err := nodeActionsOf(s, ref.Context)
 	if err != nil {
 		return err
 	}
@@ -294,7 +294,7 @@ func nodeToggleEnabled(s *engine.Session, ref model.ObjectRef, wantCordoned bool
 // so before the node is cordoned, so that a crash at any later point leaves it behind; a job that
 // does not start leaves no entry, since nothing was written to the cluster.
 func runDrain(ctx context.Context, s *engine.Session, p drainParams) (any, error) {
-	b, w, err := nodeActionsOf(s)
+	b, w, err := nodeActionsOf(s, p.Ref.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func runDrain(ctx context.Context, s *engine.Session, p drainParams) (any, error
 		return nil, err
 	}
 	if ref.Context != b.Context {
-		return nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+		return nil, fmt.Errorf("%w: the shown cluster changed", engine.ErrWrongCluster)
 	}
 	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
 		return nil, err

@@ -131,10 +131,10 @@ func TestJobStops(t *testing.T) {
 		t.Errorf("disconnecting: %v", err)
 	}
 	waitFor(t, "the kept tab's end", func() bool { j, ok := jobTabOf(s, kept.ID); return !ok || j.State.Ended() })
-	if j, ok := jobTabOf(s, kept.ID); ok && (j.State != JobCancelled || j.Outcome != "Stopped: the connected cluster changed.") {
+	if j, ok := jobTabOf(s, kept.ID); ok && (j.State != JobCancelled || j.Outcome != "Stopped: its cluster was disconnected.") {
 		t.Errorf("after disconnecting %+v", j)
 	}
-	if _, err := s.StartJob(JobSpec{Title: "late", Context: "test", Run: waiting}); !errors.Is(err, ErrWrongCluster) {
+	if _, err := s.StartJob(JobSpec{Title: "late", Context: "test", Run: waiting}); !errors.Is(err, ErrNotConnected) {
 		t.Errorf("a job on a cluster not connected: %v", err)
 	}
 
@@ -269,7 +269,7 @@ func TestJobEnd(t *testing.T) {
 		{"All 12 deleted.", nil, errJobCancelled, JobDone, "All 12 deleted."},
 		{"", context.Canceled, errJobTabClosed, JobCancelled, "Stopped: its tab was closed."},
 		{"", errors.New("deleted: 3 of 12 objects; 9 not attempted"), errJobClusterChanged, JobCancelled,
-			"Stopped: the connected cluster changed. Deleted: 3 of 12 objects; 9 not attempted."},
+			"Stopped: its cluster was disconnected. Deleted: 3 of 12 objects; 9 not attempted."},
 		{"", errors.New("the source is not ready"), nil, JobFailed, "The source is not ready."},
 		{"", errors.New("the source is not ready"), context.Canceled, JobFailed, "The source is not ready."},
 	} {

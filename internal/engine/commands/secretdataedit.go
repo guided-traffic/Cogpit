@@ -93,7 +93,7 @@ func secretDataEnabled(s *engine.Session, ref model.ObjectRef) error {
 	if ref.Kind != kindSecrets {
 		return fmt.Errorf("%w: this applies to %s", engine.ErrNotApplicable, kindSecrets)
 	}
-	if _, err := writable(s); err != nil {
+	if _, err := writableOn(s, ref.Context); err != nil {
 		return err
 	}
 	return s.SecretSavable(ref)

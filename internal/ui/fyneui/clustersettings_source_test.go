@@ -36,7 +36,7 @@ func TestMetricsSourceFromTheSettings(t *testing.T) {
 	until("the CPU column empty", func() bool { return sh.view.snap != nil && usageRow(sh.view.snap) < 0 })
 	// No request with metrics off is counted at the hub (TestMetricsSourceNone); here the window
 	// and agents see the state.
-	if m, _ := s.MetricsGet(t.Context(), "pods", "", "", 1); m.Status != metrics.StatusNotServed {
+	if m, _ := s.MetricsGet(t.Context(), "", "pods", "", "", 1); m.Status != metrics.StatusNotServed {
 		t.Errorf("metrics.get with metrics off: %+v", m.Status)
 	}
 

@@ -88,7 +88,8 @@ func runMany(ctx context.Context, s *engine.Session, a manyAction, direct func(m
 }
 
 // each acts on the targets in order and, given a job, shows each step's progress. It stops before
-// the next object when ctx ends (the call, or the job stopped) or the cluster changed, or when an
+// the next object when ctx ends (the call, or the job stopped) or its cluster was disconnected (not
+// when the window shows another one, D-69), or when an
 // object's error says so; the objects after it are not attempted. In a job, a request under way
 // finishes despite a stop.
 func (a manyAction) each(ctx context.Context, s *engine.Session, j *engine.Job) manyOutcome {
@@ -103,8 +104,8 @@ func (a manyAction) each(ctx context.Context, s *engine.Session, j *engine.Job) 
 		if stop == nil && ctx.Err() != nil {
 			stop = context.Cause(ctx)
 		}
-		if stop == nil && s.Backend() != a.b {
-			stop = fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+		if stop == nil && s.BackendOf(a.b.Context) != a.b { // its cluster disconnected; another one shown goes on (D-69)
+			stop = fmt.Errorf("%w: its cluster was disconnected", engine.ErrNotConnected)
 		}
 		if stop != nil {
 			out.failed = append(out.failed, DeleteFailure{Ref: ref, Error: fmt.Sprintf("%v: %v", errNotAttempted, stop)})

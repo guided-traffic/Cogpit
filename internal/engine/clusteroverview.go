@@ -437,14 +437,14 @@ func issueRow(context string, is ClusterIssue) model.Row {
 // carry the current values only (one Metrics Server list at most, cached for 15 seconds): the
 // cluster's history is asked of Prometheus only while the page is shown. With series, the charts
 // carry their points.
-func (s *Session) ClusterOverview(ctx context.Context, namespaces []string, series bool) (*ClusterOverviewModel, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, ErrNotConnected
+func (s *Session) ClusterOverview(ctx context.Context, contextID string, namespaces []string, series bool) (*ClusterOverviewModel, error) {
+	b, err := s.TargetBackend(contextID) // the context's cluster, "" the shown one (D-69)
+	if err != nil {
+		return nil, err
 	}
 	u := s.UIState()
 	if namespaces == nil {
-		namespaces = u.Namespaces
+		namespaces = s.windowNamespaces(b)
 	}
 	params := viewParams{namespaces: slices.Clone(namespaces), sort: issuesSort}
 	s.state.mu.Lock()

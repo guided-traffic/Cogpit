@@ -138,6 +138,9 @@ func TestPluginApprovalBindsTheClusterProxy(t *testing.T) {
 	if got := state(); got != ExecChanged {
 		t.Fatalf("after the proxy was set: state %s, want changed", got)
 	}
+	if err := s.Disconnect(); err != nil { // a connect again would only show the open connection (D-69)
+		t.Fatal(err)
+	}
 	err := s.Connect(t.Context(), id)
 	if !errors.Is(err, ErrExecNotApproved) {
 		t.Fatalf("connect through a proxy the approval did not name: %v", err)

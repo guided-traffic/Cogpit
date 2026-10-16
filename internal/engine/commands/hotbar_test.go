@@ -90,7 +90,8 @@ func TestHotbarCommands(t *testing.T) {
 		t.Fatalf("ui.state's hotbar: %+v", state.Hotbar)
 	}
 	tiles := state.Hotbar.Banks[0].Clusters
-	if tiles[0].Context != "other" || tiles[0].Connection != engine.Connected || tiles[1].Connection != engine.Disconnected || tiles[1].Label != "test" {
+	// test stayed connected when other was opened (D-69): both tiles say connected.
+	if tiles[0].Context != "other" || tiles[0].Connection != engine.Connected || tiles[1].Connection != engine.Connected || tiles[1].Label != "test" {
 		t.Errorf("ui.state's tiles: %+v", tiles)
 	}
 

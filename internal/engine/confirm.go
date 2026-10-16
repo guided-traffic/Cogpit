@@ -131,8 +131,11 @@ func newConfirmRequest(cmd *Command, danger Danger, origin Origin, uiContext str
 // Kind already). Without the kind's profile the name is left empty. A real cluster's confirmations
 // read "Drain nodes worker-1" and "Delete helmreleases web" before (2026-10-16).
 func (s *Session) kindNames(targets []model.ObjectRef) []string {
-	b := s.Backend()
-	if b == nil || len(targets) == 0 {
+	if len(targets) == 0 {
+		return nil
+	}
+	b := s.BackendOf(targets[0].Context) // the targets' cluster (one: oneCluster, D-69)
+	if b == nil {
 		return nil
 	}
 	out := make([]string, len(targets))

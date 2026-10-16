@@ -392,7 +392,8 @@ func TestNavigateMakesTheObjectVisible(t *testing.T) {
 	if nav.Found || nav.View != "deployments" {
 		t.Errorf("navigate to a missing object: %+v", nav)
 	}
-	if err := h.run(t, gui, "ui.navigate", map[string]any{"ref": model.ObjectRef{Context: "prod", Kind: "pods", Namespace: "shop", Name: "web-0"}}, nil); !errors.Is(err, engine.ErrWrongCluster) {
+	// Into a cluster that is not connected: refused, nothing connects (D-69).
+	if err := h.run(t, gui, "ui.navigate", map[string]any{"ref": model.ObjectRef{Context: "prod", Kind: "pods", Namespace: "shop", Name: "web-0"}}, nil); !errors.Is(err, engine.ErrNotConnected) {
 		t.Errorf("navigate into another cluster: %v", err)
 	}
 }

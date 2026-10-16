@@ -143,9 +143,9 @@ func (s *Session) SecretSavable(ref model.ObjectRef) error {
 	if ref.Kind != secretsKind {
 		return fmt.Errorf("%w: this applies to %s", ErrNotApplicable, secretsKind)
 	}
-	b := s.Backend()
-	if b == nil {
-		return ErrNotConnected
+	b, err := s.TargetBackend(ref.Context) // the Secret's cluster, shown or not (D-69)
+	if err != nil {
+		return err
 	}
 	if _, err := b.ObjectWriter(); err != nil {
 		return err

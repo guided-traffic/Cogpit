@@ -31,6 +31,9 @@ type (
 	}
 	createParams struct {
 		YAML string `json:"yaml"`
+		// Context is the Create tab's cluster: it creates there, whichever cluster the window shows
+		// (D-69).
+		Context string `json:"context,omitempty"`
 	}
 	createTabParams struct {
 		Template string `json:"template,omitempty"`

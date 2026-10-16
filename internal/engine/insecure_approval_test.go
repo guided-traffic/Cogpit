@@ -165,6 +165,9 @@ func TestInsecureContextAsksOnceBeforeItsFirstConnect(t *testing.T) {
 	if info, _ := s2.ExecPlugin(lab); info == nil || info.State != ExecChanged {
 		t.Fatalf("after the server changed: %+v", info)
 	}
+	if err := s2.Disconnect(); err != nil { // a connect again would only show the open connection (D-69)
+		t.Fatal(err)
+	}
 	if err := s2.Connect(t.Context(), lab); !errors.Is(err, ErrExecNotApproved) || !strings.Contains(err.Error(), "changed") {
 		t.Errorf("connect after the server changed: %v", err)
 	}

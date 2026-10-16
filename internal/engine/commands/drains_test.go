@@ -47,6 +47,9 @@ var quietLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 func reconnect(t *testing.T, h *harness) *eventLog {
 	t.Helper()
 	events := recordEvents(h.s)
+	if err := h.s.Disconnect(); err != nil { // a connect again would only show the open connection (D-69)
+		t.Fatal(err)
+	}
 	if err := h.s.Connect(context.Background(), "test"); err != nil {
 		t.Fatal(err)
 	}

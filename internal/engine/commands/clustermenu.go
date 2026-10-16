@@ -27,19 +27,27 @@ type LinksResult struct {
 }
 
 func registerClusterMenu(g *registrar) {
-	add(g, engine.Spec[struct{}]{
+	add(g, engine.Spec[engine.OnCluster]{
 		ID: "cluster.disconnect", Label: "Disconnect", MenuPath: "File/Disconnect", Danger: engine.DangerUI,
-		Description: "Closes Cogpit's connection to the connected cluster, or ends a connect under way. Nothing is sent to the " +
-			"cluster: Cogpit stops watching it, its port forwards stop as when switching clusters, and the workspace shows " +
-			"the welcome page. The cluster's tabs close with it. Returns the new UI state.",
-		Enabled: func(s *engine.Session, _ struct{}) error {
-			if st := s.UIState().Connection.State; !st.Live() && st != engine.Connecting {
+		Description: "Closes Cogpit's connection to a connected cluster (ui_state's connections; context, else the cluster the " +
+			"window shows), or ends the shown cluster's connect under way; the other connected clusters stay connected. Nothing " +
+			"is sent to the cluster: Cogpit stops watching it, its port forwards, logs and shells end, and its jobs stop. The " +
+			"cluster's tabs close with it; for the shown cluster the workspace shows the welcome page. Returns the new UI state.",
+		Enabled: func(s *engine.Session, p engine.OnCluster) error {
+			u := s.UIState()
+			if p.Context != "" && p.Context != u.Context {
+				if _, ok := u.ConnectionOf(p.Context); !ok {
+					return &engine.NotConnectedError{Context: p.Context}
+				}
+				return nil
+			}
+			if st := u.Connection.State; !st.Live() && st != engine.Connecting {
 				return engine.ErrNotConnected
 			}
 			return nil
 		},
-		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
-			if err := s.Disconnect(); err != nil {
+		Run: func(_ context.Context, s *engine.Session, p engine.OnCluster) (any, error) {
+			if err := s.DisconnectContext(p.Context); err != nil {
 				return nil, err
 			}
 			return s.UIState(), nil

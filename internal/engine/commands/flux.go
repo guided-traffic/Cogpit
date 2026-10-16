@@ -229,7 +229,8 @@ func registerFlux(g *registrar) {
 }
 
 type fluxDashboardParams struct {
-	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to count; omitted: the namespace filter the user has set"`
+	engine.OnCluster
+	Namespaces []string `json:"namespaces,omitempty" jsonschema:"namespaces to count; omitted: the namespace filter the user has set (every namespace for a cluster the window does not show)"`
 	Table      bool     `json:"table,omitempty" jsonschema:"true: include the page's table, the Flux objects of those namespaces that are not ready (most recent change first)"`
 }
 
@@ -253,9 +254,9 @@ func registerFluxDashboard(g *registrar) {
 			"False or Stalled), reconciling, suspended, unknown (no Ready condition yet); with table, also every object that " +
 			"is not ready, with its message. Read from the cache. ui_openView with view flux/dashboard shows the page to the " +
 			"user; flux_reconcile, flux_reconcileWithSource, flux_reset, flux_suspend and flux_resume act on the objects.",
-		Enabled: func(s *engine.Session, _ fluxDashboardParams) error { _, err := connected(s); return err },
+		Enabled: func(s *engine.Session, p fluxDashboardParams) error { _, err := connectedOn(s, p.Context); return err },
 		Run: func(ctx context.Context, s *engine.Session, p fluxDashboardParams) (any, error) {
-			m, table, err := s.FluxDashboard(ctx, p.Namespaces, p.Table)
+			m, table, err := s.FluxDashboard(ctx, p.Context, p.Namespaces, p.Table)
 			if err != nil {
 				return nil, err
 			}
@@ -280,7 +281,7 @@ func fluxOneSpec[P any](a fluxAction, get func(P) (model.ObjectRef, bool)) engin
 			if err := fluxSourcePermitted(s, a, ref); err != nil {
 				return err
 			}
-			_, _, err := fluxActionsOf(s)
+			_, _, err := fluxActionsOf(s, ref.Context)
 			return err
 		},
 		Targets: func(s *engine.Session, p P) ([]model.ObjectRef, error) {
@@ -332,7 +333,7 @@ func fluxManySpec[P any](a fluxAction, get func(P) ([]model.ObjectRef, bool)) en
 			if _, err := fluxManyTargets(s, a, refs, force); err != nil {
 				return err
 			}
-			_, _, err := fluxActionsOf(s)
+			_, _, err := fluxActionsOf(s, refsContext(refs))
 			return err
 		},
 		Targets: func(s *engine.Session, p P) ([]model.ObjectRef, error) {
@@ -451,7 +452,7 @@ func (e *FluxManyError) Error() string {
 // controllers act on what was written whether Cogpit runs or not, and the action on those left
 // finishes what the user asked for (D-11).
 func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, refs []model.ObjectRef, force bool) (any, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, refsContext(refs)) // the selection's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, err
 	}
@@ -469,7 +470,7 @@ func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, refs []mo
 		id: a.manyID, label: a.label, done: a.done, noun: "Flux objects", b: b, targets: targets,
 		do: func(ctx context.Context, ref model.ObjectRef) (model.ObjectRef, error) {
 			if ref.Context != b.Context {
-				return ref, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+				return ref, fmt.Errorf("%w: the objects are in another cluster", engine.ErrWrongCluster)
 			}
 			return ref, fluxWrite(ctx, s, a, ref, force)
 		},
@@ -486,7 +487,7 @@ func fluxRunMany(ctx context.Context, s *engine.Session, a fluxAction, refs []mo
 // fluxWrite patches one object: its kind's served version, the UID the user confirmed (or the
 // cache's), the action's request.
 func fluxWrite(ctx context.Context, s *engine.Session, a fluxAction, ref model.ObjectRef, force bool) error {
-	b, w, err := fluxActionsOf(s)
+	b, w, err := fluxActionsOf(s, ref.Context) // the object's cluster, shown or not (D-69)
 	if err != nil {
 		return err
 	}
@@ -502,8 +503,8 @@ func fluxWrite(ctx context.Context, s *engine.Session, a fluxAction, ref model.O
 }
 
 // fluxActionsOf is the writable check of the Flux commands.
-func fluxActionsOf(s *engine.Session) (*engine.Backend, engine.FluxActions, error) {
-	b, err := writable(s)
+func fluxActionsOf(s *engine.Session, contextID string) (*engine.Backend, engine.FluxActions, error) {
+	b, err := writableOn(s, contextID)
 	if err != nil {
 		return nil, nil, err
 	}

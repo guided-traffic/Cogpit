@@ -118,7 +118,7 @@ func TestAShellEndsWithTheConnection(t *testing.T) {
 	s.UpdateUI(func(u *UIState) { u.Dock = append(u.Dock, tab) })
 	inner := newFakeSession()
 	cancelled := make(chan struct{})
-	sess := s.connWatch().trackSession(tab.ID, inner, func() { close(cancelled) })
+	sess := s.connWatch("").trackSession(tab.ID, inner, func() { close(cancelled) })
 	p.set(func(f *fakeProber) { f.down = true })
 	waitState(t, s, Interrupted)
 	select {
@@ -150,7 +150,7 @@ func TestAShellOpenedDuringTheInterruptionEndsAtOnce(t *testing.T) {
 	p.set(func(f *fakeProber) { f.down = true })
 	waitState(t, s, Interrupted)
 	inner := newFakeSession()
-	s.connWatch().trackSession("shell-9", inner, func() {})
+	s.connWatch("").trackSession("shell-9", inner, func() {})
 	select {
 	case <-inner.Done():
 	case <-time.After(10 * time.Second):

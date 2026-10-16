@@ -803,10 +803,11 @@ func (s *Session) DiscardDraft(id string) error {
 	return nil
 }
 
-// CreatedText marks text as created in full on the connected context: a Create resource tab of
-// that context that holds exactly this text has nothing unsaved any more, and its draft goes.
-func (s *Session) CreatedText(text string) {
-	b := s.Backend()
+// CreatedText marks text as created in full on a connected context ("" the shown one, D-69): a
+// Create resource tab of that context that holds exactly this text has nothing unsaved any more,
+// and its draft goes.
+func (s *Session) CreatedText(contextID, text string) {
+	b := s.BackendOf(contextID)
 	if b == nil {
 		return
 	}

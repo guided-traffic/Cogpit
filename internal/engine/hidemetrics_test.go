@@ -218,7 +218,7 @@ func TestHiddenMetricsAreNotPolled(t *testing.T) {
 	waitFor(t, "nothing polled for the Overview", func() bool { return hub.Subscribed() == 0 })
 	var ov *ClusterOverviewModel
 	waitFor(t, "the Overview's build", func() bool {
-		ov, err = s.ClusterOverview(context.Background(), nil, true)
+		ov, err = s.ClusterOverview(context.Background(), "", nil, true)
 		return err == nil && ov.Synced
 	})
 	if ov.Status != StatusHidden || !ov.Charts[0].Hidden || !ov.Charts[1].Hidden || ov.Charts[2].Hidden || ov.Charts[0].Current != nil {
@@ -231,7 +231,7 @@ func TestHiddenMetricsAreNotPolled(t *testing.T) {
 	waitFor(t, "the Overview's poll", func() bool { return hub.Subscribed() == 1 })
 	hideMetrics(t, s, HideCluster)
 	waitFor(t, "the Overview's poll released", func() bool { return hub.Subscribed() == 0 })
-	ov, _ = s.ClusterOverview(context.Background(), nil, true)
+	ov, _ = s.ClusterOverview(context.Background(), "", nil, true)
 	if ov.Status != StatusHidden || !ov.Charts[2].Hidden {
 		t.Errorf("hidden cluster: status %s, pods chart hidden %v", ov.Status, ov.Charts[2].Hidden)
 	}

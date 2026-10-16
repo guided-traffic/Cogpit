@@ -91,7 +91,7 @@ func registerHelmUpgrade(g *registrar) {
 			if _, err := cachedOfKind(s, p.Ref, helm.ReleaseKind); err != nil {
 				return err
 			}
-			b, err := writable(s)
+			b, err := writableOn(s, p.Ref.Context) // the release's cluster, shown or not (D-69)
 			if err != nil {
 				return err
 			}

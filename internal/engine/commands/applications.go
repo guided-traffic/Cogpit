@@ -71,7 +71,7 @@ func groupLogsSpec(id, menuPath, kind, desc string, check func(*unstructured.Uns
 			if p.Ref.Kind != kind {
 				return fmt.Errorf("%w: %s takes a %s reference", engine.ErrNotApplicable, id, kind)
 			}
-			if _, err := streamable(s, "logs"); err != nil {
+			if _, err := streamableOn(s, p.Ref.Context, "logs"); err != nil {
 				return err
 			}
 			ref, _, err := s.ResolveRef(p.Ref)

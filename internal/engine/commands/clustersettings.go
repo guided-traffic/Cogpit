@@ -84,7 +84,7 @@ func registerClusterSettings(g *registrar) {
 			"namespaces named for a user who may not list namespaces (accessibleNamespaces), the node shells' image, pull " +
 			"secret and maximum duration (nodeShellImage, empty: nodeShellDefaultImage; nodeShellPullSecret; " +
 			"nodeShellMaxDuration, empty: nodeShellDefaultMaxDuration), whether it is " +
-			"the connected cluster, whether the user allowed agents' changes without asking (agentWrites), and whether the " +
+			"connected (shown or not), whether the user allowed agents' changes without asking (agentWrites), and whether the " +
 			"settings are kept. The Prometheus setting is cluster_prometheus.",
 		Enabled: func(s *engine.Session, p clusterSettingsParams) error {
 			_, err := settingsContext(s, p.Context)
@@ -235,7 +235,7 @@ func registerClusterSettings(g *registrar) {
 
 	add(g, engine.Spec[clusterSettingsOpenParams]{
 		ID: "cluster.settings.open", Label: "Cluster Settings", MenuPath: "Cluster/Settings", Shortcut: "Cmd+Shift+,", Danger: engine.DangerUI,
-		Description: "Opens a context's Settings page in Cogpit's window, as ⌘⇧, (Ctrl+Shift+,) does for the connected cluster, " +
+		Description: "Opens a context's Settings page in Cogpit's window, as ⌘⇧, (Ctrl+Shift+,) does for the shown cluster, " +
 			"at a section: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces), metrics (the Prometheus, hidden metrics), nodeShell or agents. It takes the place of the cluster's views " +
 			"until closed (settings_close, Escape); ui_state reports it as settings. Returns the new UI state.",
 		Enabled: func(s *engine.Session, p clusterSettingsOpenParams) error {

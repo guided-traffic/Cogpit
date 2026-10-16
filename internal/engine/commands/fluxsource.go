@@ -43,7 +43,10 @@ func fluxSourceChain(ctx context.Context, s *engine.Session, ref model.ObjectRef
 	if kinds.IsFluxSuspended(obj) {
 		return nil, fmt.Errorf("%s is suspended: resume it to reconcile it", ref.String())
 	}
-	b := s.Backend()
+	b := s.BackendOf(ref.Context) // the object's cluster, shown or not (D-69)
+	if b == nil {
+		return nil, &engine.NotConnectedError{Context: ref.Context}
+	}
 	var sources []model.ObjectRef
 	key, cur := ref.Kind, obj
 	for range fluxSourceChainLen {
@@ -87,7 +90,7 @@ func fluxSourcePermitted(s *engine.Session, a fluxAction, ref model.ObjectRef) e
 	if !a.withSource {
 		return nil
 	}
-	b := s.Backend()
+	b := s.BackendOf(ref.Context) // the object's cluster, shown or not (D-69)
 	obj, err := s.Lookup(ref)
 	if b == nil || err != nil {
 		return err
@@ -113,7 +116,7 @@ func fluxSourcePermitted(s *engine.Session, a fluxAction, ref model.ObjectRef) e
 // fluxRunWithSource checks one object's chain and starts the job that writes it and waits for each
 // object of it (fluxsourcejob.go); it returns the job's tab.
 func fluxRunWithSource(ctx context.Context, s *engine.Session, a fluxAction, ref model.ObjectRef) (any, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, ref.Context) // the object's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +124,7 @@ func fluxRunWithSource(ctx context.Context, s *engine.Session, a fluxAction, ref
 		return nil, err
 	}
 	if ref.Context != b.Context {
-		return nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+		return nil, fmt.Errorf("%w: the shown cluster changed", engine.ErrWrongCluster)
 	}
 	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
 		return nil, err
@@ -184,7 +187,7 @@ func fluxManySourceTargets(s *engine.Session, a fluxAction, refs []model.ObjectR
 // as skipped. It returns the job's tab; an error with nothing started when no object can be
 // written.
 func fluxRunManyWithSource(ctx context.Context, s *engine.Session, a fluxAction, refs []model.ObjectRef) (any, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, refsContext(refs)) // the selection's cluster, shown or not (D-69)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +203,7 @@ func fluxRunManyWithSource(ctx context.Context, s *engine.Session, a fluxAction,
 	}
 	for _, pl := range plans {
 		if pl.err == nil && pl.ref.Context != b.Context {
-			return nil, fmt.Errorf("%w: the connected cluster changed", engine.ErrWrongCluster)
+			return nil, fmt.Errorf("%w: the shown cluster changed", engine.ErrWrongCluster)
 		}
 	}
 	title := fmt.Sprintf("%s: %d objects", a.label, len(plans))

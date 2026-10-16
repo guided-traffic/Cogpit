@@ -155,7 +155,7 @@ func TestClusterOverviewIssues(t *testing.T) {
 	s := clusterOverviewSession(t, src, nil)
 	waitTable(t, s, "pods", func(t *TableSnapshot) bool { return t.Synced }) // the view a connect opens
 	lists := src.Lists()
-	m, err := s.ClusterOverview(context.Background(), nil, false)
+	m, err := s.ClusterOverview(context.Background(), "", nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,7 +340,7 @@ func TestClusterOverviewCharts(t *testing.T) {
 	var m *ClusterOverviewModel
 	waitFor(t, "the workers' CPU from the hub", func() bool {
 		var err error
-		if m, err = s.ClusterOverview(context.Background(), nil, true); err != nil {
+		if m, err = s.ClusterOverview(context.Background(), "", nil, true); err != nil {
 			t.Fatal(err)
 		}
 		return m.Status == metrics.StatusAvailable && m.Charts[0].Current != nil && len(m.Charts[0].Samples) >= 2
@@ -361,7 +361,7 @@ func TestClusterOverviewCharts(t *testing.T) {
 
 	// The masters, over six hours: the UI state's choice.
 	s.UpdateUI(func(u *UIState) { u.Overview = OverviewChoice{Nodes: NodesMaster, Range: "6h"} })
-	m, _ = s.ClusterOverview(context.Background(), nil, false)
+	m, _ = s.ClusterOverview(context.Background(), "", nil, false)
 	if m.Nodes != NodesMaster || m.Range != "6h" || m.Window != 6*time.Hour || *m.Charts[0].Current != 0.4 || m.Charts[0].Allocatable != 3.8 ||
 		*m.Charts[0].Requests != 0.1 || len(m.Charts[0].Samples) != 0 {
 		t.Fatalf("masters: %+v", m.Charts[0])
@@ -370,7 +370,7 @@ func TestClusterOverviewCharts(t *testing.T) {
 	// Closed: nothing polled for it; a read asks the nodes' metrics once.
 	s.UpdateUI(func(u *UIState) { u.View, u.Overview = "nodes", OverviewChoice{} })
 	waitFor(t, "the cluster scope to be released", func() bool { return hub.History(cluster) == nil })
-	m, err := s.ClusterOverview(context.Background(), nil, true)
+	m, err := s.ClusterOverview(context.Background(), "", nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}

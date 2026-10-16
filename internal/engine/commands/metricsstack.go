@@ -25,6 +25,7 @@ import (
 // shown by the Helm banner; the page shows each release's state and Apply finishes what is left.
 
 type metricsStackParams struct {
+	engine.OnCluster
 	Prometheus       *bool `json:"prometheus,omitempty" jsonschema:"install (true) or remove (false) Prometheus, release cogpit-prometheus; omitted: as it is"`
 	KubeStateMetrics *bool `json:"kubeStateMetrics,omitempty" jsonschema:"install (true) or remove (false) kube-state-metrics, release cogpit-kube-state-metrics; omitted: as it is"`
 	NodeExporter     *bool `json:"nodeExporter,omitempty" jsonschema:"install (true) or remove (false) node-exporter, release cogpit-node-exporter (a pod on every node on the host's network, port 9100); omitted: as it is"`
@@ -112,7 +113,7 @@ const namespacesResource = "namespaces"
 func registerMetricsStack(g *registrar) {
 	add(g, engine.Spec[metricsStackParams]{
 		ID: "cluster.metricsStack", Label: "Cogpit Metrics", Danger: engine.DangerRead, Verbs: releaseCacheReads,
-		Description: "Returns Cogpit Metrics of the connected cluster (Cluster Settings › Cogpit Metrics, Lens's Lens Metrics): " +
+		Description: "Returns Cogpit Metrics of a connected cluster, the shown one unless context names another (Cluster Settings › Cogpit Metrics, Lens's Lens Metrics): " +
 			"the metrics stack Cogpit bundles (prometheus-community's prometheus chart at a pinned version, its SHA-256 " +
 			"checked) and, for Prometheus, kube-state-metrics and node-exporter, whether its release is installed in the " +
 			"namespace cogpit-metrics, its Helm status, revision and chart version, and whether a Helm action of Cogpit runs " +
@@ -120,13 +121,13 @@ func registerMetricsStack(g *registrar) {
 			"cluster's default StorageClass, else an emptyDir). With switches given (the parameters of " +
 			"cluster_setMetricsStack) also the plan an Apply of them would carry out and the sentence its confirmation shows; " +
 			"nothing is changed. Read from the cache; cluster_setMetricsStack changes it.",
-		Enabled: func(s *engine.Session, _ metricsStackParams) error { return metricsStackPossible(s) },
+		Enabled: func(s *engine.Session, p metricsStackParams) error { return metricsStackPossible(s, p.Context) },
 		Run: func(ctx context.Context, s *engine.Session, p metricsStackParams) (any, error) {
 			if len(p.want()) == 0 {
-				st, err := s.MetricsStack(ctx)
+				st, err := s.MetricsStack(ctx, p.Context)
 				return MetricsStackView{MetricsStackState: st}, err
 			}
-			plan, err := s.PlanMetricsStack(ctx, p.want())
+			plan, err := s.PlanMetricsStack(ctx, p.Context, p.want())
 			if err != nil {
 				return nil, err
 			}
@@ -135,7 +136,7 @@ func registerMetricsStack(g *registrar) {
 	})
 	add(g, engine.Spec[metricsStackParams]{
 		ID: "cluster.setMetricsStack", Label: "Apply Cogpit Metrics", Danger: engine.DangerMutating, Verbs: metricsStackVerbs(),
-		Description: "Installs or removes Cogpit Metrics in the connected cluster, as Lens's Lens Metrics page's Apply does: " +
+		Description: "Installs or removes Cogpit Metrics in a connected cluster, the shown one unless context names another, as Lens's Lens Metrics page's Apply does: " +
 			"each of prometheus, kubeStateMetrics and nodeExporter set true is installed as a Helm release (cogpit-prometheus, " +
 			"cogpit-kube-state-metrics, cogpit-node-exporter) in the namespace cogpit-metrics from the charts Cogpit bundles " +
 			"(nothing is downloaded; the cluster pulls the images from quay.io and registry.k8s.io); each set false is " +
@@ -154,7 +155,7 @@ func registerMetricsStack(g *registrar) {
 			return err != nil || plan.Destructive() // a plan that cannot be read asks as the worst case
 		},
 		Enabled: func(s *engine.Session, p metricsStackParams) error {
-			if err := metricsStackPossible(s); err != nil {
+			if err := metricsStackPossible(s, p.Context); err != nil {
 				return err
 			}
 			if s.HelmOps() == nil {
@@ -188,8 +189,8 @@ func registerMetricsStack(g *registrar) {
 
 // metricsStackPossible refuses where Cogpit cannot install the stack: no cluster, a read-only
 // connection, the demo cluster.
-func metricsStackPossible(s *engine.Session) error {
-	b, err := writable(s)
+func metricsStackPossible(s *engine.Session, contextID string) error {
+	b, err := writableOn(s, contextID) // the context's cluster, "" the shown one (D-69)
 	if err != nil {
 		return err
 	}
@@ -204,7 +205,7 @@ func metricsStackPossible(s *engine.Session) error {
 // them for a removal. What the reviews
 // do not know yet is the API server's to decide.
 func metricsStackPermitted(s *engine.Session, p metricsStackParams) error {
-	b := s.Backend()
+	b := s.BackendOf(p.Context)
 	if b == nil || b.Access == nil {
 		return nil
 	}
@@ -238,7 +239,7 @@ const planTimeout = 10 * time.Second
 func planOf(s *engine.Session, p metricsStackParams) (engine.MetricsStackPlan, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), planTimeout)
 	defer cancel()
-	return s.PlanMetricsStack(ctx, p.want())
+	return s.PlanMetricsStack(ctx, p.Context, p.want())
 }
 
 // planView reports a plan.
@@ -335,7 +336,7 @@ func planDetail(s *engine.Session, plan engine.MetricsStackPlan) string {
 // clusterScoped names the cluster-scoped objects the plan's installs create, rendered offline
 // from the bundled charts (helm template): "ClusterRole cogpit-prometheus-server, …".
 func clusterScoped(s *engine.Session, plan engine.MetricsStackPlan) string {
-	b := s.Backend()
+	b := s.BackendOf(plan.State.Context) // the plan's cluster (D-69)
 	if b == nil {
 		return ""
 	}
@@ -369,14 +370,14 @@ func clusterScoped(s *engine.Session, plan engine.MetricsStackPlan) string {
 // namespace's deletion when nothing is left. Each release goes through the Helm journal; the first
 // failure stops what follows.
 func runMetricsStack(ctx context.Context, s *engine.Session, p metricsStackParams) (any, error) {
-	b, err := writable(s)
+	b, err := writableOn(s, p.Context)
 	if err != nil {
 		return nil, err
 	}
 	if err := engine.CheckConfirmedContext(ctx, b.Context); err != nil {
 		return nil, err
 	}
-	plan, err := s.PlanMetricsStack(ctx, p.want())
+	plan, err := s.PlanMetricsStack(ctx, b.Context, p.want())
 	if err != nil {
 		return nil, err
 	}

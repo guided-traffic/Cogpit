@@ -107,7 +107,7 @@ func (s *Session) renewUser(b *Backend) {
 	}
 	s.goSafe("the user review", func() {
 		u, ok := s.reviewUser(context.Background(), b)
-		if !ok || s.Backend() != b {
+		if !ok || !s.state.holds(b) {
 			return
 		}
 		s.state.logs.add(b.Context, LogInfo, userLogLine(u, true))

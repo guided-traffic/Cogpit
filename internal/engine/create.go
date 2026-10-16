@@ -33,14 +33,15 @@ type createPlan struct {
 	err error // the object cannot be created (unknown kind, redacted kind, no name)
 }
 
-// planCreate parses text and maps each object to its resource through discovery. An object lands
-// in its own metadata.namespace, else in namespace, else in the namespace filter's single
-// namespace, else in the context's default namespace; a cluster-scoped kind's namespace is
-// dropped. Objects that cannot be created carry their error; a text that does not parse fails.
-func (s *Session) planCreate(ctx context.Context, text, namespace string) (*Backend, ObjectWriter, []createPlan, error) {
-	b := s.Backend()
-	if b == nil {
-		return nil, nil, nil, ErrNotConnected
+// planCreate parses text and maps each object to its resource through discovery, in a connected
+// context's cluster ("" the shown one, D-69). An object lands in its own metadata.namespace, else
+// in namespace, else in the namespace filter's single namespace (the shown cluster's), else in the
+// context's default namespace; a cluster-scoped kind's namespace is dropped. Objects that cannot be
+// created carry their error; a text that does not parse fails.
+func (s *Session) planCreate(ctx context.Context, contextID, text, namespace string) (*Backend, ObjectWriter, []createPlan, error) {
+	b, err := s.TargetBackend(contextID)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	w, err := b.ObjectWriter()
 	if err != nil {
@@ -52,9 +53,7 @@ func (s *Session) planCreate(ctx context.Context, text, namespace string) (*Back
 	}
 	fallback := strings.TrimSpace(namespace)
 	if fallback == "" {
-		if ns := s.UIState().Namespaces; len(ns) == 1 {
-			fallback = ns[0]
-		}
+		fallback = s.filterNamespace(b.Context)
 	}
 	if fallback == "" {
 		fallback = b.Namespace
@@ -108,8 +107,8 @@ func (s *Session) planCreate(ctx context.Context, text, namespace string) (*Back
 
 // CreateTargets returns the objects a Create of text would make, for the confirmation that names
 // them.
-func (s *Session) CreateTargets(ctx context.Context, text, namespace string) ([]model.ObjectRef, error) {
-	_, _, plans, err := s.planCreate(ctx, text, namespace)
+func (s *Session) CreateTargets(ctx context.Context, contextID, text, namespace string) ([]model.ObjectRef, error) {
+	_, _, plans, err := s.planCreate(ctx, contextID, text, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -124,8 +123,8 @@ func (s *Session) CreateTargets(ctx context.Context, text, namespace string) ([]
 // its own, so that a Namespace earlier in the text exists when an object in it is checked. An
 // object that fails is reported and the next one is tried, as kubectl create does. The result
 // lists every object; the error, if any object failed, names each failure.
-func (s *Session) CreateObjects(ctx context.Context, text, namespace string) (CreateResult, error) {
-	b, w, plans, err := s.planCreate(ctx, text, namespace)
+func (s *Session) CreateObjects(ctx context.Context, contextID, text, namespace string) (CreateResult, error) {
+	b, w, plans, err := s.planCreate(ctx, contextID, text, namespace)
 	if err != nil {
 		return CreateResult{}, err
 	}

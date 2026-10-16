@@ -60,8 +60,33 @@ tools with an OpenAI-compatible endpoint ([D-10](../developer/decisions.md#d-10-
 | While the connection is interrupted or its login expired, an agent sees it and changes nothing (built 2026-10-15/16, [D-58](../developer/decisions.md#d-58-standby-and-lost-connections), the owner's S4 and the lead's defaults (b) and (c)): `ui_state`'s `connection.state` is `interrupted` or `loginExpired`, with `since`, `nextAttempt` and `reason`; every mutating and destructive command is refused at once, before any confirmation and never left waiting, as `DisabledError` "connection interrupted" or "login expired: log in again first", also after a confirmation the user answered while the connection broke; reads come from the cache as before, and a read command's result carries a note that the data is the cluster's state as of `since` (MCP: a second text content; the built-in agent: a line after the result); the built-in agent's turn goes on reading. `cluster_reconnect` (try at once) is the agents' too; `cluster_login`, which may run the login program and open a browser, is the window's only | [`engine/connwatch.go`](../../internal/engine/connwatch.go) (`writeBlocked`, `StaleNote`), [`mcp/tools.go`](../../internal/mcp/tools.go), [`agent/turn.go`](../../internal/agent/turn.go); `TestTwoFailedHeartbeatsInterruptTheConnection`, `TestConnectionCommands`, `TestStandbyFrozenControlPlane` |
 | An agent reads a context's connection log as the window's dialog shows it (`cluster_connectLog`, a read, no confirmation; since 2026-10-16 every attempt kept on disk for 7 days, [D-66](../developer/decisions.md#d-66-the-connection-log)): its steps, the error picture of a failure, earlier runs' attempts. Its lines hold no credential by construction (a login named by its method, a client certificate by its subject and expiry, URLs without user information and query, a proxy's password `•••`); a credential plugin's standard error is there only after a failed login, scrubbed and cut to 4 KiB, and what the scrubber misses reaches agents too ([credentials › H-112](credentials.md#h-112-a-credential-plugins-standard-error-in-the-connection-log)) | [`engine/connectlog.go`](../../internal/engine/connectlog.go), [`cluster/connecttrace.go`](../../internal/cluster/connecttrace.go), [`cluster/pluginstderr.go`](../../internal/cluster/pluginstderr.go); `TestConnectTraceRecordsTheSteps`, `TestPluginStderrOnFailureIsScrubbed` |
 | Agents read who the user is logged in as (2026-10-16, the owner's F17, [D-68](../developer/decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)): `ui_state`'s `user` names the shown cluster's username and groups as the API server confirmed them at the connect (`source` `apiServer`), the kubeconfig's user entry's name where it did not (`kubeconfig`, with the `reason`), or while the cluster is not connected the last username it confirmed (`lastSeen`); the connect log says the same. A read without secrets: the review's UID and extra fields (a token's credential id, an identity provider's claims) are dropped in package `cluster` and reach no agent. The groups can tell an organisation's structure (team names, admin groups) to every agent and to the built-in agent's LLM endpoint; the owner chose that agents read them ([H-113](#h-113-the-users-name-and-groups-reach-every-agent-that-reads-ui_state)) | `internal/engine` ([`whoami.go`](../../internal/engine/whoami.go), `UIState.User`, `TestConnectLearnsTheUser`), `internal/cluster` ([`whoami.go`](../../internal/cluster/whoami.go), `TestReviewUserAsksTheAPIServer`) |
+| Agents work on any connected cluster, shown or not (2026-10-16, the owner's F16, [D-69](../developer/decisions.md#d-69-several-clusters-connected-at-once) item 6, stage 1): `ui_state` lists every connection (`connections`: context, state, shown, cold); a command on an object acts on its reference's cluster, one on a dock tab on the tab's, and the commands without an object take an optional `context`, the shown cluster by default; a context that is not connected is refused, and no command connects a cluster by itself. D-2 is unchanged and applies per cluster: the allowance of agent writes is the command's cluster's, a confirmation names that cluster's context, the audit line names it, and an interrupted cluster refuses the writes to it while the shown one's go on | `internal/engine` ([`target.go`](../../internal/engine/target.go): the command's cluster for `Dispatch`, `writeBlocked`, `permitted` and the confirmation; [`pool.go`](../../internal/engine/pool.go)), `internal/engine/commands` (`engine.OnCluster`); `TestCommandOnABackgroundClusterActsThere`, `TestContextParameterReadsAnyConnectedCluster`, `TestBackgroundInterruptionDisablesItsWrites` |
 
 ## What this does not cover
+
+### H-115: Agents read and act on connected clusters the window does not show
+
+Since 2026-10-16 ([D-69](../developer/decisions.md#d-69-several-clusters-connected-at-once) stage 1)
+a cluster the user left stays connected, and an agent reaches it with a `context` parameter or a
+reference that names it. Per case, live today:
+
+- **Reads** (`resources_list`, `object_get`, `metrics_get`, the Overviews and dashboards with
+  `context`) run without asking, as reads of the shown cluster do: an agent can read a cluster the
+  user is not looking at, with the user's identity. Bounded by what the cluster's access reviews
+  allow the user and by the audit log, which names the context of every agent call.
+- **Writes** wait for the user's acceptance (destructive ones always, mutating ones unless the user
+  allowed agent writes for that context), and the confirmation names the context; where the user
+  allowed agent writes for that context, an agent's mutating command runs there without asking,
+  whichever cluster the window shows.
+- **What the user sees:** the window shows one cluster; the others' connections are named in
+  `ui_state`, the hotbar's tile states and the Diagnostics' `clusters`, but the window's marks for
+  connected clusters it does not show (filled, ring, D-69 item 5) are stage 2 and not built.
+- **The Secrets kept out of what agents read** are every connected cluster's cached Secrets and the
+  read cluster's taken first; a Secret of a cluster that is not connected, or whose Secrets are not
+  cached, is not known to the filter (H-82's limit, per cluster).
+
+Closes in part with stage 2's marks; the reads and the allowance per context are the owner's
+decisions (D-2, D-69 item 6) and stay.
 
 ### H-113: The user's name and groups reach every agent that reads ui_state
 
@@ -537,8 +562,9 @@ What is still not covered, per case:
   ([rule](#rules); `TestWindowOnlyNotificationsReachAgents`); the decision names no other
   notification. The CLI (`cogpit-cli`) reads everything unchanged, by
   design: it is the user at a terminal.
-- **One cluster at a time:** the matcher holds the connected cluster's Secrets; a value of another
-  cluster's Secret printed into a log stays.
+- **Connected clusters only:** the matcher holds the cached Secrets of every connected cluster
+  (since 2026-10-16, D-69: the read cluster's taken first, the others' as their caches hold them);
+  a value of a Secret of a cluster that is not connected, or not cached, printed into a log stays.
 - **The built-in agent over a private connection** reads every value as printed, by the owner's
   decision of 2026-10-14 late evening (built the same night,
   [H-94](#h-94-a-private-connection-gives-the-model-what-the-window-shows)); its conversations are

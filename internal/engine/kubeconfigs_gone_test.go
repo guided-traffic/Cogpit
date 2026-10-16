@@ -178,17 +178,25 @@ func TestConnectionClosesWhenItsSourceIsRemoved(t *testing.T) {
 }
 
 // TestGoneFileDoesNotTouchANewerConnect: a connection to another context started after the file
-// went is left alone.
+// went is left alone; the gone file's connection, connected in the background since (D-69), closes
+// without changing what the window shows, and only once.
 func TestGoneFileDoesNotTouchANewerConnect(t *testing.T) {
 	g := newGoneFixture(t, true)
 	b := g.s.Backend()
 	if err := g.s.Connect(context.Background(), "test"); err != nil {
 		t.Fatal(err)
 	}
-	if g.s.disconnectBackend(b, "late") {
-		t.Error("disconnected a backend that was replaced")
+	if !g.s.disconnectBackend(b, "late") {
+		t.Error("the background connection of the gone file stayed")
 	}
-	if ui := g.s.UIState(); ui.Context != "test" || ui.Connection.State != Connected {
+	if g.s.disconnectBackend(b, "late") {
+		t.Error("closed twice")
+	}
+	ui := g.s.UIState()
+	if ui.Context != "test" || ui.Connection.State != Connected {
 		t.Errorf("UI state %+v", ui)
+	}
+	if _, ok := ui.ConnectionOf(b.Context); ok || len(ui.Connections) != 1 {
+		t.Errorf("connections %+v", ui.Connections)
 	}
 }
