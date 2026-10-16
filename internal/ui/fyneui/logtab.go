@@ -109,7 +109,7 @@ func newLogTab(ctx context.Context, sh *shell, c *dockContent, t engine.DockTab)
 	lt.controller = newTipButton(sh, theme.MoveUpIcon(), "Logs of every pod of the pod's controller", func() {
 		sh.dispatch("logs.controller", dockParams{ID: lt.tab.ID}, nil)
 	})
-	lt.download = newTipButton(sh, theme.DownloadIcon(), "Download the lines this tab shows", lt.saveDialog)
+	lt.download = newTipButton(sh, theme.DownloadIcon(), "Download the lines this tab shows", lt.saveLines)
 	lt.controls = []fyne.CanvasObject{
 		lt.controller, lt.timestamps, lt.previous, lt.names, lt.wrap,
 		sized(sizeSearchWidth, "", lt.search), lt.filter, lt.download,
@@ -299,7 +299,8 @@ func (lt *logTab) checkController() {
 // saveDialog asks where to save the lines the tab shows (A84, the owner's decision of 2026-10-14
 // evening), as they show: of the pods and containers its selectors show, its filter applied while
 // Filter is on, every line it holds otherwise, names and timestamps as toggled; and writes them
-// there.
+// there. Fyne's dialog: saveLines' fallback where the system has no save panel
+// (filepicker_choosers.go).
 func (lt *logTab) saveDialog() {
 	if lt.view == nil {
 		return

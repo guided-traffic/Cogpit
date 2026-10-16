@@ -477,7 +477,7 @@ kept in `llm-connections.json` (its key apart in `llm-keys.json`, [naming](#nami
 | Base URL | `http://localhost:1234/v1` # default for LM Studio | where the API is; `https://litellm.example.com` # example. Plain `http://` to another machine (anything but `localhost`, 127.0.0.0/8 and ::1) is allowed, and the form, the list ("plain http") and the connection test warn in the warning colour that not only the key but the whole conversation and every Secret or other secret the agent reads travel unencrypted ([H-95](../security/credentials.md#h-95-an-llm-api-key-over-plain-http)) |
 | API key | none # default | sent as `Authorization: Bearer …` to the base URL only (no redirects are followed); empty keeps a stored key, Remove Key removes it |
 | Model | – | from the endpoint's list or typed, `qwen/qwen3.8-27b` # example |
-| CA file | none # default | for an `https://` server with a private CA: an absolute path (`~/` is your home folder; Choose… opens the file dialog) to a PEM file of its CA certificates, `/Users/you/certs/team-ca.pem` # example; for this connection its certificates replace the system's roots (on macOS its trust store), as a kubeconfig's `certificate-authority` does for kubectl (the owner's decision in the audit of 2026-10-16): only they vouch for the server, so a server that moves to a public certificate fails with "this connection trusts only its CA file" until the field is cleared; read whenever the chat connects, so a renewed file counts at once; refused with an `http://` base URL. Without it, a certificate macOS does not trust fails the test's HTTP and TLS layer with a hint at this field ([H-104](../security/trust-boundaries.md#h-104-a-connections-ca-file-replaces-the-systems-roots-checked-by-gos-verifier)) |
+| CA file | none # default | for an `https://` server with a private CA: an absolute path (`~/` is your home folder; Choose… opens the system's file panel, Fyne's dialog on Windows and Linux) to a PEM file of its CA certificates, `/Users/you/certs/team-ca.pem` # example; for this connection its certificates replace the system's roots (on macOS its trust store), as a kubeconfig's `certificate-authority` does for kubectl (the owner's decision in the audit of 2026-10-16): only they vouch for the server, so a server that moves to a public certificate fails with "this connection trusts only its CA file" until the field is cleared; read whenever the chat connects, so a renewed file counts at once; refused with an `http://` base URL. Without it, a certificate macOS does not trust fails the test's HTTP and TLS layer with a hint at this field ([H-104](../security/trust-boundaries.md#h-104-a-connections-ca-file-replaces-the-systems-roots-checked-by-gos-verifier)) |
 | Private connection | off # default | a local model or a private cloud: the chat then reads what the window shows, Secret values included; its conversations are not saved ([H-94](../security/agents-and-mcp.md#h-94-a-private-connection-gives-the-model-what-the-window-shows), [H-96](../security/agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)) |
 | Send all tools | off # default | every Cogpit command the chat may run as a tool of its own with each request (179 tools, about 56,000 tokens, measured 2026-10-15), for large cloud models; off, 20 core tools and a search that finds the rest (about 7,600 tokens). The same rules either way: what the agent reads follows the private mark, every write asks as D-2 says |
 | Limits per turn | 3 identical tool calls, 25 tool calls, 300,000 tokens, 10 minutes # default | a turn that reaches one stops with a note |
@@ -593,6 +593,35 @@ menu), for any context, connected or not; one with nothing recorded says so.
   they come. **Copy** puts every attempt shown on the clipboard as plain text, for a bug report.
 - Agents read the same log with `cluster_connectLog`.
 
+### Choosing files: the system's panels
+
+Every file chooser of the window is the operating system's own on macOS (since 2026-10-16,
+[D-72](decisions.md#d-72-native-file-panels-and-macos-folder-access)): a sheet slides out of the top of Cogpit's window.
+
+| Chooser | Where | What it takes |
+|---|---|---|
+| Sync Files and Folders… | Cluster menu, the navigator's "+", the welcome page, Kubeconfig Sources | kubeconfig files and folders together, several at once (⌘-click), hidden files listed (`.kube`); the button "Sync"; opens in your home folder; ⌘⇧G types a path |
+| Upload Icon… | Cluster Settings › General › Icon | one PNG, JPEG or SVG file |
+| The folder buttons | Cluster Settings › Terminal (working directory), Preferences › Kubernetes (directory for binaries) | one folder, the button "Choose" |
+| Choose… | Preferences › Agent, a connection's CA file | one `.pem`, `.crt` or `.cer` file |
+| The downloads | a table's CSV, the Create tab's save, a log tab's download | a file name, proposed; macOS asks before it replaces a file; a new file is readable by you only |
+
+**macOS's privacy prompts.** What you pick in these panels Cogpit may read without macOS asking.
+Cogpit keeps a bookmark of the kubeconfig files and folders, folders and CA files you picked
+(`bookmarks.json`, below), so that the next start can open them again; whether that keeps macOS
+from asking after a restart is not known yet. A prompt that still comes ("Cogpit would like to
+access files in your Downloads folder") names the reason: "Cogpit reads the kubeconfigs, folders
+and certificate files you chose in your Downloads folder. Programs Cogpit starts for you, such as
+a terminal or a login plugin, ask through Cogpit too." It comes once for the release; a build of
+`make app` or `make build` is a new app to macOS after every build and asks again. A terminal or a
+credential plugin that reads a protected folder asks under Cogpit's name, and once you allowed
+Cogpit a folder they read it without asking ([H-116](../security/file-access.md#h-116-programs-cogpit-starts-act-with-cogpits-folder-access)).
+Your answers are in System Settings › Privacy & Security › Files and Folders; `tccutil reset
+SystemPolicyDownloadsFolder io.guided-traffic.cogpit` # example asks again.
+
+On Windows and Linux (M11) the choosers are Fyne's dialogs, and Sync Files and Folders is
+Cogpit's own browser for files and folders together, one at a time.
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,
@@ -634,6 +663,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | Hotbar | `<user config dir>/Cogpit/hotbar.json`, owner-only (0600, directory 0700): the banks of pinned clusters by context id; an unreadable one is moved to `hotbar.json.unreadable` at the first change | |
 | A cluster's name in the window | the display name set in its Cluster Settings › General, else the part of its context's name after the last `@` (the whole name without an `@`, or with nothing after it), without the kubeconfig file; commands and `ui_state` keep the full context id ([D-68](decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)) | `kubernetes-admin@prod-eu [dev.yaml]` → `prod-eu` # example |
 | Last known users | `<user config dir>/Cogpit/cluster-users.json`, owner-only (0600, directory 0700): per context id the username the API server last confirmed and when Cogpit last saw it so, for the navigator's root while the cluster is not connected; never the groups, never the kubeconfig's user name; an unreadable one is moved to `cluster-users.json.unreadable` at the next write ([D-68](decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)) | `{"version": 1, "users": {"kubernetes-admin@prod-eu [dev.yaml]": {"username": "alice@example.com", "seen": "2026-10-16T09:12:00Z"}}}` # example |
+| Bookmarks of picked files | `<user config dir>/Cogpit/bookmarks.json`, owner-only (0600, directory 0700), macOS (since 2026-10-16, [D-72](decisions.md#d-72-native-file-panels-and-macos-folder-access)): a security-scoped bookmark of each kubeconfig file and sync folder, folder and CA file you picked in the system's panels, with its path, its use (`kubeconfig`, `folder`, `caFile`) and its access; resolved at every start before the sources are read; a source's goes with the source, the newest 16 folders and CA files stay; removing the file removes the kept access ([file access](../security/file-access.md)) | |
 | Tabs and column layout | `<user config dir>/Cogpit/workspace.json`, owner-only (0600, directory 0700): the tab bar's tabs (context id, view, filters, search, sort, history), each view's hidden columns and column order, and since 2026-10-15 the navigator's collapsed source groups (their folders' and files' labels, A63) and whether the navigator is hidden and the chat column shown (F7, [D-54](decisions.md#d-54-the-layout-toggles-and-the-update-button)), and since 2026-10-16 the clusters connected (`connected`, context ids) and the one shown (`shown`) ([D-41](decisions.md#d-41-what-survives-a-restart)); the layout comes back at every start, the tabs and the connections only while Preferences › App › Restore the last session is on ([D-69](decisions.md#d-69-several-clusters-connected-at-once) item 8); format version 1, a file of v0.17.0 loads; an unreadable one is moved to `workspace.json.unreadable` at the first change | `{"version": 1, "tabs": […], "active": 0, "connected": ["kind-dev", "prod-eu"], "shown": "prod-eu"}` # example |
 | Drafts of unsaved text | `<user config dir>/Cogpit/drafts/<32 hex digits>.json`, owner-only (0600, directory 0700): an Edit or Create resource tab's unsaved text, and since 2026-10-15 a Config Map's values edited in the drawer (type `configMapData`; since 2026-10-16 its keys added and removed too), removed when saved, reverted or discarded, offered again at the next connect of their context ([D-11](decisions.md#d-11-crash-stance), [D-55](decisions.md#d-55-a-config-maps-values-edited-in-the-drawer)); never a Secret's values or Helm values | `drafts/3f9a…c2.json` # example |
 | Helm chart repositories | Helm's own `repositories.yaml`, as the helm CLI resolves it: `$HELM_REPOSITORY_CONFIG`, else `$HELM_CONFIG_HOME/repositories.yaml`, else Helm's folder; read every 2 seconds, never written (add and remove repositories with `helm repo add` and `helm repo remove`, [D-29](decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml)); credentials stay in memory | `~/Library/Preferences/helm/repositories.yaml` # default on macOS |

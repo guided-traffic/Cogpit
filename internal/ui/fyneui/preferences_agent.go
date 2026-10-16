@@ -465,8 +465,9 @@ func (f *agentForm) showPlainWarning() {
 	f.plainWarn.Refresh()
 }
 
-// chooseCAFile picks the CA file in the file dialog.
-func (f *agentForm) chooseCAFile() {
+// chooseCAFileWithDialog picks the CA file in Fyne's file dialog: chooseCAFile's fallback where
+// the system has no panel (filepicker_choosers.go).
+func (f *agentForm) chooseCAFileWithDialog() {
 	d := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
 		if err != nil || r == nil {
 			return

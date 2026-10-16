@@ -21,6 +21,7 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
 	"github.com/guided-traffic/cogpit/internal/terminal"
+	"github.com/guided-traffic/cogpit/internal/ui/nativedialog"
 )
 
 // Options configure the shell.
@@ -54,6 +55,9 @@ type Options struct {
 	// DeepLinks are the cogpit:// links macOS hands the app (D-47), opened once the window is up
 	// (deeplink.go); nil: the platform delivers none.
 	DeepLinks *engine.DeepLinkQueue
+	// Bookmarks keeps the security-scoped bookmarks of what the user picks in the system's open
+	// panel and Cogpit reads again in later runs (D-72, filepicker.go); nil keeps none.
+	Bookmarks *nativedialog.Store
 }
 
 // PerfStats is what the jank meter measured: how late callbacks posted to the main goroutine
@@ -171,6 +175,7 @@ func Run(s *engine.Session, opts Options) error {
 	}
 	sh := newShell(s, a, w, opts, do)
 	sh.setConcealed = setConcealedClipboard // the real app's system clipboard (H-25)
+	sh.files = systemPanels{sh}             // the system's file panels where there are some (D-72)
 	sh.startMCP()                           // before the menu, which offers the command only while the server runs
 	s.SetConfirmer(sh.confirmer)
 	s.SetDockOutputReader(dockOutputReader{sh}) // what the dock's tabs show, for dock.read (dockoutput.go)

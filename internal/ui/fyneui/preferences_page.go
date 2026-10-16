@@ -54,7 +54,8 @@ type settingsPage struct {
 	sync     func() // sets the shown section's controls from the state
 	navItems map[string]*widget.Button
 
-	// The window's dialogs, replaced by tests: an image file, a folder, the file manager.
+	// The window's dialogs, replaced by tests: an image file, a folder (the system's panels, else
+	// Fyne's dialogs, filepicker_choosers.go), the file manager.
 	pickIcon      func(done func(path string))
 	pickFolder    func(done func(path string))
 	openFolder    func(path string)
@@ -84,8 +85,8 @@ func newSettingsPage(sh *shell) *settingsPage {
 	content := container.NewBorder(container.NewVBox(header, newDivider(false)), nil, nil, nil,
 		container.NewVScroll(inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, box(columnLayout{}, p.body))))
 	p.root = container.NewStack(newSurface(theme.ColorNameBackground), container.NewBorder(nil, nil, navPanel, nil, content))
-	p.pickIcon = p.pickIconWithDialog
-	p.pickFolder = p.pickFolderWithDialog
+	p.pickIcon = p.pickIconPanel
+	p.pickFolder = p.pickFolderPanel
 	p.openFolder = sh.openFolderWithFileManager
 	return p
 }

@@ -61,11 +61,12 @@ const (
 // kubeconfigUI holds the kubeconfig dialogs of one shell.
 type kubeconfigUI struct {
 	sh *shell
-	// pick asks for a file or a folder, one dialog for both, and calls done with the path and
-	// whether it is a folder; the sync picker in the app, a recorder in tests.
+	// pick asks for files and folders, one dialog for both, and calls done with each path and
+	// whether it is a folder: the system's panel on macOS, else the sync picker (pickFiles,
+	// filepicker_choosers.go); a recorder in tests.
 	pick func(done func(path string, folder bool))
-	// startDir is the folder the sync picker opens in: the home directory in the app, a temporary
-	// directory in tests.
+	// startDir is the folder the Sync panel and the sync picker open in: the home directory in
+	// the app, a temporary directory in tests.
 	startDir func() string
 
 	approval   *approvalDialog // the open approval dialog; main goroutine only
@@ -78,7 +79,7 @@ type kubeconfigUI struct {
 
 func newKubeconfigUI(sh *shell) *kubeconfigUI {
 	k := &kubeconfigUI{sh: sh, startDir: defaultStartFolder}
-	k.pick = k.pickWithDialog
+	k.pick = k.pickFiles
 	return k
 }
 
@@ -91,7 +92,7 @@ func (k *kubeconfigUI) menuItems() []*fyne.MenuItem {
 	}
 }
 
-// addKubeconfigs asks for a kubeconfig file or a folder of them, in one dialog, and syncs it.
+// addKubeconfigs asks for kubeconfig files and folders of them, in one dialog, and syncs each.
 func (k *kubeconfigUI) addKubeconfigs() {
 	k.pick(func(path string, folder bool) {
 		id := "kubeconfig.addFile"
@@ -102,8 +103,10 @@ func (k *kubeconfigUI) addKubeconfigs() {
 	})
 }
 
+// addPath adds a source; several picked at once are added in the order chosen, so that their ids
+// follow it (a second "dev.yaml" becomes "dev.yaml (2)").
 func (k *kubeconfigUI) addPath(id, path string) {
-	k.sh.dispatch(id, pathParams{Path: path}, func(res any, err error) {
+	k.sh.dispatchInOrder(id, pathParams{Path: path}, func(res any, err error) {
 		if err != nil {
 			k.sh.showError(err)
 			return

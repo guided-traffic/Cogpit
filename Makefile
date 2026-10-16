@@ -485,6 +485,13 @@ $(SPARKLE_DIR)/.verified:
 # before the bundle (ad-hoc here, with its identifier and the hardened runtime; the release signs it
 # again with the Developer ID, hack/macos/release.sh).
 APP_MACOS        = $(BIN)/Cogpit.app/Contents/MacOS
+# What macOS says when Cogpit reads a folder its privacy settings protect (D-72): a kubeconfig
+# source, a CA file or a folder the user chose there in an earlier run, or a terminal or credential
+# plugin Cogpit started there (macOS asks under the app's name). A file picked in the system's
+# panel needs no prompt. One sentence per place, the second the same everywhere.
+TCC_WHAT         = Cogpit reads the kubeconfigs, folders and certificate files you chose
+TCC_TOO          = Programs Cogpit starts for you, such as a terminal or a login plugin, ask through Cogpit too.
+APP_PLIST        = $(BIN)/Cogpit.app/Contents/Info.plist
 app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package Cogpit for this OS with fyne package (macOS: bin/Cogpit.app, with Sparkle and cogpit-cli)
 	rm -rf $(BIN)/Cogpit.app
 	cd $(BIN) && $(FYNE) package --os $(APP_OS) --src $(CURDIR)/cmd/cogpit --executable $(BIN)/cogpit --release \
@@ -494,6 +501,11 @@ app: build $(FYNE) $(if $(filter Darwin,$(shell uname -s)),sparkle) ## Package C
 	@if [ "$(APP_OS)" = darwin ]; then \
 		plutil -replace LSApplicationCategoryType -string public.app-category.developer-tools $(BIN)/Cogpit.app/Contents/Info.plist && \
 		plutil -replace LSMinimumSystemVersion -string $(MACOS_MIN) $(BIN)/Cogpit.app/Contents/Info.plist && \
+		plutil -replace NSDesktopFolderUsageDescription -string '$(TCC_WHAT) on your Desktop. $(TCC_TOO)' $(APP_PLIST) && \
+		plutil -replace NSDocumentsFolderUsageDescription -string '$(TCC_WHAT) in your Documents folder. $(TCC_TOO)' $(APP_PLIST) && \
+		plutil -replace NSDownloadsFolderUsageDescription -string '$(TCC_WHAT) in your Downloads folder. $(TCC_TOO)' $(APP_PLIST) && \
+		plutil -replace NSRemovableVolumesUsageDescription -string '$(TCC_WHAT) on a removable volume. $(TCC_TOO)' $(APP_PLIST) && \
+		plutil -replace NSNetworkVolumesUsageDescription -string '$(TCC_WHAT) on a network volume. $(TCC_TOO)' $(APP_PLIST) && \
 		otool -l $(APP_MACOS)/cogpit | grep -A3 LC_BUILD_VERSION | grep -q "minos $(MACOS_MIN)" && \
 		install -m 0755 $(BIN)/cogpit-cli $(APP_MACOS)/cogpit-cli && \
 		test "$$(lipo -archs $(APP_MACOS)/cogpit-cli)" = "$$(lipo -archs $(APP_MACOS)/cogpit)" && \

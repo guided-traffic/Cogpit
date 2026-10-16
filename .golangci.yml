@@ -504,6 +504,14 @@ linters:
         text: G304
         source: os\.Open\(path\)
         linters: [gosec]
+      # G304: the file the user picked in the system's save panel for a table's CSV, the Create
+      # tab's YAML or a log tab's lines (D-72); only the window's own buttons open the panel, the
+      # panel asked before replacing a file, and a new file is created 0600
+      # (docs/security/file-access.md).
+      - path: ^internal/ui/fyneui/filepicker_choosers\.go$
+        text: G304
+        source: os\.OpenFile\(path,
+        linters: [gosec]
       # G304: --cpuprofile names the file, on the user's own command line.
       - path: ^cmd/cogpit/main\.go$
         text: G304

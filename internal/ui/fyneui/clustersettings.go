@@ -312,7 +312,8 @@ func (p *settingsPage) metricsChanged() {
 	}
 }
 
-// pickIconWithDialog asks for an image file in the system's file dialog.
+// pickIconWithDialog asks for an image file in Fyne's file dialog: pickIcon's fallback where the
+// system has no panel (filepicker_choosers.go).
 func (p *settingsPage) pickIconWithDialog(done func(path string)) {
 	d := dialog.NewFileOpen(func(r fyne.URIReadCloser, err error) {
 		if err != nil || r == nil {
@@ -326,7 +327,8 @@ func (p *settingsPage) pickIconWithDialog(done func(path string)) {
 	d.Show()
 }
 
-// pickFolderWithDialog asks for a folder.
+// pickFolderWithDialog asks for a folder in Fyne's dialog: pickFolder's fallback where the
+// system has no panel (filepicker_choosers.go).
 func (p *settingsPage) pickFolderWithDialog(done func(path string)) {
 	dialog.NewFolderOpen(func(l fyne.ListableURI, err error) {
 		if err == nil && l != nil {

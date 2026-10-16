@@ -152,7 +152,7 @@ type csvExport struct {
 }
 
 // exportCSV is the download button beside the item count: the engine writes the open view as CSV
-// (table.exportCsv, so agents export the same text), and a file save dialog stores it.
+// (table.exportCsv, so agents export the same text), and the system's save panel stores it.
 func (tv *tableView) exportCSV() {
 	tv.sh.dispatch("table.exportCsv", struct{}{}, func(res any, err error) {
 		if err != nil {
@@ -168,8 +168,9 @@ func (tv *tableView) exportCSV() {
 	})
 }
 
-// saveWithDialog asks where to save data, suggesting name, and writes it there; it is the shell's
-// saveFile. start, if set, is the folder the dialog opens in.
+// saveWithDialog asks where to save data in Fyne's dialog, suggesting name, and writes it there:
+// the shell's saveFile (saveTable) where the system has no save panel. start, if set, is the
+// folder the dialog opens in.
 func (sh *shell) saveWithDialog(name string, rows int, data []byte, start fyne.ListableURI) *dialog.FileDialog {
 	d := dialog.NewFileSave(func(w fyne.URIWriteCloser, err error) {
 		if err == nil && w == nil {

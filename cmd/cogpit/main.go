@@ -88,10 +88,14 @@ func run(previousCrash string) int {
 	defer closeAudit()
 
 	clusterSettings := openClusterSettings(logger) // the session's, and the connector's proxies
+	sources := openKubeconfigSources(logger, cluster.NamedKubeconfigFiles(filepath.SplitList(*kubeconfig)))
+	// macOS's grants of the files and folders the user picked in the system's panels, before
+	// anything reads a source (D-72, fileaccess.go).
+	bookmarks := restoreFileAccess(logger, sources)
 	connector := &engine.ClusterConnector{
 		KubeconfigPaths: filepath.SplitList(*kubeconfig),
 		Logger:          logger,
-		Sources:         openKubeconfigSources(logger, cluster.NamedKubeconfigFiles(filepath.SplitList(*kubeconfig))),
+		Sources:         sources,
 		MetricsSettings: openMetricsSettings(logger),
 		ClusterSettings: clusterSettings,
 		// Discovery answers kept for the next connection, shared with cogpit-cli (D-65).
@@ -120,7 +124,7 @@ func run(previousCrash string) int {
 	s.SetUpdater(update.New())
 
 	opts := fyneui.Options{AutoConnect: *contextName, Theme: fyneui.ThemeMode(*themeName),
-		DeepLinks: deepLinkQueue}
+		DeepLinks: deepLinkQueue, Bookmarks: bookmarks}
 	if previousCrash != "" {
 		at := time.Now()
 		if fi, err := os.Stat(previousCrash); err == nil {

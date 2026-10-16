@@ -24,6 +24,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
+	"github.com/guided-traffic/cogpit/internal/ui/nativedialog"
 )
 
 // Timings of the shell. They are behaviour, not styling, so they live here and not in the theme.
@@ -56,6 +57,10 @@ type shell struct {
 	now     func() time.Time
 	// saveFile asks where to save a file and writes it (a file save dialog; tests record it).
 	saveFile func(name string, rows int, data []byte)
+	// files shows the system's file panels (filepicker.go): none until Run puts macOS's in place,
+	// a recorder in tests. bookmarks keeps what the panels grant for later runs (Options.Bookmarks).
+	files     filePicker
+	bookmarks *nativedialog.Store
 
 	ctx    context.Context // ends when the window closes; bounds every dispatch
 	cancel context.CancelFunc
@@ -177,7 +182,8 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.mcp = mcpState{on: opts.MCP == nil && opts.MCPCommand != "", command: opts.MCPCommand}
 	sh.sess, _ = eng.(*engine.Session)
 	sh.ctx, sh.cancel = context.WithCancel(context.Background())
-	sh.saveFile = func(name string, rows int, data []byte) { sh.saveWithDialog(name, rows, data, nil) }
+	sh.files, sh.bookmarks = noPanels{}, opts.Bookmarks
+	sh.saveFile = sh.saveTable // the system's save panel, else Fyne's dialog (filepicker_choosers.go)
 	sh.titlebar = newTitlebar(sh)
 	sh.loadWidths() // before the drawer, which wraps its values to the width it will have
 

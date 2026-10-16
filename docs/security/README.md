@@ -10,6 +10,7 @@ document nobody finishes is a document nobody checks. The file names are the ind
 | [`privilege-footprint.md`](privilege-footprint.md) | What Cogpit does in a cluster with the user's identity, verb by verb |
 | [`agents-and-mcp.md`](agents-and-mcp.md) | Who may drive Cogpit besides the user: external agents over MCP, the built-in agent, the LLM endpoint |
 | [`updates.md`](updates.md) | The update channel: how Cogpit replaces itself, and the chain of trust behind it |
+| [`file-access.md`](file-access.md) | What Cogpit reads and writes of the user's own files, how macOS grants it the protected folders, and the bookmarks that keep the grant |
 
 ## State of this documentation
 

@@ -13,7 +13,7 @@ import (
 
 // The Create resource tab's save and search buttons, left of the template picker, as Lens's tab
 // has them (captured 2026-10-11; what they do is not captured). Cogpit's reading (inferred): save
-// writes the tab's text to a YAML file the user picks in the system's file save dialog, a GUI
+// writes the tab's text to a YAML file the user picks in the system's save panel (D-72), a GUI
 // action with no command, as the table's CSV download is; search opens the editor's find widget
 // below the editor (findbar.go), as the Helm Upgrade tab's search icon does. A text that holds a
 // Secret's manifest is not saved to a file, so that its values never land on disk in plain text
@@ -26,7 +26,7 @@ func (c *createTab) newTools() {
 	c.saveBtn = newTipButton(c.sh, theme.DocumentSaveIcon(), "Save to a file…", c.saveToFile)
 	c.searchBtn = newTipButton(c.sh, theme.SearchIcon(), "Find", c.toggleSearch)
 	c.find = newFindBar(c.sh, c.pane.view)
-	c.saveDialog = func(name string, data []byte) { c.showSaveDialog(name, data, nil) }
+	c.saveDialog = c.saveManifest // the system's save panel, else Fyne's dialog (filepicker_choosers.go)
 }
 
 // toggleSearch opens the editor's find widget, or closes it.
@@ -51,8 +51,9 @@ func (c *createTab) saveToFile() {
 	}
 }
 
-// showSaveDialog shows the file save dialog for data, suggesting name; start, if set, is the
-// folder it opens in. It returns the dialog for tests.
+// showSaveDialog shows Fyne's file save dialog for data, suggesting name, where the system has no
+// save panel (saveManifest); start, if set, is the folder it opens in. It returns the dialog for
+// tests.
 func (c *createTab) showSaveDialog(name string, data []byte, start fyne.ListableURI) *dialog.FileDialog {
 	d := dialog.NewFileSave(func(w fyne.URIWriteCloser, err error) {
 		if err == nil && w == nil {
