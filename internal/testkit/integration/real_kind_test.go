@@ -24,6 +24,7 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"slices"
@@ -510,8 +511,21 @@ func TestRealNodeDrain(t *testing.T) {
 	}
 	started := time.Now()
 	var res commands.DrainResult
-	err := d.run("node.drain", params, &res)
+	if err := d.run("node.drain", params, &res); err != nil {
+		t.Fatalf("node.drain: %v", err)
+	}
+	// The drain runs as a job since D-63's drain: wait for its end, its outcome says what it did.
+	var job *engine.JobTab
+	waitFor(ctx, t, "the drain job's end", func() bool {
+		tab, ok := s.UIState().DockTab(res.Job.ID)
+		job = tab.Job
+		return ok && job != nil && job.State.Ended()
+	})
 	took := time.Since(started).Round(time.Second)
+	var err error
+	if job.State != engine.JobDone {
+		err = errors.New(job.Outcome)
+	}
 	req, _ := confirm.last()
 	t.Logf("the confirmation: %s", req.Message())
 	for _, ev := range events.all() {
@@ -533,7 +547,7 @@ func TestRealNodeDrain(t *testing.T) {
 			t.Errorf("after a failed drain the node should stay cordoned: %v", gerr)
 		}
 	} else {
-		t.Logf("drained after %v: %d pods evicted, left: %s", took, res.Evicted, res.Left)
+		t.Logf("drained after %v: %s", took, job.Outcome)
 		if len(pending) != 0 {
 			t.Errorf("a finished drain is still offered: %+v", pending)
 		}
