@@ -546,7 +546,10 @@ func TestChatStreamingStaysCheap(t *testing.T) {
 	sort.Slice(times, func(i, j int) bool { return times[i] < times[j] })
 	p50, p99, worst := times[len(times)/2], times[len(times)*99/100], times[len(times)-1]
 	t.Logf("%d deltas: the window's work per delta p50 %v, p99 %v, max %v; %.1f blocks laid out per delta", steps, p50, p99, worst, perStep)
-	if !raceEnabled && p99 > 16*time.Millisecond {
+	// The wall clock is a budget only where nothing slows the code down: under the race detector or
+	// coverage on a shared runner a p99 of 18 ms came from the instrumentation (CI, 2026-10-16); the
+	// blocks laid out per delta above is the structural guarantee in every mode.
+	if !raceEnabled && testing.CoverMode() == "" && p99 > 16*time.Millisecond {
 		t.Errorf("p99 %v per delta, more than a frame", p99)
 	}
 }
