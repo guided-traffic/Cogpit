@@ -155,6 +155,11 @@ type InformerStats struct {
 	// CoveredBy names the unselected scope whose informer serves this label-selected scope; empty
 	// when the scope has its own informer (and watch).
 	CoveredBy string `json:"coveredBy,omitempty"`
+	// Bytes estimates the memory the scope's objects take in the cache (size.go), filled by
+	// StatsWithMemory only; a covered scope's objects are its cover's, 0 here. Sized is how many
+	// objects' sizes the estimate knows; the others (beyond one read's walk) count at their mean.
+	Bytes int64 `json:"bytes,omitempty"`
+	Sized int   `json:"sized,omitempty"`
 }
 
 // Cache holds the informers of one cluster. It is safe for concurrent use.
@@ -211,6 +216,7 @@ type entry struct {
 	warmGen   uint64      // guarded by Cache.mu; tells a stale timer from the current one
 
 	events atomic.Int64
+	sizes  sizeMemo // the objects' sizes for StatsWithMemory (size.go)
 
 	// subs is replaced, never mutated (copy on write): delivery reads it without a lock, so a
 	// subscriber may subscribe or cancel from inside its callback.
@@ -419,7 +425,14 @@ func (c *Cache) retire(e *entry) {
 }
 
 // Stats returns one entry per scope that a handle holds or that is warm.
-func (c *Cache) Stats() []InformerStats {
+func (c *Cache) Stats() []InformerStats { return c.stats(false) }
+
+// StatsWithMemory is Stats with each scope's memory estimated (size.go): the sizes of its objects,
+// remembered by version, walking at most 1,000 that changed, outside every lock of the cache (the
+// store's read lock only while it copies its list of objects).
+func (c *Cache) StatsWithMemory() []InformerStats { return c.stats(true) }
+
+func (c *Cache) stats(memory bool) []InformerStats {
 	type row struct {
 		e         *entry
 		refs      int
@@ -444,8 +457,14 @@ func (c *Cache) Stats() []InformerStats {
 		var err error
 		if v := r.e.view; v != nil {
 			st.Objects, st.Synced, st.CoveredBy, err = v.stats()
+			if memory && st.CoveredBy == "" {
+				st.Bytes, st.Sized = r.e.sizes.estimate(v.list())
+			}
 		} else {
 			st.Objects, st.Synced, err = len(r.e.run.inf.GetStore().ListKeys()), r.e.run.synced(), r.e.run.err()
+			if memory {
+				st.Bytes, st.Sized = r.e.sizes.estimate(storeObjects(r.e.run.inf.GetStore().List()))
+			}
 		}
 		if err != nil {
 			st.Error = err.Error()

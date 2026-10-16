@@ -138,6 +138,9 @@ func (ck *customKinds) retake() {
 	ck.unsub = ck.handle.Subscribe(func(cache.Event) { signal(ck.wake) })
 	ck.dropped = ""
 	ck.hmu.Unlock()
+	if ck.b.Conn != nil { // the refresh asks discovery again: without the definitions nothing else confirms it (D-65)
+		ck.b.Conn.InvalidateServedResources()
+	}
 	signal(ck.wake)
 }
 
@@ -166,6 +169,7 @@ func (ck *customKinds) rebuild() {
 	}
 	crds := h.List()
 	slices.SortFunc(crds, func(x, y *unstructured.Unstructured) int { return strings.Compare(x.GetName(), y.GetName()) })
+	ck.confirmDiscovery(crds, synced, errMsg) // the discovery cache checked against the definitions (customkinds_digest.go)
 
 	next := make(map[string]customEntry, len(crds))
 	for _, crd := range crds {
@@ -225,12 +229,11 @@ func (ck *customKinds) rebuild() {
 
 // customKindsChanged follows a change of the connected backend's custom kinds: the open view and
 // the drawer follow their profiles (a kind that is gone leaves a view that says so, a kind whose
-// version changed moves its view to the new version), discovery is refreshed, and EventKinds tells
-// the UI to read kinds.list again.
+// version changed moves its view to the new version), and EventKinds tells the UI to read
+// kinds.list again. The discovery answer follows the definitions themselves (confirmDiscovery,
+// D-65), not every change of the kinds: the first build after connecting must not drop the answer
+// the disk cache just gave.
 func (s *Session) customKindsChanged(b *Backend) {
-	if b.Conn != nil {
-		b.Conn.InvalidateServedResources()
-	}
 	st := s.state
 	st.mu.Lock()
 	if st.closed || st.backend != b {

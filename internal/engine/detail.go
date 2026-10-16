@@ -90,4 +90,7 @@ type Diagnostics struct {
 	// Snapshots counts table snapshots built since start, for the coalescing evidence.
 	Snapshots uint64 `json:"snapshots"`
 	DemoStats any    `json:"demoStats,omitempty"`
+	// Discovery says where the connection's discovery answer came from (D-65); nil for the demo
+	// cluster.
+	Discovery *cluster.DiscoveryInfo `json:"discovery,omitempty"`
 }

@@ -59,6 +59,10 @@ type ClusterConnector struct {
 	// "<context> [<file>]". With Sources, KubeconfigPaths is not read. Nil: the merged
 	// KubeconfigPaths (tests, and a start without a configuration directory).
 	Sources *KubeconfigSources
+	// DiscoveryCacheDir is where connections keep their discovery answers for the next connection
+	// (cluster.Options.DiscoveryCacheDir, D-65): <user cache dir>/Cogpit/discovery in both
+	// binaries (app.Dirs.DiscoveryCacheDir). Empty: discovery in memory only (tests).
+	DiscoveryCacheDir string
 }
 
 // metricsOptions are the options of a backend's metrics hub.
@@ -129,6 +133,7 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 		return nil, &cluster.ConnectError{Context: settingsID, Problem: err.Error(), Err: err}
 	}
 	opts.ExecPolicy = proxyBoundPolicy(opts.ExecPolicy, RedactProxyURL(rawProxy))
+	opts.DiscoveryCacheDir = c.DiscoveryCacheDir
 	conn, err := cluster.Connect(ctx, opts)
 	if err != nil {
 		return nil, err

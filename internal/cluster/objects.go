@@ -12,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
 )
 
@@ -29,10 +27,11 @@ type Mapping struct {
 // would overwrite whatever the object holds now, which Cogpit never does.
 var ErrNoPrecondition = errors.New("an update needs the resourceVersion it was based on")
 
-// objectMapper is a Conn's REST mapper for the generic object writes: built on first use over an
-// in-memory discovery cache, so that mapping a kind costs discovery requests once per
-// connection, and reset when a kind is not found, because a custom resource definition may have
-// been added since.
+// objectMapper is a Conn's REST mapper for the generic object writes: built on first use over the
+// connection's cached discovery (discocache.go: the answer ServedResources uses, from memory or the
+// disk cache), so that mapping a kind costs no request when connecting asked already, and reset
+// when a kind is not found, because a custom resource definition may have been added since, and
+// when the definitions changed (DefinitionsSeen).
 type objectMapper struct {
 	mu     sync.Mutex
 	mapper *restmapper.DeferredDiscoveryRESTMapper
@@ -44,12 +43,19 @@ func (c *Conn) restMapper() (*restmapper.DeferredDiscoveryRESTMapper, error) {
 	if c.objects.mapper != nil {
 		return c.objects.mapper, nil
 	}
-	if c.disco == nil {
-		return nil, fmt.Errorf("context %q: discovery is not available", c.contextName)
+	cached, _, err := c.discovery()
+	if err != nil {
+		return nil, err
 	}
-	cached := memory.NewMemCacheClientWithContext(discovery.ToDiscoveryInterfaceWithContext(c.disco))
 	c.objects.mapper = restmapper.NewDeferredDiscoveryRESTMapperWithContext(cached)
 	return c.objects.mapper, nil
+}
+
+// resetMapper drops the REST mapper's mappings; the next mapping builds them again from discovery.
+func (c *Conn) resetMapper() {
+	c.objects.mu.Lock()
+	c.objects.mapper = nil
+	c.objects.mu.Unlock()
 }
 
 // MapKind maps an apiVersion and kind, as a manifest names them, to the resource that serves

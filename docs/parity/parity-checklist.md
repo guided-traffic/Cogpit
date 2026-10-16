@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 121 | 118 | 9 | 109 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 52 | 50 | 41 | 9 | 2 |
+| Beyond Lens (not in feature breadth) | 52 | 50 | 42 | 8 | 2 |
 
 Not counted: 7 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -327,7 +327,7 @@ Not counted: 7 interface rows that are not a target, 5 platform rows that are pa
 | One click updates the macOS app through Sparkle 2; MSI, portable zip, AppImage and tar.xz with Windows and Linux (M11) | partial | [Updates](beyond-lens.md#updates) |
 | Package-manager installs: the button runs or shows the manager's command | missing | [Updates](beyond-lens.md#updates) |
 | Signed update manifest verified with a key built into the app, before anything is replaced | partial | [Updates](beyond-lens.md#updates) |
-| Diagnostics view: API requests per cluster by verb and resource, open and warm watches, objects and memory per kind | partial | [Cache transparency](beyond-lens.md#cache-transparency) |
+| Diagnostics view: API requests per cluster by verb and resource, open and warm watches, objects and memory per kind | done | [Cache transparency](beyond-lens.md#cache-transparency) |
 | On start, Helm releases left pending-install, pending-upgrade or pending-rollback by Cogpit are shown with "finish" and "roll back" | partial | [Crash recovery](beyond-lens.md#crash-recovery) |
 | On start, nodes Cogpit cordoned for a drain it did not finish are shown with "continue drain" and "uncordon" | done | [Crash recovery](beyond-lens.md#crash-recovery) |
 | Unsaved editor content restored from its local draft | done | [Crash recovery](beyond-lens.md#crash-recovery) |

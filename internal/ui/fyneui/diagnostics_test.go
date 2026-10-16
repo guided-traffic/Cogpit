@@ -20,13 +20,14 @@ func diagnosticsFake(t *testing.T) *fakeEngine {
 	  "byVerbResource": {"get pods/log": 14, "get nodes": 8, "list pods": 2, "watch pods": 3, "list services": 1,
 	    "watch services": 1, "list deployments.apps": 1, "watch deployments.apps": 1, "list secrets": 1, "watch secrets": 1,
 	    "list nodes": 1, "watch nodes": 1, "discovery": 4, "create selfsubjectrulesreviews.authorization.k8s.io": 2}},
+	  "discovery": {"source": "disk", "checked": true, "groups": 31, "resources": 212, "persisted": true},
 	  "informers": [
-	    {"scope": {"gvr": {"Version": "v1", "Resource": "pods"}}, "objects": 214, "handles": 2, "synced": true, "events": 1840},
-	    {"scope": {"gvr": {"Version": "v1", "Resource": "nodes"}}, "objects": 6, "handles": 1, "synced": true, "events": 412},
-	    {"scope": {"gvr": {"Version": "v1", "Resource": "secrets"}}, "objects": 57, "handles": 1, "synced": true, "events": 57},
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "pods"}}, "objects": 214, "handles": 2, "synced": true, "events": 1840, "bytes": 1363149},
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "nodes"}}, "objects": 6, "handles": 1, "synced": true, "events": 412, "bytes": 30000},
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "secrets"}}, "objects": 57, "handles": 1, "synced": true, "events": 57, "bytes": 120000},
 	    {"scope": {"gvr": {"Version": "v1", "Resource": "secrets"}, "labelSelector": "owner=helm"}, "objects": 9, "handles": 1, "synced": true, "coveredBy": "secrets"},
-	    {"scope": {"gvr": {"Group": "apps", "Version": "v1", "Resource": "deployments"}}, "objects": 31, "synced": true, "events": 31, "warmUntil": "2026-10-11T14:34:00Z"},
-	    {"scope": {"gvr": {"Version": "v1", "Resource": "services"}}, "objects": 44, "synced": true, "events": 44, "warmUntil": "2026-10-11T14:32:00Z"}]}`
+	    {"scope": {"gvr": {"Group": "apps", "Version": "v1", "Resource": "deployments"}}, "objects": 31, "synced": true, "events": 31, "warmUntil": "2026-10-11T14:34:00Z", "bytes": 160000},
+	    {"scope": {"gvr": {"Version": "v1", "Resource": "services"}}, "objects": 44, "synced": true, "events": 44, "warmUntil": "2026-10-11T14:32:00Z", "bytes": 130000}]}`
 	f.diag = engine.Diagnostics{} // not the demo cluster's
 	if err := json.Unmarshal([]byte(diag), &f.diag); err != nil {
 		t.Fatal(err)
@@ -55,8 +56,9 @@ func diagnosticsTabOf(sh *shell) *diagnosticsTab {
 }
 
 // The Diagnostics tab shows the counters in full: the requests by verb and resource, most first,
-// the watches open, then warm, then covered, and the objects per kind; it follows the counters
-// when they move (EventDiagnostics).
+// the watches open, then warm, then covered, and the objects and memory per kind, the most memory
+// first, their sums and where discovery came from; it follows the counters when they move
+// (EventDiagnostics).
 func TestDiagnosticsTab(t *testing.T) {
 	f := diagnosticsFake(t)
 	sh, _, q := newTestShell(t, f, Options{})
@@ -75,11 +77,17 @@ func TestDiagnosticsTab(t *testing.T) {
 		!strings.HasPrefix(watches[3], "deployments.apps · warm") || !strings.Contains(watches[5], "served by the secrets watch") {
 		t.Errorf("watches %q", watches)
 	}
-	if got := text(d.kinds.Objects[0]); !strings.Contains(got, "214  pods") || len(d.kinds.Objects) != 5 {
+	if got := text(d.kinds.Objects[0]); !strings.Contains(got, "214     1.3 MiB  pods") || len(d.kinds.Objects) != 5 {
 		t.Errorf("kinds: first %q, %d kinds", got, len(d.kinds.Objects))
 	}
-	if !strings.Contains(d.summary.text, "41 API requests since connecting") || !strings.Contains(d.summary.text, "3 open watches, 2 warm, 1 covered") {
-		t.Errorf("summary %q", d.summary.text)
+	if got := text(d.kinds.Objects[1]); !strings.Contains(got, "31   156.2 KiB  deployments.apps") {
+		t.Errorf("kinds: second %q, want the next most memory", got)
+	}
+	for _, want := range []string{"41 API requests since connecting", "3 open watches, 2 warm, 1 covered",
+		"352 objects held (1.7 MiB estimated)", "discovery from the disk cache"} {
+		if !strings.Contains(d.summary.text, want) {
+			t.Errorf("summary %q, want %q", d.summary.text, want)
+		}
 	}
 
 	f.mu.Lock()

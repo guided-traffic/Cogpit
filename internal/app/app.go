@@ -24,6 +24,8 @@ const (
 	DirName = "Cogpit"
 	// AuditLogFile is the audit log of agent-initiated commands (D-2).
 	AuditLogFile = "audit.log"
+	// DiscoveryDirName is the discovery cache's directory under Cogpit's cache directory (D-65).
+	DiscoveryDirName = "discovery"
 )
 
 // Dirs are the directories a Cogpit process reads and writes.
@@ -34,6 +36,10 @@ type Dirs struct {
 	// Home is the user's home directory, whose .kube is the default sync folder (D-28); empty
 	// means none.
 	Home string
+	// Cache is Cogpit's cache directory, <user cache dir>/Cogpit: the log, Helm's repository
+	// indexes and the discovery cache live there, nothing Cogpit cannot fetch again. Empty means
+	// none.
+	Cache string
 }
 
 // UserDirs returns the directories of the user running the process. Without a configuration
@@ -47,7 +53,20 @@ func UserDirs() (Dirs, error) {
 	if home, err := os.UserHomeDir(); err == nil {
 		d.Home = home
 	}
+	if cache, err := os.UserCacheDir(); err == nil {
+		d.Cache = filepath.Join(cache, DirName)
+	}
 	return d, nil
+}
+
+// DiscoveryCacheDir is where connections keep their discovery answers for the next connection,
+// d.Cache/discovery (D-65, cluster.Options.DiscoveryCacheDir): one owner-only file per server and
+// identity, no credential. Empty without a cache directory: discovery stays in memory.
+func (d Dirs) DiscoveryCacheDir() string {
+	if d.Cache == "" {
+		return ""
+	}
+	return filepath.Join(d.Cache, DiscoveryDirName)
 }
 
 // KubeconfigSources returns the kubeconfig sources a process offers, kept in d.Config

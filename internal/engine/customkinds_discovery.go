@@ -23,9 +23,11 @@ import (
 //
 // Discovery is asked while the definitions cannot be listed, at each rebuild of the custom kinds:
 // after the refused list that ends their watch (customKinds.drop), and again when a refresh of the
-// access reviews takes the watch again (retake). The connection's discovery result is cached
-// (cluster.ServedResourcesTTL), and invalidated whenever the custom kinds change. A kind installed
-// while the definitions stay refused shows after the next refresh or connect.
+// access reviews takes the watch again (retake). The connection's discovery result is cached, in
+// memory and in the disk cache (D-65), for cluster.ServedResourcesTTL, since no list of the
+// definitions confirms it, and a refresh of the access reviews asks the server again (retake). A
+// kind installed while the definitions stay refused shows after the next refresh, or at a connect
+// once the cached answer is older than that.
 
 // discoveryTimeout bounds one discovery of the curated kinds.
 const discoveryTimeout = 15 * time.Second

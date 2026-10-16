@@ -99,6 +99,8 @@ func run(previousCrash string) int {
 		Sources:         openKubeconfigSources(logger, cluster.NamedKubeconfigFiles(filepath.SplitList(*kubeconfig))),
 		MetricsSettings: openMetricsSettings(logger),
 		ClusterSettings: clusterSettings,
+		// Discovery answers kept for the next connection, shared with cogpit-cli (D-65).
+		DiscoveryCacheDir: discoveryCacheDir(),
 	}
 	// Every time the window writes is in the computer's region format (D-31), read once here.
 	timeFormat := locale.System()
@@ -163,6 +165,16 @@ func run(previousCrash string) int {
 		return 1
 	}
 	return 0
+}
+
+// discoveryCacheDir is <user cache dir>/Cogpit/discovery (app.Dirs.DiscoveryCacheDir); empty, and
+// discovery in memory only, without a cache directory.
+func discoveryCacheDir() string {
+	dirs, err := app.UserDirs()
+	if err != nil {
+		return ""
+	}
+	return dirs.DiscoveryCacheDir()
 }
 
 // newLogger logs to stderr and to <user cache dir>/Cogpit/cogpit.log, so a Cogpit.app started

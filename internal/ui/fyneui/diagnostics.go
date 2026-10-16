@@ -9,15 +9,18 @@ import (
 	"fyne.io/fyne/v2/theme"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/model"
 )
 
 // The Diagnostics dock tab (D-13 cache transparency; engine/diagnostics_view.go): what the status
 // bar sums up, in full: the connected cluster's API requests by verb and resource, its watches
-// with their state, and the objects per kind, read with diagnostics.get from Cogpit's own counters
-// whenever they move (EventDiagnostics, at most once a second). Its first line also counts the
-// table snapshots built since start, in every state (connected, the demo cluster, no cluster):
-// the only place the GUI shows them since the status bar dropped them (owner, 2026-10-14).
-// Memory per kind is not measured. Its layout and wording are Cogpit's (Lens has no such view).
+// with their state, and the objects and the memory they take per kind (an estimate, cache/size.go),
+// read with diagnostics.get from Cogpit's own counters whenever they move (EventDiagnostics, at
+// most once a second). Its first line sums the cluster's objects and memory, says where discovery
+// came from (the disk cache or the server, D-65), and counts the table snapshots built since start,
+// in every state (connected, the demo cluster, no cluster): the only place the GUI shows them since
+// the status bar dropped them (owner, 2026-10-14). Its layout and wording are Cogpit's (Lens has no
+// such view).
 
 // diagnosticsTab is the tab's content; it is the dock content's editor (dockEditor), so the dock
 // closes it.
@@ -48,7 +51,7 @@ func newDiagnosticsTab(sh *shell) *diagnosticsTab {
 	cols := container.NewGridWithColumns(3,
 		column("API requests by verb and resource", d.requests),
 		column("Watches", d.watches),
-		column("Objects per kind", d.kinds))
+		column("Objects and memory per kind", d.kinds))
 	d.root = container.NewBorder(container.NewVBox(inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, d.summary), newDivider(false)),
 		nil, nil, nil, cols)
 	d.reload()
@@ -117,7 +120,7 @@ func (d *diagnosticsTab) show(r engine.DiagnosticsReport) {
 	}
 	var kinds []fyne.CanvasObject
 	for _, k := range r.Kinds {
-		kinds = append(kinds, line(fmt.Sprintf("%7s  %s", formatCount(int64(k.Objects)), k.Kind), theme.ColorNameForeground, true))
+		kinds = append(kinds, line(fmt.Sprintf("%7s  %10s  %s", formatCount(int64(k.Objects)), memoryText(k.Bytes), k.Kind), theme.ColorNameForeground, true))
 	}
 	if len(kinds) == 0 {
 		kinds = append(kinds, line(noneText(r, "No objects held."), colorMuted, false))
@@ -126,6 +129,29 @@ func (d *diagnosticsTab) show(r engine.DiagnosticsReport) {
 	d.requests.Refresh()
 	d.watches.Refresh()
 	d.kinds.Refresh()
+}
+
+// memoryText is a kind's estimated memory, empty when nothing was estimated.
+func memoryText(b int64) string {
+	if b <= 0 {
+		return ""
+	}
+	return model.FormatBytes(b)
+}
+
+// discoveryText says where the connection's discovery answer came from; empty before it was read
+// and for the demo cluster.
+func discoveryText(r engine.DiagnosticsReport) string {
+	d := r.Discovery
+	switch {
+	case d == nil || d.Source == "":
+		return ""
+	case d.Source == "disk":
+		return "discovery from the disk cache"
+	case d.Partial:
+		return "partial discovery from the server"
+	}
+	return "discovery from the server"
 }
 
 // noneText is what an empty column says: that no cluster is connected, or text.
@@ -147,10 +173,15 @@ func diagnosticsSummary(r engine.DiagnosticsReport) string {
 	} else {
 		parts = append(parts, formatCount(r.Requests)+" API requests since connecting")
 	}
-	parts = append(parts,
-		fmt.Sprintf("%d open watches, %d warm, %d covered", r.Open, r.Warm, r.Covered),
-		formatCount(int64(r.Objects))+" objects held",
-		formatCount(int64(r.Snapshots))+" table snapshots")
+	held := formatCount(int64(r.Objects)) + " objects held"
+	if r.Bytes > 0 {
+		held += " (" + model.FormatBytes(r.Bytes) + " estimated)"
+	}
+	parts = append(parts, fmt.Sprintf("%d open watches, %d warm, %d covered", r.Open, r.Warm, r.Covered), held)
+	if d := discoveryText(r); d != "" {
+		parts = append(parts, d)
+	}
+	parts = append(parts, formatCount(int64(r.Snapshots))+" table snapshots")
 	return strings.Join(parts, " · ")
 }
 

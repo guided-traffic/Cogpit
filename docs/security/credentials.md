@@ -164,6 +164,17 @@ credential into its own files.
   navigator (its
   credential plugin still needs the approval), and only a context a kubeconfig source still offers
   keeps its tab.
+- **The discovery cache holds no credential** (built 2026-10-16, G3,
+  [D-65](../developer/decisions.md#d-65-discovery-cached-on-disk)): `<user cache dir>/Cogpit/discovery/<32 hex digits>.json`,
+  0600 in a 0700 directory, written through a temporary file renamed over it, holds a server's URL
+  (without user information) and version, when its answer was fetched, a digest of the custom
+  resource definitions, and the groups and resources it serves; no object, no token, certificate
+  or key. The file's name is a SHA-256 over the server URL, its TLS server name, the kubeconfig
+  files, the context's cluster and user entry names and the impersonated user, never over a
+  credential (`TestDiscoveryCacheServesTheNextConnection` looks for the token in the name and the
+  content). The answer decides which kinds the navigator offers and which resource a manifest's
+  kind maps to when it is written; a file is Cogpit's own, so whoever can change it runs as the
+  local user, whom [trust boundaries](trust-boundaries.md#roles) trust already.
 - **In memory:** credentials are held by the connection that uses them and dropped when it closes.
   Rule for Cogpit's own credential types: they implement `slog.LogValuer` and `fmt.Stringer` as
   `"<redacted>"`, so a stray log statement cannot print them. The first such type is

@@ -152,6 +152,8 @@ func (e *env) newSession(opts sessionOptions) (*engine.Session, func(), error) {
 		Sources:     e.dirs.KubeconfigSources(named),
 		// The app's cluster settings, read only: a context's proxy applies to the CLI's connection too.
 		ClusterSettings: engine.NewClusterSettingsStore(e.dirs.Config),
+		// The app's discovery cache: a run reuses what the window or the last run asked (D-65).
+		DiscoveryCacheDir: e.dirs.DiscoveryCacheDir(),
 	}
 	so := engine.Options{Connector: connector, Logger: e.logger, TimeLayout: e.timeLayout}
 	closers := []func(){}

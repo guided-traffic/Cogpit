@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
@@ -48,7 +49,9 @@ const (
 	// DefaultConnectTimeout bounds Connect's reachability check. It is generous because an exec
 	// credential plugin may need a moment (a cloud CLI refreshing a token) on the first request.
 	DefaultConnectTimeout = 15 * time.Second
-	// ServedResourcesTTL is how long a discovery result is reused.
+	// ServedResourcesTTL is how long a discovery result is reused before the cluster's custom
+	// resource definitions confirmed it, or when they cannot be listed (discocache.go); a confirmed
+	// one is reused for DefaultDiscoveryCacheTTL.
 	ServedResourcesTTL = 10 * time.Minute
 	// partialServedResourcesTTL is how long a discovery result with failed groups (an aggregated
 	// API that is down) is reused before discovery is tried again.
@@ -86,6 +89,13 @@ type Options struct {
 	// one the user named for this context in Cogpit, in place of the kubeconfig's proxy-url. Nil
 	// leaves client-go's choice. Its password never appears in an error.
 	Proxy *url.URL
+	// DiscoveryCacheDir, when set, is the directory where the connection keeps its discovery answer
+	// for the next connection to the same server as the same identity (discocache.go, D-65): one
+	// owner-only file each, no credential in its name or content. Empty: discovery in memory only.
+	DiscoveryCacheDir string
+	// DiscoveryCacheTTL is how long an answer the cluster's definitions confirmed is reused; zero
+	// means DefaultDiscoveryCacheTTL.
+	DiscoveryCacheTTL time.Duration
 }
 
 // loadingRules returns client-go's loading rules for paths: exactly these files in this order,
@@ -224,10 +234,12 @@ type Conn struct {
 	counter     *RequestCounter
 	warnings    *warningLog
 
-	servedMu  sync.Mutex
-	served    map[schema.GroupVersionResource]bool
-	servedAt  time.Time
-	servedTTL time.Duration
+	// The discovery answer: client-go's memory cache over the disk cache over disco (discocache.go),
+	// built on first use; discoCfg says where it is kept.
+	discoMu  sync.Mutex
+	discoCfg discoveryConfig
+	dcache   *discoveryCache
+	cached   discovery.CachedDiscoveryInterfaceWithContext
 
 	objects objectMapper // the REST mapper of the generic object writes (objects.go)
 	access  reviewClient // the access reviews' client, with their own budget (access.go)
@@ -368,6 +380,9 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 		c.Close()
 		return nil, err
 	}
+	key := discoveryKey(server, cfg.ServerName, usable, kctx.Cluster, kctx.AuthInfo, cfg.Impersonate)
+	c.discoCfg = discoveryConfig{file: discoveryFileName(opts.DiscoveryCacheDir, key), key: key, server: server,
+		version: c.version, context: name, ttl: opts.DiscoveryCacheTTL}
 	return c, nil
 }
 
@@ -470,33 +485,50 @@ func (c *Conn) Metadata() metadata.Interface { return c.meta }
 // Counter returns the connection's API request counter.
 func (c *Conn) Counter() *RequestCounter { return c.counter }
 
-// ServedResources returns the group/version/resources the cluster serves in their preferred
-// version and that support list and watch (discovery verbs: whether the user may list them is
-// an access-review question). The result is cached for ServedResourcesTTL; groups whose
-// discovery fails (an aggregated API that is down) are left out, and such a partial result is
-// cached for a minute only. The map is the caller's to keep.
-func (c *Conn) ServedResources(ctx context.Context) (map[schema.GroupVersionResource]bool, error) {
-	c.servedMu.Lock()
-	defer c.servedMu.Unlock()
-	if c.served != nil && time.Since(c.servedAt) < c.servedTTL {
-		return copyGVRs(c.served), nil
+// discovery returns the connection's cached discovery (client-go's memory cache over the disk
+// cache, discocache.go) and its disk layer, built on first use.
+func (c *Conn) discovery() (discovery.CachedDiscoveryInterfaceWithContext, *discoveryCache, error) {
+	c.discoMu.Lock()
+	defer c.discoMu.Unlock()
+	if c.cached != nil {
+		return c.cached, c.dcache, nil
 	}
 	if c.disco == nil {
-		return nil, fmt.Errorf("context %q: discovery is not available", c.contextName)
+		return nil, nil, c.errNoDiscovery()
 	}
-	lists, err := discovery.ToDiscoveryInterfaceWithContext(c.disco).ServerPreferredResourcesWithContext(ctx)
-	partial := false
+	c.dcache = newDiscoveryCache(discovery.ToDiscoveryInterfaceWithContext(c.disco), c.discoCfg)
+	c.cached = memory.NewMemCacheClientWithContext(c.dcache)
+	return c.cached, c.dcache, nil
+}
+
+// ServedResources returns the group/version/resources the cluster serves in their preferred
+// version and that support list and watch (discovery verbs: whether the user may list them is
+// an access-review question). The answer is cached (discocache.go): in memory and, with a
+// DiscoveryCacheDir, on disk for the next connection, for ServedResourcesTTL until the cluster's
+// custom resource definitions confirmed it (DefinitionsSeen), then DefaultDiscoveryCacheTTL; groups
+// whose discovery fails (an aggregated API that is down) are left out, and such a partial answer is
+// kept for a minute only and never written. The map is the caller's to keep.
+func (c *Conn) ServedResources(ctx context.Context) (map[schema.GroupVersionResource]bool, error) {
+	cached, dc, err := c.discovery()
+	if err != nil {
+		return nil, err
+	}
+	if dc.expired() {
+		cached.InvalidateWithContext(ctx)
+	}
+	lists, err := discovery.ServerPreferredResourcesWithContext(ctx, cached)
 	if err != nil {
 		var failed *discovery.ErrGroupDiscoveryFailed
 		if !errors.As(err, &failed) || len(lists) == 0 {
 			return nil, fmt.Errorf("context %q: discovery: %w", c.contextName, err)
 		}
-		partial = true
-		groups := make([]string, 0, len(failed.Groups))
-		for gv := range failed.Groups {
-			groups = append(groups, gv.String())
+		if dc.firstPartialNotice() { // once per answer, not at every read of it
+			groups := make([]string, 0, len(failed.Groups))
+			for gv := range failed.Groups {
+				groups = append(groups, gv.String())
+			}
+			slog.Warn("cluster: discovery left out groups that did not answer", "context", c.contextName, "groups", groups)
 		}
-		slog.Warn("cluster: discovery left out groups that did not answer", "context", c.contextName, "groups", groups)
 	}
 	out := map[schema.GroupVersionResource]bool{}
 	for _, l := range discovery.FilteredBy(discovery.SupportsAllVerbs{Verbs: []string{"list", "watch"}}, lists) {
@@ -511,27 +543,45 @@ func (c *Conn) ServedResources(ctx context.Context) (map[schema.GroupVersionReso
 			out[gv.WithResource(r.Name)] = true
 		}
 	}
-	c.served, c.servedAt, c.servedTTL = out, time.Now(), ServedResourcesTTL
-	if partial {
-		c.servedTTL = partialServedResourcesTTL
-	}
-	return copyGVRs(out), nil
+	return out, nil
 }
 
-// InvalidateServedResources drops the cached discovery result, so the next ServedResources asks
-// the server again. Call it when CustomResourceDefinitions or APIServices change.
+// InvalidateServedResources drops the cached discovery answer, in memory and on disk, so the next
+// ServedResources or kind mapping asks the server again.
 func (c *Conn) InvalidateServedResources() {
-	c.servedMu.Lock()
-	c.served = nil
-	c.servedMu.Unlock()
+	cached, _, err := c.discovery()
+	if err != nil {
+		return
+	}
+	cached.InvalidateWithContext(context.Background())
+	c.resetMapper()
 }
 
-func copyGVRs(in map[schema.GroupVersionResource]bool) map[schema.GroupVersionResource]bool {
-	out := make(map[schema.GroupVersionResource]bool, len(in))
-	for k, v := range in {
-		out[k] = v
+// DefinitionsSeen takes a digest of the cluster's custom resource definitions, as the engine's
+// watch of them lists them (names, generations, established): a cached discovery answer checked
+// against other definitions, or read from a file nobody checked, is dropped from memory and disk,
+// so the next read asks the server; an answer asked in this connection takes the digest and is
+// kept on disk for DefaultDiscoveryCacheTTL. It reports whether it dropped the answer.
+func (c *Conn) DefinitionsSeen(digest string) bool {
+	if digest == "" {
+		return false
 	}
-	return out
+	_, dc, err := c.discovery()
+	if err != nil || !dc.definitionsSeen(digest) {
+		return false
+	}
+	c.InvalidateServedResources()
+	return true
+}
+
+// DiscoveryInfo says where the connection's discovery answer came from (the disk cache or the
+// server), when it was fetched and how large it is, for the Diagnostics view.
+func (c *Conn) DiscoveryInfo() DiscoveryInfo {
+	_, dc, err := c.discovery()
+	if err != nil {
+		return DiscoveryInfo{}
+	}
+	return dc.info()
 }
 
 // Close releases the connection's idle network connections. Requests in flight (watches of a
