@@ -355,6 +355,21 @@ func (r *chartRenderer) Layout(size fyne.Size) {
 		add(t)
 	}
 
+	// The area under each series (chartfill.go), beneath the markers, the reference lines and the
+	// lines themselves.
+	for _, s := range d.Series {
+		for _, run := range seriesRuns(s.Points, d.From, d.To) {
+			pts := s.Points[run[0]:run[1]]
+			xs, ys := make([]float32, len(pts)), make([]float32, len(pts))
+			for i, p := range pts {
+				xs[i], ys[i] = x(p.At), y(p.Value)
+			}
+			if f := chartFill(xs, ys, y(0), col(s.Color)); f != nil {
+				add(f)
+			}
+		}
+	}
+
 	// Event markers: a vertical line with a diamond at its top.
 	for _, mk := range d.Markers {
 		if mk.At.Before(d.From) || mk.At.After(d.To) {
