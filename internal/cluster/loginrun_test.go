@@ -144,11 +144,14 @@ func TestCancelledConnectEndsThePlugin(t *testing.T) {
 	if !testkit.WaitFor(wait, func() bool { _, on := watch.Current(); return !on }) {
 		t.Error("the watch still says the login runs")
 	}
+	// The watch tells its listener after its state changed: wait for the end's notice.
+	if !testkit.WaitFor(wait, func() bool { mu.Lock(); defer mu.Unlock(); return notes >= 2 }) {
+		mu.Lock()
+		t.Errorf("the watch was told %d times, want the run's begin and end", notes)
+		mu.Unlock()
+	}
 	mu.Lock()
 	defer mu.Unlock()
-	if notes < 2 {
-		t.Errorf("the watch was told %d times, want the run's begin and end", notes)
-	}
 	var logged bool
 	for _, s := range steps {
 		logged = logged || (s.Name == StepLogin && s.Failed && strings.Contains(s.Text, "Login cancelled: Cogpit ended login-plugin"))
