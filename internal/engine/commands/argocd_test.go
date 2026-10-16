@@ -255,7 +255,8 @@ func TestArgoSyncWritesTheOperation(t *testing.T) {
 		t.Fatalf("writes %+v", w)
 	}
 	op, _ := json.Marshal(w[0].operation)
-	want := `{"initiatedBy":{"username":"cogpit"},"retry":{"limit":3},"sync":{"prune":false,"revision":"main","syncOptions":["CreateNamespace=true"]}}`
+	want := `{"initiatedBy":{"username":"cogpit"},"retry":{"limit":3},"sync":{"prune":false,"revision":"main",` +
+		`"source":{"path":"shop","repoURL":"https://git.example.com/apps.git","targetRevision":"main"},"syncOptions":["CreateNamespace=true"]}}`
 	if string(op) != want {
 		t.Errorf("operation %s, want %s", op, want)
 	}
@@ -541,5 +542,49 @@ func TestArgoSyncRespectsSyncWindows(t *testing.T) {
 	}
 	if synced["web"] != 0 || synced["api"] != 2 {
 		t.Errorf("syncs written %v, want api twice and web never", synced)
+	}
+}
+
+// TestArgoSyncWindowsOfAnAppInAnotherNamespace: an Application outside Argo CD's namespace
+// ("Applications in any namespace") has its AppProject in the namespace Argo CD's controller runs
+// in, which it writes into status.controllerNamespace; the project's deny window greys its Sync
+// and refuses the write, as on a live Argo CD controller (checked on a real cluster, 2026-10-16:
+// before, Cogpit looked for the project in the Application's namespace, found none, and let the
+// sync through to wait in the controller).
+func TestArgoSyncWindowsOfAnAppInAnotherNamespace(t *testing.T) {
+	h := newArgoHarness(t)
+	h.src.Set(testkit.ArgoProjectsGVR, testkit.Object("argoproj.io/v1alpha1", "AppProject", "argocd", "frozen", map[string]any{
+		"spec": map[string]any{
+			"sourceNamespaces": []any{"team-billing"},
+			"syncWindows":      []any{map[string]any{"kind": "deny", "schedule": "* * * * *", "duration": "1h", "applications": []any{"*"}}},
+		},
+	}))
+	o := testkit.ArgoApplication("team-billing", "billing", "OutOfSync", "Missing")
+	o.Object["spec"].(map[string]any)["project"] = "frozen"
+	o.Object["status"].(map[string]any)["controllerNamespace"] = "argocd"
+	h.src.Set(testkit.ArgoApplicationsGVR, o)
+	ref := model.ObjectRef{Context: "test", Kind: kinds.ArgoApplicationsKey, Namespace: "team-billing", Name: "billing"}
+	waitUntil(t, "the Application in the cache", func() bool { _, err := h.s.Lookup(ref); return err == nil })
+
+	_, err := h.dispatch(engine.OriginGUI, "argocd.application.sync", map[string]any{"ref": ref})
+	if err == nil || !strings.Contains(err.Error(), "deny window") {
+		t.Fatalf("a sync in its project's deny window: %v", err)
+	}
+	for _, w := range h.writer.Writes() {
+		if w.op == "sync" {
+			t.Errorf("a sync was written: %+v", w)
+		}
+	}
+	// The drawer links the project where it is.
+	d, err := h.s.Detail(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sec := range d.Sections {
+		for _, it := range sec.Items {
+			if it.Name == "Project" && (it.Link == nil || it.Link.Namespace != "argocd" || it.Link.Name != "frozen") {
+				t.Errorf("project link %+v", it.Link)
+			}
+		}
 	}
 }

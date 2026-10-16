@@ -226,13 +226,15 @@ func (w *argoDashWorker) release() {
 	}
 }
 
+// synced reports whether every kind the page reads has listed; a page that reads no Applications
+// is not synced either while the definitions are still being listed (build says so too).
 func (w *argoDashWorker) synced() bool {
 	for _, k := range w.kinds {
 		if !k.handle.HasSynced() {
 			return false
 		}
 	}
-	return true
+	return w.table != nil || w.backend.CustomKindsSettled()
 }
 
 // unsettled reports whether a sync state changed since the last build: it comes with no event,
@@ -324,6 +326,11 @@ func (w *argoDashWorker) build(p viewParams) (*ArgoCDDashboardModel, *TableSnaps
 		// A user who may not list the definitions: whether Argo CD is there is unknown.
 		if why := w.backend.customKindsUnknown(argoKindsWhat); why != "" {
 			snap.Error, m.Error = why, why
+		}
+		// While the definitions are still being listed, nothing is known yet: not synced (an agent's
+		// read right after connecting saw served false and synced true, 2026-10-16).
+		if !w.backend.CustomKindsSettled() {
+			snap.Synced, m.Synced = false, false
 		}
 	}
 	snap.View, snap.Title = ArgoCDDashboard, pageTitles[ArgoCDDashboard] // the table's own heading is the window's
@@ -470,6 +477,9 @@ func (s *Session) ArgoCDDashboard(ctx context.Context, namespaces []string, atte
 	}
 	wctx, cancel := context.WithTimeout(ctx, syncTimeout)
 	defer cancel()
+	// Once the cluster's definitions are listed: before, Argo CD's kinds are not known yet, and a read
+	// right after connecting would say the cluster serves none.
+	waitCustomKindsSettled(wctx, b)
 	// Once the kinds' plans are decided, following a refusal in all namespaces
 	// (accessiblens_follow.go), as the Overviews' reads do.
 	w := openFollowing(wctx, b, argoDashKinds, func() (*argoDashWorker, []kindHandle) {
@@ -530,4 +540,19 @@ func (st *state) argoTable() *TableSnapshot {
 		return nil
 	}
 	return w.snap.Load()
+}
+
+// waitCustomKindsSettled waits, bounded by ctx, until the backend knows its custom kinds (the
+// definitions' first list is done or failed). The set is in memory, so looking again costs no
+// request.
+func waitCustomKindsSettled(ctx context.Context, b *Backend) {
+	tick := time.NewTicker(20 * time.Millisecond)
+	defer tick.Stop()
+	for !b.CustomKindsSettled() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
 }

@@ -1,0 +1,302 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "applications.argoproj.io",
+    "namespace": "team-billing",
+    "name": "billing"
+  },
+  "status": "error",
+  "cells": [
+    {
+      "column": "name",
+      "text": "billing"
+    },
+    {
+      "column": "namespace",
+      "text": "team-billing",
+      "link": {
+        "kind": "namespaces",
+        "name": "team-billing"
+      }
+    },
+    {
+      "column": "sync",
+      "text": "OutOfSync",
+      "status": "warning"
+    },
+    {
+      "column": "health",
+      "text": "Missing",
+      "status": "warning"
+    },
+    {
+      "column": "project",
+      "text": "team-billing",
+      "link": {
+        "kind": "appprojects.argoproj.io",
+        "namespace": "argocd",
+        "name": "team-billing"
+      }
+    },
+    {
+      "column": "destination",
+      "text": "in-cluster/billing"
+    },
+    {
+      "column": "revision",
+      "text": "2.3.1"
+    },
+    {
+      "column": "age",
+      "text": "0s",
+      "num": 1791763200
+    },
+    {
+      "column": "repository",
+      "text": "https://charts.example.com/stable"
+    },
+    {
+      "column": "targetRevision",
+      "text": "2.3.1"
+    },
+    {
+      "column": "path",
+      "text": "billing"
+    },
+    {
+      "column": "message",
+      "text": "Operation terminated"
+    }
+  ],
+  "fields": {
+    "destination": [
+      "in-cluster/billing"
+    ],
+    "health": [
+      "Missing"
+    ],
+    "label": [],
+    "name": [
+      "billing"
+    ],
+    "namespace": [
+      "team-billing"
+    ],
+    "path": [
+      "billing"
+    ],
+    "project": [
+      "team-billing"
+    ],
+    "repository": [
+      "https://charts.example.com/stable"
+    ],
+    "revision": [
+      "2.3.1"
+    ],
+    "sync": [
+      "OutOfSync"
+    ],
+    "targetRevision": [
+      "2.3.1"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Project",
+          "value": "team-billing",
+          "link": {
+            "kind": "appprojects.argoproj.io",
+            "namespace": "argocd",
+            "name": "team-billing"
+          }
+        },
+        {
+          "name": "Sync Status",
+          "value": "OutOfSync",
+          "status": "warning"
+        },
+        {
+          "name": "Health",
+          "value": "Missing",
+          "status": "warning"
+        },
+        {
+          "name": "Revision",
+          "value": "2.3.1"
+        },
+        {
+          "name": "Source Type",
+          "value": "Helm"
+        },
+        {
+          "name": "Reconciled",
+          "value": "2026-10-12 08:00:00"
+        }
+      ]
+    },
+    {
+      "title": "Source",
+      "items": [
+        {
+          "name": "Repository",
+          "value": "https://charts.example.com/stable"
+        },
+        {
+          "name": "Target Revision",
+          "value": "2.3.1"
+        },
+        {
+          "name": "Chart",
+          "value": "billing"
+        },
+        {
+          "name": "Helm Release Name",
+          "value": "billing"
+        }
+      ]
+    },
+    {
+      "title": "Destination",
+      "items": [
+        {
+          "name": "Server",
+          "value": "https://kubernetes.default.svc"
+        },
+        {
+          "name": "Namespace",
+          "value": "billing"
+        }
+      ]
+    },
+    {
+      "title": "Sync Policy",
+      "items": [
+        {
+          "name": "Automated",
+          "value": "No (manual sync)"
+        }
+      ]
+    },
+    {
+      "title": "Operation",
+      "items": [
+        {
+          "name": "Phase",
+          "value": "Failed",
+          "status": "error"
+        },
+        {
+          "name": "Message",
+          "value": "Operation terminated"
+        },
+        {
+          "name": "Initiated By",
+          "value": "cogpit"
+        },
+        {
+          "name": "Revision",
+          "value": "2.3.1"
+        },
+        {
+          "name": "Started",
+          "value": "2026-10-12 07:59:30"
+        },
+        {
+          "name": "Finished",
+          "value": "2026-10-12 07:59:40"
+        }
+      ]
+    },
+    {
+      "title": "Resources",
+      "items": [
+        {
+          "name": "Resource Health",
+          "value": "In Argo CD's resource tree, not in the Application (appTree)\nOpen a resource for its state"
+        }
+      ],
+      "table": {
+        "columns": [
+          "Kind",
+          "Namespace",
+          "Name",
+          "Sync"
+        ],
+        "rows": [
+          [
+            "Service",
+            "billing",
+            "billing",
+            "OutOfSync"
+          ],
+          [
+            "Deployment",
+            "billing",
+            "billing",
+            "OutOfSync"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "Service"
+            },
+            {
+              "text": "billing",
+              "link": {
+                "kind": "namespaces",
+                "name": "billing"
+              }
+            },
+            {
+              "text": "billing",
+              "link": {
+                "kind": "services",
+                "namespace": "billing",
+                "name": "billing"
+              }
+            },
+            {
+              "text": "OutOfSync",
+              "status": "warning"
+            }
+          ],
+          [
+            {
+              "text": "Deployment"
+            },
+            {
+              "text": "billing",
+              "link": {
+                "kind": "namespaces",
+                "name": "billing"
+              }
+            },
+            {
+              "text": "billing",
+              "link": {
+                "kind": "deployments",
+                "namespace": "billing",
+                "name": "billing"
+              }
+            },
+            {
+              "text": "OutOfSync",
+              "status": "warning"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

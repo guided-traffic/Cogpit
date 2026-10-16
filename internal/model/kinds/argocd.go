@@ -382,11 +382,23 @@ func isHex(s string) bool {
 	return true
 }
 
-// argoProjectLink links an Application's project, an AppProject in the Application's namespace
-// (inferred: Argo CD keeps its projects in its own namespace, where most applications live too;
-// an application in another namespace links to a project that may not be there).
+// argoProjectLink links an Application's project, an AppProject in Argo CD's own namespace
+// (ArgoProjectNamespace).
 func argoProjectLink(obj any) *model.ObjectRef {
-	return linkTo(ArgoProjectsKey, model.NestedString(obj, "metadata", "namespace"), model.NestedString(obj, fieldSpec, idArgoProject))
+	return linkTo(ArgoProjectsKey, ArgoProjectNamespace(obj), model.NestedString(obj, fieldSpec, idArgoProject))
+}
+
+// ArgoProjectNamespace is the namespace of an Application's AppProject: Argo CD keeps its
+// projects in the namespace its controller runs in, which the controller writes into the
+// Application's status.controllerNamespace; an Application in another namespace (Argo CD's
+// "Applications in any namespace") finds its project there, not in its own namespace (checked
+// against a live Argo CD controller on a real cluster, 2026-10-16). Before the controller has
+// written it, the Application's own namespace.
+func ArgoProjectNamespace(obj any) string {
+	if ns := model.NestedString(obj, fieldArgoStatus, "controllerNamespace"); ns != "" {
+		return ns
+	}
+	return model.NestedString(obj, "metadata", "namespace")
 }
 
 func argoAppDetail(obj *unstructured.Unstructured) []model.DetailSection {
@@ -583,37 +595,65 @@ func argoInitiator(by map[string]any) string {
 	return ""
 }
 
+// argoResourceHealthInTree is the Application's status.resourceHealthSource when Argo CD keeps
+// each resource's health in its resource tree rather than in status.resources (Argo CD 3's
+// default).
+const argoResourceHealthInTree = "appTree"
+
+// ArgoResourceHealthNote is what the Resources section says in place of a Health column when Argo
+// CD keeps the resources' health in its resource tree: Cogpit reads only the Application, never
+// Argo CD's API server, so a resource's state is in its own drawer.
+const ArgoResourceHealthNote = "In Argo CD's resource tree, not in the Application (appTree)\nOpen a resource for its state"
+
 // argoResourcesSection is the table of the objects the Application manages (status.resources):
 // Kind, Namespace, Name, Sync, Health; a name links to the object when it is of a kind Cogpit knows
-// without discovery (a built-in kind, or one of Argo CD's).
+// without discovery (a built-in kind, or one of Argo CD's). The Health column is left out when no
+// resource carries a health: Argo CD 3 keeps it in its resource tree by default
+// (status.resourceHealthSource: appTree, seen on a live Argo CD 3.5 controller on a real cluster,
+// 2026-10-16), and the section says so instead of showing an empty column.
 func argoResourcesSection(obj any) (model.DetailSection, bool) {
 	list := model.NestedSlice(obj, fieldArgoStatus, "resources")
 	if len(list) == 0 {
 		return model.DetailSection{}, false
 	}
+	shown := list[:min(len(list), argoResourcesShown)]
+	withHealth := false
+	for _, r := range shown {
+		withHealth = withHealth || model.NestedString(r, idArgoHealth, fieldArgoStatus) != ""
+	}
 	cols := []model.Column{
 		{Title: titleKind, Type: model.ColumnText}, {Title: namespaceColumn.Title, Type: model.ColumnText},
-		{Title: titleName, Type: model.ColumnText}, {Title: titleArgoSync, Type: model.ColumnText}, {Title: titleArgoHealth, Type: model.ColumnText},
+		{Title: titleName, Type: model.ColumnText}, {Title: titleArgoSync, Type: model.ColumnText},
 	}
-	shown := list[:min(len(list), argoResourcesShown)]
+	if withHealth {
+		cols = append(cols, model.Column{Title: titleArgoHealth, Type: model.ColumnText})
+	}
 	rows := make([][]model.Cell, 0, len(shown))
 	for _, r := range shown {
 		ns, name := model.NestedString(r, "namespace"), model.NestedString(r, "name")
-		sync, health := model.NestedString(r, fieldArgoStatus), model.NestedString(r, idArgoHealth, fieldArgoStatus)
+		sync := model.NestedString(r, fieldArgoStatus)
 		kind := model.NestedString(r, idKind)
-		rows = append(rows, []model.Cell{
+		row := []model.Cell{
 			{Text: kind},
 			{Text: ns, Link: linkTo(keyNamespaces, "", ns)},
 			{Text: name, Link: argoResourceLink(model.NestedString(r, "group"), model.NestedString(r, "version"), kind, ns, name)},
 			{Text: sync, Status: ArgoSyncToken(sync)},
-			{Text: health, Status: ArgoHealthToken(health)},
-		})
+		}
+		if withHealth {
+			health := model.NestedString(r, idArgoHealth, fieldArgoStatus)
+			row = append(row, model.Cell{Text: health, Status: ArgoHealthToken(health)})
+		}
+		rows = append(rows, row)
 	}
 	title := titleResources
 	if len(list) > len(shown) {
 		title += " (the first " + strconv.Itoa(len(shown)) + " of " + strconv.Itoa(len(list)) + ")"
 	}
-	return model.DetailSection{Title: title, Table: model.CellTable(cols, rows)}, true
+	sec := model.DetailSection{Title: title, Table: model.CellTable(cols, rows)}
+	if !withHealth && model.NestedString(obj, fieldArgoStatus, "resourceHealthSource") == argoResourceHealthInTree {
+		sec.Items = []model.DetailItem{{Name: "Resource Health", Value: ArgoResourceHealthNote}}
+	}
+	return sec, true
 }
 
 // argoKindKeys are Argo CD's own kinds by Kind, for links from an application's resources (an

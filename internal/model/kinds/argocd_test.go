@@ -284,14 +284,17 @@ func TestArgoSettingsNeverShowCredentials(t *testing.T) {
 	}
 }
 
-// TestArgoSyncOperation: the operation argocd app sync writes without options: each source's
-// target revision, prune as asked, the Application's own sync options and retry (a copy), Cogpit
-// as the initiator.
+// TestArgoSyncOperation: the operation argocd app sync writes without options (Argo CD 3.5.5's
+// Server.Sync): the source the user confirmed, a copy of the spec's (the controller then syncs it
+// even if the spec changes before it runs), each source's target revision, prune as asked, the
+// Application's own sync options and retry (copies), Cogpit as the initiator.
 func TestArgoSyncOperation(t *testing.T) {
 	healthy := recordedPath(t, filepath.Join(kinds.ArgoApplicationsKey, "healthy"))
 	op := kinds.ArgoSyncOperation(healthy, true)
 	b, _ := json.Marshal(op)
-	want := `{"initiatedBy":{"username":"cogpit"},"retry":{"limit":5},"sync":{"prune":true,"revision":"main","syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}`
+	want := `{"initiatedBy":{"username":"cogpit"},"retry":{"limit":5},"sync":{"prune":true,"revision":"main",` +
+		`"source":{"path":"apps/shop","repoURL":"https://git.example.com/platform/k8s-base-argo.git","targetRevision":"main"},` +
+		`"syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}`
 	if string(b) != want {
 		t.Errorf("operation %s, want %s", b, want)
 	}
@@ -299,9 +302,75 @@ func TestArgoSyncOperation(t *testing.T) {
 	if n, _ := model.NestedInt64(healthy, "spec", "syncPolicy", "retry", "limit"); n != 5 {
 		t.Error("the operation aliases the cached object's retry")
 	}
+	op["sync"].(map[string]any)["source"].(map[string]any)["path"] = "elsewhere"
+	if p := model.NestedString(healthy, "spec", "source", "path"); p != "apps/shop" {
+		t.Error("the operation aliases the cached object's source")
+	}
 	multi := kinds.ArgoSyncOperation(recordedPath(t, filepath.Join(kinds.ArgoApplicationsKey, "multi-source")), false)
-	if b, _ := json.Marshal(multi); string(b) != `{"initiatedBy":{"username":"cogpit"},"sync":{"prune":false,"revisions":["65.1.0","main"]}}` {
+	want = `{"initiatedBy":{"username":"cogpit"},"sync":{"prune":false,"revisions":["65.1.0","main"],"sources":[` +
+		`{"chart":"kube-prometheus-stack","helm":{"valueFiles":["$values/monitoring/values.yaml"]},"repoURL":"https://prometheus-community.github.io/helm-charts","targetRevision":"65.1.0"},` +
+		`{"ref":"values","repoURL":"https://git.example.com/platform/k8s-base-argo.git","targetRevision":"main"}]}}`
+	if b, _ := json.Marshal(multi); string(b) != want {
 		t.Errorf("multi-source operation %s", b)
+	}
+	// A Helm value set to null (it removes a chart's default) stays null in the copied source.
+	app := &unstructured.Unstructured{Object: map[string]any{"spec": map[string]any{"source": map[string]any{
+		"repoURL": "https://charts.example.com/stable", "chart": "web", "targetRevision": "1.0.0",
+		"helm": map[string]any{"valuesObject": map[string]any{"resources": nil, "replicaCount": int64(2)}},
+	}}}}
+	b, _ = json.Marshal(kinds.ArgoSyncOperation(app, false))
+	if !strings.Contains(string(b), `"valuesObject":{"replicaCount":2,"resources":null}`) {
+		t.Errorf("the null value is lost: %s", b)
+	}
+}
+
+// TestArgoV3ResourceHealthAndProject (checked against a live Argo CD 3.5 controller on a real
+// cluster, 2026-10-16): Argo CD 3 keeps the resources' health in its resource tree
+// (status.resourceHealthSource: appTree), so the Resources table leaves out the Health column it
+// cannot fill and says where the health is; and an Application outside Argo CD's namespace links
+// to its project in the namespace the controller runs in (status.controllerNamespace).
+func TestArgoV3ResourceHealthAndProject(t *testing.T) {
+	app := recordedPath(t, filepath.Join(kinds.ArgoApplicationsKey, "other-namespace"))
+	p := curatedProfile(t, kinds.ArgoApplicationsKey)
+	row := model.BuildRow(p, "test", app)
+	if link := row.Cells[p.ColumnIndex("project")].Link; link == nil || link.Namespace != "argocd" || link.Name != "team-billing" {
+		t.Errorf("project link %+v", link)
+	}
+	if ns := kinds.ArgoProjectNamespace(app); ns != "argocd" {
+		t.Errorf("project namespace %q", ns)
+	}
+	var res *model.DetailSection
+	sections := p.DetailSections(app, model.NoRelated)
+	for i := range sections {
+		if sections[i].Title == "Resources" {
+			res = &sections[i]
+		}
+		for _, it := range sections[i].Items {
+			if it.Name == "Project" && (it.Link == nil || it.Link.Namespace != "argocd") {
+				t.Errorf("the drawer's project link %+v", it.Link)
+			}
+		}
+	}
+	if res == nil || res.Table == nil {
+		t.Fatalf("no Resources table: %+v", sections)
+	}
+	if got := strings.Join(res.Table.Columns, ","); got != "Kind,Namespace,Name,Sync" {
+		t.Errorf("columns %s", got)
+	}
+	if len(res.Items) != 1 || res.Items[0].Value != kinds.ArgoResourceHealthNote {
+		t.Errorf("items %+v", res.Items)
+	}
+	// Before the controller has written its namespace, the Application's own.
+	unstructured.RemoveNestedField(app.Object, "status", "controllerNamespace")
+	if ns := kinds.ArgoProjectNamespace(app); ns != "team-billing" {
+		t.Errorf("project namespace without the controller's %q", ns)
+	}
+	// Resources that carry a health (Argo CD 2, or 3 with the health persisted) keep the column.
+	healthy := recordedPath(t, filepath.Join(kinds.ArgoApplicationsKey, "healthy"))
+	for _, s := range p.DetailSections(healthy, model.NoRelated) {
+		if s.Title == "Resources" && (len(s.Table.Columns) != 5 || len(s.Items) != 0) {
+			t.Errorf("the healthy Application's resources %+v", s)
+		}
 	}
 }
 

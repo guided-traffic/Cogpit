@@ -19,14 +19,15 @@ import (
 // argoDefaultProject is the project an Application without spec.project belongs to.
 const argoDefaultProject = "default"
 
-// argoProjectRef is the AppProject of an Application: spec.project in the Application's namespace
-// (as the drawer links it, kinds.argoProjectLink).
+// argoProjectRef is the AppProject of an Application: spec.project in Argo CD's own namespace,
+// which the controller writes into the Application's status (kinds.ArgoProjectNamespace, as the
+// drawer links it); an Application in another namespace finds its project there.
 func argoProjectRef(ref model.ObjectRef, app *unstructured.Unstructured) model.ObjectRef {
 	name, _, _ := unstructured.NestedString(app.Object, "spec", "project")
 	if name == "" {
 		name = argoDefaultProject
 	}
-	return model.ObjectRef{Context: ref.Context, Kind: kinds.ArgoProjectsKey, Namespace: app.GetNamespace(), Name: name}
+	return model.ObjectRef{Context: ref.Context, Kind: kinds.ArgoProjectsKey, Namespace: kinds.ArgoProjectNamespace(app), Name: name}
 }
 
 // argoWindowBlock returns why the sync windows block a sync of app now, "" when they do not. With

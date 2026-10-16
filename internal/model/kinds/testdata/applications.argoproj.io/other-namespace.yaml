@@ -1,0 +1,68 @@
+# Synthetic, shaped like what a live Argo CD 3.5 controller writes (checked on a real cluster,
+# 2026-10-16): an Application outside Argo CD's own namespace ("Applications in any namespace"),
+# whose controller runs in argocd (status.controllerNamespace), from a Helm repository's chart,
+# manual and out of sync after a sync that waited in a deny window and was terminated; Argo CD 3
+# keeps the resources' health in its resource tree (status.resourceHealthSource: appTree), so
+# status.resources carries none.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: billing
+  namespace: team-billing
+  uid: a1a1a1a1-0007-4e9f-c0a1-000000000007
+  creationTimestamp: "2026-10-12T00:00:00Z"
+spec:
+  project: team-billing
+  source:
+    repoURL: https://charts.example.com/stable
+    chart: billing
+    targetRevision: 2.3.1
+    helm:
+      releaseName: billing
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: billing
+status:
+  controllerNamespace: argocd
+  resourceHealthSource: appTree
+  sourceType: Helm
+  reconciledAt: "2026-10-12T08:00:00Z"
+  sync:
+    status: OutOfSync
+    revision: 2.3.1
+    comparedTo:
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: billing
+      source:
+        repoURL: https://charts.example.com/stable
+        chart: billing
+        targetRevision: 2.3.1
+  health:
+    status: Missing
+    lastTransitionTime: "2026-10-12T07:59:00Z"
+  operationState:
+    phase: Failed
+    message: Operation terminated
+    startedAt: "2026-10-12T07:59:30Z"
+    finishedAt: "2026-10-12T07:59:40Z"
+    operation:
+      initiatedBy:
+        username: cogpit
+      retry: {}
+      sync:
+        revision: 2.3.1
+    syncResult:
+      revision: 2.3.1
+  resources:
+  - version: v1
+    kind: Service
+    namespace: billing
+    name: billing
+    status: OutOfSync
+  - group: apps
+    version: v1
+    kind: Deployment
+    namespace: billing
+    name: billing
+    status: OutOfSync

@@ -157,8 +157,9 @@ the owner's morning audit in each D-entry, "the lead's decision for the owner to
    shell included; the generated checklist page, `make scorecard` (13 budgets measured, all met)
    and an envtest job (D-64); discovery on disk and memory per kind (D-65); long actions on a
    selection and the drain as background jobs with Cancel (D-63); Cogpit Metrics, the provider's
-   settings and a node's network and filesystem from node-exporter (D-61). Hours recounted: alpha
-   ~50–200 h plus the walks.
+   settings and a node's network and filesystem from node-exporter (D-61); the Argo CD section
+   checked against a live Argo CD 3.5 controller on that cluster, five findings fixed (D-36,
+   [G23](gaps.md#g23-flux-cd-and-argo-cd-views)). Hours recounted: alpha ~50–200 h plus the walks.
 
 Beside the path to alpha:
 
