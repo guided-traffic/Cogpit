@@ -314,6 +314,7 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		}
 		return fmt.Errorf("connect %s: %w", name, err)
 	}
+	s.learnUser(cctx, name, b) // who the API server says the user is, never failing the connect (whoami.go, D-68)
 
 	st.mu.Lock()
 	if st.closed || st.connectSeq != seq {

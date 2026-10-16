@@ -67,8 +67,12 @@ type HotbarBank struct {
 type HotbarTile struct {
 	// Context is the context id as cluster.contexts lists it: "<context> [<file>]", or "demo".
 	Context string `json:"context"`
-	// Label is the tile's short label: the context's name without its file.
+	// Label is the context's name without its file.
 	Label string `json:"label,omitempty"`
+	// DisplayName is the name the tile shows, as the window names the cluster everywhere
+	// (ClusterName, D-68): the display name set in its Cluster Settings, else the short name (the
+	// part of Label after its last "@"). A name for people: commands take Context.
+	DisplayName string `json:"displayName,omitempty"`
 	// Connection is the state of a connection to this context: Cogpit holds one at a time, so every
 	// tile but the active cluster's is disconnected.
 	Connection ConnectionState `json:"connection,omitempty"`
@@ -549,6 +553,7 @@ func (s *Session) HotbarView() (HotbarState, error) {
 		for j := range st.Banks[i].Clusters {
 			t := &st.Banks[i].Clusters[j]
 			t.Label = ContextLabel(t.Context)
+			t.DisplayName = ClusterName(t.Context, u.ClusterSettings[t.Context])
 			t.Connection = Disconnected
 			if t.Context == u.Context {
 				t.Connection = u.Connection.State

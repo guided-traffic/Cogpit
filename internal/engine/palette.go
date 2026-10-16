@@ -147,7 +147,7 @@ func (r *Registry) Palette(s *Session, in PaletteInput) []PaletteEntry {
 			banks = append(banks, bankEntries(s, c, in.State.Hotbar)...)
 			continue
 		case openClusterCommand:
-			tiles = append(tiles, tileEntries(s, c, in.State.Hotbar)...)
+			tiles = append(tiles, tileEntries(s, c, in.State.Hotbar, in.State.ClusterSettings)...)
 			continue
 		}
 		if len(c.Kinds) > 0 && !slices.Contains(c.Kinds, in.State.View) {
@@ -249,7 +249,7 @@ func bankEntries(s *Session, c *Command, h *HotbarState) []PaletteEntry {
 }
 
 // tileEntries open the shown bank's clusters, with their keys F1–F12.
-func tileEntries(s *Session, c *Command, h *HotbarState) []PaletteEntry {
+func tileEntries(s *Session, c *Command, h *HotbarState, settings map[string]ClusterSettings) []PaletteEntry {
 	if h == nil || h.Current < 1 || h.Current > len(h.Banks) {
 		return nil
 	}
@@ -260,7 +260,10 @@ func tileEntries(s *Session, c *Command, h *HotbarState) []PaletteEntry {
 		if !ok {
 			continue
 		}
-		e.Label, e.Shortcut = "Open "+ContextLabel(t.Context), fKey("", slot)
+		// The cluster by the name it shows everywhere (D-68); its full context name at the row's end,
+		// where the palette's search finds it too (the palette's rows have no tooltip).
+		e.Label, e.Shortcut = "Open "+ClusterName(t.Context, settings[t.Context]), fKey("", slot)
+		e.Category = ContextLabel(t.Context)
 		out = append(out, e)
 	}
 	return out

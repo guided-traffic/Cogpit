@@ -82,14 +82,15 @@ func TestNavigatorRootIsTheCluster(t *testing.T) {
 		t.Errorf("without a cluster: badge %q, %d rows, hint %q, title %v, section %v", s.badge.text, len(s.tree.visible),
 			s.emptyHint.text, s.head.title.Visible(), s.sec.Visible())
 	}
-	if s.dot.Visible() || s.rootRow.next.Visible() || s.subtitle.Visible() {
+	if s.dot.Visible() || s.rootRow.next.Visible() || s.subLine.Visible() {
 		t.Error("without a cluster the root shows a dot, a › or a subtitle")
 	}
 	f.update(func(u *engine.UIState) {
 		u.Context, u.Connection = "kind-cogpit", engine.Connection{State: engine.Connecting}
 	})
 	q.until(t, "the connecting cluster", func() bool { return s.name.text == "kind-cogpit" && s.tree.Visible() })
-	if !s.dot.Visible() || !s.rootRow.next.Visible() || s.subtitle.text != "Connecting…" ||
+	// The state is the dot's (F13); the subtitle says what the cluster is: no user known yet (D-68).
+	if !s.dot.Visible() || !s.rootRow.next.Visible() || s.subtitle.text != "Kubernetes cluster" ||
 		s.dot.color != connectionColor(engine.Connection{State: engine.Connecting}) {
 		t.Errorf("connecting: dot %v %q, › %v, subtitle %q", s.dot.Visible(), s.dot.color, s.rootRow.next.Visible(), s.subtitle.text)
 	}

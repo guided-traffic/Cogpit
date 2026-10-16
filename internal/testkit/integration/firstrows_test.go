@@ -15,7 +15,8 @@ import (
 
 // TestBudgetFirstRows measures P1 on Cogpit's whole read path: an engine connects a context of a
 // 1,000-pod cluster (and, as a point beyond the budget, of a 10,000-pod one; testkit's fake API
-// server over HTTPS, the real client-go stack, discovery and the access reviews included) and its
+// server over HTTPS, the real client-go stack, discovery, the access reviews and the user's
+// SelfSubjectReview included, D-68) and its
 // Pods view shows its first rows, then all of them. The fake
 // server answers on the loopback, so a real cluster's round trips come on top: what this measures
 // is Cogpit's own share. The budget is 1 s; the test fails only at five times that, so that a
@@ -49,6 +50,13 @@ func firstRows(t *testing.T, pods int) {
 		t.Fatal(err)
 	}
 	connected := time.Since(start)
+	// The connect asks once who the user is (D-68): one SelfSubjectReview, included in the time.
+	if n := srv.Requests()["create selfsubjectreviews.authentication.k8s.io"]; n != 1 {
+		t.Errorf("the connect made %d SelfSubjectReviews, want 1", n)
+	}
+	if u := s.UIState().User; u == nil || u.Username != testkit.DefaultFakeIdentity.Username || u.Source != engine.UserFromAPIServer {
+		t.Errorf("the connected user: %+v", u)
+	}
 	var first, all time.Duration
 	if !testkit.WaitFor(ctx, func() bool {
 		ts := s.Table("pods")

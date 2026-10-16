@@ -330,20 +330,23 @@ func TestTabKeepsItsViewWhileDisconnected(t *testing.T) {
 	}
 }
 
-// The titles: a page's, a remembered kind's, else the key with a capital letter; the context
-// without its kubeconfig file.
+// The titles: a page's, a remembered kind's, else the key with a capital letter; the cluster by the
+// name it shows everywhere (D-68): its display name, else its short name without the kubeconfig file.
 func TestTabTitles(t *testing.T) {
 	s := New(Options{})
 	s.NoteViewTitle("configmaps", "Config Maps")
 	s.NoteViewTitle("", "nothing")
+	settings := map[string]ClusterSettings{"named@ctx [b.yaml]": {Name: "Staging"}}
 	cases := map[string]ViewTab{
 		"Config Maps - kind-dev": {View: "configmaps", Context: "kind-dev [config]"},
 		"Overview - demo":        {View: WorkloadsOverview, Context: "demo"},
 		"Widgets - demo":         {View: "widgets", Context: "demo"},
 		"demo":                   {Context: "demo"},
+		"Pods - prod-eu":         {View: "pods", Context: "kubernetes-admin@prod-eu [a.yaml]"},
+		"Staging":                {Context: "named@ctx [b.yaml]"},
 	}
 	for want, tab := range cases {
-		if got := tabTitle(s.viewTitle, tab); got != want {
+		if got := tabTitle(s.viewTitle, tab, settings); got != want {
 			t.Errorf("title of %+v: %q, want %q", tab, got, want)
 		}
 	}

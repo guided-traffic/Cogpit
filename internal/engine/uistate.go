@@ -17,6 +17,11 @@ type UIState struct {
 	Context string `json:"context"`
 	// Connection is the state of the connection to Context.
 	Connection Connection `json:"connection"`
+	// User is who Cogpit is logged in as on Context (whoami.go, D-68): the username and groups the
+	// API server confirmed at the connect, the kubeconfig's user entry's name where it did not, or
+	// while not connected the last username it confirmed and when; nil without a context, for the
+	// demo cluster and before a first confirmation. The engine derives it after every change.
+	User *ClusterUser `json:"user,omitempty"`
 	// View is the open view's kind key ("pods") or page key ("workloads/overview", overview.go;
 	// "cluster/overview", clusteroverview.go).
 	View string `json:"view"`
@@ -338,6 +343,7 @@ func (u UIState) Clone() UIState {
 		out.LoginItem = &l
 	}
 	out.ClusterSettings = maps.Clone(u.ClusterSettings)
+	out.User = u.User.clone()
 	if u.Settings != nil {
 		p := *u.Settings
 		out.Settings = &p

@@ -469,6 +469,7 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || st.Context != old.Context || st.Connection != old.Connection {
 		sh.connectionChanged(st, old)
 	}
+	sh.side.userChanged(st, old) // a renewed login's user (clusteruser.go, D-68)
 	if !first && (st.ActiveTab != old.ActiveTab || st.View != old.View) {
 		sh.view.dropSearch() // a search typed for one tab or view stays out of the next (tableview.go)
 	}

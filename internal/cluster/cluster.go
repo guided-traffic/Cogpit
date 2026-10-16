@@ -257,6 +257,8 @@ type Conn struct {
 	trace   tracer // Connect's steps; nil after Connect
 
 	closed atomic.Bool
+
+	who whoAmI // who the connection is logged in as (whoami.go, D-68)
 }
 
 // Connect builds a connection for opts.Context. It verifies the server is reachable with one

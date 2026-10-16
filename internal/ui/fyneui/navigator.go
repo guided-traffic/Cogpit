@@ -555,7 +555,7 @@ type navRootRow struct {
 
 // showCluster shows or hides what only a cluster has: the dot, the › and the subtitle's line.
 func (r *navRootRow) showCluster(has bool) {
-	for _, o := range []fyne.CanvasObject{r.s.dot, r.next, r.s.subtitle} {
+	for _, o := range []fyne.CanvasObject{r.s.dot, r.next, r.s.subLine} {
 		if has {
 			o.Show()
 		} else {
@@ -595,7 +595,7 @@ func newNavRootRow(s *sidebar) *navRootRow {
 	r.body = inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil,
 		container.NewHBox(container.NewCenter(s.badge), newSpace(theme.SizeNamePadding)), // as the section's rows
 		container.NewHBox(container.NewCenter(s.dot), container.NewCenter(r.next)),
-		container.NewVBox(layout.NewSpacer(), s.name, s.subtitle, layout.NewSpacer())))
+		container.NewVBox(layout.NewSpacer(), s.name, s.subLine, layout.NewSpacer())))
 	r.ExtendBaseWidget(r)
 	return r
 }
@@ -619,11 +619,15 @@ func (r *navRootRow) Tapped(*fyne.PointEvent) {
 func (r *navRootRow) MouseIn(ev *desktop.MouseEvent) {
 	r.hovered = true
 	r.Refresh()
-	r.s.sh.tip.hover(r, r.tipText(), ev.AbsolutePosition)
+	r.s.sh.tip.hover(r, r.tipAt(ev.AbsolutePosition), ev.AbsolutePosition)
 }
 
-// MouseMoved implements desktop.Hoverable.
-func (r *navRootRow) MouseMoved(ev *desktop.MouseEvent) { r.s.sh.tip.moved(r, ev.AbsolutePosition) }
+// MouseMoved implements desktop.Hoverable: the tooltip of what the pointer is on, the groups' box,
+// the user or the row (clusteruser.go); the row keeps its hover throughout.
+func (r *navRootRow) MouseMoved(ev *desktop.MouseEvent) {
+	r.s.sh.tip.hover(r, r.tipAt(ev.AbsolutePosition), ev.AbsolutePosition)
+	r.s.sh.tip.moved(r, ev.AbsolutePosition)
+}
 
 // MouseOut implements desktop.Hoverable.
 func (r *navRootRow) MouseOut() {

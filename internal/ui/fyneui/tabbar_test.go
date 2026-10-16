@@ -166,7 +166,7 @@ func TestTabBarShowsTheTabs(t *testing.T) {
 	settle(w)
 	test.MoveMouse(w.Canvas(), fyne.CurrentApp().Driver().AbsolutePositionForObject(long).AddXY(40, 8))
 	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() != "" })
-	if got := sh.tip.visibleText(); got != long.tab.Title {
+	if got := sh.tip.visibleText(); got != long.tab.Title+"\n"+long.tab.Context { // the cluster's full context id under the title (D-68)
 		t.Errorf("tooltip %q", got)
 	}
 

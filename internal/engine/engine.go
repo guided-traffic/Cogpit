@@ -192,6 +192,7 @@ type Session struct {
 	jobs       jobSet          // the running background jobs: jobs.go
 
 	drawerEdits drawerEditStore // a Config Map's values edited in the drawer, not saved: drafts_drawer.go
+	users       userBook        // who Cogpit is logged in as, per context: whoami.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.
@@ -239,6 +240,7 @@ func New(opts Options) *Session {
 	opts.HelmRepos.attach(s)
 	opts.Preferences.attach(s)
 	opts.ClusterSettings.attach(s)
+	s.users.attach(s)        // the last known users, beside the cluster settings (whoami_store.go)
 	opts.Drafts.attach(s)    // nil-safe
 	opts.Workspace.attach(s) // nil-safe; reads the kubeconfig sources' files, never a cluster
 	s.attachLoginItem()      // offered when the binary wired one in (loginitem.go)
@@ -460,11 +462,14 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	// A chart drawer's version ends with the drawer (helmchartdrawer.go).
 	s.ui.syncDrawerChartVersion(old)
 	s.ui.SyncDock(old) // a new or activated tab opens the dock, none closes it (layout.go)
+	// Who Cogpit is logged in as (whoami.go).
+	s.ui.syncUser(old, &s.users, s.opts.Now())
 	s.ui.Revision = old.Revision + 1
 	now := s.ui.Clone()
 	s.mu.Unlock()
 
 	s.state.uiChanged(old, now)
+	s.users.flush(s)                          // a connection that ended was its user's last sighting (whoami_store.go)
 	s.endClosedNodeShells(old.Dock, now.Dock) // a closed node shell tab's pod goes (nodeshell.go)
 	s.followJobs(old, now)                    // a closed job tab, or another cluster, ends its job (jobs.go)
 	s.emit(Event{Type: EventUIState, UIState: &now})

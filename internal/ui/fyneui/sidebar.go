@@ -203,7 +203,10 @@ type sidebar struct {
 	badge     *clusterBadge
 	name      *textLine
 	subtitle  *textLine
-	dot       *connDot // the root's connection dot (conndot.go, F13)
+	groups    *groupsBox        // the user's groups, beside the subtitle's username (clusteruser.go, D-68)
+	userTip   string            // the subtitle's tooltip: a user not confirmed, or last seen when; "" for none
+	subLine   fyne.CanvasObject // the subtitle and the groups' box
+	dot       *connDot          // the root's connection dot (conndot.go, F13)
 	emptyHint *textLine
 	hintRow   fyne.CanvasObject // the hint below the root while no item shows
 	root      fyne.CanvasObject
@@ -217,6 +220,8 @@ func newSidebar(sh *shell) *sidebar {
 	s.subtitle = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	// The sidebar's width is the user's (panelwidths.go): a long context name is cut, not widened.
 	s.name.truncate, s.subtitle.truncate = true, true
+	s.groups = newGroupsBox()
+	s.subLine = box(&userLineLayout{text: s.subtitle, box: s.groups}, s.subtitle, s.groups)
 	s.dot = newConnDot(sh)
 	s.emptyHint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	s.emptyHint.truncate = true
@@ -294,8 +299,9 @@ func (s *sidebar) list() fyne.Focusable {
 	return s.tree
 }
 
-// updateHeader shows the active context at the tree's root: an initials badge, its name and what
-// it is, and the connection's dot; the header follows the scope.
+// updateHeader shows the active context at the tree's root: an initials badge, its name (the one
+// short name, D-68), the user Cogpit is logged in as there (else what it is), and the connection's
+// dot; the header follows the scope.
 func (s *sidebar) updateHeader() {
 	ui := s.sh.ui
 	s.head.update()
@@ -307,7 +313,7 @@ func (s *sidebar) updateHeader() {
 	if ui.Context == "" {
 		s.badge.set("–", true)
 		s.name.SetText("Not connected")
-		s.subtitle.SetText("")
+		s.setSubtitle("", colorMuted, "", nil)
 		return
 	}
 	_, file := splitContextID(ui.Context)
@@ -315,14 +321,13 @@ func (s *sidebar) updateHeader() {
 	s.badge.setIdentity(id)
 	s.name.SetText(id.name)
 	switch {
-	case ui.Connection.Demo:
-		s.subtitle.SetText("Synthetic demo cluster")
-	case ui.Connection.State != engine.Connected:
-		s.subtitle.SetText(connectionText(ui.Connection))
+	case ui.Connection.Demo || engine.IsDemoContext(ui.Context):
+		s.setSubtitle("Synthetic demo cluster", colorMuted, "", nil)
+	case s.showUser(ui): // the user Cogpit is logged in as, or was last (clusteruser.go, D-68)
 	case file != "":
-		s.subtitle.SetText(file) // the kubeconfig the context comes from (D-28: every context has one)
+		s.setSubtitle(file, colorMuted, "", nil) // the kubeconfig the context comes from (D-28: every context has one)
 	default:
-		s.subtitle.SetText("Kubernetes cluster")
+		s.setSubtitle("Kubernetes cluster", colorMuted, "", nil)
 	}
 }
 

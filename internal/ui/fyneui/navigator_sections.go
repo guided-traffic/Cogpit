@@ -819,13 +819,13 @@ func (r *navContextRow) set(c engine.ContextInfo) {
 // connectLogItem is the row menu's item that opens the log of the last connect (connectlog.go).
 const connectLogItem = "Show Connection Updates…"
 
-// tipText is the row's tooltip: its name and the kubeconfig source it comes from, then a line for
-// each thing to know before connecting (D-57): why the last connect failed, a login waiting for the
-// user's approval, a certificate the kubeconfig does not check.
+// tipText is the row's tooltip: the context's full name (the row shows the short one, D-68) and the
+// kubeconfig source it comes from, then a line for each thing to know before connecting (D-57): why
+// the last connect failed, a login waiting for the user's approval, a certificate the kubeconfig
+// does not check.
 func (r *navContextRow) tipText() string {
 	c, ui := r.info, r.n.s.sh.ui
-	title := r.n.rowTitle(c)
-	lines := []string{title}
+	lines := []string{kubeconfig.DisplayText(engine.ContextLabel(c.Name), maxShownPath)}
 	switch {
 	case c.Source != "":
 		lines[0] += " - " + kubeconfig.DisplayText(c.Source, maxShownPath)

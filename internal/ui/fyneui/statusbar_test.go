@@ -223,6 +223,8 @@ func visibleTexts(root fyne.CanvasObject) []string {
 		switch x := o.(type) {
 		case *textLine:
 			out = append(out, x.text)
+		case *tipLine:
+			out = append(out, x.text)
 		case *linkText:
 			out = append(out, x.text)
 		case *fyne.Container:

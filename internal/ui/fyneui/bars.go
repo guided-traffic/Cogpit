@@ -46,8 +46,8 @@ func connectionText(c engine.Connection) string {
 // before the logo, and a drag area under its contents.
 type topBar struct {
 	sh          *shell
-	dot         *connDot // the connection's state, no word beside it (conndot.go, F13)
-	context     *textLine
+	dot         *connDot          // the connection's state, no word beside it (conndot.go, F13)
+	context     *tipLine          // the cluster's short name, its full name the tooltip (clustername.go, D-68)
 	file        *textLine         // the kubeconfig the context comes from, muted
 	lead        *canvas.Rectangle // the window buttons' room; hidden unless Cogpit draws the title bar
 	history     *titleHistory     // the history arrows and the bar's context menu (titlehistory.go)
@@ -67,7 +67,7 @@ type topBar struct {
 func newTopBar(sh *shell) *topBar {
 	t := &topBar{sh: sh}
 	t.dot = newConnDot(sh)
-	t.context = newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	t.context = newTipLine(sh, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	t.file = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	t.file.Hide()
 
@@ -101,11 +101,14 @@ func newTopBar(sh *shell) *topBar {
 func (t *topBar) update() {
 	ui := t.sh.ui
 	t.dot.set(ui.Context, ui.Connection, "")
-	name, file := splitContextID(ui.Context)
-	if name == "" {
-		name = "No cluster"
+	_, file := splitContextID(ui.Context)
+	name, tip := "No cluster", ""
+	if ui.Context != "" {
+		name = t.sh.identity(ui.Context).name // the one short name (D-68)
+		tip = fullNameTip(name, ui.Context)
 	}
 	t.context.SetText(name)
+	t.context.tip = tip
 	t.file.SetText(file)
 	if file == "" {
 		t.file.Hide()
@@ -217,7 +220,7 @@ type statusBar struct {
 	mcp     *mcpItem  // the MCP indicator and its switch, at the right end; nil without an MCP server
 	layout  *statusLayout
 	dot     *connDot // the connection's state, no word beside it (F13)
-	context *textLine
+	context *tipLine // the cluster's short name, its full context id the tooltip (clustername.go, D-68)
 	// tls says "TLS not checked" in the warning colour beside the context while the connection does
 	// not check the server's certificate (engine.Connection.TLSUnchecked, the owner's A29); hidden
 	// otherwise.
@@ -235,7 +238,8 @@ func newStatusBar(sh *shell) *statusBar {
 		return newTextLine("", colorMuted, sizeStatusText, fyne.TextStyle{})
 	}
 	s.dot = newConnDot(sh)
-	s.context, s.requests, s.informers, s.demo = caption(), caption(), caption(), caption()
+	s.context = newTipLine(sh, colorMuted, sizeStatusText, fyne.TextStyle{})
+	s.requests, s.informers, s.demo = caption(), caption(), caption()
 	s.tls = newTextLine(engine.TLSUncheckedLabel, colorStatusWarning, sizeStatusText, fyne.TextStyle{})
 	s.tls.Hide()
 	s.demoSep = newStatusDivider()
@@ -377,11 +381,12 @@ func (l *statusLayout) show(on bool) {
 func (s *statusBar) update() {
 	ui, d := s.sh.ui, s.sh.diag
 	s.dot.set(ui.Context, ui.Connection, "")
-	ctx := ui.Context
-	if ctx == "" {
-		ctx = "no cluster"
+	name, tip := "no cluster", ""
+	if ui.Context != "" {
+		name, tip = s.sh.identity(ui.Context).name, ui.Context // the short name; the full context id, its file included
 	}
-	s.context.SetText(ctx)
+	s.context.SetText(name)
+	s.context.tip = tip
 	if ui.Connection.State.Live() && ui.Connection.TLSUnchecked {
 		s.tls.Show()
 	} else {

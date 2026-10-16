@@ -347,9 +347,12 @@ func (w *welcomePage) render() {
 func (w *welcomePage) row(c engine.ContextInfo) *clusterRow {
 	sh := w.sh
 	title, sub := contextLabels(c)
-	if cs := sh.ui.ClusterSettings[c.Name]; cs.Name != "" { // the display name, the context below it
+	// The one name of the cluster (its display name, else its short name, D-68), the context's full
+	// name below it where they differ.
+	named := sh.ui.ClusterSettings[c.Name].Name != "" // the demo cluster keeps its label unless the user named it
+	if name := sh.identity(c.Name).name; (!c.Demo || named) && kubeconfig.DisplayText(name, maxShownPath) != title {
 		sub = strings.TrimSuffix("context "+title+" · "+sub, " · ")
-		title = kubeconfig.DisplayText(cs.Name, maxShownPath)
+		title = kubeconfig.DisplayText(name, maxShownPath)
 	}
 	name := c.Name
 	connect := func() { w.connect(name) }

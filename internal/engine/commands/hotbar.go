@@ -92,7 +92,7 @@ func registerHotbar(g *registrar) {
 		ID: "hotbar.list", Label: "Show Hotbar", MenuPath: "Hotbar/Show Hotbar", Danger: engine.DangerRead,
 		Description: "Returns the hotbar, the bar of pinned clusters at the left edge of Cogpit's window: its banks (numbered from 1, " +
 			"as the switcher shows them) with their names and tiles, top to bottom, and the bank shown now (current). Each tile has " +
-			"its context id, its short label, the state of a connection to it (Cogpit holds one at a time), missing when no " +
+			"its context id, its label (the context's name without its file), its displayName (the name the window shows: the display name set, else the part of the label after its last @), the state of a connection to it (Cogpit holds one at a time), missing when no " +
 			"kubeconfig source offers the context any more, and exec when its credential plugin needs the user's approval. " +
 			"ui_state carries the same.",
 		Enabled: func(s *engine.Session, _ struct{}) error { _, err := s.HotbarState(); return err },

@@ -78,7 +78,10 @@ type refParams struct {
 func registerUI(g *registrar) {
 	add(g, engine.Spec[struct{}]{
 		ID: "ui.state", Label: "Show UI State", Danger: engine.DangerRead,
-		Description: "Returns what the user sees: the connected context and its connection state (tlsUnchecked when the connection does not check the server's certificate), the open view (kind key), " +
+		Description: "Returns what the user sees: the connected context and its connection state (tlsUnchecked when the connection does not check the server's certificate), " +
+			"who Cogpit is logged in as there (user: username and groups with source apiServer when the API server confirmed them at the connect, " +
+			"source kubeconfig with a reason when it did not and username is only the kubeconfig's user entry's name, source lastSeen with lastSeen " +
+			"while the cluster is not connected; absent for the demo cluster and a context never confirmed), the open view (kind key), " +
 			"the namespace filter, the search text and its toggles (filterOptions: matchCase, regex; filterError when its " +
 			"regular expression is invalid), the status filter (states; view_rows lists the states offered), the sort order, the selected objects, the object in the detail drawer and " +
 			"the order of its sortable tables by title (drawerSort: a node's or a workload's Pods, ui_sortDrawerTable), " +
@@ -86,7 +89,7 @@ func registerUI(g *registrar) {
 			"filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
 			"range and variant of each metrics chart (drawerCharts) and the metrics providers' status line " +
 			"(drawerMetricsProviders: Prometheus and the Metrics Server, answering or not, what each serves), " +
-			"the hotbar of pinned clusters as hotbar_list returns it, and timeFormat, the Go layouts of a date and a time " +
+			"the hotbar of pinned clusters as hotbar_list returns it (each tile's displayName is the name the window shows: the display name set, else the part of the context's name after its last @; commands take the context), and timeFormat, the Go layouts of a date and a time " +
 			"of day that the drawn texts (view_rows, resources_list, object_get's sections) write absolute times in, in the " +
 			"Preferences' time zone; the window's layout (navigatorHidden, dockOpen, chat) and update, the newer release " +
 			"the updater holds for the user (available, version). Use it to learn which object the user means.",

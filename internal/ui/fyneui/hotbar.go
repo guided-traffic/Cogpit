@@ -203,6 +203,7 @@ func (h *hotbar) open(slot int) {
 	if t.Context == h.sh.ui.Context && (t.Connection.Live() || t.Connection == engine.Connecting) {
 		return
 	}
+	name := h.sh.identity(t.Context).name // the one short name (D-68)
 	bank := h.view.Current
 	run := func() {
 		h.sh.dispatch("hotbar.openCluster", hotbarSlotParams{Slot: slot, Bank: bank}, func(res any, err error) {
@@ -216,14 +217,14 @@ func (h *hotbar) open(slot int) {
 				Error   string `json:"error"`
 			}
 			if decode(res, &out) == nil && out.State == string(engine.ConnectError) {
-				h.sh.toast("error", "Could not connect to "+t.Label+": "+out.Error)
+				h.sh.toast("error", "Could not connect to "+name+": "+out.Error)
 			}
 		})
 	}
 	if t.Exec == engine.ExecRequired || t.Exec == engine.ExecChanged {
 		h.sh.kc.reviewPlugin(t.Context, func(allowed bool) {
 			if !allowed {
-				h.sh.toast("warning", "Not connected: the login of "+t.Label+" was not allowed.")
+				h.sh.toast("warning", "Not connected: the login of "+name+" was not allowed.")
 				return
 			}
 			run()
@@ -588,7 +589,11 @@ func (r *hotbarTileRenderer) Layout(size fyne.Size) {
 func (r *hotbarTileRenderer) Refresh() {
 	t := r.t
 	th := t.Theme()
-	r.id = clusterIdentity{name: t.tile.Label, initials: nameInitials(t.tile.Label), ink: colorAccent}
+	label := t.tile.DisplayName // the engine's name of the tile (D-68); a test's tile may carry its label only
+	if label == "" {
+		label = t.tile.Label
+	}
+	r.id = clusterIdentity{name: label, initials: nameInitials(label), ink: colorAccent}
 	if sh := t.h.sh; sh != nil {
 		r.id = sh.identity(t.tile.Context)
 	}

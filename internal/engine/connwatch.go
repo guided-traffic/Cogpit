@@ -628,6 +628,7 @@ func (w *connWatch) reconnect() {
 	if a, ok := w.b.Access.(*accessReviews); ok {
 		a.forgetFailures() // the reviews the interruption failed are asked again
 	}
+	w.s.renewUser(w.b) // the login may be another user's now (whoami.go, D-68)
 	away := now.Sub(from).Round(time.Second)
 	text := fmt.Sprintf("Reconnected to %s after %s", w.b.Context, away)
 	if kind == AttemptLogin {

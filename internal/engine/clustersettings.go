@@ -422,13 +422,14 @@ func iconInUse(all map[string]ClusterSettings, icon string) bool {
 	return false
 }
 
-// ClusterName is the name a context shows: its display name, else its name without the file it
-// comes from (ContextLabel).
+// ClusterName is the name a context shows everywhere in the window (D-68): its display name, else
+// the short name of its name without the file it comes from (ShortContextName of ContextLabel:
+// "kubernetes-admin@prod-eu [dev.yaml]" → "prod-eu").
 func ClusterName(context string, cs ClusterSettings) string {
 	if cs.Name != "" {
 		return cs.Name
 	}
-	return ContextLabel(context)
+	return ShortContextName(ContextLabel(context))
 }
 
 // ClusterSettingsView is a context's settings as cluster.settings.get returns them: what is set,
@@ -436,7 +437,8 @@ func ClusterName(context string, cs ClusterSettings) string {
 type ClusterSettingsView struct {
 	// Context is the context id, as cluster_contexts lists it.
 	Context string `json:"context"`
-	// Name is the name the cluster shows: the display name set, else ContextName.
+	// Name is the name the cluster shows: the display name set, else ContextName's short name
+	// (the part after its last "@", D-68).
 	Name string `json:"name"`
 	// ContextName is the context's name in its kubeconfig file, the default display name.
 	ContextName string `json:"contextName"`
@@ -515,7 +517,7 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 				if c.KubeContext != "" {
 					v.ContextName = c.KubeContext
 					if cs.Name == "" {
-						v.Name = c.KubeContext
+						v.Name = ShortContextName(c.KubeContext)
 					}
 				}
 			}

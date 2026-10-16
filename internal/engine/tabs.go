@@ -284,7 +284,7 @@ func (u *UIState) syncTabs(old UIState, viewTitle func(string) string) {
 		}
 	}
 	for k := range u.Tabs {
-		u.Tabs[k].Title = tabTitle(viewTitle, u.Tabs[k])
+		u.Tabs[k].Title = tabTitle(viewTitle, u.Tabs[k], u.ClusterSettings)
 	}
 }
 
@@ -416,10 +416,11 @@ func (u *UIState) stepHistory(back bool, view string, sort SortSpec) error {
 	return nil
 }
 
-// tabTitle is a tab's title: "<view> - <context>", the context by its name without its kubeconfig
-// file (as the navigator's tooltips), only the context while the tab has no view.
-func tabTitle(viewTitle func(string) string, t ViewTab) string {
-	name := ContextLabel(t.Context)
+// tabTitle is a tab's title: "<view> - <cluster>", the cluster by the name it shows everywhere
+// (ClusterName: its display name, else its short name, D-68), only the cluster while the tab has
+// no view.
+func tabTitle(viewTitle func(string) string, t ViewTab, settings map[string]ClusterSettings) string {
+	name := ClusterName(t.Context, settings[t.Context])
 	if t.View == "" {
 		return name
 	}

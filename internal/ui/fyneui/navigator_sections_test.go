@@ -146,7 +146,8 @@ func TestNavigatorSectionLevel(t *testing.T) {
 	if prod.badge.text != "PP" || prod.badge.ink != identityColorName("magenta") || kind.badge.text != "KC" {
 		t.Errorf("badges %q (%q), %q", prod.badge.text, prod.badge.ink, kind.badge.text)
 	}
-	if got := prod.tipText(); got != "Payments prod - .kube/prod.yaml\nThe last connect failed: Show Connection Updates… in its menu says why" {
+	// The tooltip names the context in full (D-68): the row shows its display name.
+	if got := prod.tipText(); got != "prod-eu-central - .kube/prod.yaml\nThe last connect failed: Show Connection Updates… in its menu says why" {
 		t.Errorf("tooltip %q", got)
 	}
 	if got := kind.tipText(); got != "kind-cogpit - .kube/config" {
@@ -178,7 +179,7 @@ func TestNavigatorSectionTooltipLines(t *testing.T) {
 	sh, _, q := newTestShell(t, f, Options{})
 	n := sh.side.sec
 	q.until(t, "the clusters", func() bool { return n.loaded && n.rows["lab [lab.yaml]"] != nil })
-	if got := n.rows[secProd].tipText(); got != "Payments prod - .kube/prod.yaml\nCould not connect: dial tcp 10.0.0.7:6443: i/o timeout" {
+	if got := n.rows[secProd].tipText(); got != "prod-eu-central - .kube/prod.yaml\nCould not connect: dial tcp 10.0.0.7:6443: i/o timeout" {
 		t.Errorf("the failed one %q", got)
 	}
 	if n.rows[secProd].dot.color != statusColorName(model.StatusError) {

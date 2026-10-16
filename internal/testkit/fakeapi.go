@@ -52,6 +52,9 @@ type FakeAPIOptions struct {
 	// Access, when set, answers access reviews from its rules (fakeaccess.go); nil answers them
 	// 404, as a server that does not serve them, counted as the client counts them.
 	Access *FakeAccess
+	// Identity is who the server says its user is, the answer to a SelfSubjectReview
+	// (fakewhoami.go); nil answers as DefaultFakeIdentity.
+	Identity *FakeIdentity
 }
 
 // FakeAPIServer is a minimal Kubernetes API server over HTTPS (httptest, HTTP/2), for tests that
@@ -336,6 +339,8 @@ func (s *FakeAPIServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveResourceList(w, parts[1], parts[2])
 	case r.Method == http.MethodPost && len(parts) == 4 && parts[1] == "authorization.k8s.io" && parts[2] == "v1":
 		s.serveReview(w, r, parts[3])
+	case r.Method == http.MethodPost && len(parts) == 4 && parts[1] == "authentication.k8s.io" && parts[3] == "selfsubjectreviews":
+		s.serveWhoAmI(w, r, parts[2])
 	case parts[0] == "api" || parts[0] == "apis":
 		s.serveResource(w, r, parts)
 	default:

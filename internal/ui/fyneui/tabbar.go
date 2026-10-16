@@ -319,7 +319,16 @@ func (t *viewTab) Tapped(*fyne.PointEvent) {
 func (t *viewTab) MouseIn(ev *desktop.MouseEvent) {
 	t.hovered = true
 	t.Refresh()
-	t.bar.sh.tip.hover(t, t.tab.Title, ev.AbsolutePosition)
+	t.bar.sh.tip.hover(t, t.tipText(), ev.AbsolutePosition)
+}
+
+// tipText is the tab's tooltip: its full title, and the cluster's full context id under it (the
+// title names the cluster by its short name, D-68).
+func (t *viewTab) tipText() string {
+	if t.tab.Context == "" {
+		return t.tab.Title
+	}
+	return t.tab.Title + "\n" + t.tab.Context
 }
 
 // MouseMoved implements desktop.Hoverable.
