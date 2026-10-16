@@ -434,7 +434,14 @@ func (c childProcess) runs(command []string) bool {
 	if len(c.argv) < len(command) || !slices.Equal(c.argv[len(c.argv)-len(args):], args) {
 		return false
 	}
-	return filepath.Base(c.argv[len(c.argv)-len(args)-1]) == prog
+	ran := c.argv[len(c.argv)-len(args)-1]
+	if filepath.IsAbs(command[0]) && strings.ContainsRune(ran, filepath.Separator) {
+		// A program the kubeconfig names by its path runs under that path, a script's too (the
+		// kernel passes it to the interpreter as given): a program of the same name in another
+		// folder, a plugin of another context, is not it.
+		return filepath.Clean(ran) == filepath.Clean(command[0])
+	}
+	return ran == command[0] || filepath.Base(ran) == prog // a name looked up in PATH; a script's resolved path
 }
 
 // LoginRun returns the run of the connection's credential plugin that is under way, if one is: a

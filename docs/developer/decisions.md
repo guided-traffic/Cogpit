@@ -7071,7 +7071,8 @@ run included, so a browser login that took longer than 15 s failed the connect a
   also notes each run's begin; a goroutine that takes the Authenticator's lock after it notes the
   run's end. A run that has not ended after its bound (`Options.LoginTimeout`, 5 minutes), or that
   the user cancels (`Connect`'s context, `Conn.CancelLogin`, `Conn.Close`), is ended: Cogpit finds
-  the plugin's process among its own child processes by its command line, sends it SIGTERM, and
+  the plugin's process among its own child processes by its command line (a plugin the kubeconfig
+  names by its path under that path only, since 2026-10-16 night), sends it SIGTERM, and
   SIGKILL after 3 s if the run has not ended and the same number still runs the same command line.
   Once Cogpit ended a run, no run of that plugin configuration starts until the user connects again
   or logs in again (`ArmLogin`); a request that needed one ends as a `*LoginEndedError`. A

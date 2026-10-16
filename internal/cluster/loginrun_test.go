@@ -363,4 +363,9 @@ func TestFindPluginByItsCommandLine(t *testing.T) {
 	if pid := findPlugin([]string{script, "oidc", "--issuer=https://other.example"}); pid != 0 {
 		t.Errorf("another command line found process %d", pid)
 	}
+	// A plugin of the same name elsewhere is another context's, or another test's (CI run
+	// 38975936330: a cancel's search ended the next test's plugin).
+	if pid := findPlugin([]string{filepath.Join(t.TempDir(), "find-me"), "oidc", "--issuer=https://issuer.example"}); pid != 0 {
+		t.Errorf("a program of the same name in another folder found process %d", pid)
+	}
 }

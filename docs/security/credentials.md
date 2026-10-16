@@ -497,7 +497,10 @@ ends is found, and what it does not end stays:
   pinniped and kubelogin open the browser through `open`, which hands the URL to the system and
   leaves no child, so it is dormant there as far as the code shows (not tried with a real plugin).
 - **Found by its command line.** The process is the one child of Cogpit's whose command line is the
-  plugin's (its arguments after its program, or a script's path after its interpreter). Two runs of
+  plugin's (its arguments after its program, or a script's path after its interpreter); a program the
+  kubeconfig names by its path must run under that path, so a program of the same name in another
+  folder is not taken for it (since 2026-10-16 night: before, the file name alone matched, and in
+  CI a cancel's search ended another test's plugin of the same name). Two runs of
   the same command line from different plugin configurations at the same time are not told apart,
   and neither is ended: the cancel then only stops waiting. A plugin that is a wrapper script is
   ended as the script: one that runs the real login program as its child leaves that child running

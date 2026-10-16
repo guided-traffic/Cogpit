@@ -17,6 +17,8 @@ func TestChildProcessRuns(t *testing.T) {
 		{"a script", childProcess{argv: []string{"/bin/sh", "/opt/homebrew/bin/pinniped", "login", "oidc", "--issuer=x"}}, true},
 		{"other arguments", childProcess{argv: []string{"/opt/homebrew/bin/pinniped", "login", "oidc", "--issuer=y"}}, false},
 		{"another program", childProcess{argv: []string{"/usr/bin/kubelogin", "login", "oidc", "--issuer=x"}}, false},
+		{"the same name elsewhere", childProcess{argv: []string{"/usr/local/bin/pinniped", "login", "oidc", "--issuer=x"}}, false},
+		{"a script elsewhere", childProcess{argv: []string{"/bin/sh", "/tmp/pinniped", "login", "oidc", "--issuer=x"}}, false},
 		{"too short", childProcess{argv: []string{"login", "oidc", "--issuer=x"}}, false},
 		{"Windows", childProcess{exe: "PINNIPED.EXE"}, true},
 		{"Windows, another", childProcess{exe: "kubelogin.exe"}, false},
