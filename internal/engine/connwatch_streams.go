@@ -159,11 +159,13 @@ func (s *Session) OperationContext(ctx context.Context) (context.Context, contex
 // errWatchEnded ends a wait for the connection whose backend closed.
 var errWatchEnded = errors.New("the connection closed")
 
-// await waits, after a stream of the connection broke at brokeAt, until the connection is usable:
-// it asks for a check at once and waits for its verdict, and while the connection is interrupted
-// or its login expired, until it is back. It returns the interruption it waited out (from, to;
-// zero when the connection did not break), errWatchEnded when the backend closed, or ctx's error.
-func (w *connWatch) await(ctx context.Context, brokeAt time.Time) (from, to time.Time, err error) {
+// await waits, after a stream of the connection opened at since broke, until the connection is
+// usable: it asks for a check at once and waits for its verdict, and while the connection is
+// interrupted or its login expired, until it is back. It returns the interruption the stream lived
+// through (from, to): the one it waited out, or one that ended after since, since a stream can
+// break only after the connection is back (its TCP connection outlived the interruption); zero
+// when the connection did not break; errWatchEnded when the backend closed, or ctx's error.
+func (w *connWatch) await(ctx context.Context, since time.Time) (from, to time.Time, err error) {
 	if w == nil {
 		return time.Time{}, time.Time{}, nil
 	}
@@ -188,7 +190,7 @@ func (w *connWatch) await(ctx context.Context, brokeAt time.Time) (from, to time
 		st, back, lf, lt := w.state, w.back, w.lastFrom, w.lastTo
 		w.mu.Unlock()
 		if st == Connected {
-			if lt.After(brokeAt) {
+			if lt.After(since) {
 				return lf, lt, nil
 			}
 			return time.Time{}, time.Time{}, nil

@@ -253,6 +253,30 @@ func TestAStreamThatBreaksChecksAtOnce(t *testing.T) {
 	}
 }
 
+// TestAStreamThatBreaksAfterTheReconnectStillResumes: a stream opened before an interruption whose
+// TCP connection outlived it breaks only once the connection is back; asked by when it opened, the
+// watch still names the interruption it lived through, so the log resumes instead of ending (the
+// race CI met on 2026-10-16 in TestStandbyWindowStaysUsable). A stream opened after it hears none.
+func TestAStreamThatBreaksAfterTheReconnectStillResumes(t *testing.T) {
+	opts := fastWatch
+	s, p := watchedSession(t, opts)
+	w := s.connWatch()
+	opened := s.Now()
+	p.set(func(f *fakeProber) { f.down = true })
+	waitState(t, s, Interrupted)
+	p.set(func(f *fakeProber) { f.down = false })
+	waitState(t, s, Connected)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	from, to, err := w.await(ctx, opened)
+	if err != nil || from.IsZero() || to.Before(from) {
+		t.Fatalf("a stream opened before the interruption: from %v to %v, err %v", from, to, err)
+	}
+	if from, _, err := w.await(ctx, s.Now()); err != nil || !from.IsZero() {
+		t.Errorf("a stream opened after it: from %v, err %v", from, err)
+	}
+}
+
 // TestALastingUnauthorizedExpiresTheLogin is S6: the first rejection renews the login (the guard's
 // one run of the plugin), the second makes it LoginExpired; no heartbeat runs while it is, so no
 // plugin either; Log in again arms the guard and connects again.

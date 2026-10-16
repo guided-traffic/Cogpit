@@ -45,6 +45,7 @@ func (s *Session) openResumingLog(ctx context.Context, b *Backend, streamer logS
 		return streamer.StreamLogs(ctx, opts)
 	}
 	ctx, cancel := context.WithCancel(ctx)
+	opened := s.Now()
 	rc, err := streamer.StreamLogs(ctx, opts)
 	if err != nil {
 		cancel()
@@ -52,7 +53,7 @@ func (s *Session) openResumingLog(ctx context.Context, b *Backend, streamer logS
 	}
 	pr, pw := io.Pipe()
 	r := &resumingLog{s: s, w: b.watch, streamer: streamer, opts: opts, ctx: ctx, cancel: cancel, pr: pr, pw: pw}
-	go r.run(rc)
+	go r.run(rc, opened)
 	return r, nil
 }
 
@@ -64,7 +65,8 @@ func (r *resumingLog) Close() error {
 	return r.pr.Close()
 }
 
-func (r *resumingLog) run(rc io.ReadCloser) {
+// run copies the stream opened at opened, and after an interruption the streams it opens again.
+func (r *resumingLog) run(rc io.ReadCloser, opened time.Time) {
 	var endErr error
 	defer func() { _ = r.pw.CloseWithError(endErr) }()
 	defer r.s.recoverTo("a log stream")
@@ -75,7 +77,9 @@ func (r *resumingLog) run(rc io.ReadCloser) {
 		if r.ctx.Err() != nil || errors.Is(err, io.ErrClosedPipe) {
 			return
 		}
-		from, to, werr := r.w.await(r.ctx, r.s.Now())
+		// The stream may break only once the connection is back (CI, 2026-10-16): asked by when it
+		// opened, the interruption it lived through still counts.
+		from, to, werr := r.w.await(r.ctx, opened)
 		if werr != nil || from.IsZero() {
 			endErr = err // the stream ended while the connection works: the log ends here, as before
 			return
@@ -88,6 +92,7 @@ func (r *resumingLog) run(rc io.ReadCloser) {
 			opts.TailLines, opts.SinceTime = 0, cur.last.Truncate(time.Second)
 		}
 		for {
+			opened = r.s.Now()
 			rc, err = r.streamer.StreamLogs(r.ctx, opts)
 			if err == nil {
 				break
@@ -96,7 +101,7 @@ func (r *resumingLog) run(rc io.ReadCloser) {
 				return
 			}
 			// Broken again at once: wait for the connection again; else the log ends with the error.
-			if from, _, werr := r.w.await(r.ctx, r.s.Now()); werr != nil || from.IsZero() {
+			if from, _, werr := r.w.await(r.ctx, opened); werr != nil || from.IsZero() {
 				r.line(NoticePrefix + " the log could not be opened again: " + oneLine(err.Error()))
 				return
 			}

@@ -508,6 +508,7 @@ func (wl *workloadLogs) stream(ctx context.Context, t logTarget, tail int64, cur
 			opts.TailLines, opts.SinceTime = 0, cur.last.Truncate(time.Second)
 		}
 		opened := time.Now()
+		openedAt := wl.s.Now() // the watch's clock, for await
 		rc, err := wl.streamer.StreamLogs(ctx, opts)
 		fresh := 0
 		if err != nil {
@@ -535,7 +536,7 @@ func (wl *workloadLogs) stream(ctx context.Context, t logTarget, tail int64, cur
 			return // lines without timestamps: a resumption could not tell which it has
 		}
 		// Broken with the connection: wait until it is back, mark the gap and go on at once (D-58).
-		from, to, werr := wl.watch.await(ctx, wl.s.Now())
+		from, to, werr := wl.watch.await(ctx, openedAt)
 		if werr != nil {
 			return
 		}
