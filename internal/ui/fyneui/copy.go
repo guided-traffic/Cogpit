@@ -281,6 +281,11 @@ type copyButton struct {
 	alt  func(*fyne.PointEvent)    // a right-click on the icon; nil: none
 	done bool                      // a copy succeeded just now: a checkmark instead of the copy icon
 
+	// pinned is an icon that stays shown where its owner put it instead of following the pointer
+	// from value to value (a Secret's editor, secretdata.go); tip is its tooltip, "" for "Copy".
+	pinned bool
+	tip    string
+
 	// The drawer's: the value that keeps room for the icon at its right end, and how much.
 	roomed fyne.CanvasObject
 	keep   float32
@@ -336,6 +341,14 @@ func newCopyIcon(sh *shell, tap func(), in func(*desktop.MouseEvent), out func()
 	b := &copyButton{sh: sh, tap: tap, in: in, out: out}
 	b.ExtendBaseWidget(b)
 	b.Hide()
+	return b
+}
+
+// newPinnedCopyIcon returns a copy icon that stays shown where its owner puts it, with the tooltip
+// tip, and runs tap when clicked.
+func newPinnedCopyIcon(sh *shell, tip string, tap func()) *copyButton {
+	b := &copyButton{sh: sh, tap: tap, pinned: true, tip: tip}
+	b.ExtendBaseWidget(b)
 	return b
 }
 
@@ -397,7 +410,11 @@ func (b *copyButton) MouseIn(ev *desktop.MouseEvent) {
 		b.in(ev)
 	}
 	b.Show()
-	b.sh.tip.hover(b, "Copy", ev.AbsolutePosition)
+	tip := b.tip
+	if tip == "" {
+		tip = "Copy"
+	}
+	b.sh.tip.hover(b, tip, ev.AbsolutePosition)
 }
 
 // MouseMoved implements desktop.Hoverable.
@@ -405,7 +422,9 @@ func (b *copyButton) MouseMoved(ev *desktop.MouseEvent) { b.sh.tip.moved(b, ev.A
 
 // MouseOut implements desktop.Hoverable.
 func (b *copyButton) MouseOut() {
-	b.Hide()
+	if !b.pinned {
+		b.Hide()
+	}
 	b.sh.tip.hideFor(b)
 	if b.out != nil {
 		b.out()

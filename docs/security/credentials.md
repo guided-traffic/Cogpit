@@ -373,9 +373,10 @@ a Secret's values are edited in its drawer, as a Config Map's are, in the window
   until it is saved or reverted. A Secret that changed (a rotation) masks every unedited value
   revealed at the older version (R-6). ⌘C and ⌘X in the editor go through the clipboard for Secret
   values (concealed, cleared after 60 seconds, [H-25](#h-25-a-copied-secret-value-reaches-the-clipboard);
-  yamlview's `OnCopy`, `TestSecretEditorCopiesAsASecret`). A copy icon over the editor that copies
-  the whole value the same way: the owner's choice in the audit of 2026-10-16 (D-59), decided, not
-  built yet.
+  yamlview's `OnCopy`, `TestSecretEditorCopiesAsASecret`). Since 2026-10-16 (the owner's choice in
+  the audit of 2026-10-16, D-59) the copy icon in the key's line above each editor copies the whole
+  value the same way, never through the plain clipboard; an empty value copies nothing, so a click
+  does not empty the clipboard (`secData.copyIcon`, `TestSecretEditorCopyIcon`).
 - **To the engine, in the GUI's own process.** `secret.reviewData` (a masked diff: the keys that
   change and their sizes, never a value, and the server's dry run) and `secret.saveData` are marked
   GUI-only: `Dispatch` refuses the CLI and every agent before anything is read, asked or sent, and

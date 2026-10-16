@@ -36,9 +36,9 @@ import (
 //
 // The values stay in this window's widgets and memory: no command but the GUI-only reveal, review
 // and save sees them, no draft keeps them (edited values the drawer moves away from are kept in
-// drawer.secretUnsaved until Cogpit quits, and come back masked), a copy from an editor goes to
-// the clipboard as a Secret's value (concealed, cleared after 60 seconds), and no toast or status
-// line names one.
+// drawer.secretUnsaved until Cogpit quits, and come back masked), a copy from an editor (⌘C, ⌘X or
+// the copy icon in its key's line) goes to the clipboard as a Secret's value (concealed, cleared
+// after 60 seconds), and no toast or status line names one.
 //
 // Keys are added and removed here too (the owner's audit decision of 2026-10-16, datakeys.go): Add
 // Key opens a row for the new key's name and puts the key with an empty editor at the end of the
@@ -108,6 +108,9 @@ type secRow struct {
 	at     string // the version the value was revealed at
 	masked bool   // an edited value hidden again: the typing kept, the value masked
 	added  bool   // a key the user added, not yet saved
+
+	copyBtn  *copyButton // the copy icon in the key's line, made with the first line that shows it
+	copyDone *time.Timer // its checkmark's timer
 }
 
 // secretDataSection renders a Secret's Data: the section kept for the shown Secret, rebuilt with
@@ -266,11 +269,11 @@ func (sd *secData) dropStale() {
 	}
 }
 
-// keyLine is a key above its editor, with Hide and the remove button at its end.
+// keyLine is a key above its editor, with Hide, the copy icon and the remove button at its end.
 func (sd *secData) keyLine(r *secRow) fyne.CanvasObject {
 	hide := widget.NewButton("Hide", func() { sd.hide(r.key) })
 	hide.Importance = widget.LowImportance
-	right := container.NewHBox(hide)
+	right := container.NewHBox(hide, sd.copyIcon(r))
 	if sd.editable() {
 		right.Add(removeKeyButton(sd.d.sh, r.key, func() { sd.removeKey(r.key) }))
 	}
@@ -286,13 +289,37 @@ func (sd *secData) nameLine(key string) fyne.CanvasObject {
 	return container.NewBorder(nil, nil, nil, removeKeyButton(sd.d.sh, key, func() { sd.removeKey(key) }), sd.d.keyName(key))
 }
 
-// addedLines are an added key's lines: its name with Hide and the button that drops it, and its
-// editor, or its value masked once hidden.
+// addedLines are an added key's lines: its name with Hide, the copy icon and the button that drops
+// it, and its editor, or its value masked once hidden.
 func (sd *secData) addedLines(r *secRow, exists bool) []fyne.CanvasObject {
 	if r.masked {
-		return []fyne.CanvasObject{addedKeyLine(sd.d, r.key, exists, nil, func() { sd.dropAdded(r.key) }), sd.maskedLine(r)}
+		return []fyne.CanvasObject{addedKeyLine(sd.d, r.key, exists, nil, nil, func() { sd.dropAdded(r.key) }), sd.maskedLine(r)}
 	}
-	return []fyne.CanvasObject{addedKeyLine(sd.d, r.key, exists, func() { sd.hide(r.key) }, func() { sd.dropAdded(r.key) }), r.frame}
+	return []fyne.CanvasObject{addedKeyLine(sd.d, r.key, exists, func() { sd.hide(r.key) }, sd.copyIcon(r), func() { sd.dropAdded(r.key) }), r.frame}
+}
+
+// copyIcon is the copy icon in the line of a key whose value is in an editor, right above the
+// editor's top right and covering none of its text: a click copies the editor's whole value as
+// ⌘C and ⌘X copy a selection of it, to the clipboard for Secret values (the owner's audit decision
+// of 2026-10-16, D-59, D-25). A Config Map's editors have none. The row keeps the icon across the
+// drawer's rebuilds, so that its checkmark stays.
+func (sd *secData) copyIcon(r *secRow) fyne.CanvasObject {
+	if r.copyBtn == nil {
+		r.copyBtn = newPinnedCopyIcon(sd.d.sh, "Copy the whole value", func() { sd.copyValue(r) })
+	}
+	return container.NewCenter(r.copyBtn)
+}
+
+// copyValue copies a row's whole value, as typed so far, as a Secret's value; an empty value
+// copies nothing, so that the click does not empty the clipboard.
+func (sd *secData) copyValue(r *secRow) {
+	text := r.view.Text()
+	if text == "" {
+		sd.d.sh.copyToast("info", "The value is empty: nothing was copied.")
+		return
+	}
+	sd.copied(text)
+	r.copyBtn.confirm(&r.copyDone)
 }
 
 // rowOf is a key's editor row, an added key's included; nil when its value is in none.

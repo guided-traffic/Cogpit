@@ -497,6 +497,99 @@ func TestSecretEditorCopiesAsASecret(t *testing.T) {
 	}
 }
 
+// TestSecretEditorCopyIcon (the owner's audit decision of 2026-10-16, D-59 (c)): a value in an
+// editor has a copy icon in its key's line, above the editor's right end and over none of its
+// text; a click copies the whole value as typed so far through the clipboard for Secret values
+// (concealed, cleared after the time), never the plain clipboard, with the copy icons' toast and
+// checkmark. An empty value copies nothing; a masked value has no icon; an added key's editor has
+// one.
+func TestSecretEditorCopyIcon(t *testing.T) {
+	sh, w, q, f, _ := secShell(t, ThemeDark)
+	sh.secretClipTTL = 40 * time.Millisecond
+	var concealed []string
+	sh.setConcealed = func(text string) bool { // the system clipboard's concealed path (H-25)
+		concealed = append(concealed, text)
+		sh.app.Clipboard().SetContent(text)
+		return true
+	}
+	sd := secDataOf(sh)
+	if n := len(findAll[*copyButton](sd.list)); n != 0 {
+		t.Fatalf("%d copy icons before a value is in an editor", n)
+	}
+	r := showKey(t, sh, q, "DB_PASSWORD")
+	settle(w)
+	if icons := findAll[*copyButton](sd.list); len(icons) != 1 || icons[0] != r.copyBtn || !r.copyBtn.Visible() {
+		t.Fatalf("copy icons %d, the editor's shown %v", len(icons), r.copyBtn != nil && r.copyBtn.Visible())
+	}
+	ip, iq := absRect(r.copyBtn)
+	ep, eq := absRect(r.frame)
+	if iq.Y > ep.Y || ip.X < (ep.X+eq.X)/2 || iq.X > eq.X {
+		t.Errorf("the icon at %v–%v, the editor at %v–%v: want it above the editor's right end", ip, iq, ep, eq)
+	}
+	sh.tip.delay = time.Millisecond
+	test.MoveMouse(w.Canvas(), middleOf(r.copyBtn))
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() == "Copy the whole value" })
+	test.MoveMouse(w.Canvas(), ep.AddXY(5, 5))
+	if !r.copyBtn.Visible() {
+		t.Error("the icon hid when the pointer left it")
+	}
+
+	test.Tap(r.copyBtn)
+	if len(concealed) != 1 || concealed[0] != fixtureSecretValues["DB_PASSWORD"] {
+		t.Fatalf("the icon copied %d values through the concealed clipboard", len(concealed))
+	}
+	if !r.copyBtn.done || !toastSays(sh, "cleared in") {
+		t.Errorf("the copy's checkmark %v, the toast says it is cleared %v", r.copyBtn.done, toastSays(sh, "cleared in"))
+	}
+	q.until(t, "the clipboard to be cleared", func() bool { return sh.app.Clipboard().Content() == "" })
+
+	typeIntoRow(r.cmRow, secTyped) // the value as typed
+	test.Tap(r.copyBtn)
+	if len(concealed) != 2 || concealed[1] != secTyped {
+		t.Fatalf("the edited value was not copied whole (%d copies)", len(concealed))
+	}
+	typeIntoRow(r.cmRow, "")
+	sh.app.Clipboard().SetContent("the user's own")
+	test.Tap(r.copyBtn)
+	if len(concealed) != 2 || sh.app.Clipboard().Content() != "the user's own" || !toastSays(sh, "nothing was copied") {
+		t.Errorf("an empty value: %d copies, the clipboard %q", len(concealed), sh.app.Clipboard().Content())
+	}
+
+	sd.hide("DB_PASSWORD") // the edited value masked: no icon
+	q.until(t, "the masked value", func() bool { return len(findAll[*copyButton](sd.list)) == 0 })
+
+	addKeyThrough(t, sd.adder, "API_TOKEN")
+	a := sd.addedRows["API_TOKEN"]
+	typeIntoRow(a.cmRow, secTyped+"-new")
+	q.until(t, "the added key's icon", func() bool {
+		icons := findAll[*copyButton](sd.list)
+		return len(icons) == 1 && icons[0] == a.copyBtn
+	})
+	test.Tap(a.copyBtn)
+	if len(concealed) != 3 || concealed[2] != secTyped+"-new" {
+		t.Errorf("the added key's value was not copied (%d copies)", len(concealed))
+	}
+	if l := valueLeaks(sh, f); l != "" {
+		t.Errorf("%q in a toast or the notifications", l)
+	}
+}
+
+// TestConfigMapEditorsHaveNoCopyIcon: the copy icon over an editor is a Secret's (D-59); a Config
+// Map's editors, an added key's included, copy with ⌘C only.
+func TestConfigMapEditorsHaveNoCopyIcon(t *testing.T) {
+	sh, w, q, _, _ := cmShell(t, ThemeDark)
+	cd := cmDataOf(sh)
+	addKeyThrough(t, cd.adder, "enable-ipv6")
+	q.until(t, "the added key", func() bool { return cd.addedRows["enable-ipv6"] != nil })
+	settle(w)
+	if len(cd.rows) == 0 || len(findAll[*yamlview.View](cd.root)) < len(cd.rows) {
+		t.Fatalf("%d rows, %d editors", len(cd.rows), len(findAll[*yamlview.View](cd.root)))
+	}
+	if n := len(findAll[*copyButton](cd.root)); n != 0 {
+		t.Errorf("%d copy icons in a Config Map's data", n)
+	}
+}
+
 // typeIntoRow replaces a row's value as typing does.
 func typeIntoRow(r *cmRow, text string) {
 	r.view.SelectAll()

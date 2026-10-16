@@ -257,7 +257,7 @@ func (cd *cmData) layoutRows() {
 	for _, k := range cd.added {
 		r := cd.addedRows[k]
 		_, exists := cd.rows[k]
-		objs = append(objs, addedKeyLine(cd.d, k, exists, nil, func() { cd.dropAdded(k) }), r.value)
+		objs = append(objs, addedKeyLine(cd.d, k, exists, nil, nil, func() { cd.dropAdded(k) }), r.value)
 	}
 	cd.list.Objects = objs
 	cd.list.Refresh()
