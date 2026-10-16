@@ -163,12 +163,15 @@ func gitopsUsers() []gitopsUser {
 			access: &testkit.FakeAccess{Enforce: true, Rules: map[string][]testkit.FakeRule{"": {crds}, "team-a": {gitops}}},
 			flux:   "Kustomizations 2, Git Repositories 1", argo: "Applications 2, Application Sets 0, Projects 1, Repositories 1, Clusters 0",
 			// The rules of team-a allow the kinds, so the plan reads them in all namespaces first:
-			// one refused read (a streaming watch, and the plain list client-go falls back to), then
-			// team-a's alone, whoever met the refusal.
+			// a refused read (a streaming watch, and the plain list client-go falls back to), then
+			// team-a's alone, whoever met the refusal. A scope a handle holds is retried by
+			// client-go's backoff (800 ms first) until the engine's new plan lets it go; under the
+			// race detector that plan can land after a retry or two (CI, 2026-10-16: three refused
+			// reads), so up to three refused attempts pass, never a read beside these three.
 			reads: func(t *testing.T, res string, reads map[string]int64) {
 				wide := reads["watchlist "+res] + reads["list "+res]
-				if wide > 2 || reads["watchlist "+res+" in team-a"] != 1 || len(reads) > 3 {
-					t.Errorf("%s: reads %v, want at most one refused read in all namespaces (and its list), then team-a's", res, reads)
+				if wide > 6 || reads["watchlist "+res+" in team-a"] != 1 || len(reads) > 3 {
+					t.Errorf("%s: reads %v, want the refused reads in all namespaces (and their lists) to end, then team-a's", res, reads)
 				}
 			},
 		},
