@@ -328,8 +328,9 @@ func TestALoginRejectedAgainStaysExpired(t *testing.T) {
 	}
 }
 
-// TestAnOperationStopsAtTheInterruption is S8: the context of a drain or a Helm action ends with
-// ErrConnectionLost when the connection is interrupted.
+// TestAnOperationStopsAtTheInterruption is S8: the context of a Helm action ends with
+// ErrConnectionLost when the connection is interrupted (a drain's job stops by itself:
+// TestDrainJobStopsWhenInterrupted).
 func TestAnOperationStopsAtTheInterruption(t *testing.T) {
 	s, p := watchedSession(t, fastWatch)
 	ctx, cancel := s.OperationContext(context.Background())

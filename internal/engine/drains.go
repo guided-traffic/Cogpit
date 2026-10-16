@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -17,11 +19,13 @@ import (
 var ErrNoDrainJournal = errors.New("this Cogpit session keeps no drain journal, so it cannot drain nodes")
 
 // Drains tracks a session's drains (D-11): the journal that keeps them across restarts, and the
-// drains running in this process with their latest progress. A drain is recorded before its node
-// is cordoned and removed once every pod is evicted; one that fails keeps its entry, and so does
-// one a crash interrupts. When a context is connected, its pending drains are offered with
-// EventDrains: the GUI shows a notice (finish the drain, uncordon the node, or dismiss), agents
-// read them with node.pendingDrains. An entry whose node no longer exists is dropped with a note.
+// drains running in this process with their latest progress and the job that runs each (D-63:
+// node.drain runs as a background job, its steps in a dock tab). A drain is recorded before its
+// node is cordoned and removed once every pod is evicted; one that fails keeps its entry, and so
+// does one whose job is stopped (cancelled, its tab closed, the connection interrupted) and one a
+// crash interrupts. When a context is connected, its pending drains are offered with EventDrains:
+// the GUI shows a notice (finish the drain, uncordon the node, or dismiss), agents read them with
+// node.pendingDrains. An entry whose node no longer exists is dropped with a note.
 //
 // Create it with NewDrains and pass it as Options.Drains; it belongs to one session.
 type Drains struct {
@@ -35,14 +39,20 @@ type Drains struct {
 
 	mu       sync.Mutex
 	s        *Session
-	running  map[drainKey]*cluster.DrainProgress
+	running  map[drainKey]*runningDrain
 	lastRev  uint64
 	lastConn ConnectionState
 }
 
+// runningDrain is a drain running in this process: its latest progress and its job's dock tab.
+type runningDrain struct {
+	progress cluster.DrainProgress
+	job      string
+}
+
 // NewDrains returns the tracker for a journal.
 func NewDrains(j DrainJournal) *Drains {
-	return &Drains{journal: j, running: map[drainKey]*cluster.DrainProgress{}}
+	return &Drains{journal: j, running: map[drainKey]*runningDrain{}}
 }
 
 // Drains returns the session's drain tracker, or nil when it keeps none.
@@ -207,7 +217,7 @@ func (d *Drains) begin(p PendingDrain) error {
 		d.mu.Unlock()
 		return fmt.Errorf("a drain of node %s is running already", p.Node)
 	}
-	d.running[k] = &cluster.DrainProgress{Node: p.Node}
+	d.running[k] = &runningDrain{progress: cluster.DrainProgress{Node: p.Node}}
 	d.mu.Unlock()
 
 	p.State, p.Error = DrainRunning, ""
@@ -223,24 +233,47 @@ func (d *Drains) begin(p PendingDrain) error {
 	return nil
 }
 
-// Progress records a running drain's latest step and announces it.
+// Progress records a running drain's latest step, which node.pendingDrains reports. It announces
+// nothing: the drain's job tab shows its progress (D-63), and the banner shows only the drains
+// that wait for the user.
 func (d *Drains) Progress(context string, p cluster.DrainProgress) {
 	if d == nil {
 		return
 	}
 	k := drainKey{context, p.Node}
+	p.Pods = nil // the job's steps name them
 	d.mu.Lock()
-	if _, ok := d.running[k]; ok {
-		cp := p
-		d.running[k] = &cp
+	if r, ok := d.running[k]; ok {
+		r.progress = p
 	}
 	d.mu.Unlock()
-	d.changed("")
 }
 
+// SetJob records the dock tab of the job that runs a drain of this process, which
+// node.pendingDrains names.
+func (d *Drains) SetJob(context, node, job string) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	if r, ok := d.running[drainKey{context, node}]; ok {
+		r.job = job
+	}
+	d.mu.Unlock()
+}
+
+// DrainStoppedError is the outcome of a drain whose job was stopped before the drain finished:
+// End records the drain as stopped, with Cause as its error.
+type DrainStoppedError struct{ Cause error }
+
+func (e *DrainStoppedError) Error() string { return "stopped: " + e.Cause.Error() }
+
+// Unwrap returns the cause.
+func (e *DrainStoppedError) Unwrap() error { return e.Cause }
+
 // End records a drain's outcome: a finished drain's entry is removed; a failed one is kept as
-// failed with its error, since the node stays cordoned and partly drained. It returns the
-// journal's error, if any.
+// failed with its error, and a stopped one (a *DrainStoppedError) as stopped with its cause, since
+// the node stays cordoned and partly drained. It returns the journal's error, if any.
 func (d *Drains) End(p PendingDrain, drainErr error) error {
 	if d == nil {
 		return ErrNoDrainJournal
@@ -256,9 +289,14 @@ func (d *Drains) end(p PendingDrain, drainErr error) error {
 	d.jmu.Lock()
 	defer d.jmu.Unlock()
 	var err error
-	if drainErr == nil {
+	var stopped *DrainStoppedError
+	switch {
+	case drainErr == nil:
 		err = d.journal.Remove(p.Context, p.Node)
-	} else {
+	case errors.As(drainErr, &stopped):
+		p.State, p.Error = DrainStopped, stopped.Cause.Error()
+		err = d.journal.Put(p)
+	default:
 		p.State, p.Error = DrainFailed, drainErr.Error()
 		err = d.journal.Put(p)
 	}
@@ -329,14 +367,15 @@ func (d *Drains) changed(msg string) {
 	}
 }
 
-func (d *Drains) progressOf(k drainKey) *cluster.DrainProgress {
+// runningOf returns a running drain's latest progress and its job's dock tab.
+func (d *Drains) runningOf(k drainKey) (*cluster.DrainProgress, string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if p, ok := d.running[k]; ok {
-		cp := *p
-		return &cp
+	if r, ok := d.running[k]; ok {
+		cp := r.progress
+		return &cp, r.job
 	}
-	return nil
+	return nil, ""
 }
 
 // Statuses of a pending drain, as PendingDrains reports them.
@@ -346,6 +385,7 @@ const (
 	DrainStatusRunning     = "running"
 	DrainStatusInterrupted = "interrupted" // an earlier run of Cogpit ended before the drain did
 	DrainStatusFailed      = "failed"      // ended with an error; the node stays cordoned
+	DrainStatusStopped     = "stopped"     // its job was stopped (Error says why); the node stays cordoned
 )
 
 // Node states of a pending drain's node, from the cache.
@@ -362,6 +402,9 @@ type PendingDrainInfo struct {
 	Status    string                 `json:"status"`
 	NodeState string                 `json:"nodeState"`
 	Progress  *cluster.DrainProgress `json:"progress,omitempty"`
+	// Job is the dock tab of the job that runs a drain of this Cogpit (status running): its steps
+	// are the cordon and the pods, ui_state shows them, job.cancel stops it.
+	Job string `json:"job,omitempty"`
 	// Elsewhere: the drain runs in another live Cogpit process (Owner names its pid); this one
 	// neither offers to finish it nor dismisses it (H-22).
 	Elsewhere bool `json:"elsewhere,omitempty"`
@@ -391,11 +434,14 @@ func (s *Session) PendingDrains(all bool) ([]PendingDrainInfo, error) {
 		info := PendingDrainInfo{PendingDrain: e, NodeState: DrainNodeUnknown}
 		switch {
 		case d.Running(e.Context, e.Node):
-			info.Status, info.Progress = DrainStatusRunning, d.progressOf(e.key())
+			info.Status = DrainStatusRunning
+			info.Progress, info.Job = d.runningOf(e.key())
 		case e.RunsElsewhere():
 			info.Status, info.Elsewhere = DrainStatusRunning, true
 		case e.State == DrainFailed:
 			info.Status = DrainStatusFailed
+		case e.State == DrainStopped:
+			info.Status = DrainStatusStopped
 		default:
 			info.Status = DrainStatusInterrupted
 		}
@@ -411,6 +457,32 @@ func (s *Session) PendingDrains(all bool) ([]PendingDrainInfo, error) {
 		return cmp.Compare(a.Context+"/"+a.Node, b.Context+"/"+b.Node)
 	})
 	return out, nil
+}
+
+// CachedNodePods returns the pods the cache holds on a node, at once: without waiting and without
+// starting a list. ok is false when the cache does not hold the cluster's pods now (no view or
+// drawer reads them: the Nodes view does, through its pods-by-node index). A drain's job shows
+// them as its steps until the drain lists the node's pods itself (commands/drainjob.go).
+func (s *Session) CachedNodePods(node string) (pods []*unstructured.Unstructured, ok bool) {
+	b := s.Backend()
+	if b == nil || b.Cache == nil {
+		return nil, false
+	}
+	p, found := b.Profile(kindPods)
+	if !found || !b.Cached(p) {
+		return nil, false
+	}
+	h := b.Acquire(p)
+	defer h.Release()
+	if !h.HasSynced() {
+		return nil, false
+	}
+	for _, o := range KindList(h, p) {
+		if model.NestedString(o.Object, "spec", "nodeName") == node {
+			pods = append(pods, o)
+		}
+	}
+	return pods, true
 }
 
 // nodeState reads a node's schedulability from the cache, without waiting.

@@ -69,6 +69,11 @@ const (
 	// DrainFailed: the drain ended with an error (a refused pod, a blocked eviction, a timeout);
 	// the node stays cordoned and partly drained.
 	DrainFailed DrainState = "failed"
+	// DrainStopped: the drain's job was stopped before it finished (job.cancel, its tab closed,
+	// the connection interrupted, another cluster connected, Cogpit closing; Error says which);
+	// the node stays cordoned and partly drained, as after a crash (D-11, D-63). A Cogpit older
+	// than this state reads it as interrupted.
+	DrainStopped DrainState = "stopped"
 )
 
 // PendingDrain is a drain Cogpit started and has not seen finish: recorded before the node is

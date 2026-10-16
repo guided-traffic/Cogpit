@@ -68,7 +68,11 @@ Ordered checklists for the common additions. The packages they name are in
    cluster change or the session's end cancels the job. Pass the command's context as
    `JobSpec.Parent`, so that the job keeps the origin and the confirmation's UIDs. Jobs are not
    journaled, so the command says why a crash in the middle is harmless
-   ([`fluxsourcejob.go`](../../internal/engine/commands/fluxsourcejob.go)). A new action on a
+   ([`fluxsourcejob.go`](../../internal/engine/commands/fluxsourcejob.go)); an operation that must
+   survive a crash keeps its own journal around the job, as the drain does
+   ([`drainjob.go`](../../internal/engine/commands/drainjob.go)): record it before the job starts
+   (and forget it if the job does not start), let the job's stops end in the journal as an entry to
+   offer, clear it when the work is done. Steps learnt while the job runs go in with `Job.SetSteps`. A new action on a
    selection (a required `refs`, one request per object) goes through `runMany` with a
    `manyAction` ([`manyjob.go`](../../internal/engine/commands/manyjob.go)): at most ten objects
    within the call, more as a job with a step per object

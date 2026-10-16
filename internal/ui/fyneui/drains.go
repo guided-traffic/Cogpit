@@ -3,6 +3,7 @@ package fyneui
 import (
 	"fmt"
 	"image/color"
+	"slices"
 	"strings"
 	"sync/atomic"
 
@@ -19,8 +20,10 @@ import (
 // drainBanner shows the connected context's unfinished drains below the top bar, one row each
 // (D-11): what happened to the node, and Finish drain (node.drain again, with the settings it
 // was started with, confirmed as usual), Uncordon (node.uncordon, while the node is cordoned) and
-// Dismiss (node.dismissDrain). A drain running in this window shows its progress instead. The
-// engine announces changes with EventDrains; the banner reads the drains with
+// Dismiss (node.dismissDrain). A drain running in this window has no row: it runs as a job, whose
+// tab in the dock shows its steps and Cancel (D-63), so that the two never show the same thing;
+// once it stops or fails, its row is here. A drain another Cogpit window runs shows as running,
+// without actions. The engine announces changes with EventDrains; the banner reads the drains with
 // node.pendingDrains, so that it shows what an agent would read.
 type drainBanner struct {
 	sh     *shell
@@ -57,7 +60,10 @@ func (b *drainBanner) show(res any, err error) {
 	if err != nil {
 		list = nil
 	}
-	b.drains = list
+	// A drain running in this window: its job tab shows it.
+	b.drains = slices.DeleteFunc(list, func(d engine.PendingDrainInfo) bool {
+		return d.Status == engine.DrainStatusRunning && !d.Elsewhere
+	})
 	b.render()
 }
 
@@ -127,26 +133,21 @@ func drainTitle(d engine.PendingDrainInfo) string {
 		return "Draining node " + d.Node
 	case engine.DrainStatusFailed:
 		return "The drain of node " + d.Node + " failed"
+	case engine.DrainStatusStopped:
+		return "The drain of node " + d.Node + " was stopped"
 	}
 	return "The drain of node " + d.Node + " did not finish"
 }
 
 // drainDetail is a row's second line: when and by whom the drain was started, in which context,
-// the state the node is in, and why the drain did not finish. The cause comes last because it can
-// be long and is cut off first; the full text is in node.pendingDrains. The time is written in
-// tf, the user's zone and format (D-31).
+// the state the node is in, and why the drain did not finish (its error, or why it was stopped).
+// The cause comes last because it can be long and is cut off first; the full text is in
+// node.pendingDrains. The time is written in tf, the user's zone and format (D-31).
 func drainDetail(d engine.PendingDrainInfo, tf model.TimeFormat) string {
 	parts := []string{fmt.Sprintf("Context %s, started %s by %s", d.Context, tf.Format(d.Started), starterText(d.StartedBy))}
-	if d.Status == engine.DrainStatusRunning {
+	if d.Status == engine.DrainStatusRunning { // in another window; this window's are in their job tabs
 		if d.Elsewhere && d.Owner != nil {
 			parts = append(parts, fmt.Sprintf("in another Cogpit window (process %d)", d.Owner.PID))
-		}
-		if p := d.Progress; p != nil {
-			s := fmt.Sprintf("%d of %d pods evicted", p.Done, p.Total)
-			if p.Step == "blocked" && p.Message != "" { // cluster.DrainBlocked; the UI does not import cluster
-				s += "; waiting for " + p.Pod + ": " + p.Message
-			}
-			parts = append(parts, s)
 		}
 		return strings.Join(parts, " · ")
 	}
@@ -158,9 +159,12 @@ func drainDetail(d engine.PendingDrainInfo, tf model.TimeFormat) string {
 	case engine.DrainNodeMissing:
 		parts = append(parts, "the node no longer exists")
 	}
-	if d.Status == engine.DrainStatusFailed {
+	switch d.Status {
+	case engine.DrainStatusFailed:
 		parts = append(parts, strings.TrimSuffix(strings.TrimPrefix(d.Error, "drain node "+d.Node+": "), "."))
-	} else {
+	case engine.DrainStatusStopped:
+		parts = append(parts, strings.TrimSuffix(d.Error, "."))
+	default:
 		parts = append(parts, "Cogpit ended before the drain did")
 	}
 	return strings.Join(parts, " · ")

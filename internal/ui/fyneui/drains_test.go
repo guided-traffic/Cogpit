@@ -57,14 +57,18 @@ func (d *drainEngine) recorded() []engine.Invocation {
 	return append([]engine.Invocation(nil), d.actions...)
 }
 
-// newDrainTestShell is newTestShell on the drain engine.
-func newDrainTestShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *drainEngine) {
+// newDrainTestShell is newTestShell on the drain engine; prep, if given, changes the engine's
+// state before the shell starts.
+func newDrainTestShell(t *testing.T, mode ThemeMode, prep ...func(*drainEngine)) (*shell, fyne.Window, *mainQueue, *drainEngine) {
 	t.Helper()
 	f := connectedFake(t, 200)
 	f.ui.Context = "kind-cogpit"
 	f.ui.Connection = engine.Connection{State: engine.Connected}
 	f.diag.Context, f.diag.Demo, f.diag.DemoStats = "kind-cogpit", false, nil
 	d := &drainEngine{fakeEngine: f}
+	for _, fn := range prep {
+		fn(d)
+	}
 	a := test.NewTempApp(t)
 	a.Settings().SetTheme(newTheme(mode))
 	w := test.NewTempWindow(t, nil)
@@ -86,7 +90,7 @@ func newDrainTestShell(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *main
 }
 
 // fixtureDrains: one drain a crash interrupted, one that failed on a PodDisruptionBudget, and
-// one running in this window.
+// one whose job an agent cancelled.
 func fixtureDrains() []engine.PendingDrainInfo {
 	yes := true
 	settings := engine.DrainSettings{IgnoreDaemonSets: &yes, TimeoutSeconds: 300}
@@ -102,6 +106,11 @@ func fixtureDrains() []engine.PendingDrainInfo {
 				StartedBy: engine.OriginExternalAgent, State: engine.DrainFailed, Settings: settings,
 				Error: `drain node worker-3: timed out after 5m0s: error when evicting pods/"db-0" -n "shop": global timeout reached`},
 			Status: engine.DrainStatusFailed, NodeState: engine.DrainNodeSchedulable,
+		},
+		{
+			PendingDrain: engine.PendingDrain{Context: "kind-cogpit", Node: "worker-4", Started: started.Add(14 * time.Minute),
+				StartedBy: engine.OriginGUI, State: engine.DrainStopped, Settings: settings, Error: "cancelled by an agent"},
+			Status: engine.DrainStatusStopped, NodeState: engine.DrainNodeCordoned,
 		},
 	}
 }
@@ -129,11 +138,11 @@ func TestDrainBannerShowsAndActs(t *testing.T) {
 		t.Fatal("banner visible without drains")
 	}
 	d.set(fixtureDrains(), nil)
-	q.until(t, "the banner", func() bool { return sh.drains.root.Visible() && len(sh.drains.drains) == 2 })
+	q.until(t, "the banner", func() bool { return sh.drains.root.Visible() && len(sh.drains.drains) == 3 })
 
 	buttons := bannerButtons(sh.drains)
-	if len(buttons["Finish drain"]) != 2 || len(buttons["Dismiss"]) != 2 || len(buttons["Uncordon"]) != 1 {
-		t.Fatalf("buttons %v (Uncordon only for the cordoned node)", buttons)
+	if len(buttons["Finish drain"]) != 3 || len(buttons["Dismiss"]) != 3 || len(buttons["Uncordon"]) != 2 {
+		t.Fatalf("buttons %v (Uncordon only for the cordoned nodes)", buttons)
 	}
 	// Each tap dispatches on its own goroutine (shell.dispatch): wait for one before the next, so
 	// that the recorded order is the order of the taps.
@@ -155,24 +164,26 @@ func TestDrainBannerShowsAndActs(t *testing.T) {
 		}
 	}
 
-	// A running drain shows its progress and offers nothing to click.
-	running := fixtureDrains()[:1]
-	running[0].Status = engine.DrainStatusRunning
+	// A drain running in this window has no row: its job tab in the dock shows it (D-63). One
+	// another Cogpit window runs shows as running and offers nothing to click.
+	running := fixtureDrains()[:2]
+	running[0].Status, running[0].Job = engine.DrainStatusRunning, "job-3"
 	// The progress type lives in package cluster, which the UI does not import: set it as JSON.
 	if err := json.Unmarshal([]byte(`{"progress":{"step":"blocked","node":"worker-2","pod":"shop/db-0",`+
 		`"message":"the PodDisruptionBudget db allows no disruption now","done":3,"total":5}}`), &running[0]); err != nil {
 		t.Fatal(err)
 	}
+	running[1].Status, running[1].Elsewhere = engine.DrainStatusRunning, true
+	running[1].Owner = &engine.JournalOwner{ID: "0123456789abcdef0123456789abcdef", PID: 4242}
 	d.set(running, nil)
-	q.until(t, "the running drain", func() bool {
-		return len(sh.drains.drains) == 1 && sh.drains.drains[0].Status == engine.DrainStatusRunning
+	q.until(t, "the drain running elsewhere alone", func() bool {
+		return len(sh.drains.drains) == 1 && sh.drains.drains[0].Node == "worker-3" && sh.drains.root.Visible()
 	})
 	if b := bannerButtons(sh.drains); len(b) != 0 {
 		t.Errorf("buttons on a running drain: %v", b)
 	}
-	if detail := drainDetail(sh.drains.drains[0], sh.timeFormat()); !strings.Contains(detail, "3 of 5 pods evicted") || !strings.Contains(detail, "waiting for shop/db-0") {
-		t.Errorf("running detail %q", detail)
-	}
+	d.set(running[:1], nil)
+	q.until(t, "no banner for this window's running drain", func() bool { return !sh.drains.root.Visible() && len(sh.drains.drains) == 0 })
 
 	// Disconnected or no journal: the banner goes.
 	d.set(nil, errors.New("no cluster connected"))
@@ -200,12 +211,19 @@ func TestDrainBannerTexts(t *testing.T) {
 	if got := drainDetail(other, germanTime); got != "Context kind-cogpit, started 11.10.2026 13:02:00 by you · in another Cogpit window (process 4242)" {
 		t.Errorf("detail %q", got)
 	}
+	// A drain whose job was stopped (D-63): the cause last.
+	if got := drainTitle(ds[2]); got != "The drain of node worker-4 was stopped" {
+		t.Errorf("title %q", got)
+	}
+	if got := drainDetail(ds[2], germanTime); got != "Context kind-cogpit, started 11.10.2026 13:16:00 by you · the node is cordoned and partly drained · cancelled by an agent" {
+		t.Errorf("stopped detail %q", got)
+	}
 }
 
 func renderDrainBanner(t *testing.T, mode ThemeMode, name string) {
 	sh, w, q, d := newDrainTestShell(t, mode)
 	d.set(fixtureDrains(), nil)
-	q.until(t, "the banner", func() bool { return sh.drains.root.Visible() && len(sh.drains.drains) == 2 })
+	q.until(t, "the banner", func() bool { return sh.drains.root.Visible() && len(sh.drains.drains) == 3 })
 	savePNG(t, w, name)
 }
 

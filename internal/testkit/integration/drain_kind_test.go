@@ -4,7 +4,6 @@ package integration_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"slices"
@@ -53,7 +52,6 @@ func (c *crashingJournal) Remove(context, node string) error {
 type drainEvents struct {
 	mu     sync.Mutex
 	events []engine.Event
-	onEv   func(engine.Event)
 }
 
 func (e *drainEvents) add(ev engine.Event) {
@@ -62,11 +60,7 @@ func (e *drainEvents) add(ev engine.Event) {
 	}
 	e.mu.Lock()
 	e.events = append(e.events, ev)
-	fn := e.onEv
 	e.mu.Unlock()
-	if fn != nil {
-		fn(ev)
-	}
 }
 
 func (e *drainEvents) has(typ engine.EventType, sub string) bool {
@@ -100,9 +94,11 @@ func drainSession(ctx context.Context, t *testing.T, kubeconfig, contextName str
 
 // TestKindDrainCrashFinishUncordon drains a worker of the multi-node drain cluster through the
 // engine: a Deployment's pods and a pod guarded by a PodDisruptionBudget that allows no
-// disruption, next to a DaemonSet's pod. Cogpit "crashes" while the budget blocks the eviction;
-// the next start offers the unfinished drain; finishing it fails while the budget stands and
-// succeeds once it is gone; uncordoning makes the node schedulable again. It runs only when
+// disruption, next to a DaemonSet's pod. Each drain runs as a background job (D-63). Cogpit
+// "crashes" while the budget blocks the eviction (the job's step says so); the next start offers
+// the unfinished drain; finishing it fails while the budget stands; cancelling it while the budget
+// holds the pod leaves it stopped, the node cordoned; finishing it succeeds once the budget is gone,
+// although its caller gives up at once; uncordoning makes the node schedulable again. It runs only when
 // COGPIT_KIND_DRAIN_KUBECONFIG and COGPIT_KIND_DRAIN_CONTEXT name the drain cluster (make
 // test-kind-drain), never against the shared single-node cluster.
 func TestKindDrainCrashFinishUncordon(t *testing.T) {
@@ -163,24 +159,17 @@ func TestKindDrainCrashFinishUncordon(t *testing.T) {
 	node := model.ObjectRef{Kind: "nodes", Name: target}
 	dir := t.TempDir()
 
-	// The first run of Cogpit: the drain starts, the budget blocks the guarded pod's eviction, and
-	// Cogpit dies: the journal's last write is the drain's start.
+	// The first run of Cogpit: the drain starts as a job (D-63), the budget blocks the guarded
+	// pod's eviction, which the job's step shows, and Cogpit dies: the journal's last write is the
+	// drain's start.
 	crash := &crashingJournal{DrainJournal: engine.NewFileDrainJournal(dir)}
-	first, firstEvents := drainSession(ctx, t, kubeconfig, contextName, crash)
-	drainCtx, crashNow := context.WithCancel(ctx)
-	firstEvents.mu.Lock()
-	firstEvents.onEv = func(ev engine.Event) {
-		if ev.Type == engine.EventToast && strings.Contains(ev.Message, "waits:") && strings.Contains(ev.Message, "guarded-pdb") {
-			crash.dead.Store(true)
-			crashNow()
-		}
-	}
-	firstEvents.mu.Unlock()
-	_, err = first.Dispatch(drainCtx, engine.Invocation{ID: "node.drain", Params: mustMarshal(t, map[string]any{"ref": node, "timeoutSeconds": 180, "deleteEmptyDirData": true}), Origin: engine.OriginGUI})
-	if err == nil || !crash.dead.Load() {
-		t.Fatalf("the first drain: %v (crashed: %v); the budget should have blocked it", err, crash.dead.Load())
-	}
-	first.Close()
+	first, _ := drainSession(ctx, t, kubeconfig, contextName, crash)
+	fd := dispatcher{t: t, ctx: ctx, s: first}
+	var res commands.DrainResult
+	fd.must("node.drain", map[string]any{"ref": node, "timeoutSeconds": 180, "deleteEmptyDirData": true}, &res)
+	waitFor(ctx, t, "the guarded pod's step waiting for the budget", func() bool { return budgetWaitShown(first, res.Job.ID) })
+	crash.dead.Store(true)
+	first.Close() // the job's end is not recorded: the journal is gone with the process
 	if !nodeUnschedulable(ctx, t, kube, target) {
 		t.Fatal("the interrupted drain left the node schedulable")
 	}
@@ -203,24 +192,52 @@ func TestKindDrainCrashFinishUncordon(t *testing.T) {
 	}
 
 	// Finishing while the budget stands times out, keeps the entry and names the budget.
-	err = d.run("node.drain", map[string]any{"ref": node, "timeoutSeconds": 20, "deleteEmptyDirData": true}, nil)
-	if err == nil || !strings.Contains(err.Error(), "guarded-pdb") || !strings.Contains(err.Error(), "timed out") {
-		t.Fatalf("finish under the budget: %v", err)
+	d.must("node.drain", map[string]any{"ref": node, "timeoutSeconds": 20, "deleteEmptyDirData": true}, &res)
+	job := drainJobEnd(ctx, t, second, res.Job.ID)
+	if job.State != engine.JobFailed || !strings.Contains(job.Outcome, "guarded-pdb") || !strings.Contains(job.Outcome, "Timed out") {
+		t.Fatalf("finish under the budget: %+v", job)
 	}
-	t.Logf("finish under the budget: %v", err)
+	t.Logf("finish under the budget: %s", job.Outcome)
 	var failed []engine.PendingDrainInfo
 	d.must("node.pendingDrains", nil, &failed)
 	if len(failed) != 1 || failed[0].Status != engine.DrainStatusFailed {
 		t.Fatalf("pending after the failed finish: %+v", failed)
 	}
 
-	// Without the budget, the drain finishes and its entry goes.
+	// Finishing again and cancelling it while the budget holds the guarded pod: the job stops, the
+	// drain stays as stopped, the node cordoned and the guarded pod in place.
+	d.must("node.drain", map[string]any{"ref": node, "timeoutSeconds": 180, "deleteEmptyDirData": true}, &res)
+	waitFor(ctx, t, "the guarded pod's step waiting for the budget", func() bool { return budgetWaitShown(second, res.Job.ID) })
+	var tab engine.DockTab
+	d.must("job.cancel", map[string]any{"id": res.Job.ID}, &tab)
+	if tab.Job == nil || tab.Job.State != engine.JobCancelled || !strings.HasPrefix(tab.Job.Outcome, "Stopped: cancelled.") ||
+		!strings.Contains(tab.Job.Outcome, "stays cordoned and partly drained") {
+		t.Fatalf("cancelled: %+v", tab.Job)
+	}
+	t.Logf("cancelled: %s", tab.Job.Outcome)
+	var stopped []engine.PendingDrainInfo
+	d.must("node.pendingDrains", nil, &stopped)
+	if len(stopped) != 1 || stopped[0].Status != engine.DrainStatusStopped || stopped[0].Error != "cancelled" {
+		t.Fatalf("pending after the cancel: %+v", stopped)
+	}
+	if !nodeUnschedulable(ctx, t, kube, target) || len(readyPods(ctx, kube, ns, "guarded")) != 1 {
+		t.Error("the cancel uncordoned the node or the guarded pod went")
+	}
+
+	// Without the budget, the drain finishes and its entry goes, although its caller gives up at
+	// once (as an MCP client's call ends): the job does not end with the call.
 	if err := kube.PolicyV1().PodDisruptionBudgets(ns).Delete(ctx, "guarded-pdb", metav1.DeleteOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	var res commands.DrainResult
-	d.must("node.drain", map[string]any{"ref": node, "timeoutSeconds": 180, "deleteEmptyDirData": true}, &res)
-	t.Logf("drain result: %+v", res)
+	call, giveUp := context.WithCancel(ctx)
+	cd := dispatcher{t: t, ctx: call, s: second}
+	cd.must("node.drain", map[string]any{"ref": node, "timeoutSeconds": 180, "deleteEmptyDirData": true}, &res)
+	giveUp()
+	job = drainJobEnd(ctx, t, second, res.Job.ID)
+	if job.State != engine.JobDone || !strings.HasPrefix(job.Outcome, "Drained node "+target+": ") {
+		t.Fatalf("the drain without the budget: %+v", job)
+	}
+	t.Logf("drained: %s", job.Outcome)
 	var none []engine.PendingDrainInfo
 	d.must("node.pendingDrains", nil, &none)
 	if len(none) != 0 {
@@ -233,6 +250,34 @@ func TestKindDrainCrashFinishUncordon(t *testing.T) {
 	if nodeUnschedulable(ctx, t, kube, target) {
 		t.Error("the node is still cordoned")
 	}
+}
+
+// budgetWaitShown reports whether a drain job's step for the guarded pod says that the budget
+// guarded-pdb holds its eviction.
+func budgetWaitShown(s *engine.Session, id string) bool {
+	tab, ok := s.UIState().DockTab(id)
+	if !ok || tab.Job == nil {
+		return false
+	}
+	return slices.ContainsFunc(tab.Job.Steps, func(st engine.JobStep) bool {
+		return strings.HasPrefix(st.Text, "Pod "+drainNamespace+"/guarded-") && strings.HasPrefix(st.Detail, "Waiting: ") &&
+			strings.Contains(st.Detail, "guarded-pdb")
+	})
+}
+
+// drainJobEnd waits until a drain's job ended and returns it, its steps logged.
+func drainJobEnd(ctx context.Context, t *testing.T, s *engine.Session, id string) *engine.JobTab {
+	t.Helper()
+	var job *engine.JobTab
+	waitFor(ctx, t, "the drain's job to end", func() bool {
+		tab, ok := s.UIState().DockTab(id)
+		job = tab.Job
+		return ok && job != nil && job.State.Ended()
+	})
+	for _, st := range job.Steps {
+		t.Logf("  %s %s: %s", st.State, st.Text, st.Detail)
+	}
+	return job
 }
 
 // pickWorker returns the first worker by name; the drain cluster has two, so that the other one
@@ -285,13 +330,4 @@ func assertOnlyDaemonAndMirrorPods(ctx context.Context, t *testing.T, kube kuber
 		}
 		t.Errorf("pod %s/%s is still on the drained node %s", p.Namespace, p.Name, node)
 	}
-}
-
-func mustMarshal(t *testing.T, v any) []byte {
-	t.Helper()
-	b, err := json.Marshal(v)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return b
 }

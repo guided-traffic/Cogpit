@@ -34,13 +34,19 @@ const (
 	nwGroupBatch = "batch"
 )
 
-// DrainResult is node.drain's result.
+// DrainResult is node.drain's result: the drain runs as a background job (drainjob.go), and the
+// command returns once it started.
 type DrainResult struct {
-	Ref     model.ObjectRef `json:"ref"`
-	Action  string          `json:"action"`         // "drained"
-	Evicted int             `json:"evicted"`        // pods evicted
-	Left    string          `json:"left,omitempty"` // pods left running (DaemonSet and mirror pods)
+	Ref    model.ObjectRef `json:"ref"`
+	Action string          `json:"action"` // "job started"
+	// Job is the job's dock tab as it started: its steps the cordon, then the pods the cache holds
+	// on the node (the drain's own list replaces them once it has listed the node's pods). ui_state
+	// shows them as they move and the outcome once the job ends (dock[].job); job_cancel stops it.
+	Job engine.DockTab `json:"job"`
 }
+
+// drainStarted is DrainResult's action.
+const drainStarted = "job started"
 
 type drainParams struct {
 	Ref model.ObjectRef `json:"ref" jsonschema:"the node: kind nodes and its name"`
@@ -135,9 +141,13 @@ func registerNodes(g *registrar) {
 		Description: "Drains a node as kubectl drain does: cordons it, then evicts every pod on it through the eviction " +
 			"API, which honours PodDisruptionBudgets, and waits until they are gone. By default it leaves DaemonSet pods " +
 			"running and refuses (before evicting anything) when the node runs pods with emptyDir data or pods no " +
-			"controller manages; deleteEmptyDirData and force allow those. A drain that fails or times out leaves the " +
-			"node cordoned and partly drained; it stays in node_pendingDrains, and so does one a crash of Cogpit " +
-			"interrupts. Run it again to finish it. Always asks the user to confirm.",
+			"controller manages; deleteEmptyDirData and force allow those. Always asks the user to confirm. Runs as a " +
+			"background job and returns at once with its dock tab (job): its steps are the cordon, then one per pod, each " +
+			"pending, running with what it waits for (a PodDisruptionBudget that allows no disruption is retried), done, " +
+			"failed or stopped; ui_state shows them and the outcome once the job ends (dock[].job), and job_cancel " +
+			"stops it. Ending your call does not stop it. A drain that fails, times out or is stopped leaves the node " +
+			"cordoned and partly drained, and nothing is uncordoned by itself; it stays in node_pendingDrains, and so " +
+			"does one a crash of Cogpit interrupts. Run it again to finish it.",
 		Detail: drainDetail,
 		Enabled: func(s *engine.Session, p drainParams) error {
 			if _, err := cachedOfKind(s, p.Ref, nodeKindKey); err != nil {
@@ -168,10 +178,12 @@ func registerNodes(g *registrar) {
 		ID: "node.pendingDrains", Label: "Unfinished Drains", Danger: engine.DangerRead,
 		Verbs: []engine.Verb{{Verb: nwVerbList, Resource: nodeKindKey}, {Verb: nwVerbWatch, Resource: nodeKindKey}},
 		Description: "Lists the drains Cogpit started on the connected context (all: on every context) that did not " +
-			"finish: context, node, when and by whom started, the settings, status (running in this Cogpit or, " +
-			"with elsewhere and its owner's process, in another one, interrupted by an earlier run of Cogpit ending, or failed with its error) and the node's state from the " +
-			"cache (cordoned, schedulable, missing, unknown). Offer node_drain to finish one, node_uncordon to give up " +
-			"and make the node schedulable, or node_dismissDrain to forget it.",
+			"finish: context, node, when and by whom started, the settings, status (running in this Cogpit, with its " +
+			"job's dock tab, or, with elsewhere and its owner's process, in another one; interrupted by an earlier run " +
+			"of Cogpit ending; failed with its error; or stopped with why: its job cancelled, its tab closed, the " +
+			"connection interrupted) and the node's state from the cache (cordoned, schedulable, missing, unknown). " +
+			"Offer node_drain to finish one, node_uncordon to give up and make the node schedulable, or " +
+			"node_dismissDrain to forget it.",
 		Run: func(_ context.Context, s *engine.Session, p pendingDrainsParams) (any, error) {
 			list, err := s.PendingDrains(p.All)
 			if err != nil {
@@ -277,8 +289,10 @@ func nodeToggleEnabled(s *engine.Session, ref model.ObjectRef, wantCordoned bool
 	return nil
 }
 
-// runDrain is node.drain's Run: record the drain, drain, record the outcome. The journal entry is
-// written before the node is cordoned, so that a crash at any later point leaves it behind.
+// runDrain is node.drain's Run: record the drain, then start its job (drainJob.run: drain, record
+// the outcome) and return the job's tab. The journal entry is written before the job starts and
+// so before the node is cordoned, so that a crash at any later point leaves it behind; a job that
+// does not start leaves no entry, since nothing was written to the cluster.
 func runDrain(ctx context.Context, s *engine.Session, p drainParams) (any, error) {
 	b, w, err := nodeActionsOf(s)
 	if err != nil {
@@ -304,43 +318,29 @@ func runDrain(ctx context.Context, s *engine.Session, p drainParams) (any, error
 	if req, ok := engine.Confirmed(ctx); ok {
 		entry.StartedBy = req.Origin
 	}
+	dj := newDrainJob(s, b, ref, entry.Settings)
 	if err := d.Begin(entry); err != nil {
 		return nil, err
 	}
-	userToast(s, "info", fmt.Sprintf("Draining node %s (context %s)…", ref.Name, ref.Context))
-
-	var last cluster.DrainProgress // calls come one at a time; read after the drain returned
-	left, cordoned := "", false
-	// An interruption of the connection stops the drain, which stays in the journal (D-58, S8).
-	octx, ocancel := s.OperationContext(ctx)
-	defer ocancel()
-	drainErr := drainSafely(octx, s, w, ref.Name, p.ClusterOptions(), func(pr cluster.DrainProgress) {
-		last, cordoned = pr, true // every step comes after the cordon
-		d.Progress(ref.Context, pr)
-		switch pr.Step {
-		case cluster.DrainListed:
-			left = pr.Message
-			userToast(s, "info", fmt.Sprintf("Node %s cordoned; evicting %d pods", ref.Name, pr.Total))
-		case cluster.DrainBlocked:
-			userToast(s, "warning", fmt.Sprintf("Node %s: the eviction of pod %s waits: %s", ref.Name, pr.Pod, pr.Message))
-		}
+	opts := p.ClusterOptions()
+	// The job keeps the call's values (the origin, the confirmation), not its end: a caller that
+	// gives up does not stop the drain. Its own stops (job.cancel, its tab closed, another cluster,
+	// an interrupted connection, Cogpit closing) end the drain's context, and the journal keeps the
+	// drain as stopped (D-58, S8).
+	tab, err := s.StartJob(engine.JobSpec{
+		Command: "node.drain", Title: "Drain: node " + ref.Name, Context: b.Context, Parent: ctx,
+		Steps: dj.initialSteps(),
+		Run: func(jctx context.Context, j *engine.Job) (string, error) {
+			return dj.run(jctx, s, j, w, entry, opts)
+		},
 	})
-	if errors.Is(context.Cause(octx), engine.ErrConnectionLost) && drainErr != nil {
-		drainErr = fmt.Errorf("%w: %w", engine.ErrConnectionLost, drainErr)
+	if err != nil {
+		if endErr := d.End(entry, nil); endErr != nil { // nothing was written to the cluster
+			s.Logger().Error("node.drain: forgetting a drain that did not start", "node", ref.Name, "err", endErr)
+		}
+		return nil, err
 	}
-	if err := d.End(entry, drainErr); err != nil {
-		s.Logger().Error("node.drain: recording the drain's end", "node", ref.Name, "err", err)
-		userToast(s, "error", "Cogpit could not record the end of the drain of node "+ref.Name+": "+err.Error())
-	}
-	if drainErr != nil {
-		state := drainLeft(cordoned, last)
-		msg := fmt.Sprintf("The drain of node %s did not finish; the node %s. Finish the drain or uncordon the node.", ref.Name, state)
-		userToast(s, "warning", msg)
-		return nil, fmt.Errorf("%w; node %s %s: run node_drain again to finish, "+
-			"or node_uncordon to make it schedulable", drainErr, ref.Name, state)
-	}
-	userToast(s, "info", fmt.Sprintf("Node %s drained: %d pods evicted", ref.Name, last.Done))
-	return DrainResult{Ref: ref, Action: "drained", Evicted: last.Done, Left: left}, nil
+	return DrainResult{Ref: ref, Action: drainStarted, Job: tab}, nil
 }
 
 // drainLeft says what a drain that did not finish left of the node, from its last step: the node

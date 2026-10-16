@@ -124,10 +124,12 @@ func TestNodeCommandsConfirmationPerOrigin(t *testing.T) {
 	c.mu.Lock()
 	c.answer = true
 	c.mu.Unlock()
-	h.must(t, engine.OriginExternalAgent, "node.drain", actionNodeRef("worker-1"), nil)
+	var started commands.DrainResult
+	h.must(t, engine.OriginExternalAgent, "node.drain", actionNodeRef("worker-1"), &started)
 	if len(c.all()) != asked+1 || c.last(t).Danger != engine.DangerDestructive {
 		t.Error("drain ran without the user's confirmation")
 	}
+	waitJob(t, h, started.Job.ID)
 
 	lines := audit.Lines()
 	var phases []string
@@ -137,7 +139,7 @@ func TestNodeCommandsConfirmationPerOrigin(t *testing.T) {
 			t.Errorf("audit line for %s names context %q", l.Command, l.Context)
 		}
 	}
-	for _, want := range []string{"node.cordon:requested", "node.cordon:done", "node.drain:requested", "node.drain:done"} {
+	for _, want := range []string{"node.cordon:requested", "node.cordon:done", "node.drain:requested", "node.drain:done", "node.drain:ended"} {
 		if !slices.Contains(phases, want) {
 			t.Errorf("audit lacks %s: %v", want, phases)
 		}
@@ -154,12 +156,13 @@ func TestDrainRecordsAndClearsItsJournalEntry(t *testing.T) {
 	var during []engine.PendingDrain
 	w.setDrainHook(func(_ context.Context, _ string, progress func(cluster.DrainProgress)) error {
 		during, _ = journal.List()
-		progress(cluster.DrainProgress{Step: cluster.DrainListed, Node: "worker-1", Total: 1})
+		progress(cluster.DrainProgress{Step: cluster.DrainListed, Node: "worker-1", Total: 1, Pods: []string{"shop/web-0"}})
 		progress(cluster.DrainProgress{Step: cluster.DrainEvicted, Node: "worker-1", Pod: "shop/web-0", Done: 1, Total: 1})
 		return nil
 	})
 	var res commands.DrainResult
 	h.must(t, engine.OriginGUI, "node.drain", map[string]any{"ref": model.ObjectRef{Kind: "nodes", Name: "worker-1"}, "force": true, "gracePeriodSeconds": 30}, &res)
+	job := waitJob(t, h, res.Job.ID)
 	if len(during) != 1 || during[0].Node != "worker-1" || during[0].Context != "test" || during[0].State != engine.DrainRunning ||
 		during[0].StartedBy != engine.OriginGUI || during[0].Started.IsZero() || !during[0].Settings.Force ||
 		during[0].Settings.IgnoreDaemonSets == nil || !*during[0].Settings.IgnoreDaemonSets {
@@ -168,8 +171,12 @@ func TestDrainRecordsAndClearsItsJournalEntry(t *testing.T) {
 	if after, _ := journal.List(); len(after) != 0 {
 		t.Errorf("journal after the drain finished: %+v", after)
 	}
-	if res.Action != "drained" || res.Evicted != 1 || res.Ref.Name != "worker-1" {
+	if res.Action != "job started" || res.Ref.Name != "worker-1" || res.Job.Type != engine.DockJob || res.Job.Title != "Drain: node worker-1" {
 		t.Errorf("result %+v", res)
+	}
+	if job.State != engine.JobDone || job.Outcome != "Drained node worker-1: 1 pod evicted." || job.Command != "node.drain" ||
+		!slices.Equal(stepStates(job), []string{"done Node worker-1: Cordoned", "done Pod shop/web-0: Evicted"}) {
+		t.Errorf("job %+v, steps %v", job, stepStates(job))
 	}
 	opts := w.lastDrainOpts()
 	if !opts.IgnoreDaemonSets || opts.DeleteEmptyDirData || !opts.Force || opts.GracePeriodSeconds != 30 || opts.Timeout != engine.DefaultDrainTimeout {
@@ -178,8 +185,8 @@ func TestDrainRecordsAndClearsItsJournalEntry(t *testing.T) {
 	if got := w.Calls(); !slices.Equal(got, []string{"drain worker-1", "cordon worker-1"}) {
 		t.Errorf("writes %v", got)
 	}
-	events.waitEvent(t, engine.EventToast, "Node worker-1 drained: 1 pods evicted")
-	if len(events.of(engine.EventDrains)) < 3 {
+	events.waitEvent(t, engine.EventToast, "Node worker-1 drained: 1 pod evicted")
+	if len(events.of(engine.EventDrains)) < 2 { // its start and its end; its progress is the job tab's
 		t.Errorf("drain events: %+v", events.of(engine.EventDrains))
 	}
 }
@@ -201,11 +208,14 @@ func TestDrainDefaultsAndPrefill(t *testing.T) {
 	if pre["ignoreDaemonSets"] != true || pre["timeoutSeconds"] != float64(300) || pre["force"] != nil || pre["deleteEmptyDirData"] != nil || pre["gracePeriodSeconds"] != nil {
 		t.Errorf("prefill %s", raw)
 	}
-	h.must(t, engine.OriginCLI, "node.drain", actionNodeRef("worker-1"), nil)
+	var res commands.DrainResult
+	h.must(t, engine.OriginCLI, "node.drain", actionNodeRef("worker-1"), &res)
+	waitJob(t, h, res.Job.ID)
 	if opts := w.lastDrainOpts(); opts != (cluster.DrainOptions{IgnoreDaemonSets: true, GracePeriodSeconds: -1, Timeout: 5 * time.Minute}) {
 		t.Errorf("default options %+v", opts)
 	}
-	h.must(t, engine.OriginCLI, "node.drain", map[string]any{"ref": model.ObjectRef{Kind: "nodes", Name: "worker-1"}, "ignoreDaemonSets": false, "deleteEmptyDirData": true, "timeoutSeconds": 60}, nil)
+	h.must(t, engine.OriginCLI, "node.drain", map[string]any{"ref": model.ObjectRef{Kind: "nodes", Name: "worker-1"}, "ignoreDaemonSets": false, "deleteEmptyDirData": true, "timeoutSeconds": 60}, &res)
+	waitJob(t, h, res.Job.ID)
 	if opts := w.lastDrainOpts(); opts != (cluster.DrainOptions{DeleteEmptyDirData: true, GracePeriodSeconds: -1, Timeout: time.Minute}) {
 		t.Errorf("options %+v", opts)
 	}
@@ -296,11 +306,15 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 		<-release
 		return errors.New("drain node worker-1: timed out after 5m0s: error when evicting pods/\"db-0\" -n \"shop\": global timeout reached")
 	})
-	done := make(chan error, 1)
-	go func() { done <- h.run(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil) }()
+	var res commands.DrainResult
+	h.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), &res)
 	<-running
 
-	events.waitEvent(t, engine.EventToast, "waits: the PodDisruptionBudget db-pdb")
+	waitUntil(t, "the step's wait for the budget", func() bool {
+		j := jobOf(h, res.Job.ID)
+		return j != nil && slices.Contains(stepStates(j),
+			"running Pod shop/db-0: Waiting: the PodDisruptionBudget db-pdb allows no disruption now; retrying")
+	})
 	// The drain's cordon reaches the cache through the watch, not at once: the checks below read it.
 	wctx, wcancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer wcancel()
@@ -317,7 +331,7 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 	var pending []engine.PendingDrainInfo
 	h.must(t, engine.OriginExternalAgent, "node.pendingDrains", nil, &pending)
 	if len(pending) != 1 || pending[0].Status != engine.DrainStatusRunning || pending[0].Progress == nil ||
-		pending[0].Progress.Step != cluster.DrainBlocked || pending[0].NodeState != engine.DrainNodeCordoned {
+		pending[0].Progress.Step != cluster.DrainBlocked || pending[0].NodeState != engine.DrainNodeCordoned || pending[0].Job != res.Job.ID {
 		t.Errorf("pending while running: %+v", pending)
 	}
 	var dis *engine.DisabledError
@@ -332,10 +346,14 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 	}
 
 	close(release)
-	err := <-done
-	// Every eviction waited: cordoned, but nothing drained yet.
-	if err == nil || !strings.Contains(err.Error(), "stays cordoned; no pod was evicted") || !strings.Contains(err.Error(), "timed out") {
-		t.Fatalf("failed drain: %v", err)
+	job := waitJob(t, h, res.Job.ID)
+	if job.State != engine.JobFailed || !strings.Contains(job.Outcome, "stays cordoned; no pod was evicted") ||
+		!strings.Contains(job.Outcome, "Timed out after 5m0s") || !strings.HasPrefix(job.Outcome, "Evicted 0 of 1 pod; 1 failed.") {
+		t.Fatalf("failed drain: %+v", job)
+	}
+	if got := stepStates(job); !slices.Equal(got, []string{"done Node worker-1: Cordoned",
+		"failed Pod shop/db-0: Not evicted: the PodDisruptionBudget db-pdb allows no disruption now"}) {
+		t.Errorf("steps %v", got)
 	}
 	events.waitEvent(t, engine.EventToast, "did not finish; the node stays cordoned")
 	entries, _ := journal.List()
@@ -350,7 +368,10 @@ func TestFailedDrainKeepsItsEntry(t *testing.T) {
 
 	// Finish: the same command again, now succeeding, clears the entry.
 	w.setDrainHook(nil)
-	h.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil)
+	h.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), &res)
+	if job := waitJob(t, h, res.Job.ID); job.State != engine.JobDone {
+		t.Errorf("finish: %+v", job)
+	}
 	if entries, _ := journal.List(); len(entries) != 0 {
 		t.Errorf("journal after finishing: %+v", entries)
 	}
@@ -385,9 +406,11 @@ func TestFailedDrainSaysWhatItLeft(t *testing.T) {
 				}
 				return errors.New(tc.err)
 			})
-			err := h.run(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil)
-			if err == nil || !strings.Contains(err.Error(), "; node worker-1 "+tc.want+":") || !strings.Contains(err.Error(), tc.err) {
-				t.Errorf("error %v, want the cause and %q", err, tc.want)
+			var res commands.DrainResult
+			h.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), &res) // a job since D-63's drain
+			job := waitJob(t, h, res.Job.ID)
+			if job.State != engine.JobFailed || !strings.Contains(job.Outcome, "Node worker-1 "+tc.want+";") {
+				t.Errorf("outcome %q, want %q", job.Outcome, tc.want)
 			}
 			events.waitEvent(t, engine.EventToast, "did not finish; the node "+tc.want+". Finish the drain or uncordon the node.")
 		})
@@ -400,9 +423,10 @@ func TestDrainPanicIsRecoveredAndRecorded(t *testing.T) {
 	journal := engine.NewMemoryDrainJournal()
 	h, w := newActionsHarness(t, nil, engine.Options{Drains: engine.NewDrains(journal), Confirmer: &confirmations{answer: true}, Logger: quietLogger})
 	w.setDrainHook(func(context.Context, string, func(cluster.DrainProgress)) error { panic("library bug") })
-	err := h.run(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil)
-	if err == nil || !strings.Contains(err.Error(), "internal error") {
-		t.Fatalf("err = %v", err)
+	var res commands.DrainResult
+	h.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), &res)
+	if job := waitJob(t, h, res.Job.ID); job.State != engine.JobFailed || !strings.Contains(job.Outcome, "Internal error") {
+		t.Fatalf("job %+v", job)
 	}
 	if entries, _ := journal.List(); len(entries) != 1 || entries[0].State != engine.DrainFailed {
 		t.Errorf("journal %+v", entries)

@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -389,6 +390,96 @@ func TestDrainNodeBlockedByBudget(t *testing.T) {
 	}
 	if blocked != 1 {
 		t.Errorf("%d blocked steps, want one per pod and reason", blocked)
+	}
+}
+
+// TestDrainNodeReportsEachPod (D-63, the drain as a job): the drain names the pods it evicts when
+// it lists them and reports each one's way: a budget that blocks and then allows (blocked once,
+// with the reason but no advice to try again, then accepted, then gone), a pod gone before its
+// eviction (evicted, "gone already"), and a refusal the drain does not retry (podFailed with the
+// error; the others go on and the drain fails).
+func TestDrainNodeReportsEachPod(t *testing.T) {
+	f := newDrainFake(t, node("worker-1", false),
+		pod("shop", "web-1", "worker-1", "ReplicaSet/web-5d8"), pod("shop", "db-0", "worker-1", "StatefulSet/db"),
+		pod("shop", "gone-0", "worker-1", "ReplicaSet/gone"), pod("ops", "locked-0", "worker-1", "ReplicaSet/locked"))
+	var tries atomic.Int32
+	f.setEvict(func(_, name string) error {
+		switch name {
+		case "db-0":
+			if tries.Add(1) < 3 {
+				return pdbBlocked("db-pdb")
+			}
+		case "gone-0":
+			return apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, name)
+		case "locked-0":
+			return apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, name, errors.New("evictions are not allowed here"))
+		}
+		return nil
+	})
+	var log progressLog
+	err := f.conn.DrainNode(context.Background(), "worker-1", DrainOptions{GracePeriodSeconds: -1, Timeout: 10 * time.Second}, log.add)
+	if err == nil || !strings.Contains(err.Error(), "locked-0") {
+		t.Fatalf("err = %v, want the refused pod named", err)
+	}
+	steps := log.all()
+	if len(steps) < 2 || steps[1].Step != DrainListed {
+		t.Fatalf("progress starts %+v", steps)
+	}
+	listed := slices.Sorted(slices.Values(steps[1].Pods))
+	if want := []string{"ops/locked-0", "shop/db-0", "shop/gone-0", "shop/web-1"}; !slices.Equal(listed, want) || steps[1].Total != 4 {
+		t.Errorf("listed %v (total %d), want %v", listed, steps[1].Total, want)
+	}
+	var dbSteps []DrainStep
+	for _, p := range steps {
+		if p.Pod != "shop/db-0" {
+			continue
+		}
+		dbSteps = append(dbSteps, p.Step)
+		if p.Step == DrainBlocked && (!strings.Contains(p.Message, "PodDisruptionBudget db-pdb allows no disruption") || strings.Contains(p.Message, "try again")) {
+			t.Errorf("blocked message %q", p.Message)
+		}
+	}
+	if want := []DrainStep{DrainEvicting, DrainBlocked, DrainAccepted, DrainEvicted}; !slices.Equal(dbSteps, want) {
+		t.Errorf("db-0's steps %v, want %v", dbSteps, want)
+	}
+	if !log.has(DrainAccepted, "shop/web-1") || !log.has(DrainEvicted, "shop/web-1") {
+		t.Errorf("web-1 not accepted and evicted: %+v", steps)
+	}
+	for _, p := range steps {
+		switch {
+		case p.Pod == "shop/gone-0" && p.Step == DrainEvicted && p.Message != "gone already":
+			t.Errorf("gone-0 %+v", p)
+		case p.Pod == "ops/locked-0" && p.Step == DrainPodFailed && !strings.Contains(p.Message, "evictions are not allowed here"):
+			t.Errorf("locked-0 %+v", p)
+		case p.Pod == "ops/locked-0" && (p.Step == DrainAccepted || p.Step == DrainEvicted):
+			t.Errorf("locked-0 reported evicted: %+v", p)
+		}
+	}
+	if !log.has(DrainEvicted, "shop/gone-0") || !log.has(DrainPodFailed, "ops/locked-0") {
+		t.Errorf("progress %+v", steps)
+	}
+	if last := steps[len(steps)-1]; last.Done != 3 {
+		t.Errorf("done %d, want 3 (web-1, db-0, gone-0)", last.Done)
+	}
+}
+
+// TestDrainNodeCancelledReportsNoPodFailure: the evictions a stop cuts are the stop's, not
+// failures of their pods.
+func TestDrainNodeCancelledReportsNoPodFailure(t *testing.T) {
+	f := newDrainFake(t, node("worker-1", false), pod("shop", "db-0", "worker-1", "StatefulSet/db"))
+	ctx, cancel := context.WithCancel(context.Background())
+	f.setEvict(func(string, string) error {
+		cancel()
+		return context.Canceled
+	})
+	var log progressLog
+	if err := f.conn.DrainNode(ctx, "worker-1", DrainOptions{}, log.add); err == nil {
+		t.Fatal("the cancelled drain finished")
+	}
+	for _, p := range log.all() {
+		if p.Step == DrainPodFailed {
+			t.Errorf("a stop reported as the pod's failure: %+v", p)
+		}
 	}
 }
 

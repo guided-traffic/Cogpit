@@ -54,6 +54,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - ✏️ YAML editing with a diff and a server-side dry-run before every apply.
 - 📝 A Config Map's values edited right in its drawer, each key above its editor, saved with a diff and a dry run; when someone else changed other keys meanwhile, Save moves your edits onto the newer version and shows you the diff again; unsaved values survive a quit or a crash as a draft.
 - ☑️ Delete, Restart and the Flux and Argo CD actions on the rows you checked, up to 500 at once, after one confirmation that names them all; more than ten run in the background in a dock tab of their own, which shows each object as it is done or fails, counts them, and has Cancel to stop what is not done yet (nothing done is undone); a toast says how it ended. Agents follow the same tab in `ui_state` and may cancel it too.
+- 🚧 Drain a node in the background, after its confirmation: a dock tab shows the cordon and each pod as it is evicted, which one a PodDisruptionBudget holds and why (the drain retries it until its timeout), and has Cancel. A drain that is cancelled, fails or is cut off by a lost connection or a crash leaves the node cordoned and partly drained, and a banner offers Finish drain, Uncordon and Dismiss; nothing is uncordoned by itself. An agent's drain goes on when the agent's call ends.
 - 🔌 Port forwarding, one click to the browser.
 - ⎈ The Helm releases in your clusters (Lens's Helm view), kept in Secrets or ConfigMaps: history, values, upgrade, rollback, through the Helm SDK, no `helm` binary needed.
 - 📦 Charts from the repositories in Helm's own `repositories.yaml` (add them with `helm repo add`; Cogpit picks a change up within seconds, logins and CA files included, and never writes the file), installed from a Helm Install tab; a chart's drawer shows the README of the version you pick, and charts show their icons (switch them off in Preferences).
@@ -441,8 +442,8 @@ and every 15 seconds; two checks without an answer (one after a wake) and the co
   stopped. A port forward waits and connects again at once. A pod shell, a node shell or an attach
   ends (a process cannot be resumed): its tab says so and offers **Reconnect**, which opens a new
   one in the same tab once the cluster answers. A local terminal is not affected.
-- A drain or a Helm install, upgrade or rollback that was running stops, as after a crash; after the
-  reconnect its banner offers to finish or dismiss it.
+- A drain or a Helm install, upgrade or rollback that was running stops, as after a crash (a drain's
+  tab says so); after the reconnect its banner offers to finish or dismiss it.
 - A change you made just as the connection broke may have reached the cluster or not: after 30
   seconds without an answer it ends with "outcome unknown", and the view shows the object's state
   once Cogpit is back.

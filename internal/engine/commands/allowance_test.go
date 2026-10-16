@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
 )
 
 // The allowance of agent writes (D-2, H-14) is a cluster setting only the user changes, and the
@@ -70,10 +71,12 @@ func TestAgentWritesAllowance(t *testing.T) {
 	if len(c.all()) != asked {
 		t.Error("an agent's uncordon asked although agent writes are allowed")
 	}
-	h.must(t, engine.OriginExternalAgent, "node.drain", actionNodeRef("worker-1"), nil)
+	var drained commands.DrainResult
+	h.must(t, engine.OriginExternalAgent, "node.drain", actionNodeRef("worker-1"), &drained)
 	if len(c.all()) != asked+1 || c.last(t).Danger != engine.DangerDestructive {
 		t.Error("an agent's drain ran without the user's confirmation")
 	}
+	waitJob(t, h, drained.Job.ID) // a background job (D-63): the node counts as draining until it ends
 	var uncordoned bool
 	for _, l := range audit.Lines() {
 		uncordoned = uncordoned || (l.Command == "node.uncordon" && l.Phase == "done" && l.OK && l.Context == "test")

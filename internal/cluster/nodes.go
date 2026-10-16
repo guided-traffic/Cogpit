@@ -13,6 +13,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -46,16 +47,24 @@ type DrainStep string
 const (
 	// DrainCordoned: the node is unschedulable.
 	DrainCordoned DrainStep = "cordoned"
-	// DrainListed: the pods to evict are known; Total counts them, Message lists the pods left
-	// running (DaemonSet pods, mirror pods) when there are any.
+	// DrainListed: the pods to evict are known; Total counts them, Pods names them, Message lists
+	// the pods left running (DaemonSet pods, mirror pods) when there are any.
 	DrainListed DrainStep = "listed"
 	// DrainEvicting: the eviction of Pod was requested.
 	DrainEvicting DrainStep = "evicting"
 	// DrainBlocked: the API server refused Pod's eviction for now (a PodDisruptionBudget allows
-	// no disruption; Message says which); the drain retries until it times out.
+	// no disruption, or its namespace is being deleted; Message says why); the drain retries until
+	// it times out.
 	DrainBlocked DrainStep = "blocked"
-	// DrainEvicted: Pod is gone.
+	// DrainAccepted: the API server accepted Pod's eviction; the drain waits until the pod is gone.
+	DrainAccepted DrainStep = "accepted"
+	// DrainEvicted: Pod is gone. Message is "gone already" when the pod was gone before its
+	// eviction.
 	DrainEvicted DrainStep = "evicted"
+	// DrainPodFailed: Pod is not evicted, for good: the API server refused its eviction with an
+	// error the drain does not retry, or waiting for the pod to go failed; Message is the error.
+	// The drain goes on with the other pods and fails at its end.
+	DrainPodFailed DrainStep = "podFailed"
 )
 
 // DrainProgress is one step of a drain, reported while it runs.
@@ -66,6 +75,8 @@ type DrainProgress struct {
 	Message string    `json:"message,omitempty"`
 	Done    int       `json:"done"`  // pods evicted so far
 	Total   int       `json:"total"` // pods to evict; known from DrainListed on
+	// Pods are the pods to evict, namespace/name in the list's order: DrainListed only.
+	Pods []string `json:"-"`
 }
 
 // Tunables of the drain; tests shorten them.
@@ -147,8 +158,11 @@ func (c *Conn) DrainNode(ctx context.Context, name string, opts DrainOptions, pr
 			rep.evicting(pod.Namespace + "/" + pod.Name)
 		},
 		OnPodDeletionOrEvictionFinished: func(pod *corev1.Pod, _ bool, err error) {
-			if err == nil {
-				rep.evicted(pod.Namespace + "/" + pod.Name)
+			switch {
+			case err == nil:
+				rep.evicted(pod.Namespace+"/"+pod.Name, "")
+			case ctx.Err() == nil: // a stop is the drain's, not the pod's
+				rep.podFailed(pod.Namespace+"/"+pod.Name, "waiting for the pod to go: "+err.Error())
 			}
 		},
 	}
@@ -157,7 +171,11 @@ func (c *Conn) DrainNode(ctx context.Context, name string, opts DrainOptions, pr
 		return fmt.Errorf("drain node %s: %w", name, errors.New(cogpitFlags(utilerrors.NewAggregate(errs).Error())))
 	}
 	pods := list.Pods()
-	rep.listed(len(pods), cogpitFlags(list.Warnings()))
+	names := make([]string, len(pods))
+	for i, p := range pods {
+		names[i] = p.Namespace + "/" + p.Name
+	}
+	rep.listed(names, cogpitFlags(list.Warnings()))
 	if err := h.DeleteOrEvictPods(pods); err != nil {
 		return fmt.Errorf("drain node %s: %s%w", name, drainCause(ctx, opts.Timeout), rep.explain(err))
 	}
@@ -221,11 +239,11 @@ func (r *drainReporter) reportLocked(p DrainProgress) {
 	r.fn(p)
 }
 
-func (r *drainReporter) listed(total int, warnings string) {
+func (r *drainReporter) listed(pods []string, warnings string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.total = total
-	r.reportLocked(DrainProgress{Step: DrainListed, Message: warnings})
+	r.total = len(pods)
+	r.reportLocked(DrainProgress{Step: DrainListed, Message: warnings, Pods: pods})
 }
 
 func (r *drainReporter) evicting(pod string) {
@@ -238,22 +256,63 @@ func (r *drainReporter) evicting(pod string) {
 	r.reportLocked(DrainProgress{Step: DrainEvicting, Pod: pod})
 }
 
-func (r *drainReporter) evicted(pod string) {
+func (r *drainReporter) evicted(pod, msg string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.done++
 	delete(r.blocked, pod)
-	r.reportLocked(DrainProgress{Step: DrainEvicted, Pod: pod})
+	r.reportLocked(DrainProgress{Step: DrainEvicted, Pod: pod, Message: msg})
 }
 
-// observe records an eviction's outcome: a refusal because of a PodDisruptionBudget is reported
-// once per reason and kept for the drain's error.
-func (r *drainReporter) observe(pod string, err error) {
-	var blocked *EvictionBlockedError
-	if !errors.As(explainEviction(pod, err), &blocked) {
-		return
+func (r *drainReporter) accepted(pod string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.blocked, pod) // no longer what holds the drain up
+	r.reportLocked(DrainProgress{Step: DrainAccepted, Pod: pod})
+}
+
+func (r *drainReporter) podFailed(pod, msg string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.reportLocked(DrainProgress{Step: DrainPodFailed, Pod: pod, Message: msg})
+}
+
+// waitReason is why the eviction waits, for a drain, which retries by itself: reason without its
+// advice to try again.
+func (e *EvictionBlockedError) waitReason() string {
+	if e.Budget != "" {
+		return fmt.Sprintf("the PodDisruptionBudget %s allows no disruption now (%s)", e.Budget, e.Detail)
 	}
-	reason := blocked.reason()
+	return e.reason()
+}
+
+// namespaceTerminating is the reason of an eviction refused because its namespace is being
+// deleted, which the drain library retries.
+const namespaceTerminating = "its namespace is being deleted"
+
+// observe records an eviction's outcome as the drain library acts on it: accepted (the drain waits
+// for the pod to go), gone already (done), refused for now (a PodDisruptionBudget, a namespace
+// being deleted: the library retries; reported once per reason and kept for the drain's error),
+// or refused for good (the library gives the pod up). An error after the drain's context ended
+// is the stop's, not the pod's: the drain's end reports it.
+func (r *drainReporter) observe(ctx context.Context, pod string, err error) {
+	var blocked *EvictionBlockedError
+	switch {
+	case err == nil:
+		r.accepted(pod)
+	case apierrors.IsNotFound(err):
+		r.evicted(pod, "gone already")
+	case errors.As(explainEviction(pod, err), &blocked):
+		r.block(pod, blocked.waitReason())
+	case apierrors.IsForbidden(err) && apierrors.HasStatusCause(err, corev1.NamespaceTerminatingCause):
+		r.block(pod, namespaceTerminating)
+	case ctx.Err() == nil:
+		r.podFailed(pod, err.Error())
+	}
+}
+
+// block reports a refusal for now, once per pod and reason.
+func (r *drainReporter) block(pod, reason string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.blocked[pod] == reason {
@@ -314,8 +373,8 @@ type recordingEvictions struct {
 // Evict evicts and records the outcome.
 func (e recordingEvictions) Evict(ctx context.Context, eviction *policyv1.Eviction) error {
 	err := e.EvictionInterface.Evict(ctx, eviction)
-	if err != nil && eviction != nil {
-		e.rep.observe(eviction.Namespace+"/"+eviction.Name, err)
+	if eviction != nil {
+		e.rep.observe(ctx, eviction.Namespace+"/"+eviction.Name, err)
 	}
 	return err
 }

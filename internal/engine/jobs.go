@@ -156,6 +156,27 @@ func (j *Job) SetStep(i int, state JobState, detail string) {
 	})
 }
 
+// SetSteps replaces the job's steps, for a job that learns them as it runs: a drain knows the pods
+// it evicts once it has listed them (commands/drainjob.go). A step without a state is pending. A
+// job that ended, or a tab that is gone, is left alone.
+func (j *Job) SetSteps(steps []JobStep) {
+	steps = slices.Clone(steps)
+	for i := range steps {
+		if steps[i].State == "" {
+			steps[i].State = JobPending
+		}
+		if r := steps[i].Ref; r != nil {
+			cp := *r
+			steps[i].Ref = &cp
+		}
+	}
+	j.s.updateJob(j.id, func(t *JobTab) {
+		if !t.State.Ended() {
+			t.Steps = steps
+		}
+	})
+}
+
 // Step returns step i as the tab holds it now, and whether the tab still holds the job.
 func (j *Job) Step(i int) (JobStep, bool) {
 	t, ok := j.s.UIState().DockTab(j.id)

@@ -75,8 +75,10 @@ func TestCrashMidDrainIsOfferedOnTheNextStart(t *testing.T) {
 		crash.dead.Store(true)
 		panic("Cogpit crashed")
 	})
-	if err := first.run(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil); err == nil {
-		t.Fatal("the crashed drain reported success")
+	var started commands.DrainResult
+	first.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), &started)
+	if job := waitJob(t, first, started.Job.ID); job.State != engine.JobFailed {
+		t.Fatalf("the crashed drain's job: %+v", job)
 	}
 	if got := w1.Calls(); !slices.Equal(got, []string{"drain worker-1", "cordon worker-1"}) {
 		t.Fatalf("first run's writes %v", got)
@@ -102,7 +104,10 @@ func TestCrashMidDrainIsOfferedOnTheNextStart(t *testing.T) {
 	}
 
 	// Finish the drain: node.drain again, confirmed as usual.
-	second.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), nil)
+	second.must(t, engine.OriginGUI, "node.drain", actionNodeRef("worker-1"), &started)
+	if job := waitJob(t, second, started.Job.ID); job.State != engine.JobDone {
+		t.Errorf("finish: %+v", job)
+	}
 	if len(pendingOf(t, second)) != 0 {
 		t.Error("the finished drain is still pending")
 	}

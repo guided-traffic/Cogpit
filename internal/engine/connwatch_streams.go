@@ -20,7 +20,8 @@ import (
 //     back (portforward_run.go).
 //   - a drain or a Helm install, upgrade or rollback stops at the interruption, as after a crash
 //     (D-11): its journal keeps it, and once the connection is back the banner offers to finish
-//     or dismiss it (OperationContext).
+//     or dismiss it (a Helm action through OperationContext; a drain runs as a job, which the
+//     interruption stops, jobs.go and commands/drainjob.go).
 
 // ErrConnectionLost ends an operation's context when the connection is interrupted
 // (OperationContext): nothing continues by itself.
@@ -126,9 +127,10 @@ func (s *Session) endSessions(w *connWatch, sessions []*trackedSession, at time.
 	}
 }
 
-// OperationContext returns a context for a multi-step cluster operation (a drain, a Helm action)
-// that ends, with ErrConnectionLost as its cause, when the connection is interrupted or its login
-// expires: the operation stops there and stays in its journal (D-11, S8). cancel releases it.
+// OperationContext returns a context for a multi-step cluster operation (a Helm action; a drain
+// runs as a job, which the interruption stops) that ends, with ErrConnectionLost as its cause, when
+// the connection is interrupted or its login expires: the operation stops there and stays in its
+// journal (D-11, S8). cancel releases it.
 func (s *Session) OperationContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	w := s.connWatch()
 	ctx, cancel := context.WithCancelCause(ctx)
