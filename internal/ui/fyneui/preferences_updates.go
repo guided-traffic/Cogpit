@@ -37,7 +37,7 @@ func shortReason(err error) string {
 // updatesSettings returns Preferences › App's two update settings and the function that shows the
 // preferences in them.
 func (p *settingsPage) updatesSettings() ([]fyne.CanvasObject, func()) {
-	check := widget.NewCheck("Check once a day and offer a new release to install with one click", func(on bool) {
+	check := widget.NewCheck("At every start and every hour; a new release installs with one click", func(on bool) {
 		p.setPreference("checkForUpdates", on)
 	})
 	why := newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})

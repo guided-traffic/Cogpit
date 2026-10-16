@@ -380,8 +380,8 @@ shown one does, so its login program may run (a browser login included) when the
 Off ("Renew the login while the cluster is not shown" unchecked), its login program does not run
 while another cluster is shown: when its login expires, the cluster's login **lapses**. It stays
 connected and is not shown in red (whether a renewal would work is not known); `ui_state`'s
-`connections[].loginLapsed` says so, with since and why (the window's grey mark for it comes with
-the marks of the clusters in the background *(planned)*). Meanwhile its checks pause, changes to
+`connections[].loginLapsed` says so, with since and why (the window shows it as a grey ring on the
+cluster's mark, D-69 stage 2). Meanwhile its checks pause, changes to
 it are disabled ("login lapsed: show the cluster to renew it"), a log that has to open again waits
 with the line `[cogpit] the login lapsed; it is renewed when the cluster is shown`, port forwards
 wait, and a drain or a Helm action that was running stops as at an interruption. A stream that is
@@ -431,8 +431,9 @@ Not on Windows and Linux yet.
 
 The macOS app checks Cogpit's signed appcast with Sparkle 2 and offers a newer release in Sparkle's
 window, installed on your click ([D-4](decisions.md#d-4-packaging-and-updates)); Help › Check for
-Updates… checks now. While "Check for updates automatically" is on, Cogpit checks at every start
-and then every hour. A release such a check finds shows as a button at the top bar's right
+Updates… checks now. While "Check for updates automatically" is on (its line reads "At every start
+and every hour; a new release installs with one click"), Cogpit checks at every start and then
+every hour. A release such a check finds shows as a button at the top bar's right
 end, left of the layout toggles, not as Sparkle's window: "Update to v0.16.0" (# example: the
 version the feed names), "Update" when it names none or the bar has no room for the version (a
 narrow window beside a long context name); the tooltip names the version, and a click opens
