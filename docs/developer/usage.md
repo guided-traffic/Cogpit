@@ -540,7 +540,8 @@ interrupted cluster in the background disables the changes to it only, and its s
   next; **Reconnect now** tries at once (since 2026-10-16, the owner's F13: dots, never words).
 - The views, the tabs, the drawer and the dock stay as they were, showing the cluster as of the
   interruption. Everything that would change the cluster is disabled, its menus saying
-  "connection interrupted"; an agent's change is refused the same way, and its reads are marked as
+  "connection interrupted" and the selection bar's greyed Delete "Delete — connection interrupted"
+  in its tooltip; an agent's change is refused the same way, and its reads are marked as
   the cluster's state of then.
 - Cogpit reconnects by itself: at once on a wake or a network change, otherwise after 1, 2, 4, 8, 16,
   then every 30 seconds, for as long as the window is open. Back, the dot stops blinking (after

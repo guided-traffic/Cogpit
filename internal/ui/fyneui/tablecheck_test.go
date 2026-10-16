@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -376,6 +377,106 @@ func TestSelectionBarDeletes(t *testing.T) {
 	}
 	test.Tap(sh.confirmer.current.confirm)
 	q.until(t, "the dialog gone", func() bool { return sh.confirmer.current == nil })
+}
+
+// setDeleteReason makes the fake's object.deleteMany disabled with a reason ("" enables it), as the
+// engine's write gate does while the connection is down; under the lock, since the bar asks for the
+// reason on another goroutine.
+func setDeleteReason(f *fakeEngine, reason string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.disabled[deleteManyID] = reason
+}
+
+// TestSelectionBarDeleteNamesTheReason (the owner's audit decision of 2026-10-16, D-58 (c)): while
+// the shown cluster's connection is not connected, or its login lapsed, the bar's Delete is greyed
+// and its tooltip names the engine's reason as the row menus do, "Delete — connection interrupted";
+// another state asks the engine again; a shown tooltip follows; the connection back, Delete works
+// and its tooltip says what it does.
+func TestSelectionBarDeleteNamesTheReason(t *testing.T) {
+	f := connectedFake(t, 20)
+	withDeleteMany(t, f)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil })
+	rows := f.tables["pods"].Rows
+	f.update(func(u *engine.UIState) { u.Selected = []model.ObjectRef{rows[0].Ref, rows[9].Ref} })
+	q.until(t, "two selected", func() bool { return len(sh.ui.Selected) == 2 })
+	settle(w)
+	bar := sh.view.check.bar
+	if bar.del.Disabled() || bar.del.tip != deleteSelectedTip {
+		t.Fatalf("connected: disabled %v, tooltip %q", bar.del.Disabled(), bar.del.tip)
+	}
+
+	setDeleteReason(f, "connection interrupted")
+	f.update(func(u *engine.UIState) { u.Connection.State = engine.Interrupted })
+	q.until(t, "the interruption's reason", func() bool {
+		return bar.del.Disabled() && bar.del.tip == "Delete — connection interrupted"
+	})
+	if d := item(t, openMenu(t, sh, q, 0), "Delete"); d.Label != bar.del.tip {
+		t.Errorf("the selection's menu says %q, the bar %q", d.Label, bar.del.tip)
+	}
+	sh.view.menu.Hide()
+	sh.tip.delay = time.Millisecond
+	test.MoveMouse(w.Canvas(), middleOf(bar.del))
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() == "Delete — connection interrupted" })
+
+	for _, c := range []struct {
+		state  engine.ConnectionState
+		lapsed bool
+		reason string
+	}{
+		{engine.LoginExpired, false, "login expired: log in again first"},
+		{engine.Disconnected, false, "no cluster connected"},
+		{engine.Connected, true, "login lapsed: show the cluster to renew it"},
+	} {
+		setDeleteReason(f, c.reason)
+		f.update(func(u *engine.UIState) {
+			u.Connection.State = c.state
+			u.Connections = []engine.ConnectedCluster{{Context: u.Context, Connection: u.Connection, Shown: true, LoginLapsed: c.lapsed}}
+		})
+		want := "Delete — " + c.reason
+		q.until(t, want, func() bool { return bar.del.Disabled() && bar.del.tip == want && sh.tip.visibleText() == want })
+	}
+
+	setDeleteReason(f, "")
+	f.update(func(u *engine.UIState) {
+		u.Connection.State = engine.Connected
+		u.Connections = []engine.ConnectedCluster{{Context: u.Context, Connection: u.Connection, Shown: true}}
+	})
+	q.until(t, "Delete back", func() bool {
+		return !bar.del.Disabled() && bar.del.tip == deleteSelectedTip && sh.tip.visibleText() == deleteSelectedTip
+	})
+}
+
+// renderSelectionInterrupted checks three pods of a real cluster's view, interrupts the connection
+// and shows the selection bar's greyed Delete with its tooltip naming the reason.
+func renderSelectionInterrupted(t *testing.T, mode ThemeMode, name string) {
+	f := kindsFake(t, "pods")
+	withDeleteMany(t, f)
+	f.ui.Context = "prod-eu [config]"
+	f.ui.Connection.Demo = false
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the pods view", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil && sh.diag.total > 0 })
+	now := interruptedAt.Add(4 * time.Minute)
+	sh.now = func() time.Time { return now }
+	fakeBlinkClock(sh)
+	rows := sh.view.snap.Rows
+	f.update(func(u *engine.UIState) { u.Selected = []model.ObjectRef{rows[1].Ref, rows[2].Ref, rows[4].Ref} })
+	q.until(t, "three selected", func() bool { return len(sh.ui.Selected) == 3 })
+	setDeleteReason(f, "connection interrupted")
+	interrupt(f, engine.Interrupted, now)
+	bar := sh.view.check.bar
+	q.until(t, "the reason", func() bool { return bar.del.tip == "Delete — connection interrupted" && sh.conn.root.Visible() })
+	settle(w)
+	sh.tip.delay = time.Millisecond
+	test.MoveMouse(w.Canvas(), middleOf(bar.del))
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() == bar.del.tip })
+	savePNG(t, w, name)
+}
+
+func TestRenderSelectionInterrupted(t *testing.T) {
+	renderSelectionInterrupted(t, ThemeDark, "selection_interrupted_dark.png")
+	renderSelectionInterrupted(t, ThemeLight, "selection_interrupted_light.png")
 }
 
 // renderSelection checks three pods, opens the selection's menu on one of them.

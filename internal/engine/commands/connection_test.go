@@ -88,6 +88,11 @@ func TestConnectionCommands(t *testing.T) {
 		if !errors.As(err, &de) || de.Reason != "connection interrupted" {
 			t.Errorf("%s's delete while interrupted: %v", o, err)
 		}
+		// The selection bar's Delete names this reason in its tooltip (fyneui/tablecheck.go).
+		err = h.run(t, o, "object.deleteMany", map[string]any{"refs": []model.ObjectRef{pod}}, nil)
+		if !errors.As(err, &de) || de.Reason != "connection interrupted" {
+			t.Errorf("%s's delete of a selection while interrupted: %v", o, err)
+		}
 		if err := h.run(t, o, "node.cordon", map[string]any{"ref": model.ObjectRef{Context: "test", Kind: "nodes", Name: "n1"}}, nil); !errors.As(err, &de) {
 			t.Errorf("%s's cordon while interrupted: %v", o, err)
 		}

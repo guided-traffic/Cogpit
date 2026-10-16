@@ -160,6 +160,17 @@ func newTipButton(sh *shell, icon fyne.Resource, tip string, tapped func()) *tip
 	return b
 }
 
+// setTip changes the tooltip's text; a tooltip shown or pending for the button takes the new one.
+func (b *tipButton) setTip(text string) {
+	if b.tip == text {
+		return
+	}
+	b.tip = text
+	if b.sh.tip.owner == b {
+		b.sh.tip.hover(b, text, b.sh.tip.pos)
+	}
+}
+
 // MouseIn implements desktop.Hoverable.
 func (b *tipButton) MouseIn(ev *desktop.MouseEvent) {
 	b.Button.MouseIn(ev)

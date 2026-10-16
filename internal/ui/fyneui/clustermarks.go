@@ -174,6 +174,7 @@ func (sh *shell) clustersChanged(st, old engine.UIState, first bool) {
 		sh.status.update()
 		sh.side.updateHeader()
 		sh.hot.stateChanged()
+		sh.view.checksChanged() // the selection bar's Delete follows a lapsed login too (tablecheck.go)
 	}
 	if !first && old.Connection.State == engine.Connecting && st.Connection.State != engine.Connecting {
 		sh.side.sec.load() // a connect ended: its contexts' failed connects (ContextInfo.ConnectProblem)

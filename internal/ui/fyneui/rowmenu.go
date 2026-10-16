@@ -16,6 +16,13 @@ import (
 // maxReasonRunes caps the reason a disabled menu item shows after its label.
 const maxReasonRunes = 60
 
+// disabledLabel names a command that cannot run now where it is greyed: its label, a dash and why,
+// "Delete — connection interrupted". The row menus, the selection's menu and the selection bar's
+// Delete (its tooltip) say it alike.
+func disabledLabel(label, reason string) string {
+	return label + " — " + shorten(reason, maxReasonRunes)
+}
+
 // actionState is a command evaluated for one object, off the main goroutine: the row menu and the
 // drawer's toolbar are both built from these.
 type actionState struct {
@@ -85,7 +92,7 @@ func (sh *shell) actionItems(ref model.ObjectRef, acts []actionState) []*fyne.Me
 		item := fyne.NewMenuItem(a.cmd.Label, nil)
 		switch {
 		case a.reason != "":
-			item.Label = a.cmd.Label + " — " + shorten(a.reason, maxReasonRunes)
+			item.Label = disabledLabel(a.cmd.Label, a.reason)
 			item.Disabled = true
 		case len(a.containers) > 0:
 			subs := make([]*fyne.MenuItem, 0, len(a.containers))

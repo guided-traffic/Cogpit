@@ -270,7 +270,7 @@ func (tv *tableView) selectionMenu(refs []model.ObjectRef, acts []selectionActio
 	for _, a := range acts {
 		item := fyne.NewMenuItem(a.cmd.Label, nil)
 		if a.reason != "" {
-			item.Label = a.cmd.Label + " — " + shorten(a.reason, maxReasonRunes)
+			item.Label = disabledLabel(a.cmd.Label, a.reason)
 			item.Disabled = true
 		} else {
 			id := a.cmd.ID
@@ -326,13 +326,22 @@ type selectionBar struct {
 	del   *tipButton
 	clear *tipButton
 	root  *fyne.Container
+	// asked is the connection (its context and state) the engine was last asked about why Delete
+	// cannot run; "" while Delete works.
+	asked string
 }
+
+// deleteManyID is the command the selection bar's Delete runs.
+const deleteManyID = "object.deleteMany"
+
+// deleteSelectedTip is the selection bar's Delete's tooltip while it works.
+const deleteSelectedTip = "Delete the selected objects…"
 
 func newSelectionBar(tv *tableView) *selectionBar {
 	b := &selectionBar{tv: tv}
 	b.count = newTextLine("", colorAccent, theme.SizeNameText, fyne.TextStyle{Bold: true})
-	b.del = newTipButton(tv.sh, theme.DeleteIcon(), "Delete the selected objects…", func() {
-		tv.runOnSelection("object.deleteMany", slices.Clone(tv.selected))
+	b.del = newTipButton(tv.sh, theme.DeleteIcon(), deleteSelectedTip, func() {
+		tv.runOnSelection(deleteManyID, slices.Clone(tv.selected))
 	})
 	b.del.Importance = widget.DangerImportance
 	b.clear = newTipButton(tv.sh, theme.CancelIcon(), "Clear the selection", tv.clearSelection)
@@ -349,16 +358,55 @@ func (b *selectionBar) update(n int) {
 		b.count.SetText(formatCount(int64(n)) + " selected")
 		b.root.Show()
 	}
-	// Delete waits for a working connection: while it is interrupted the engine refuses every write
-	// (D-58), so the button says so by being greyed rather than by a refusal after the click.
-	if live := b.tv.sh.ui.Connection.State == engine.Connected; live == b.del.Disabled() {
-		if live {
-			b.del.Enable()
-		} else {
-			b.del.Disable()
-		}
-	}
+	b.followConnection()
 	b.tv.showHeadingCount()
+}
+
+// followConnection greys Delete while the shown cluster's connection is not connected or its login
+// lapsed: the engine refuses every write then (D-58, D-69), so the button says so rather than a
+// refusal after the click. Its tooltip then names the engine's reason as the row menus do, "Delete
+// — connection interrupted" (the owner's audit decision of 2026-10-16), and says what Delete does
+// again once the connection is back.
+func (b *selectionBar) followConnection() {
+	ui := b.tv.sh.ui
+	entry, _ := ui.ConnectionOf(ui.Context)
+	if ui.Connection.State == engine.Connected && !entry.LoginLapsed {
+		if b.del.Disabled() {
+			b.del.Enable()
+		}
+		b.asked = ""
+		b.del.setTip(deleteSelectedTip)
+		return
+	}
+	if !b.del.Disabled() {
+		b.del.Disable()
+	}
+	at := fmt.Sprintf("%s\x00%s\x00%t", ui.Context, ui.Connection.State, entry.LoginLapsed)
+	if at != b.asked && b.root.Visible() {
+		b.asked = at
+		b.askReason(at)
+	}
+}
+
+// askReason asks the engine off the main goroutine why Delete cannot run on the selection (its
+// Enabled reads the cache) and names the reason in Delete's tooltip, unless the connection changed
+// meanwhile. No reason (the connection came back in between) leaves the tooltip as it is.
+func (b *selectionBar) askReason(at string) {
+	sh := b.tv.sh
+	refs := slices.Clone(b.tv.selected)
+	go func() {
+		defer sh.recoverTo("the selection's Delete")
+		label := "Delete"
+		if cmd, ok := sh.eng.Registry().Get(deleteManyID); ok {
+			label = cmd.Label
+		}
+		err := sh.commandEnabled(deleteManyID, engine.SelectionParams(refs))
+		sh.do(func() {
+			if err != nil && b.asked == at {
+				b.del.setTip(disabledLabel(label, err.Error()))
+			}
+		})
+	}()
 }
 
 // setCheck makes the header cell the header's checkbox in a state.
