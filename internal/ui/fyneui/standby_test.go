@@ -137,8 +137,15 @@ func TestStandbyWindowStaysUsable(t *testing.T) {
 	if n := countFunc(lines, standbyLine("before the sleep")); n != 1 {
 		t.Errorf("the line before the sleep shows %d times", n)
 	}
-	if worst > 100*time.Millisecond {
-		t.Errorf("the main goroutine's work took %v at worst", worst)
+	// 100 ms on a plain run; the race detector and coverage slow every step several times (CI's
+	// shared runner measured 136 ms under the race detector, run 38978583383), so there the bound
+	// only tells a stall from slow work.
+	limit := 100 * time.Millisecond
+	if raceEnabled || testing.CoverMode() != "" {
+		limit = 500 * time.Millisecond
+	}
+	if worst > limit {
+		t.Errorf("the main goroutine's work took %v at worst, more than %v", worst, limit)
 	} else {
 		t.Logf("the main goroutine's work took %v at worst", worst)
 	}
