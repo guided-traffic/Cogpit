@@ -236,8 +236,17 @@ func (s *Session) Contexts() ([]ContextInfo, error) {
 // shown, from its cache, without a request (one whose login program changed since it was allowed
 // is connected anew, D-26); the cluster shown before stays connected, and the window's views on it
 // stop when the connect starts, so that UIState.Context always names the cluster the window shows.
-// A later Connect supersedes a pending one.
+// A later Connect supersedes a pending one. The tab a connected cluster shows again comes with its
+// selection, without the objects gone meanwhile (DropGoneSelected).
 func (s *Session) Connect(ctx context.Context, name string) error {
+	if err := s.connect(ctx, name); err != nil {
+		return err
+	}
+	s.DropGoneSelected(ctx, s.UIState())
+	return nil
+}
+
+func (s *Session) connect(ctx context.Context, name string) error {
 	st := s.state
 	connector := s.opts.Connector
 	if connector == nil {

@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -309,8 +310,17 @@ func (s *Session) showConnected(b *Backend, gen uint64) {
 
 // Show shows a connected cluster in the window (ui.navigate to an object of another connected
 // cluster): as cluster.connect of a context the pool holds, without ever connecting one. A context
-// that is not connected is a NotConnectedError.
+// that is not connected is a NotConnectedError. The cluster's tab comes with its selection, without
+// the objects gone meanwhile (DropGoneSelected).
 func (s *Session) Show(contextID string) error {
+	if err := s.show(contextID); err != nil {
+		return err
+	}
+	s.DropGoneSelected(context.Background(), s.UIState())
+	return nil
+}
+
+func (s *Session) show(contextID string) error {
 	st := s.state
 	st.mu.Lock()
 	if st.closed {

@@ -99,4 +99,5 @@ func (u *UIState) closeTabsOf(contextID string) {
 	if len(u.Tabs) == 0 {
 		u.Tabs = nil
 	}
+	u.forgetSelections(func(c string) bool { return c == contextID }) // the preview tab's of it (selectionmemory.go)
 }

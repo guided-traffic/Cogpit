@@ -63,7 +63,7 @@ func registerTabs(g *registrar) {
 	})
 
 	add(g, engine.Spec[tabIDParams]{
-		ID: "ui.tab.close", Label: "Close Tab", MenuPath: "View/Close Tab", Shortcut: "Cmd+W", Danger: engine.DangerUI,
+		ID: "ui.tab.close", Label: "Close Tab", MenuPath: "View/Close Tab", Shortcut: "Cmd+W", Danger: engine.DangerUI, Verbs: cacheReads,
 		Description: "Closes the active tab (or the tab named by id). Closing the active tab shows the nearest tab of the " +
 			"same cluster, else an empty workspace. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ tabIDParams) error { return tabsOpen(s) },

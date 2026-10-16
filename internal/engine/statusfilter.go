@@ -2,6 +2,7 @@ package engine
 
 import (
 	"cmp"
+	"context"
 	"slices"
 	"strings"
 
@@ -194,8 +195,8 @@ func FilterRowsByStates(p *model.KindProfile, rows []model.Row, states []string)
 func (s *Session) OpenTabFiltered(view string, states []string) UIState {
 	s.noteKindTitle(view)
 	sort := s.ViewSort(view)
-	return s.UpdateUI(func(u *UIState) {
+	return s.DropGoneSelected(context.Background(), s.UpdateUI(func(u *UIState) {
 		u.openTab(view, sort, false)
 		u.SetStates(states)
-	})
+	}))
 }

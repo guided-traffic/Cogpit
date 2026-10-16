@@ -83,7 +83,8 @@ func registerUI(g *registrar) {
 			"source kubeconfig with a reason when it did not and username is only the kubeconfig's user entry's name, source lastSeen with lastSeen " +
 			"while the cluster is not connected; absent for the demo cluster and a context never confirmed), the open view (kind key), " +
 			"the namespace filter, the search text and its toggles (filterOptions: matchCase, regex; filterError when its " +
-			"regular expression is invalid), the status filter (states; view_rows lists the states offered), the sort order, the selected objects, the object in the detail drawer and " +
+			"regular expression is invalid), the status filter (states; view_rows lists the states offered), the sort order, the selected objects (selected: the shown view's; " +
+			"every view keeps its own, which comes back when the view is shown again and is not listed meanwhile), the object in the detail drawer and " +
 			"the order of its sortable tables by title (drawerSort: a node's or a workload's Pods, ui_sortDrawerTable), " +
 			"the tab bar's tabs (tabs and activeTab: each tab's id, context, view, title, preview or fixed, its own " +
 			"filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
@@ -122,8 +123,10 @@ func registerUI(g *registrar) {
 		Description: "Opens the list view of a kind (pods, services, ...) or a page (cluster/overview, the cluster " +
 			"Overview; workloads/overview, the Workloads Overview), as clicking it in the sidebar does: in the preview tab " +
 			"of the tab bar, which the next view opened this way replaces, or by activating a fixed tab of the cluster " +
-			"that shows the view (ui_tab_open opens fixed tabs). Clears the selection, the detail drawer, the search " +
-			"text and the status filter, or sets the status filter to states; keeps the namespace filter. Returns the new UI state.",
+			"that shows the view (ui_tab_open opens fixed tabs). The view's selection (the checked rows) comes back as " +
+			"the tab last left it, without objects deleted since; every view keeps its own, so the selection is always " +
+			"the shown view's. Clears the detail drawer, the search text and the status filter, or sets the status " +
+			"filter to states; keeps the namespace filter. Returns the new UI state.",
 		Enabled: func(s *engine.Session, _ viewParams) error { _, err := connected(s); return err },
 		Run: func(_ context.Context, s *engine.Session, p viewParams) (any, error) {
 			view, err := viewKey(s, p.View)
@@ -226,8 +229,8 @@ func registerUI(g *registrar) {
 		ID: "ui.navigate", Label: "Go to Object", MenuPath: "View/Go to Object", Danger: engine.DangerUI, Verbs: cacheReads,
 		Description: "Shows one object to the user: opens its kind's view, makes sure the namespace filter, the search " +
 			"text and the status filter do not hide it (resetting them if they do) and opens its detail drawer. It leaves " +
-			"the selection (the checked rows) as it is in the same view and clears it when the view changes, as ui_openView " +
-			"does; to check the object too, call ui_select afterwards. Use it after " +
+			"the selection (the checked rows) as it is in the same view; a view it changes to shows its own selection " +
+			"as the tab last left it, as ui_openView does; to check the object too, call ui_select afterwards. Use it after " +
 			"resources_find. An object of another connected cluster shows that cluster in the window first, as cluster_connect " +
 			"of a connected context does (no request, nothing connected anew); one of a context that is not connected is an " +
 			"error. Reads only the cache. Returns {view, ref, found}; found is false when the object is not in the cache.",
@@ -269,8 +272,9 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 	sort := s.ViewSort(prof.Key)
 	st := s.UpdateUI(func(u *engine.UIState) {
 		if u.View != prof.Key {
-			// The checked rows are the open view's: another view's do not carry over (as ui.openView).
-			u.View, u.Sort, u.Filter, u.Selected = prof.Key, sort, "", nil
+			// The checked rows are the open view's: the tab brings back the new view's own (N111,
+			// engine/selectionmemory.go), as ui.openView does.
+			u.View, u.Sort, u.Filter = prof.Key, sort, ""
 		}
 		if prof.Namespaced && len(u.Namespaces) > 0 && !slices.Contains(u.Namespaces, ref.Namespace) {
 			u.Namespaces = nil
@@ -286,6 +290,7 @@ func navigate(ctx context.Context, s *engine.Session, p refParams) (any, error) 
 		d := ref
 		u.Drawer = &d
 	})
+	st = s.DropGoneSelected(ctx, st) // a view shown again: its selection without the objects gone meanwhile
 	return NavigateResult{View: st.View, Ref: ref, Found: row != nil}, nil
 }
 

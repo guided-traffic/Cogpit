@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"unicode"
@@ -24,7 +25,9 @@ import (
 //     it is closed;
 //   - opening a view that a fixed tab of the cluster shows activates that tab;
 //   - a tab keeps its own namespace filter, search, status filter, sort, selection and drawer;
-//     changing them does not fix a preview tab;
+//     changing them does not fix a preview tab; it remembers the selection of every view it showed,
+//     by cluster, and gives it back when it shows the view again (selectionmemory.go: N111, the
+//     owner's decision in the audit of 2026-10-16);
 //   - a new tab opens right of the active one;
 //   - closing the active tab shows the nearest tab of the same cluster, right first, else nothing:
 //     the workspace stays empty until a view is opened (closing the last tab too);
@@ -34,7 +37,8 @@ import (
 //     from the navigator or the hotbar shows its most recently used tab, else its default view in
 //     the preview tab;
 //   - a tab's history holds view keys, at most maxTabHistory each way; back and forward open the
-//     view as ui.openView does (selection, drawer and search cleared, the namespace filter kept);
+//     view as ui.openView does (drawer and search cleared, the namespace filter kept, the view's
+//     selection as the tab last left it);
 //   - ⌘9 is the last tab, as browsers have it; next and previous wrap around;
 //   - the tabs of a cluster removed from Cogpit (cluster.remove, kubeconfig.remove) close with it
 //     (Session.RemoveKubeconfigSource, contextlink.go).
@@ -76,6 +80,9 @@ type ViewTab struct {
 	Forward []string `json:"forward,omitempty"`
 
 	used uint64 // when the tab was last activated (UIState.tabClock)
+	// selections are the selections of the other views the tab showed, by cluster and view
+	// (selectionmemory.go); ui.state does not list them. Their slices are never changed in place.
+	selections map[viewOf][]model.ObjectRef
 }
 
 // maxTabHistory bounds a tab's history each way (inferred: Lens's bound is not documented).
@@ -102,6 +109,7 @@ func (t ViewTab) clone() ViewTab {
 	}
 	out.Back = slices.Clone(t.Back)
 	out.Forward = slices.Clone(t.Forward)
+	out.selections = maps.Clone(t.selections) // the slices are shared: nothing changes them in place
 	return out
 }
 
@@ -227,21 +235,24 @@ func pushHistory(h []string, view string) []string {
 }
 
 // showInPreview shows a view of the connected cluster in the preview tab, made or taken over from
-// another cluster as needed, and activates it. The live state is left alone.
+// another cluster as needed, and activates it; the tab's selection becomes the view's as the tab
+// last left it (selectionmemory.go). The live state is left alone: the callers make the tab's
+// selection the live one.
 func (u *UIState) showInPreview(view string) {
 	p := u.previewIndex()
-	switch {
-	case p < 0:
+	if p < 0 {
 		p = u.newTab(u.Context, view, true)
-	case u.Tabs[p].Context != u.Context:
-		t := &u.Tabs[p]
-		t.Context, t.Back, t.Forward = u.Context, nil, nil // the other cluster's history means nothing here
-	case u.Tabs[p].View != "" && u.Tabs[p].View != view:
-		t := &u.Tabs[p]
+	}
+	t := &u.Tabs[p]
+	switch {
+	case t.Context != u.Context:
+		t.Back, t.Forward = nil, nil // the other cluster's history means nothing here
+	case t.View != "" && t.View != view:
 		t.Back, t.Forward = pushHistory(t.Back, t.View), nil
 	}
-	u.Tabs[p].View = view
-	u.ActiveTab = u.Tabs[p].ID
+	t.switchSelection(u.Context, view)
+	t.Context, t.View = u.Context, view
+	u.ActiveTab = t.ID
 	u.touch(p)
 }
 
@@ -255,6 +266,8 @@ func (u *UIState) showInPreview(view string) {
 //   - A view opened while no tab is active goes to the preview tab.
 //   - A view changed within the active tab by a command that knows nothing of tabs (ui.navigate)
 //     goes into the tab's history.
+//   - Either way the view's selection is the tab's for it, as the tab last left it
+//     (selectionmemory.go): a command that changes the view leaves the selection to the tab.
 //   - While the active tab's cluster is connected, the tab's state follows the live state.
 func (u *UIState) syncTabs(old UIState, viewTitle func(string) string) {
 	if i := u.activeIndex(); u.ActiveTab != "" && (i < 0 || u.Tabs[i].Context != u.Context) {
@@ -275,9 +288,13 @@ func (u *UIState) syncTabs(old UIState, viewTitle func(string) string) {
 			}
 		case i < 0 && u.View != "":
 			u.showInPreview(u.View)
+			u.Selected = slices.Clone(u.Tabs[u.activeIndex()].Selected)
 		case i >= 0 && u.View != "" && u.Tabs[i].View != "" && u.View != u.Tabs[i].View:
 			t := &u.Tabs[i]
 			t.Back, t.Forward = pushHistory(t.Back, t.View), nil
+			t.switchSelection(u.Context, u.View)
+			t.View = u.View
+			u.Selected = slices.Clone(t.Selected)
 		}
 		if i := u.activeIndex(); i >= 0 {
 			u.saveTab(i)
@@ -291,7 +308,8 @@ func (u *UIState) syncTabs(old UIState, viewTitle func(string) string) {
 // openTab opens a view of the connected cluster: in the preview tab, or in a new fixed tab when
 // fixed is set. A fixed tab of the cluster that shows the view already is activated instead, with
 // its own state (only ui.openView of the active tab's view opens it afresh, as it always did);
-// asked for fixed, the preview tab showing the view becomes fixed.
+// asked for fixed, the preview tab showing the view becomes fixed. A view opened afresh keeps the
+// selection the tab last left it with (selectionmemory.go), a new tab's starts with none.
 func (u *UIState) openTab(view string, sort SortSpec, fixed bool) {
 	p := u.previewIndex()
 	switch i := u.fixedTabOf(u.Context, view); {
@@ -316,7 +334,7 @@ func (u *UIState) openTab(view string, sort SortSpec, fixed bool) {
 	}
 	u.View, u.Sort, u.Filter = view, sort, ""
 	u.SetStates(nil) // opened afresh: no status filter, the active tab's own view too (statusfilter.go)
-	u.Selected, u.Drawer = nil, nil
+	u.Selected, u.Drawer = slices.Clone(u.Tabs[u.activeIndex()].Selected), nil
 }
 
 // closeTab removes a tab ("" is the active one). Closing the active tab shows the nearest tab of the
@@ -410,9 +428,10 @@ func (u *UIState) stepHistory(back bool, view string, sort SortSpec) error {
 		t.Forward = t.Forward[:len(t.Forward)-1]
 		t.Back = pushHistory(t.Back, t.View)
 	}
+	t.switchSelection(t.Context, view)
 	t.View = view // the history moved already: syncTabs must not add to it
 	u.View, u.Sort, u.Filter = view, sort, ""
-	u.Selected, u.Drawer = nil, nil
+	u.Selected, u.Drawer = slices.Clone(t.Selected), nil
 	return nil
 }
 
@@ -464,11 +483,12 @@ func (s *Session) viewTitle(view string) string {
 }
 
 // OpenTab opens a view of the connected cluster (a kind key or a page key the caller checked) in
-// the preview tab, or in a fixed tab when fixed is set (UIState.openTab), and returns the new state.
+// the preview tab, or in a fixed tab when fixed is set (UIState.openTab), and returns the new state:
+// the view's selection as the tab last left it, without the objects gone since (DropGoneSelected).
 func (s *Session) OpenTab(view string, fixed bool) UIState {
 	s.noteKindTitle(view)
 	sort := s.ViewSort(view)
-	return s.UpdateUI(func(u *UIState) { u.openTab(view, sort, fixed) })
+	return s.DropGoneSelected(context.Background(), s.UpdateUI(func(u *UIState) { u.openTab(view, sort, fixed) }))
 }
 
 // SelectTab activates a tab. A tab of the connected cluster shows at once; a tab of another
@@ -493,6 +513,9 @@ func (s *Session) SelectTab(ctx context.Context, id string) (UIState, error) {
 				u.activateTab(j)
 			}
 		})
+		if err == nil {
+			st = s.DropGoneSelected(ctx, st) // the tab's selection, without the objects gone meanwhile
+		}
 		return st, err
 	}
 	// The tab becomes its cluster's most recently used one, which syncTabs shows once connected.
@@ -509,7 +532,7 @@ func (s *Session) SelectTab(ctx context.Context, id string) (UIState, error) {
 	if t.Context == u.Context && u.Connection.State == Connecting {
 		return s.UIState(), nil // the connect under way shows it
 	}
-	err := s.Connect(ctx, t.Context)
+	err := s.Connect(ctx, t.Context) // which checks the tab's selection once it shows
 	st := s.UIState()
 	if err != nil && st.Connection.State != ConnectError {
 		return st, err
@@ -553,10 +576,14 @@ func (s *Session) CycleTab(ctx context.Context, d int) (UIState, error) {
 	return s.SelectTab(ctx, tabs[j].ID)
 }
 
-// CloseTab closes a tab ("" is the active one) and returns the new state (UIState.closeTab).
+// CloseTab closes a tab ("" is the active one) and returns the new state (UIState.closeTab): the
+// tab shown instead with its selection, without the objects gone meanwhile (DropGoneSelected).
 func (s *Session) CloseTab(id string) (UIState, error) {
 	var err error
 	st := s.UpdateUI(func(u *UIState) { err = u.closeTab(id) })
+	if err == nil {
+		st = s.DropGoneSelected(context.Background(), st)
+	}
 	return st, err
 }
 
@@ -584,5 +611,8 @@ func (s *Session) TabHistory(back bool) (UIState, error) {
 	s.noteKindTitle(view)
 	sort := s.ViewSort(view)
 	st := s.UpdateUI(func(u *UIState) { err = u.stepHistory(back, view, sort) })
+	if err == nil {
+		st = s.DropGoneSelected(context.Background(), st)
+	}
 	return st, err
 }

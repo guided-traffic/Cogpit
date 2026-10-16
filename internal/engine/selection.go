@@ -11,7 +11,8 @@ import (
 
 // Selections (ui-parity › Tables, G5, G7, G9). UIState.Selected is the open view's selection, the
 // checked rows, which ui.select sets for the user (the row checkboxes, the header's checkbox, ⌘- and
-// ⇧-click) and for agents alike, so both see and drive the same selection. An action on a selection
+// ⇧-click) and for agents alike, so both see and drive the same selection; each view keeps its own,
+// remembered by the tab while another view is shown (selectionmemory.go). An action on a selection
 // is a command whose parameters take the objects in a required "refs" array (ParamRefs) and that
 // has an Order: object.deleteMany. Registry.SelectionActions lists them for a selection's menu, and
 // Registry.Actions (the menus of one object) leaves them out.

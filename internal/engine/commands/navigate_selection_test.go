@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,7 +16,8 @@ import (
 
 // TestNavigateLeavesTheSelection: selecting and opening a drawer are separate actions (owner,
 // 2026-10-15): ui.navigate opens the drawer and leaves the checked rows of the same view alone; a
-// view it changes to starts without the old view's checked rows.
+// view it changes to shows its own checked rows, none for a view never checked in, and the old
+// view's come back with it (owner, audit of 2026-10-16).
 func TestNavigateLeavesTheSelection(t *testing.T) {
 	src := testkit.NewMemorySource()
 	claims := schema.GroupVersionResource{Version: "v1", Resource: "persistentvolumeclaims"}
@@ -59,5 +61,17 @@ func TestNavigateLeavesTheSelection(t *testing.T) {
 	h.must(t, agent, "ui.navigate", map[string]any{"ref": pod}, nil)
 	if st := s.UIState(); st.View != "pods" || len(st.Selected) != 0 || st.Drawer == nil || !st.Drawer.Same(pod) {
 		t.Errorf("another view: view %s, selected %v, drawer %+v", st.View, st.Selected, st.Drawer)
+	}
+	// The selection bar's Delete takes the shown view's selection: the claims' stays with their view.
+	if _, err := s.Dispatch(context.Background(), engine.Invocation{ID: "object.deleteMany", Origin: engine.OriginGUI,
+		Params: engine.SelectionParams(s.UIState().Selected)}); err == nil || !strings.Contains(err.Error(), "no objects are selected") {
+		t.Errorf("a Delete of the pods view's selection: %v, want nothing selected", err)
+	}
+
+	// Each view keeps its checked rows (N111, the owner's decision in the audit of 2026-10-16): the
+	// claims' come back with their view.
+	h.must(t, agent, "ui.navigate", map[string]any{"ref": logs}, nil)
+	if st := s.UIState(); st.View != "persistentvolumeclaims" || len(st.Selected) != 1 || !st.Selected[0].Same(data) {
+		t.Errorf("back in the claims: view %s, selected %v", st.View, st.Selected)
 	}
 }

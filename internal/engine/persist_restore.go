@@ -309,6 +309,7 @@ func (u *UIState) dropContexts(gone func(string) bool) []goneTabs {
 		}
 		return false
 	})
+	u.forgetSelections(gone)            // the preview tab's remembered selections of them (selectionmemory.go)
 	closed = u.dropDockOf(gone, closed) // and the dock's tabs of those contexts (dock_gone.go)
 	if u.Context != "" && gone(u.Context) && !activeConnection(u.Connection.State) {
 		u.Context = ""
