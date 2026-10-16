@@ -60,6 +60,9 @@ type cmFake struct {
 	// newest call's revision.
 	kept    *engine.ConfigMapEdits
 	keptRev uint64
+	// confirmed, when set, answers a save that removes keys as the engine's confirmation does: the
+	// window's dialog answer for the command, object, UID and keys (datakeys.go).
+	confirmed func(engine.ConfirmRequest) (ok, handled bool)
 }
 
 // keptValues returns the kept values' copy; nil when none are kept.
@@ -130,8 +133,8 @@ func newCMFakeWith(t testing.TB, f *fakeEngine, values map[string]string) *cmFak
 			return nil, nil
 		}
 		c.keptRev, c.kept = p.Revision, nil
-		if len(p.Data) > 0 {
-			c.kept = &engine.ConfigMapEdits{BaseResourceVersion: p.ResourceVersion, Values: p.Data, From: p.From}
+		if len(p.Data)+len(p.Add)+len(p.Remove) > 0 {
+			c.kept = &engine.ConfigMapEdits{BaseResourceVersion: p.ResourceVersion, Values: p.Data, From: p.From, Add: p.Add, Remove: p.Remove}
 		}
 		return nil, nil
 	}
@@ -142,15 +145,11 @@ func newCMFakeWith(t testing.TB, f *fakeEngine, values map[string]string) *cmFak
 		}
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		lines := engine.DiffLines(c.text(nil), c.text(p.Data))
+		lines := engine.DiffLines(c.text(nil), c.textEdit(p))
 		cur := strconv.Itoa(c.rv)
-		r := engine.ConfigMapDataReview{Ref: ciliumRef, Changed: engine.DiffChanged(lines), Lines: engine.CompactDiff(lines, 3),
+		r := engine.ConfigMapDataReview{Ref: ciliumRef, UID: "uid-cilium-config", Changed: engine.DiffChanged(lines), Lines: engine.CompactDiff(lines, 3),
 			BaseResourceVersion: p.ResourceVersion, CachedResourceVersion: cur}
-		for k, v := range p.Data {
-			if c.values[k] != v {
-				r.Keys = append(r.Keys, k)
-			}
-		}
+		r.Keys, r.KeysAdded, r.KeysRemoved = c.effect(p)
 		for _, l := range lines {
 			switch l.Op {
 			case engine.DiffAdded:
@@ -160,9 +159,14 @@ func newCMFakeWith(t testing.TB, f *fakeEngine, values map[string]string) *cmFak
 			}
 		}
 		if p.ResourceVersion != cur {
-			rebase := len(p.From) > 0
-			for k := range p.Data {
+			rebase := len(p.From) > 0 || (len(p.Data)+len(p.Remove) == 0 && len(p.Add) > 0)
+			for _, k := range append(mapKeys(p.Data), p.Remove...) {
 				if from, ok := p.From[k]; !ok || from != c.values[k] {
+					rebase = false
+				}
+			}
+			for k := range p.Add {
+				if _, ok := c.values[k]; ok {
 					rebase = false
 				}
 			}
@@ -180,21 +184,32 @@ func newCMFakeWith(t testing.TB, f *fakeEngine, values map[string]string) *cmFak
 		if err != nil {
 			return nil, err
 		}
+		if len(p.Remove) > 0 && c.confirmed != nil { // destructive: the engine asks the confirmer
+			req := engine.ConfirmRequest{Command: "configMap.saveData", Origin: inv.Origin, Context: p.Ref.Context, Danger: engine.DangerDestructive,
+				Objects: []model.ObjectRef{p.Ref}, UIDs: []string{"uid-cilium-config"}, Detail: engine.DataKeysDetail(mapKeys(p.Add), p.Remove)}
+			if ok, handled := c.confirmed(req); !handled || !ok {
+				return nil, engine.ErrDeclined
+			}
+		}
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if cur := strconv.Itoa(c.rv); p.ResourceVersion != cur {
-			lines := engine.DiffLines(c.text(nil), c.text(p.Data))
+			lines := engine.DiffLines(c.text(nil), c.textEdit(p))
 			return nil, &engine.DataConflictError{Ref: ciliumRef, BaseResourceVersion: p.ResourceVersion,
 				CurrentResourceVersion: cur, Diff: engine.CompactDiff(lines, 3)}
 		}
-		var keys []string
+		keys, added, removed := c.effect(p)
 		for k, v := range p.Data {
 			c.values[k] = v
-			keys = append(keys, k)
+		}
+		for k, v := range p.Add {
+			c.values[k] = v
+		}
+		for _, k := range p.Remove {
+			delete(c.values, k)
 		}
 		c.rv++
-		sort.Strings(keys)
-		return engine.ConfigMapDataSaved{Ref: ciliumRef, Keys: keys, ResourceVersion: strconv.Itoa(c.rv)}, nil
+		return engine.ConfigMapDataSaved{Ref: ciliumRef, Keys: keys, KeysAdded: added, KeysRemoved: removed, ResourceVersion: strconv.Itoa(c.rv)}, nil
 	}
 	// The save command in the fake's registry, so that the drawer's check finds it enabled.
 	if err := engine.Register(f.reg, engine.Spec[configMapDataParams]{ID: "configMap.saveData", Label: "Save Config Map Data",
@@ -233,6 +248,53 @@ func (c *cmFake) object() *unstructured.Unstructured {
 			"labels": map[string]any{"app.kubernetes.io/managed-by": "Helm", "app.kubernetes.io/part-of": "cilium", "io.cilium/app": "config"}},
 		"data": data,
 	}}
+}
+
+// textEdit is the data as YAML-like lines with an edit applied; mu is held.
+func (c *cmFake) textEdit(p configMapDataParams) string {
+	saved := c.values
+	c.values = map[string]string{}
+	for k, v := range saved {
+		c.values[k] = v
+	}
+	for k, v := range p.Add {
+		c.values[k] = v
+	}
+	for _, k := range p.Remove {
+		delete(c.values, k)
+	}
+	text := c.text(p.Data)
+	c.values = saved
+	return text
+}
+
+// effect is what an edit changes against the fake's values, as the engine reports it against a
+// newer version: an added key there is a change, a removed key gone there is left out; mu is held.
+func (c *cmFake) effect(p configMapDataParams) (changed, added, removed []string) {
+	changed = []string{}
+	for k, v := range p.Data {
+		if c.values[k] != v {
+			changed = append(changed, k)
+		}
+	}
+	for k, v := range p.Add {
+		old, ok := c.values[k]
+		switch {
+		case !ok:
+			added = append(added, k)
+		case old != v:
+			changed = append(changed, k)
+		}
+	}
+	for _, k := range p.Remove {
+		if _, ok := c.values[k]; ok {
+			removed = append(removed, k)
+		}
+	}
+	sort.Strings(changed)
+	sort.Strings(added)
+	sort.Strings(removed)
+	return changed, added, removed
 }
 
 // text is the data as YAML-like lines with over applied, for the fake's diffs.

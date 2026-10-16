@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
+	"maps"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -14,7 +15,6 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -42,7 +42,9 @@ import (
 // moves away: the engine keeps them for the drawer's next visit, when configMap.readData hands
 // them back, and as a draft on disk that a quit or a crash leaves (the owner's answer of
 // 2026-10-15; engine/drafts_drawer.go). Restoring that draft from the drafts banner opens the
-// drawer with them.
+// drawer with them. Keys are added and removed here too (the owner's audit decision of 2026-10-16,
+// datakeys.go): Add Key and each key's remove button, saved with the values by the same Save, the
+// review naming the keys and serving as the confirmation of a removal.
 
 func init() { drawerSections["configmaps\x00Data"] = configMapDataSection }
 
@@ -58,7 +60,9 @@ const (
 type configMapDataParams struct {
 	Ref             model.ObjectRef   `json:"ref"`
 	ResourceVersion string            `json:"resourceVersion"`
-	Data            map[string]string `json:"data"`
+	Data            map[string]string `json:"data,omitempty"`
+	Add             map[string]string `json:"add,omitempty"`
+	Remove          []string          `json:"remove,omitempty"`
 	From            map[string]string `json:"from,omitempty"`
 	Context         *int              `json:"context,omitempty"`
 }
@@ -69,8 +73,13 @@ type configMapKeepParams struct {
 	ResourceVersion string            `json:"resourceVersion,omitempty"`
 	Data            map[string]string `json:"data,omitempty"`
 	From            map[string]string `json:"from,omitempty"`
+	Add             map[string]string `json:"add,omitempty"`
+	Remove          []string          `json:"remove,omitempty"`
 	Revision        uint64            `json:"revision"`
 }
+
+// configMapSaveCommand is the Config Map drawer's save.
+const configMapSaveCommand = "configMap.saveData"
 
 // cmKeepRevisions orders the drawer's configMap.keepEdits calls, which run concurrently: the
 // engine ignores one older than the newest it has.
@@ -107,6 +116,12 @@ type cmData struct {
 	review   *cmReview
 	keep     *time.Timer // the pending configMap.keepEdits; nil when none waits
 	keepErr  bool        // the user was told that the values cannot be kept
+
+	// Keys added and removed, saved with the values (datakeys.go).
+	adder     *keyAdder
+	removed   map[string]bool   // the keys marked removed
+	added     []string          // the keys added, in the order added
+	addedRows map[string]*cmRow // their editors
 }
 
 // cmRow is one key and its value's editor.
@@ -139,7 +154,7 @@ func configMapDataSection(d *drawer, ref model.ObjectRef, sec model.DetailSectio
 }
 
 func newCMData(d *drawer, ref model.ObjectRef) *cmData {
-	cd := &cmData{d: d, ref: ref, rows: map[string]*cmRow{}}
+	cd := &cmData{d: d, ref: ref, rows: map[string]*cmRow{}, removed: map[string]bool{}, addedRows: map[string]*cmRow{}}
 	cd.list = box(keyedLayout{})
 	cd.moreL = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	cd.moreL.Hide()
@@ -148,8 +163,9 @@ func newCMData(d *drawer, ref model.ObjectRef) *cmData {
 	cd.revert = widget.NewButton("Revert", cd.revertAll)
 	cd.status = newParagraph("", colorMuted, d.contentWidth())
 	cd.status.Hide()
-	cd.buttons = container.NewHBox(layout.NewSpacer(), cd.revert, cd.save)
-	cd.root = container.NewVBox(cd.list, cd.moreL, cd.buttons, cd.status)
+	cd.adder = newKeyAdder(d.contentWidth(), cd.keyTaken, cd.addKey)
+	cd.buttons = footerRow(cd.adder, cd.revert, cd.save)
+	cd.root = container.NewVBox(cd.list, cd.moreL, cd.adder.row, cd.buttons, cd.status)
 	cd.width = d.contentWidth()
 	cd.refreshFooter()
 	return cd
@@ -165,6 +181,7 @@ func (cd *cmData) fromModel(sec model.DetailSection) {
 		}
 		cd.status.width = w
 		cd.status.Refresh()
+		cd.adder.setWidth(w)
 	}
 	if cd.loaded {
 		cd.layoutRows()
@@ -224,12 +241,23 @@ func newValueRow(d *drawer, host valueHost, key string, edited func(*cmRow)) *cm
 	return r
 }
 
-// layoutRows puts the rows in the list in the order of keys, then the note on more keys.
+// layoutRows puts the rows in the list in the order of keys, a removed key as removed, then the
+// keys added, then the note on more keys.
 func (cd *cmData) layoutRows() {
-	objs := make([]fyne.CanvasObject, 0, 2*len(cd.keys))
+	objs := make([]fyne.CanvasObject, 0, 2*(len(cd.keys)+len(cd.added)))
 	for _, k := range cd.keys {
 		r := cd.rows[k]
-		objs = append(objs, r.name, r.value)
+		if cd.removed[k] {
+			name, note := removedKeyLines(cd.d, k, func() { cd.undoRemove(k) })
+			objs = append(objs, name, note)
+			continue
+		}
+		objs = append(objs, cd.keyLine(r), r.value)
+	}
+	for _, k := range cd.added {
+		r := cd.addedRows[k]
+		_, exists := cd.rows[k]
+		objs = append(objs, addedKeyLine(cd.d, k, exists, nil, func() { cd.dropAdded(k) }), r.value)
 	}
 	cd.list.Objects = objs
 	cd.list.Refresh()
@@ -261,16 +289,16 @@ func (cd *cmData) load() {
 	})
 }
 
-// apply shows the values as read: an edited value keeps the user's text and the value it is based
-// on, every other one shows the value read. The edited values stay based on the version they were
-// edited at; without edits the editors are based on the version read.
+// apply shows the values as read: an edited or removed value keeps the user's text and the value
+// it is based on, every other one shows the value read. The edits stay based on the version they
+// were made at; without edits the editors are based on the version read.
 func (cd *cmData) apply(data engine.ConfigMapData) {
 	first := !cd.loaded
 	cd.loaded, cd.latest, cd.readOnly = true, data.ResourceVersion, data.ReadOnly
 	keys := make([]string, 0, len(data.Values))
 	for _, v := range data.Values {
 		r := cd.row(v.Key)
-		clean := !r.read || !r.dirty()
+		clean := !r.read || (!r.dirty() && !cd.removed[v.Key])
 		r.orig, r.read = v.Value, true
 		r.setNote(v.Note)
 		if clean {
@@ -279,8 +307,8 @@ func (cd *cmData) apply(data engine.ConfigMapData) {
 		}
 		keys = append(keys, v.Key)
 	}
-	for _, k := range cd.keys { // an edited key the cluster dropped stays, and its save is refused
-		if r := cd.rows[k]; r != nil && r.read && r.dirty() && !slices.Contains(keys, k) {
+	for _, k := range cd.keys { // an edited or removed key the cluster dropped stays: the review shows the conflict
+		if r := cd.rows[k]; r != nil && r.read && (r.dirty() || cd.removed[k]) && !slices.Contains(keys, k) {
 			keys = append(keys, k)
 		}
 	}
@@ -302,9 +330,9 @@ func (cd *cmData) apply(data engine.ConfigMapData) {
 	cd.refreshFooter()
 }
 
-// restore brings back kept edited values, still based on the version they were edited at: a
-// Config Map that changed since rebases them, or shows the conflict, when they are saved. They are
-// this window's own from then on.
+// restore brings back kept edited values and the keys added and removed, still based on the
+// version they were edited at: a Config Map that changed since rebases them, or shows the
+// conflict, when they are saved. They are this window's own from then on.
 func (cd *cmData) restore(u *engine.ConfigMapEdits) {
 	back := 0
 	for k, v := range u.Values {
@@ -314,6 +342,21 @@ func (cd *cmData) restore(u *engine.ConfigMapEdits) {
 			}
 			r.view.SetText(v)
 			r.resized()
+			back++
+		}
+	}
+	for _, k := range u.Remove {
+		if r := cd.rows[k]; r != nil && r.read && !r.note.Visible() {
+			if from, ok := u.From[k]; ok {
+				r.from = from
+			}
+			cd.removed[k] = true
+			back++
+		}
+	}
+	for _, k := range mapKeys(u.Add) {
+		if cd.addedRows[k] == nil {
+			cd.newAddedRow(k).view.SetText(u.Add[k])
 			back++
 		}
 	}
@@ -349,8 +392,8 @@ func (cd *cmData) keepNow() {
 		return
 	}
 	p := configMapKeepParams{Ref: cd.ref, Revision: cmKeepRevisions.Add(1)}
-	if values := cd.edits(); len(values) > 0 {
-		p.ResourceVersion, p.Data, p.From = cd.base, values, cd.froms()
+	if cd.dirty() {
+		p.ResourceVersion, p.Data, p.From, p.Add, p.Remove = cd.base, cd.edits(), cd.froms(), cd.adds(), cd.removes()
 	}
 	sh, key := cd.d.sh, cd.ref.Key()
 	sh.dispatch("configMap.keepEdits", p, func(_ any, err error) {
@@ -362,8 +405,11 @@ func (cd *cmData) keepNow() {
 	})
 }
 
-// dirty reports whether the user changed a value since it was read.
+// dirty reports whether the user changed a value since it was read, or added or removed a key.
 func (cd *cmData) dirty() bool {
+	if len(cd.added)+len(cd.removed) > 0 {
+		return true
+	}
 	for _, r := range cd.rows {
 		if r.read && r.dirty() {
 			return true
@@ -372,28 +418,110 @@ func (cd *cmData) dirty() bool {
 	return false
 }
 
-// edits are the edited values by key.
+// edits are the edited values by key, of the keys not removed.
 func (cd *cmData) edits() map[string]string {
 	out := map[string]string{}
 	for k, r := range cd.rows {
-		if r.read && r.dirty() {
+		if r.read && r.dirty() && !cd.removed[k] {
 			out[k] = r.view.Text()
 		}
 	}
 	return out
 }
 
-// froms are the values the edited values are based on, by key: what the review hands the engine
-// to rebase them (from).
+// froms are the values the edited values and the removed keys are based on, by key: what the
+// review hands the engine to rebase them (from).
 func (cd *cmData) froms() map[string]string {
 	out := map[string]string{}
 	for k, r := range cd.rows {
-		if r.read && r.dirty() {
+		if r.read && (r.dirty() || cd.removed[k]) {
 			out[k] = r.from
 		}
 	}
 	return out
 }
+
+// adds are the added keys with their editors' text.
+func (cd *cmData) adds() map[string]string {
+	out := map[string]string{}
+	for k, r := range cd.addedRows {
+		out[k] = r.view.Text()
+	}
+	return out
+}
+
+// removes are the keys marked removed, sorted.
+func (cd *cmData) removes() []string { return slices.Sorted(maps.Keys(cd.removed)) }
+
+// keyTaken says why key cannot be added: the Config Map, or the drawer, holds it already.
+func (cd *cmData) keyTaken(key string) string {
+	switch {
+	case cd.addedRows[key] != nil:
+		return "You added this key already."
+	case cd.rows[key] != nil:
+		return "The Config Map holds this key already: edit its value above."
+	}
+	return ""
+}
+
+// addKey adds a key with an empty value at the end of the data.
+func (cd *cmData) addKey(key string) {
+	r := cd.newAddedRow(key)
+	cd.changedKeys()
+	if c := fyne.CurrentApp().Driver().CanvasForObject(cd.list); c != nil {
+		c.Focus(r.view)
+	}
+}
+
+// newAddedRow makes the editor row of an added key.
+func (cd *cmData) newAddedRow(key string) *cmRow {
+	r := newValueRow(cd.d, cd, key, cd.edited)
+	r.read = true
+	cd.addedRows[key] = r
+	cd.added = append(cd.added, key)
+	return r
+}
+
+// dropAdded drops an added key and its value.
+func (cd *cmData) dropAdded(key string) {
+	delete(cd.addedRows, key)
+	cd.added = slices.DeleteFunc(cd.added, func(k string) bool { return k == key })
+	cd.changedKeys()
+}
+
+// removeKey marks a key removed; Save removes it.
+func (cd *cmData) removeKey(key string) {
+	if !cd.dirty() {
+		cd.base = cd.latest
+	}
+	cd.removed[key] = true
+	cd.changedKeys()
+}
+
+// undoRemove takes a key's removal back.
+func (cd *cmData) undoRemove(key string) {
+	delete(cd.removed, key)
+	cd.changedKeys()
+}
+
+// changedKeys follows a key added, dropped, removed or restored: the list, the footer, the kept
+// edits.
+func (cd *cmData) changedKeys() {
+	cd.layoutRows()
+	cd.refreshFooter()
+	cd.keepSoon()
+}
+
+// keyLine is a key's line: its name, and where the data can be saved the button that removes it.
+func (cd *cmData) keyLine(r *cmRow) fyne.CanvasObject {
+	if !cd.editable() || r.note.Visible() || !r.read {
+		return r.name
+	}
+	return container.NewBorder(nil, nil, nil, removeKeyButton(cd.d.sh, r.key, func() { cd.removeKey(r.key) }), r.name)
+}
+
+// editable reports whether the values and keys can be saved.
+func (cd *cmData) editable() bool { return cd.loaded && cd.reason == "" && !cd.hidden }
 
 // edited follows the user's typing in a row: its height, when its lines changed it, and the
 // footer.
@@ -409,7 +537,7 @@ func (cd *cmData) saveReason() string {
 	if cd.readOnly != "" {
 		return cd.readOnly
 	}
-	err := cd.d.sh.commandEnabled("configMap.saveData", configMapDataParams{Ref: cd.ref, ResourceVersion: "0", Data: map[string]string{}})
+	err := cd.d.sh.commandEnabled(configMapSaveCommand, configMapDataParams{Ref: cd.ref, ResourceVersion: "0", Data: map[string]string{}})
 	cd.hidden = errors.Is(err, errUnavailable)
 	if err != nil {
 		return errText(err)
@@ -417,8 +545,8 @@ func (cd *cmData) saveReason() string {
 	return ""
 }
 
-// refreshFooter makes the editors editable or read-only and sets Save, Revert and the status
-// line from what the editors hold.
+// refreshFooter makes the editors editable or read-only and sets Add Key, Save, Revert and the
+// status line from what the editors hold.
 func (cd *cmData) refreshFooter() {
 	reason := cd.reason
 	for _, r := range cd.rows {
@@ -426,11 +554,13 @@ func (cd *cmData) refreshFooter() {
 			r.view.SetReadOnly(ro)
 		}
 	}
-	if cd.hidden {
-		cd.buttons.Hide()
-	} else {
-		cd.buttons.Show()
+	for _, r := range cd.addedRows {
+		if ro := !cd.editable(); ro != r.view.ReadOnly() {
+			r.view.SetReadOnly(ro)
+		}
 	}
+	setVisible(cd.buttons, !cd.hidden)
+	cd.adder.setEditable(cd.editable() && cd.review == nil)
 	dirty := cd.dirty()
 	enable(cd.save, cd.loaded && reason == "" && dirty && cd.review == nil)
 	enable(cd.revert, dirty && cd.review == nil)
@@ -444,7 +574,7 @@ func (cd *cmData) refreshFooter() {
 			"first.", cd.base, cd.latest), colorStatusWarning)
 	case dirty:
 		if !strings.HasPrefix(cd.status.text, "Your unsaved changes are back") {
-			cd.setStatus(fmt.Sprintf("Edited: %s, based on version %s.", valuesText(len(cd.edits())), cd.base), colorMuted)
+			cd.setStatus(fmt.Sprintf("Edited: %s, based on version %s.", editsText(len(cd.edits()), len(cd.added), len(cd.removed)), cd.base), colorMuted)
 		}
 	case strings.HasPrefix(cd.status.text, "Saved"):
 	default:
@@ -463,7 +593,8 @@ func (cd *cmData) setStatus(text string, c fyne.ThemeColorName) {
 	cd.status.Refresh()
 }
 
-// revertAll puts the values back as the cluster holds them now.
+// revertAll puts the values back as the cluster holds them now, drops the keys added and takes the
+// removals back.
 func (cd *cmData) revertAll() {
 	for _, r := range cd.rows {
 		if r.read && r.dirty() {
@@ -472,23 +603,47 @@ func (cd *cmData) revertAll() {
 			r.resized()
 		}
 	}
+	cd.removed, cd.added, cd.addedRows = map[string]bool{}, nil, map[string]*cmRow{}
 	cd.base = cd.latest
 	cd.setStatus("", colorMuted)
+	cd.layoutRows()
 	cd.refreshFooter()
 	cd.keepNow() // nothing unsaved: no draft
 }
 
-// saved follows a save: the values written are the rows' values now, based on the stored version.
-func (cd *cmData) saved(values map[string]string, rv string) {
-	for k, v := range values {
+// saved follows a save: the values written are the rows' values now, the keys added rows of the
+// data, the keys removed gone, all based on the stored version, which is read again when keys
+// changed.
+func (cd *cmData) saved(p configMapDataParams, rv string) {
+	for k, v := range p.Data {
 		if r := cd.rows[k]; r != nil {
 			r.orig, r.from = v, v
+		} else if r := cd.addedRows[k]; r != nil { // an added key the cluster held by then
+			r.orig, r.from = v, v
+			cd.rows[k] = r
+			r.name = cd.d.keyName(k)
 		}
 	}
+	for k, v := range p.Add {
+		if r := cd.addedRows[k]; r != nil {
+			r.orig, r.from, r.name = v, v, cd.d.keyName(k)
+			cd.rows[k] = r
+			cd.keys = append(cd.keys, k)
+		}
+	}
+	for _, k := range p.Remove {
+		delete(cd.rows, k)
+		cd.keys = slices.DeleteFunc(cd.keys, func(x string) bool { return x == k })
+	}
+	cd.removed, cd.added, cd.addedRows = map[string]bool{}, nil, map[string]*cmRow{}
 	cd.base, cd.latest = rv, rv
-	cd.setStatus(fmt.Sprintf("Saved %s · version %s", valuesText(len(values)), rv), colorStatusOK)
+	cd.setStatus(fmt.Sprintf("Saved %s · version %s", editsText(len(p.Data), len(p.Add), len(p.Remove)), rv), colorStatusOK)
+	cd.layoutRows()
 	cd.refreshFooter()
 	cd.keepNow() // what was edited is saved: the rest, if any, stays kept
+	if len(p.Add)+len(p.Remove) > 0 {
+		cd.load() // the keys in the data's order
+	}
 }
 
 // close keeps the edited values when the drawer moves to another object or closes, and says so:
@@ -648,39 +803,53 @@ func (r *cmGripRenderer) Objects() []fyne.CanvasObject {
 
 func (r *cmGripRenderer) Destroy() {}
 
-// cmReview is the review of a save: the diff of the edited values against the Config Map in the
-// cluster and the server's dry run, then Save.
+// cmReview is the review of a save: the diff of the edit against the Config Map in the cluster,
+// the keys it adds and removes, and the server's dry run, then Save.
 type cmReview struct {
-	cd     *cmData
-	values map[string]string
-	from   map[string]string // the values the edits are based on, for the engine's rebase
-	base   string            // the version the shown diff and dry run are of, which Save writes with
-	dlg    *dialog.CustomDialog
-	diff   *diffView
-	banner *textLine
-	status *paragraph
-	save   *widget.Button
-	over   string // the newer version Save writes the values over; "" none
-	closed bool
+	cd      *cmData
+	values  map[string]string
+	adds    map[string]string
+	removes []string
+	from    map[string]string // the values the edit is based on, for the engine's rebase
+	base    string            // the version the shown diff and dry run are of, which Save writes with
+	uid     string            // the Config Map's the review is of, which a removal's confirmation binds
+	last    *engine.ConfigMapDataReview
+	dlg     *dialog.CustomDialog
+	diff    *diffView
+	banner  *textLine
+	keys    *fyne.Container // what keysBlock says
+	status  *paragraph
+	save    *widget.Button
+	width   float32
+	opened  time.Time
+	ready   bool   // Save may be enabled: the dry run accepted the save, or a newer version waits
+	over    string // the newer version Save writes the values over; "" none
+	closed  bool
 }
 
-// openReview reviews the edited values in a dialog over the window.
+// openReview reviews the edit in a dialog over the window.
 func (cd *cmData) openReview() {
-	values := cd.edits()
-	if len(values) == 0 || cd.review != nil {
+	values, adds, removes := cd.edits(), cd.adds(), cd.removes()
+	if len(values)+len(adds)+len(removes) == 0 || cd.review != nil {
 		return
 	}
 	width := min(float32(760), cd.d.sh.win.Canvas().Size().Width-120)
-	rv := &cmReview{cd: cd, values: values, from: cd.froms(), base: cd.base, diff: newDiffView()}
+	rv := &cmReview{cd: cd, values: values, adds: adds, removes: removes, from: cd.froms(), base: cd.base, diff: newDiffView(),
+		width: width, opened: time.Now()}
 	rv.banner = newTextLine("Changes to ConfigMap "+cd.ref.Key(), theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	rv.banner.truncate = true
+	rv.keys = container.NewVBox()
+	rv.keys.Hide()
 	rv.status = newParagraph("", colorMuted, width)
 	rv.save = widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), rv.commit)
 	rv.save.Importance = widget.HighImportance
+	if len(removes) > 0 {
+		rv.save.Importance = widget.DangerImportance
+	}
 	rv.save.Disable()
 	cancel := widget.NewButton("Cancel", func() { rv.hide() })
 	list := box(sizedMin{size: fyne.NewSize(width, 300)}, container.NewStack(newSurface(theme.ColorNameInputBackground), rv.diff.list))
-	content := container.NewBorder(container.NewVBox(rv.banner, newDivider(false)), container.NewVBox(newDivider(false), rv.status), nil, nil, list)
+	content := container.NewBorder(container.NewVBox(rv.banner, newDivider(false), rv.keys), container.NewVBox(newDivider(false), rv.status), nil, nil, list)
 	rv.dlg = dialog.NewCustomWithoutButtons("Save ConfigMap "+cd.ref.Name, content, cd.d.sh.win)
 	rv.dlg.SetButtons([]fyne.CanvasObject{cancel, rv.save})
 	rv.dlg.SetOnClosed(func() { rv.closed = true; cd.review = nil; cd.refreshFooter() })
@@ -697,7 +866,7 @@ func (rv *cmReview) check() {
 	cd := rv.cd
 	rv.reset()
 	rv.setStatus("Comparing with the Config Map in the cluster and checking with the server (dry run)…", colorMuted)
-	params := configMapDataParams{Ref: cd.ref, ResourceVersion: rv.base, Data: rv.values, From: rv.from}
+	params := configMapDataParams{Ref: cd.ref, ResourceVersion: rv.base, Data: rv.values, Add: rv.adds, Remove: rv.removes, From: rv.from}
 	cd.d.sh.dispatch("configMap.reviewData", params, func(res any, err error) {
 		if rv.closed {
 			return
@@ -715,6 +884,8 @@ func (rv *cmReview) check() {
 			cd.setStatus("No changes to save: the values are the Config Map's.", colorMuted)
 			return
 		}
+		rv.last, rv.uid = &r, r.UID
+		setKeysBlock(rv.keys, keysBlock("ConfigMap", resolvedRef(r.Ref, cd.ref), r.KeysAdded, r.KeysRemoved, rv.width))
 		rv.diff.set(r.Lines)
 		rebased := ""
 		if r.RebasedFrom != "" && !r.Stale {
@@ -727,13 +898,14 @@ func (rv *cmReview) check() {
 		case r.Stale:
 			rv.showOver(r.BaseResourceVersion, r.CachedResourceVersion)
 		case r.Accepted:
-			title := fmt.Sprintf("Changes to ConfigMap %s: %s, %d line%s added, %d removed", cd.ref.Key(), valuesText(len(r.Keys)), r.Added, plural(r.Added), r.Removed)
+			title := fmt.Sprintf("Changes to ConfigMap %s: %s, %d line%s added, %d removed", cd.ref.Key(),
+				editsText(len(r.Keys), len(r.KeysAdded), len(r.KeysRemoved)), r.Added, plural(r.Added), r.Removed)
 			if rebased != "" {
 				title += ", rebased onto version " + r.BaseResourceVersion
 			}
 			rv.banner.SetText(title)
 			rv.setStatus(rebased+"The server accepts the change (dry run). Save writes it to the cluster.", colorStatusOK)
-			rv.save.Enable()
+			rv.arm()
 		default:
 			rv.setStatus(rebased+"The server refuses the change: "+r.Refused, colorStatusError)
 		}
@@ -744,10 +916,32 @@ func (rv *cmReview) check() {
 // reset puts the review back to its first look before a check: no newer version to write over,
 // Save disabled with its own label, the banner in the text colour.
 func (rv *cmReview) reset() {
-	rv.over = ""
+	rv.over, rv.ready = "", false
 	rv.save.SetText("Save")
 	rv.save.Disable()
 	rv.banner.SetColor(theme.ColorNameForeground)
+}
+
+// arm enables Save, a removal's after the confirmation's delay (armSave).
+func (rv *cmReview) arm() {
+	rv.ready = true
+	armSave(rv.cd.d.sh, rv.save, len(rv.removes) > 0, rv.opened, func() bool { return rv.ready && !rv.closed })
+}
+
+// takeOver makes the edit what the review against the newer version showed, which Save over that
+// version writes: an added key the Config Map holds by then is a change of its value, a removed key
+// it no longer holds is dropped.
+func (rv *cmReview) takeOver() {
+	if rv.last == nil {
+		return
+	}
+	for k, v := range rv.adds {
+		if !slices.Contains(rv.last.KeysAdded, k) {
+			rv.values[k] = v
+			delete(rv.adds, k)
+		}
+	}
+	rv.removes = slices.DeleteFunc(rv.removes, func(k string) bool { return !slices.Contains(rv.last.KeysRemoved, k) })
 }
 
 // showOver shows the values against a newer version of the Config Map: Save then writes them over
@@ -756,15 +950,16 @@ func (rv *cmReview) showOver(base, current string) {
 	if current == "" || current == base {
 		rv.setStatus(fmt.Sprintf("The Config Map changed on the cluster since version %s and Cogpit has not seen the new version "+
 			"yet; nothing was saved. Save again in a moment.", base), colorStatusWarning)
-		rv.save.Enable()
+		rv.arm()
 		return
 	}
 	rv.over = current
 	rv.banner.SetText(fmt.Sprintf("ConfigMap %s changed on the cluster since version %s: your changes against version %s", rv.cd.ref.Key(), base, current))
 	rv.banner.SetColor(colorStatusWarning)
-	rv.setStatus(fmt.Sprintf("Nothing was saved: a key you edited changed there too. Save over version %s writes your values over it; the cluster's other changes stay.", current), colorStatusWarning)
+	rv.setStatus(fmt.Sprintf("Nothing was saved: a key you edited, added or removed changed there too. Save over version %s writes your "+
+		"changes over it; the cluster's other changes stay.", current), colorStatusWarning)
 	rv.save.SetText("Save over version " + current)
-	rv.save.Enable()
+	rv.arm()
 }
 
 // commit saves the reviewed values, over the newer version when the review showed one. A save
@@ -775,11 +970,17 @@ func (rv *cmReview) commit() {
 	cd := rv.cd
 	if rv.over != "" {
 		rv.base, cd.base, rv.over = rv.over, rv.over, ""
+		rv.takeOver()
 		cd.keepSoon()
 	}
+	rv.ready = false
 	rv.save.Disable()
 	rv.setStatus("Saving…", colorMuted)
-	cd.d.sh.dispatch("configMap.saveData", configMapDataParams{Ref: cd.ref, ResourceVersion: rv.base, Data: rv.values}, func(res any, err error) {
+	params := configMapDataParams{Ref: cd.ref, ResourceVersion: rv.base, Data: rv.values, Add: rv.adds, Remove: rv.removes}
+	// A removal is destructive: this review is its confirmation (datakeys.go).
+	forget := confirmRemoval(cd.d.sh, configMapSaveCommand, rv.target(), rv.uid, engine.DataKeysDetail(mapKeys(params.Add), params.Remove), len(params.Remove) > 0)
+	cd.d.sh.dispatch(configMapSaveCommand, params, func(res any, err error) {
+		forget()
 		if rv.closed {
 			return
 		}
@@ -790,13 +991,13 @@ func (rv *cmReview) commit() {
 			return
 		case err != nil:
 			rv.setStatus("Not saved: "+errText(err), colorStatusError)
-			rv.save.Enable()
+			rv.arm()
 			return
 		}
 		var s engine.ConfigMapDataSaved
 		_ = decode(res, &s)
 		rv.hide()
-		cd.saved(rv.values, s.ResourceVersion)
+		cd.saved(params, s.ResourceVersion)
 	})
 }
 

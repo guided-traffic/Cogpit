@@ -146,7 +146,8 @@ credential into its own files.
   Since 2026-10-15 (the owner's audit answer, [D-55](../developer/decisions.md#d-55-a-config-maps-values-edited-in-the-drawer))
   **a Config Map's values edited in the drawer** and not saved are kept the same way: one file per
   Config Map (type `configMapData`) with the edited keys' text, the values they are based on and
-  the version, removed when the user saves or reverts them
+  the version, since 2026-10-16 also the keys added with their text and the keys removed (the
+  owner's audit decision), removed when the user saves or reverts them
   ([`drafts_drawer.go`](../../internal/engine/drafts_drawer.go), `TestConfigMapDrawerDrafts`). Only
   the window keeps or reads them (`configMap.keepEdits` is GUI-only, `configMap.readData` returns
   them to the window only); agents list such a draft with its keys, never a value. **A Secret's
@@ -394,6 +395,15 @@ a Secret's values are edited in its drawer, as a Config Map's are, in the window
   until Cogpit quits (`drawer.secretUnsaved`) and come back masked; no toast beyond
   "Secret <namespace>/<name> saved", no status line or review line with a value, no log line
   (`TestSecretDrawerEditAndSave`, `TestSecretDrawerKeepsUnsavedInMemory`).
+- **Keys added and removed** (since 2026-10-16, the owner's audit decision,
+  [D-59](../developer/decisions.md#d-59-a-secrets-values-edited-in-the-drawer)). An added key's
+  value is typed into the same editor as a revealed one and takes the same ways: the GUI-only
+  commands' `add`, base64-encoded in `data` on the update, the window's memory while unsaved (back
+  masked), never a draft; the masked diff names the key and its size. A removal sends no value at
+  all; its review base (`from`) is the value only when it was shown, else the removal never rebases.
+  An agent's refused call is audited with the keys of `add`, each value `<redacted>`, and the keys of
+  `remove` (`TestSecretDrawerDataKeysAudit`); the confirmation of a removal names the keys and "The
+  values are not shown." (`TestSecretDrawerDataAddsAndRemovesKeys`, `TestSecretDrawerAddsAndRemovesKeys`).
 
 ## What this does not cover
 
@@ -676,7 +686,8 @@ A draft of unsaved editor text (2026-10-13) holds what the user typed into an Ed
 resource tab of any kind but a Secret, as typed: a password pasted into a ConfigMap, a token in a
 Deployment's `env`, a manifest that names a Secret's values under another kind's fields. Since
 2026-10-15 a Config Map's values edited in the drawer are kept so too, each edited key's text and
-the value it is based on (live: a value a user keeps a credential in reaches the file). It sits
+the value it is based on, and since 2026-10-16 an added key's text (live: a value a user keeps a
+credential in reaches the file). It sits
 in `<user config dir>/Cogpit/drafts/` protected by its permissions only (0600 in a 0700
 directory) until the text is saved, the tab closed or the draft discarded, and a crash leaves it
 there until the next connect of its context offers it; a backup of the configuration folder

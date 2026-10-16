@@ -34,9 +34,11 @@ import (
 // Secret's value, and each checks the origin again itself. An agent's refused call is audited with
 // the Secret and the keys only (auditSecretDataParams). No value reaches an error (the checks name
 // keys; an API message that quotes a value is scrubbed), a toast, a log, a draft (the window
-// keeps unsaved values in its memory only) or the result. Only values change: a key is neither
-// added nor removed here (the Edit tab does that), a binary value and a Helm release record are
-// not edited, and an immutable Secret is refused.
+// keeps unsaved values in its memory only) or the result. Keys are added (their values typed as
+// text, stored base64-encoded) and removed in the same write (add and remove, the owner's audit
+// decision of 2026-10-16; datakeys.go); a save that removes one is destructive, and the masked diff
+// lists it. A binary value is not edited (it can be removed), a Helm release record is not
+// edited, and an immutable Secret is refused.
 
 // The ids of the drawer's Secret commands.
 const (
@@ -80,7 +82,12 @@ type SecretKeyChange struct {
 // SecretDataReview is what secret.reviewData reports: the masked diff of the Secret with the given
 // values against the Secret as the cache holds it, and the server's dry run of the save.
 type SecretDataReview struct {
-	Ref     model.ObjectRef   `json:"ref"`
+	Ref model.ObjectRef `json:"ref"`
+	// UID is the Secret's the review is of: a save that removes keys acts on it only.
+	UID string `json:"uid,omitempty"`
+	// Changes are the keys changed, added and removed, with their sizes; against a newer version
+	// (Stale) what a save over it would write (an added key that appeared there is changed, a
+	// removed key gone there is left out).
 	Changes []SecretKeyChange `json:"changes"`
 	// BaseResourceVersion is the version the values are based on, CachedResourceVersion the one
 	// the changes compare with; Stale and RebasedFrom as in ConfigMapDataReview.
@@ -92,10 +99,13 @@ type SecretDataReview struct {
 	Refused               string `json:"refused,omitempty"`
 }
 
-// SecretDataSaved is a successful save: the keys whose values changed and the version stored.
+// SecretDataSaved is a successful save: the keys whose values changed, the keys added and removed,
+// and the version stored.
 type SecretDataSaved struct {
 	Ref             model.ObjectRef `json:"ref"`
 	Keys            []string        `json:"keys"`
+	KeysAdded       []string        `json:"keysAdded,omitempty"`
+	KeysRemoved     []string        `json:"keysRemoved,omitempty"`
 	ResourceVersion string          `json:"resourceVersion"`
 }
 
@@ -169,11 +179,12 @@ type secretEdit struct {
 	configMapEdit
 }
 
-// prepareSecretEdit checks a change of values against the Secret as the cache holds it: the
-// window's own call for the Secret the drawer shows, each key a text value of its data, its data
+// prepareSecretEdit checks a change of a Secret's data against the Secret as the cache holds it:
+// the window's own call for the Secret the drawer shows, each changed key a text value of its data,
+// an added key not one of them at the version the edit is based on, a removed key one, its data
 // allowed to change. The edited object carries the values base64-encoded and base as its
 // resourceVersion precondition. No error names a value.
-func (s *Session) prepareSecretEdit(ctx context.Context, ref model.ObjectRef, base string, values map[string]string) (secretEdit, error) {
+func (s *Session) prepareSecretEdit(ctx context.Context, ref model.ObjectRef, base string, edit DataEdit) (secretEdit, error) {
 	if err := requireGUI(ctx); err != nil {
 		return secretEdit{}, err
 	}
@@ -183,14 +194,10 @@ func (s *Session) prepareSecretEdit(ctx context.Context, ref model.ObjectRef, ba
 	if base == "" {
 		return secretEdit{}, errors.New("give resourceVersion: the version of the Secret the values are based on; nothing was saved")
 	}
-	if len(values) == 0 {
-		return secretEdit{}, errors.New("give data: the keys to change, each with its new value")
+	if err := edit.check(); err != nil {
+		return secretEdit{}, err
 	}
-	size := 0
-	for k, v := range values {
-		size += len(k) + len(v)
-	}
-	if size > maxSecretValues {
+	if size := edit.size(); size > maxSecretValues {
 		return secretEdit{}, fmt.Errorf("the values are %s, more than the %s a Secret holds; nothing was saved",
 			model.FormatBytes(int64(size)), model.FormatBytes(maxSecretValues))
 	}
@@ -210,47 +217,89 @@ func (s *Session) prepareSecretEdit(ctx context.Context, ref model.ObjectRef, ba
 	if r := secretReadOnly(cached); r != "" {
 		return secretEdit{}, fmt.Errorf("%s: %s Nothing was saved", t.Ref.String(), r)
 	}
-	edited, keys, err := withSecretValues(cached, values)
+	// Against the version the edit is based on its keys are checked strictly; against a newer one
+	// as a save over it would write them (withConfigMapEdit).
+	edited, changes, err := withSecretEdit(cached, edit, cached.GetResourceVersion() == base)
 	if err != nil {
 		return secretEdit{}, fmt.Errorf("%s: %w", t.Ref.String(), err)
 	}
 	edited.SetResourceVersion(base)
-	return secretEdit{configMapEdit{t: t, b: b, w: w, base: base, cached: cached, edited: edited, keys: keys, edits: values}}, nil
+	return secretEdit{configMapEdit{t: t, b: b, w: w, base: base, cached: cached, edited: edited, changes: changes, edit: edit}}, nil
 }
 
-// withSecretValues returns a copy of a Secret with values set base64-encoded in its data, without
-// managedFields, and the keys whose values change. A key its data does not hold, and a value that
-// is not text, are errors that name the key only.
-func withSecretValues(obj *unstructured.Unstructured, values map[string]string) (*unstructured.Unstructured, []string, error) {
+// withSecretEdit returns a copy of a Secret with an edit applied to its data, the values
+// base64-encoded, without managedFields, and what it changes. A changed key its data does not hold,
+// a changed value that is not text and a new value that is not text are errors that name the key
+// only; strict as withConfigMapEdit's.
+func withSecretEdit(obj *unstructured.Unstructured, edit DataEdit, strict bool) (*unstructured.Unstructured, dataChanges, error) {
 	c := obj.DeepCopy()
 	unstructured.RemoveNestedField(c.Object, "metadata", "managedFields")
 	data, _, _ := unstructured.NestedMap(c.Object, secretDataField)
-	keys := slices.Sorted(maps.Keys(values))
-	changed := make([]string, 0, len(keys))
-	for _, k := range keys {
+	if data == nil {
+		data = map[string]any{}
+	}
+	var ch dataChanges
+	for _, k := range slices.Sorted(maps.Keys(edit.Values)) {
 		old, ok := data[k]
 		if !ok {
-			return nil, nil, fmt.Errorf("its data has no key %q: a key is added or removed in the Edit tab; nothing was saved", k)
+			return nil, ch, fmt.Errorf("its data has no key %q: a new key is given in add, not in data; nothing was saved", k)
 		}
 		raw, ok := decodeValue(old)
 		text := ok && isText(raw)
 		wipeBytes(raw)
 		if !text {
-			return nil, nil, fmt.Errorf("the value of %q is binary data, which is not edited here; nothing was saved", k)
+			return nil, ch, fmt.Errorf("the value of %q is binary data, which is not edited here; nothing was saved", k)
 		}
-		if !utf8.ValidString(values[k]) {
-			return nil, nil, fmt.Errorf("the new value of %q is not text; nothing was saved", k)
+		enc, err := encodeSecretText(k, edit.Values[k])
+		if err != nil {
+			return nil, ch, err
 		}
-		enc := base64.StdEncoding.EncodeToString([]byte(values[k]))
 		if old != enc {
-			changed = append(changed, k)
+			ch.changed = append(ch.changed, k)
 		}
 		data[k] = enc
 	}
-	if err := unstructured.SetNestedMap(c.Object, data, secretDataField); err != nil {
-		return nil, nil, err
+	for _, k := range slices.Sorted(maps.Keys(edit.Add)) {
+		enc, err := encodeSecretText(k, edit.Add[k])
+		if err != nil {
+			return nil, ch, err
+		}
+		old, ok := data[k]
+		switch {
+		case ok && strict:
+			return nil, ch, fmt.Errorf("its data holds the key %q already: its value changes in data, not in add; nothing was saved", k)
+		case ok && old != enc:
+			ch.changed = append(ch.changed, k) // appeared in a newer version: a save over it changes its value
+		case !ok:
+			ch.added = append(ch.added, k)
+		}
+		data[k] = enc
 	}
-	return c, changed, nil
+	for _, k := range slices.Sorted(slices.Values(edit.Remove)) {
+		_, ok := data[k]
+		switch {
+		case !ok && strict:
+			return nil, ch, fmt.Errorf("its data has no key %q to remove; nothing was saved", k)
+		case !ok:
+			continue // gone in a newer version already
+		}
+		delete(data, k)
+		ch.removed = append(ch.removed, k)
+	}
+	slices.Sort(ch.changed)
+	if err := unstructured.SetNestedMap(c.Object, data, secretDataField); err != nil {
+		return nil, ch, err
+	}
+	return c, ch, nil
+}
+
+// encodeSecretText encodes a value typed as text for a Secret's data; a value that is not text is
+// an error naming the key only.
+func encodeSecretText(key, value string) (string, error) {
+	if !utf8.ValidString(value) {
+		return "", fmt.Errorf("the new value of %q is not text; nothing was saved", key)
+	}
+	return base64.StdEncoding.EncodeToString([]byte(value)), nil
 }
 
 // encodedFrom returns the values the edit is based on as the Secret's data holds them,
@@ -315,23 +364,23 @@ func changedValue(key string, a, b any) (SecretKeyChange, bool) {
 	return SecretKeyChange{Key: key, Change: SecretKeyChanged, Bytes: len(ra), NewBytes: len(rb)}, true
 }
 
-// ReviewSecretData shows the masked diff of the Secret with the given values against the Secret as
-// the cache holds it and, when the values change something and are based on the cached version,
-// asks the server for a dry run of the save. from holds the edited keys' values at base: a newer
-// version none of those keys changed in rebases the values (RebasedFrom), as ReviewConfigMapData
-// does. For the window only.
-func (s *Session) ReviewSecretData(ctx context.Context, ref model.ObjectRef, base string, values, from map[string]string) (SecretDataReview, error) {
-	return s.reviewSecretData(ctx, ref, base, values, from, true)
+// ReviewSecretData shows the masked diff of the Secret with the given edit against the Secret as
+// the cache holds it and, when the edit changes something and is based on the cached version, asks
+// the server for a dry run of the save. edit.From holds the changed and removed keys' values at
+// base: a newer version none of the edit's keys changed in rebases the edit (RebasedFrom), as
+// ReviewConfigMapData does. For the window only.
+func (s *Session) ReviewSecretData(ctx context.Context, ref model.ObjectRef, base string, edit DataEdit) (SecretDataReview, error) {
+	return s.reviewSecretData(ctx, ref, base, edit, true)
 }
 
-func (s *Session) reviewSecretData(ctx context.Context, ref model.ObjectRef, base string, values, from map[string]string, retry bool) (SecretDataReview, error) {
-	e, err := s.prepareSecretEdit(ctx, ref, base, values)
+func (s *Session) reviewSecretData(ctx context.Context, ref model.ObjectRef, base string, edit DataEdit, retry bool) (SecretDataReview, error) {
+	e, err := s.prepareSecretEdit(ctx, ref, base, edit)
 	if err != nil {
 		return SecretDataReview{}, err
 	}
-	rebased := e.rebase(encodedFrom(from), plainDataValue) // compares the encoded texts: nothing decoded
+	rebased := e.rebase(encodedFrom(edit.From), plainDataValue) // compares the encoded texts: nothing decoded
 	r := SecretDataReview{
-		Ref: e.t.Ref, Changes: maskedChanges(e.cached, e.edited),
+		Ref: e.t.Ref, UID: string(e.cached.GetUID()), Changes: maskedChanges(e.cached, e.edited),
 		BaseResourceVersion: e.base, CachedResourceVersion: e.cached.GetResourceVersion(), RebasedFrom: rebased,
 	}
 	r.Stale = r.CachedResourceVersion != e.base
@@ -339,11 +388,11 @@ func (s *Session) reviewSecretData(ctx context.Context, ref model.ObjectRef, bas
 		return r, nil
 	}
 	if _, err := e.w.UpdateObject(ctx, e.t.GVR, e.edited, true); err != nil {
-		werr := s.secretWriteError(ctx, e, values, err)
+		werr := s.secretWriteError(ctx, e, err)
 		var ce *DataConflictError
 		switch {
-		case errors.As(werr, &ce) && retry && len(from) > 0 && ce.CurrentResourceVersion != "":
-			return s.reviewSecretData(ctx, ref, base, values, from, false)
+		case errors.As(werr, &ce) && retry && edit.rebasable(edit.From) && ce.CurrentResourceVersion != "":
+			return s.reviewSecretData(ctx, ref, base, edit, false)
 		case errors.As(werr, &ce):
 			r.Stale, r.RebasedFrom, r.BaseResourceVersion = true, "", base
 			if ce.CurrentResourceVersion != "" {
@@ -360,11 +409,12 @@ func (s *Session) reviewSecretData(ctx context.Context, ref model.ObjectRef, bas
 	return r, nil
 }
 
-// SaveSecretData writes values into a Secret: a dry run first, then the update, both with base as
+// SaveSecretData writes an edit into a Secret: a dry run first, then the update, both with base as
 // the resourceVersion precondition. A Secret that changed since base is not written: a
-// *DataConflictError holds the masked changes against the newer version. For the window only.
-func (s *Session) SaveSecretData(ctx context.Context, ref model.ObjectRef, base string, values map[string]string) (SecretDataSaved, error) {
-	e, err := s.prepareSecretEdit(ctx, ref, base, values)
+// *DataConflictError holds the masked changes against the newer version. A removal acts only on
+// the Secret the user confirmed (its UID). For the window only.
+func (s *Session) SaveSecretData(ctx context.Context, ref model.ObjectRef, base string, edit DataEdit) (SecretDataSaved, error) {
+	e, err := s.prepareSecretEdit(ctx, ref, base, edit)
 	if err != nil {
 		return SecretDataSaved{}, err
 	}
@@ -372,32 +422,36 @@ func (s *Session) SaveSecretData(ctx context.Context, ref model.ObjectRef, base 
 		return SecretDataSaved{}, err
 	}
 	if e.cached.GetResourceVersion() != base {
-		return SecretDataSaved{}, secretConflict(e, values, e.cached)
+		return SecretDataSaved{}, secretConflict(e, e.cached)
 	}
-	if len(e.keys) == 0 {
+	if e.changes.none() {
 		return SecretDataSaved{}, fmt.Errorf("%s: no value differs from version %s; nothing was written", e.t.Ref.String(), base)
 	}
+	if err := checkRemovalTarget(ctx, e.configMapEdit); err != nil {
+		return SecretDataSaved{}, err
+	}
 	if _, err := e.w.UpdateObject(ctx, e.t.GVR, e.edited, true); err != nil {
-		return SecretDataSaved{}, s.secretWriteError(ctx, e, values, err)
+		return SecretDataSaved{}, s.secretWriteError(ctx, e, err)
 	}
 	stored, err := e.w.UpdateObject(ctx, e.t.GVR, e.edited, false)
 	if err != nil {
-		return SecretDataSaved{}, s.secretWriteError(ctx, e, values, err)
+		return SecretDataSaved{}, s.secretWriteError(ctx, e, err)
 	}
 	s.Emit(Event{Type: EventToast, Level: LevelInfo, Message: e.t.Kind + " " + e.t.Ref.Key() + " saved"})
-	return SecretDataSaved{Ref: e.t.Ref, Keys: e.keys, ResourceVersion: stored.GetResourceVersion()}, nil
+	return SecretDataSaved{Ref: e.t.Ref, Keys: orEmpty(e.changes.changed), KeysAdded: e.changes.added, KeysRemoved: e.changes.removed,
+		ResourceVersion: stored.GetResourceVersion()}, nil
 }
 
-// secretConflict reports that a Secret is no longer at the version the values are based on, with
-// the masked changes of the values against current (nil: the cache has not seen it yet).
-func secretConflict(e secretEdit, values map[string]string, current *unstructured.Unstructured) error {
+// secretConflict reports that a Secret is no longer at the version the edit is based on, with the
+// masked changes of the edit against current (nil: the cache has not seen it yet).
+func secretConflict(e secretEdit, current *unstructured.Unstructured) error {
 	ce := &DataConflictError{Ref: e.t.Ref, BaseResourceVersion: e.base}
 	if current == nil {
 		return ce
 	}
 	current = withTypeMeta(current, e.t)
 	ce.CurrentResourceVersion = current.GetResourceVersion()
-	if edited, _, err := withSecretValues(current, values); err == nil {
+	if edited, _, err := withSecretEdit(current, e.edit, false); err == nil {
 		ce.Changes = maskedChanges(current, edited)
 	}
 	return ce
@@ -406,7 +460,7 @@ func secretConflict(e secretEdit, values map[string]string, current *unstructure
 // secretWriteError turns a failed dry run or update into what the window sees, with no value in
 // it: a *DataConflictError for a 409 once the cache holds the newer version (or after
 // conflictWait without it), else the error with the Secret's values scrubbed from its text.
-func (s *Session) secretWriteError(ctx context.Context, e secretEdit, values map[string]string, err error) error {
+func (s *Session) secretWriteError(ctx context.Context, e secretEdit, err error) error {
 	switch {
 	case apierrors.IsNotFound(err):
 		return fmt.Errorf("%s no longer exists on the cluster; nothing was saved", e.t.Ref.String())
@@ -420,7 +474,7 @@ func (s *Session) secretWriteError(ctx context.Context, e secretEdit, values map
 	case current == nil:
 		return fmt.Errorf("%s was deleted on the cluster since version %s; nothing was saved", e.t.Ref.String(), e.base)
 	}
-	return secretConflict(e, values, current)
+	return secretConflict(e, current)
 }
 
 // mergedForScrub is the edited Secret with the cached values beside the new ones, so that an API
@@ -438,13 +492,19 @@ func mergedForScrub(e secretEdit) *unstructured.Unstructured {
 // The parameters of secret.reviewData and secret.saveData the audit log keeps as they are.
 var auditedSecretDataFields = []string{paramResourceVersion}
 
-// paramResourceVersion is the drawer's commands' parameter that names the version the values are based on.
-const paramResourceVersion = "resourceVersion"
+// The drawer's commands' parameters: the version the values are based on, the values at it, the
+// keys added and the keys removed.
+const (
+	paramResourceVersion = "resourceVersion"
+	paramFrom            = "from"
+	paramAdd             = "add"
+	paramRemove          = "remove"
+)
 
 // auditSecretDataParams returns the drawer's Secret commands' parameters as the audit log keeps
 // them (an agent's refused call: the window's own are not audited): the Secret, the version, the
-// keys of data and from with each value replaced by model.Redacted, and only the names of any
-// other parameters, never their contents.
+// keys of data, add and from with each value replaced by model.Redacted, the keys to remove, and
+// only the names of any other parameters, never their contents.
 func auditSecretDataParams(raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 {
 		return raw
@@ -465,8 +525,10 @@ func auditSecretDataParams(raw json.RawMessage) json.RawMessage {
 			} else {
 				out[k] = fmt.Sprintf("<a %T; not logged>", v)
 			}
-		case k == secretDataField || k == "from":
+		case k == secretDataField || k == paramFrom || k == paramAdd:
 			out[k] = auditMapKeys(v)
+		case k == paramRemove:
+			out[k] = auditKeyList(v)
 		default:
 			others = append(others, k)
 		}
@@ -487,6 +549,24 @@ func auditRef(v any) any {
 	for _, f := range []string{LinkContext, columnKind, columnNamespace, metadataName} {
 		if s, ok := m[f].(string); ok {
 			out[f] = s
+		}
+	}
+	return out
+}
+
+// auditKeyList keeps a list of keys (the keys removed, which hold no value); anything else by its
+// type.
+func auditKeyList(v any) any {
+	list, ok := v.([]any)
+	if !ok {
+		return fmt.Sprintf("<a %T, not a list of keys; not logged>", v)
+	}
+	out := make([]any, 0, len(list))
+	for _, k := range list {
+		if s, ok := k.(string); ok {
+			out = append(out, s)
+		} else {
+			out = append(out, fmt.Sprintf("<a %T; not logged>", k))
 		}
 	}
 	return out

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,9 +26,10 @@ import (
 // takes a second call that names the newer version. A review that is given the edited keys' values
 // at the version the values are based on (from) rebases them onto the newer version when none of
 // those keys changed there (the owner's answer of 2026-10-15): the diff and the dry run are then
-// against the newer version, which the caller saves with, after the user has seen them. Only
-// values change: a key is neither added nor removed here (the Edit tab does that), binary data and
-// a Helm release record's payload are not edited, and an immutable Config Map is refused.
+// against the newer version, which the caller saves with, after the user has seen them. Keys are
+// added and removed in the same write (add and remove, the owner's audit decision of 2026-10-16;
+// datakeys.go); a save that removes one is destructive. Binary data and a Helm release record's
+// payload are not edited, and an immutable Config Map is refused.
 
 // configMapAPIKind is a Config Map's kind as its manifest names it.
 const configMapAPIKind = "ConfigMap"
@@ -79,12 +81,18 @@ func (d ConfigMapData) ForAgent(v *AgentView) any {
 // values against the object as the cache holds it, and the server's dry run of the save.
 type ConfigMapDataReview struct {
 	Ref model.ObjectRef `json:"ref"`
-	// Keys are the keys whose values change, sorted.
-	Keys    []string   `json:"keys"`
-	Changed bool       `json:"changed"`
-	Added   int        `json:"added"`
-	Removed int        `json:"removed"`
-	Lines   []DiffLine `json:"lines"`
+	// UID is the Config Map's the review is of: a save that removes keys acts on it only.
+	UID string `json:"uid,omitempty"`
+	// Keys are the keys whose values change, KeysAdded the keys added, KeysRemoved the keys removed,
+	// each sorted. Against a newer version (Stale) they are what a save over it would write: an
+	// added key that appeared there is a change of its value, a removed key gone there is left out.
+	Keys        []string   `json:"keys"`
+	KeysAdded   []string   `json:"keysAdded,omitempty"`
+	KeysRemoved []string   `json:"keysRemoved,omitempty"`
+	Changed     bool       `json:"changed"`
+	Added       int        `json:"added"`
+	Removed     int        `json:"removed"`
+	Lines       []DiffLine `json:"lines"`
 	// BaseResourceVersion is the version the values are based on; CachedResourceVersion the one
 	// the lines compare with. Stale: they differ, and a save based on BaseResourceVersion is
 	// refused with a conflict; the lines are the values against the newer version.
@@ -108,11 +116,13 @@ func (r ConfigMapDataReview) ForAgent(v *AgentView) any {
 	return r
 }
 
-// ConfigMapDataSaved is a successful save: the keys whose values changed and the version the
-// server stored.
+// ConfigMapDataSaved is a successful save: the keys whose values changed, the keys added and
+// removed, and the version the server stored.
 type ConfigMapDataSaved struct {
 	Ref             model.ObjectRef `json:"ref"`
 	Keys            []string        `json:"keys"`
+	KeysAdded       []string        `json:"keysAdded,omitempty"`
+	KeysRemoved     []string        `json:"keysRemoved,omitempty"`
 	ResourceVersion string          `json:"resourceVersion"`
 }
 
@@ -246,35 +256,32 @@ func (s *Session) ConfigMapData(ctx context.Context, ref model.ObjectRef) (Confi
 	return out, nil
 }
 
-// configMapEdit is a checked change of a Config Map's values: its target, the object as the cache
-// holds it, and that object with the values set as an update sends it.
+// configMapEdit is a checked change of a Config Map's data: its target, the object as the cache
+// holds it, and that object with the edit applied as an update sends it.
 type configMapEdit struct {
-	t      ObjectTarget
-	b      *Backend
-	w      ObjectWriter
-	base   string
-	cached *unstructured.Unstructured
-	edited *unstructured.Unstructured
-	keys   []string          // the keys whose values change, sorted
-	edits  map[string]string // the values as given, by key
+	t       ObjectTarget
+	b       *Backend
+	w       ObjectWriter
+	base    string
+	cached  *unstructured.Unstructured
+	edited  *unstructured.Unstructured
+	changes dataChanges // the keys whose values change, added and removed
+	edit    DataEdit    // the edit as given
 }
 
-// prepareConfigMapEdit checks a change of values against the Config Map as the cache holds it:
-// each key must be a key of its data, and its data must be allowed to change. The edited object
-// carries base as its resourceVersion precondition.
-func (s *Session) prepareConfigMapEdit(ctx context.Context, ref model.ObjectRef, base string, values map[string]string) (configMapEdit, error) {
+// prepareConfigMapEdit checks a change of a Config Map's data against the Config Map as the cache
+// holds it: a changed key must be a key of its data, an added key must not be one at the version
+// the edit is based on, a removed key must be one, and its data must be allowed to change. The
+// edited object carries base as its resourceVersion precondition.
+func (s *Session) prepareConfigMapEdit(ctx context.Context, ref model.ObjectRef, base string, edit DataEdit) (configMapEdit, error) {
 	if base == "" {
 		return configMapEdit{}, errors.New("give resourceVersion: the version of the Config Map the values are based on " +
 			"(configMap_readData returns it); nothing was saved")
 	}
-	if len(values) == 0 {
-		return configMapEdit{}, errors.New("give data: the keys to change, each with its new value")
+	if err := edit.check(); err != nil {
+		return configMapEdit{}, err
 	}
-	size := 0
-	for k, v := range values {
-		size += len(k) + len(v)
-	}
-	if size > maxConfigMapValues {
+	if size := edit.size(); size > maxConfigMapValues {
 		return configMapEdit{}, fmt.Errorf("the values are %s, more than the %s a Config Map holds; nothing was saved",
 			model.FormatBytes(int64(size)), model.FormatBytes(maxConfigMapValues))
 	}
@@ -294,72 +301,105 @@ func (s *Session) prepareConfigMapEdit(ctx context.Context, ref model.ObjectRef,
 	if r := configMapReadOnly(cached); r != "" {
 		return configMapEdit{}, fmt.Errorf("%s: %s Nothing was saved", t.Ref.String(), r)
 	}
-	edited, keys, err := withValues(cached, values)
+	// Against the version the edit is based on its keys are checked strictly; against a newer one
+	// (a stale review, rebased or shown) as a save over it would write them.
+	edited, changes, err := withConfigMapEdit(cached, edit, cached.GetResourceVersion() == base)
 	if err != nil {
 		return configMapEdit{}, fmt.Errorf("%s: %w", t.Ref.String(), err)
 	}
 	edited.SetResourceVersion(base)
-	return configMapEdit{t: t, b: b, w: w, base: base, cached: cached, edited: edited, keys: keys, edits: values}, nil
+	return configMapEdit{t: t, b: b, w: w, base: base, cached: cached, edited: edited, changes: changes, edit: edit}, nil
 }
 
-// withValues returns a copy of a Config Map with values set in its data, without managedFields
-// (the server keeps its own), and the keys whose values change. A key its data does not hold is an
-// error: values change here, keys do not.
-func withValues(obj *unstructured.Unstructured, values map[string]string) (*unstructured.Unstructured, []string, error) {
+// withConfigMapEdit returns a copy of a Config Map with an edit applied to its data, without
+// managedFields (the server keeps its own), and what it changes. A changed key its data does not
+// hold is an error (a key is added only through add); so is binary data. strict: the object is the
+// version the edit is based on, where an added key it holds and a removed key it does not hold are
+// errors; else an added key it holds is a change of its value and a removed key it does not hold is
+// left out.
+func withConfigMapEdit(obj *unstructured.Unstructured, edit DataEdit, strict bool) (*unstructured.Unstructured, dataChanges, error) {
 	c := obj.DeepCopy()
 	unstructured.RemoveNestedField(c.Object, "metadata", "managedFields")
 	data, _, _ := unstructured.NestedMap(c.Object, "data")
-	binary, _, _ := unstructured.NestedMap(c.Object, "binaryData")
-	keys := make([]string, 0, len(values))
-	for k := range values {
-		keys = append(keys, k)
+	if data == nil {
+		data = map[string]any{}
 	}
-	slices.Sort(keys)
-	changed := make([]string, 0, len(keys))
-	for _, k := range keys {
+	binary, _, _ := unstructured.NestedMap(c.Object, "binaryData")
+	var ch dataChanges
+	for _, k := range slices.Sorted(maps.Keys(edit.Values)) {
 		old, ok := data[k]
 		switch {
 		case !ok && binary[k] != nil:
-			return nil, nil, fmt.Errorf("%q is binary data, which is not edited here; nothing was saved", k)
+			return nil, ch, fmt.Errorf("%q is binary data, which is not edited here; nothing was saved", k)
 		case !ok:
-			return nil, nil, fmt.Errorf("its data has no key %q: a key is added or removed in the Edit tab (object_edit); nothing was saved", k)
-		case old != values[k]:
-			changed = append(changed, k)
+			return nil, ch, fmt.Errorf("its data has no key %q: a new key is given in add, not in data; nothing was saved", k)
+		case old != edit.Values[k]:
+			ch.changed = append(ch.changed, k)
 		}
-		data[k] = values[k]
+		data[k] = edit.Values[k]
 	}
+	for _, k := range slices.Sorted(maps.Keys(edit.Add)) {
+		old, ok := data[k]
+		switch {
+		case binary[k] != nil:
+			return nil, ch, fmt.Errorf("%q is a key of the binary data already; nothing was saved", k)
+		case ok && strict:
+			return nil, ch, fmt.Errorf("its data holds the key %q already: its value changes in data, not in add; nothing was saved", k)
+		case ok && old != edit.Add[k]:
+			ch.changed = append(ch.changed, k) // appeared in a newer version: a save over it changes its value
+		case !ok:
+			ch.added = append(ch.added, k)
+		}
+		data[k] = edit.Add[k]
+	}
+	for _, k := range slices.Sorted(slices.Values(edit.Remove)) {
+		_, ok := data[k]
+		switch {
+		case !ok && binary[k] != nil:
+			return nil, ch, fmt.Errorf("%q is binary data, which is not edited here; nothing was saved", k)
+		case !ok && strict:
+			return nil, ch, fmt.Errorf("its data has no key %q to remove; nothing was saved", k)
+		case !ok:
+			continue // gone in a newer version already
+		}
+		delete(data, k)
+		ch.removed = append(ch.removed, k)
+	}
+	slices.Sort(ch.changed)
 	if err := unstructured.SetNestedMap(c.Object, data, "data"); err != nil {
-		return nil, nil, err
+		return nil, ch, err
 	}
-	return c, changed, nil
+	return c, ch, nil
 }
 
-// ReviewConfigMapData diffs the Config Map with the given values against the object as the cache
+// ReviewConfigMapData diffs the Config Map with the given edit against the object as the cache
 // holds it, keeping context unchanged lines around each change (negative: all), and, when the
-// values change something and are based on the cached version, asks the server for a dry run of
-// the save. from holds the edited keys' values at base: when the Config Map changed since base but
-// none of those keys did, the values are rebased onto the cached version (RebasedFrom), and a dry
-// run that meets a still newer version reviews them once more against that one. Without from, or
-// when an edited key changed, a newer version is reported as Stale with the values against it.
-func (s *Session) ReviewConfigMapData(ctx context.Context, ref model.ObjectRef, base string, values, from map[string]string, context int) (ConfigMapDataReview, error) {
-	return s.reviewConfigMapData(ctx, ref, base, values, from, context, true)
+// edit changes something and is based on the cached version, asks the server for a dry run of the
+// save. edit.From holds the changed and removed keys' values at base: when the Config Map changed
+// since base but none of the edit's keys did (an added key still absent), the edit is rebased onto
+// the cached version (RebasedFrom), and a dry run that meets a still newer version reviews it once
+// more against that one. Without from, or when a key of the edit changed, a newer version is
+// reported as Stale with the edit against it.
+func (s *Session) ReviewConfigMapData(ctx context.Context, ref model.ObjectRef, base string, edit DataEdit, context int) (ConfigMapDataReview, error) {
+	return s.reviewConfigMapData(ctx, ref, base, edit, context, true)
 }
 
-func (s *Session) reviewConfigMapData(ctx context.Context, ref model.ObjectRef, base string, values, from map[string]string, context int, retry bool) (ConfigMapDataReview, error) {
-	if err := guardAgentValues(ctx, values); err != nil {
+func (s *Session) reviewConfigMapData(ctx context.Context, ref model.ObjectRef, base string, edit DataEdit, context int, retry bool) (ConfigMapDataReview, error) {
+	if err := guardAgentValues(ctx, edit); err != nil {
 		return ConfigMapDataReview{}, err
 	}
-	e, err := s.prepareConfigMapEdit(ctx, ref, base, values)
+	e, err := s.prepareConfigMapEdit(ctx, ref, base, edit)
 	if err != nil {
 		return ConfigMapDataReview{}, err
 	}
-	rebased := e.rebase(from, plainDataValue)
+	rebased := e.rebase(edit.From, plainDataValue)
 	lines, err := diffAgainst(e.cached, e.edited)
 	if err != nil {
 		return ConfigMapDataReview{}, err
 	}
 	r := ConfigMapDataReview{
-		Ref: e.t.Ref, Keys: e.keys, Changed: DiffChanged(lines), Lines: CompactDiff(lines, context),
+		Ref: e.t.Ref, UID: string(e.cached.GetUID()), Keys: orEmpty(e.changes.changed), KeysAdded: e.changes.added,
+		KeysRemoved: e.changes.removed, Changed: DiffChanged(lines), Lines: CompactDiff(lines, context),
 		BaseResourceVersion: e.base, CachedResourceVersion: e.cached.GetResourceVersion(), RebasedFrom: rebased,
 	}
 	r.Stale = r.CachedResourceVersion != e.base
@@ -368,13 +408,13 @@ func (s *Session) reviewConfigMapData(ctx context.Context, ref model.ObjectRef, 
 		return r, nil
 	}
 	if _, err := e.w.UpdateObject(ctx, e.t.GVR, e.edited, true); err != nil {
-		werr := s.configMapWriteError(ctx, e, values, err)
+		werr := s.configMapWriteError(ctx, e, err)
 		var ce *DataConflictError
 		switch {
-		case errors.As(werr, &ce) && retry && len(from) > 0 && ce.CurrentResourceVersion != "":
+		case errors.As(werr, &ce) && retry && edit.rebasable(edit.From) && ce.CurrentResourceVersion != "":
 			// The cache holds the version the server met by now: review against it, which
-			// rebases the values again when none of the edited keys changed there.
-			return s.reviewConfigMapData(ctx, ref, base, values, from, context, false)
+			// rebases the edit again when none of its keys changed there.
+			return s.reviewConfigMapData(ctx, ref, base, edit, context, false)
 		case errors.As(werr, &ce):
 			r.Stale, r.RebasedFrom, r.BaseResourceVersion = true, "", base
 			if ce.CurrentResourceVersion != "" {
@@ -392,12 +432,13 @@ func (s *Session) reviewConfigMapData(ctx context.Context, ref model.ObjectRef, 
 }
 
 // rebase moves the edit onto the version the cache holds when it is based on an older one and
-// none of the edited keys changed since: from holds their values at the older version, value
-// reads a value of the cached data. It returns the older version; "" when the edit stays where it
-// is.
+// none of its keys changed since (DataEdit.unchangedSince): from holds the changed and removed
+// keys' values at the older version, value reads a value of the cached data. It returns the older
+// version; "" when the edit stays where it is.
 func (e *configMapEdit) rebase(from map[string]string, value func(any) (string, bool)) string {
 	cached := e.cached.GetResourceVersion()
-	if cached == e.base || !unchangedSince(model.NestedMap(e.cached.Object, "data"), e.edits, from, value) {
+	data, binary := model.NestedMap(e.cached.Object, "data"), model.NestedMap(e.cached.Object, "binaryData")
+	if cached == e.base || !e.edit.unchangedSince(data, binary, from, value) {
 		return ""
 	}
 	older := e.base
@@ -406,42 +447,22 @@ func (e *configMapEdit) rebase(from map[string]string, value func(any) (string, 
 	return older
 }
 
-// unchangedSince reports whether every key of edits holds in data the value from names for it:
-// the keys an edit changes are as they were at the version it is based on. A key from does not
-// name, or one data no longer holds, has changed.
-func unchangedSince(data map[string]any, edits, from map[string]string, value func(any) (string, bool)) bool {
-	if len(from) == 0 || len(edits) == 0 {
-		return false
-	}
-	for k := range edits {
-		was, ok := from[k]
-		if !ok {
-			return false
-		}
-		now, ok := value(data[k])
-		if !ok || now != was {
-			return false
-		}
-	}
-	return true
-}
-
 // plainDataValue reads one value of a Config Map's data: the text itself.
 func plainDataValue(v any) (string, bool) {
 	s, ok := v.(string)
 	return s, ok
 }
 
-// SaveConfigMapData writes values into a Config Map: a dry run first, then the update, both with
+// SaveConfigMapData writes an edit into a Config Map: a dry run first, then the update, both with
 // base as the resourceVersion precondition. A Config Map that changed since base (the cache holds
 // another version, or the server answers 409) is not written: *DataConflictError says what the
-// values are against the newer version. The caller has checked the confirmation's context;
-// SaveConfigMapData checks it again.
-func (s *Session) SaveConfigMapData(ctx context.Context, ref model.ObjectRef, base string, values map[string]string) (ConfigMapDataSaved, error) {
-	if err := guardAgentValues(ctx, values); err != nil {
+// edit is against the newer version. The caller has checked the confirmation's context;
+// SaveConfigMapData checks it again, and for a removal the Config Map the user confirmed (its UID).
+func (s *Session) SaveConfigMapData(ctx context.Context, ref model.ObjectRef, base string, edit DataEdit) (ConfigMapDataSaved, error) {
+	if err := guardAgentValues(ctx, edit); err != nil {
 		return ConfigMapDataSaved{}, err
 	}
-	e, err := s.prepareConfigMapEdit(ctx, ref, base, values)
+	e, err := s.prepareConfigMapEdit(ctx, ref, base, edit)
 	if err != nil {
 		return ConfigMapDataSaved{}, err
 	}
@@ -449,29 +470,59 @@ func (s *Session) SaveConfigMapData(ctx context.Context, ref model.ObjectRef, ba
 		return ConfigMapDataSaved{}, err
 	}
 	if e.cached.GetResourceVersion() != base {
-		return ConfigMapDataSaved{}, dataConflict(e, values, e.cached)
+		return ConfigMapDataSaved{}, dataConflict(e, e.cached)
 	}
-	if len(e.keys) == 0 {
+	if e.changes.none() {
 		return ConfigMapDataSaved{}, fmt.Errorf("%s: no value differs from version %s; nothing was written", e.t.Ref.String(), base)
 	}
+	if err := checkRemovalTarget(ctx, e); err != nil {
+		return ConfigMapDataSaved{}, err
+	}
 	if _, err := e.w.UpdateObject(ctx, e.t.GVR, e.edited, true); err != nil {
-		return ConfigMapDataSaved{}, s.configMapWriteError(ctx, e, values, err)
+		return ConfigMapDataSaved{}, s.configMapWriteError(ctx, e, err)
 	}
 	stored, err := e.w.UpdateObject(ctx, e.t.GVR, e.edited, false)
 	if err != nil {
-		return ConfigMapDataSaved{}, s.configMapWriteError(ctx, e, values, err)
+		return ConfigMapDataSaved{}, s.configMapWriteError(ctx, e, err)
 	}
 	s.Emit(Event{Type: EventToast, Level: LevelInfo, Message: e.t.Kind + " " + e.t.Ref.Key() + " saved"})
-	return ConfigMapDataSaved{Ref: e.t.Ref, Keys: e.keys, ResourceVersion: stored.GetResourceVersion()}, nil
+	return ConfigMapDataSaved{Ref: e.t.Ref, Keys: orEmpty(e.changes.changed), KeysAdded: e.changes.added, KeysRemoved: e.changes.removed,
+		ResourceVersion: stored.GetResourceVersion()}, nil
+}
+
+// checkRemovalTarget refuses a save that removes keys from another object than the one the user
+// confirmed: a Config Map or a Secret deleted and created again under its name while the
+// confirmation was open (its UID, ActUID).
+func checkRemovalTarget(ctx context.Context, e configMapEdit) error {
+	if len(e.changes.removed) == 0 {
+		return nil
+	}
+	cached := string(e.cached.GetUID())
+	uid, err := ActUID(ctx, e.t.Ref, func() (string, bool) { return cached, cached != "" })
+	if err != nil {
+		return err
+	}
+	if uid != cached {
+		return fmt.Errorf("%s was replaced on the cluster since the removal was confirmed; nothing was saved", e.t.Ref.String())
+	}
+	return nil
+}
+
+// orEmpty returns keys, or an empty list for none.
+func orEmpty(keys []string) []string {
+	if keys == nil {
+		return []string{}
+	}
+	return keys
 }
 
 // ConfigMapDataReviewText is the change an agent's save would write, for the user's confirmation:
 // the diff's lines, "- " removed and "+ " added, with a few unchanged lines around each change.
 // "" when it cannot be worked out; the save then refuses what it would have shown.
-func (s *Session) ConfigMapDataReviewText(ref model.ObjectRef, base string, values map[string]string) string {
+func (s *Session) ConfigMapDataReviewText(ref model.ObjectRef, base string, edit DataEdit) string {
 	ctx, cancel := context.WithTimeout(context.Background(), syncTimeout)
 	defer cancel()
-	e, err := s.prepareConfigMapEdit(ctx, ref, base, values)
+	e, err := s.prepareConfigMapEdit(ctx, ref, base, edit)
 	if err != nil {
 		return ""
 	}
@@ -514,28 +565,30 @@ func diffCounts(lines []DiffLine) (added, removed int) {
 	return added, removed
 }
 
-// guardAgentValues refuses an agent's values that hold a placeholder Cogpit showed in place of a
-// Secret's value: writing it would replace that value in the cluster (H-82).
-func guardAgentValues(ctx context.Context, values map[string]string) error {
-	for _, v := range values {
-		if err := GuardAgentMarkers(ctx, v); err != nil {
-			return err
+// guardAgentValues refuses an agent's values, changed or added, that hold a placeholder Cogpit
+// showed in place of a Secret's value: writing it would replace that value in the cluster (H-82).
+func guardAgentValues(ctx context.Context, edit DataEdit) error {
+	for _, values := range []map[string]string{edit.Values, edit.Add} {
+		for _, v := range values {
+			if err := GuardAgentMarkers(ctx, v); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-// dataConflict reports that a Config Map is no longer at the version the values are based on:
-// current is the version the cache holds now, nil when it has not seen it yet.
-func dataConflict(e configMapEdit, values map[string]string, current *unstructured.Unstructured) error {
+// dataConflict reports that a Config Map is no longer at the version the edit is based on: current
+// is the version the cache holds now, nil when it has not seen it yet.
+func dataConflict(e configMapEdit, current *unstructured.Unstructured) error {
 	ce := &DataConflictError{Ref: e.t.Ref, BaseResourceVersion: e.base}
 	if current == nil {
 		return ce
 	}
 	current = withTypeMeta(current, e.t)
 	ce.CurrentResourceVersion = current.GetResourceVersion()
-	// A key the newer version dropped leaves the diff empty; saving again reports it.
-	if edited, _, err := withValues(current, values); err == nil {
+	// A changed key the newer version dropped leaves the diff empty; saving again reports it.
+	if edited, _, err := withConfigMapEdit(current, e.edit, false); err == nil {
 		if lines, err := diffAgainst(current, edited); err == nil {
 			ce.Diff = CompactDiff(lines, DefaultDiffContext)
 		}
@@ -546,7 +599,7 @@ func dataConflict(e configMapEdit, values map[string]string, current *unstructur
 // configMapWriteError turns a failed dry run or update into what the caller sees: a
 // *DataConflictError for a 409 once the cache holds the newer version (or after conflictWait
 // without it), a plain error naming the Config Map otherwise.
-func (s *Session) configMapWriteError(ctx context.Context, e configMapEdit, values map[string]string, err error) error {
+func (s *Session) configMapWriteError(ctx context.Context, e configMapEdit, err error) error {
 	switch {
 	case apierrors.IsNotFound(err):
 		return fmt.Errorf("%s no longer exists on the cluster; nothing was saved: %w", e.t.Ref.String(), err)
@@ -560,5 +613,5 @@ func (s *Session) configMapWriteError(ctx context.Context, e configMapEdit, valu
 	case current == nil:
 		return fmt.Errorf("%s was deleted on the cluster since version %s; nothing was saved", e.t.Ref.String(), e.base)
 	}
-	return dataConflict(e, values, current)
+	return dataConflict(e, current)
 }

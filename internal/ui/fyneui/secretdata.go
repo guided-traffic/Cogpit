@@ -7,11 +7,11 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -39,6 +39,14 @@ import (
 // drawer.secretUnsaved until Cogpit quits, and come back masked), a copy from an editor goes to
 // the clipboard as a Secret's value (concealed, cleared after 60 seconds), and no toast or status
 // line names one.
+//
+// Keys are added and removed here too (the owner's audit decision of 2026-10-16, datakeys.go): Add
+// Key opens a row for the new key's name and puts the key with an empty editor at the end of the
+// data, its value typed as text and saved base64-encoded, kept as the other values are (memory
+// only, Hide masks it); each key's line ends with a remove button, a removed key shows as removed
+// with Undo. The review's masked diff names the keys added and removed, the removed ones in the
+// error colour with the Secret, its namespace and its context, and is the confirmation of a
+// removal.
 
 func init() { drawerSections["secrets\x00Data"] = secretDataSection }
 
@@ -49,15 +57,19 @@ const secDataKept = "secret.data"
 type secretDataParams struct {
 	Ref             model.ObjectRef   `json:"ref"`
 	ResourceVersion string            `json:"resourceVersion"`
-	Data            map[string]string `json:"data"`
+	Data            map[string]string `json:"data,omitempty"`
+	Add             map[string]string `json:"add,omitempty"`
+	Remove          []string          `json:"remove,omitempty"`
 	From            map[string]string `json:"from,omitempty"`
 }
 
-// secUnsaved are a Secret's edited values the drawer moved away from, in the window's memory
-// only: the version they are based on, each edited key's text and the value it is based on.
+// secUnsaved are a Secret's edits the drawer moved away from, in the window's memory only: the
+// version they are based on, each edited key's text and the value it is based on, the keys added
+// with their text, the keys removed.
 type secUnsaved struct {
-	base         string
-	values, from map[string]string
+	base              string
+	values, from, add map[string]string
+	remove            []string
 }
 
 // secData is the Data section of the Secret the drawer shows.
@@ -81,6 +93,13 @@ type secData struct {
 	revealed bool    // a value is shown read-only (secretreveal.go)
 	closed   bool
 	review   *secReview
+
+	// Keys added and removed, saved with the values (datakeys.go).
+	adder     *keyAdder
+	listed    map[string]bool    // the keys the drawer model lists
+	removed   map[string]bool    // the keys marked removed
+	added     []string           // the keys added, in the order added
+	addedRows map[string]*secRow // their editors
 }
 
 // secRow is a key whose value is in an editor.
@@ -88,6 +107,7 @@ type secRow struct {
 	*cmRow
 	at     string // the version the value was revealed at
 	masked bool   // an edited value hidden again: the typing kept, the value masked
+	added  bool   // a key the user added, not yet saved
 }
 
 // secretDataSection renders a Secret's Data: the section kept for the shown Secret, rebuilt with
@@ -103,14 +123,16 @@ func secretDataSection(d *drawer, ref model.ObjectRef, sec model.DetailSection) 
 }
 
 func newSecData(d *drawer, ref model.ObjectRef) *secData {
-	sd := &secData{d: d, ref: ref, rows: map[string]*secRow{}, width: d.contentWidth()}
+	sd := &secData{d: d, ref: ref, rows: map[string]*secRow{}, width: d.contentWidth(), listed: map[string]bool{},
+		removed: map[string]bool{}, addedRows: map[string]*secRow{}}
 	sd.list = box(keyedLayout{})
 	sd.save = widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), sd.openReview)
 	sd.save.Importance = widget.HighImportance
 	sd.revert = widget.NewButton("Revert", sd.revertAll)
-	sd.buttons = container.NewHBox(layout.NewSpacer(), sd.revert, sd.save)
+	sd.adder = newKeyAdder(d.contentWidth(), sd.keyTaken, sd.addKey)
+	sd.buttons = footerRow(sd.adder, sd.revert, sd.save)
 	sd.status = newParagraph("", colorMuted, d.contentWidth())
-	sd.root = container.NewVBox(sd.list, sd.buttons, sd.status)
+	sd.root = container.NewVBox(sd.list, sd.adder.row, sd.buttons, sd.status)
 	sd.restore()
 	return sd
 }
@@ -126,6 +148,17 @@ func (sd *secData) restore() {
 	for k, v := range u.values {
 		r := sd.newRow(k, u.from[k], u.base)
 		r.view.SetText(v)
+		r.masked = true
+	}
+	for _, k := range u.remove {
+		sd.removed[k] = true
+		if from, ok := u.from[k]; ok && sd.rows[k] == nil {
+			sd.newRow(k, from, u.base).masked = true // its value at the base, for the rebase
+		}
+	}
+	for _, k := range mapKeys(u.add) {
+		r := sd.newAddedRow(k)
+		r.view.SetText(u.add[k])
 		r.masked = true
 	}
 	sd.base = u.base
@@ -165,26 +198,40 @@ func (sd *secData) render(sec model.DetailSection) {
 	sd.reason = sd.saveReason()
 	sd.revealed = false
 	listed := map[string]bool{}
-	objs := make([]fyne.CanvasObject, 0, 2*len(sec.Items))
+	objs := make([]fyne.CanvasObject, 0, 2*(len(sec.Items)+len(sd.added)))
 	for _, it := range sec.Items {
 		listed[it.Name] = true
 		r := sd.rows[it.Name]
 		switch {
+		case it.Name != "" && sd.removed[it.Name]:
+			name, note := removedKeyLines(d, it.Name, func() { sd.undoRemove(it.Name) })
+			objs = append(objs, name, note)
 		case it.Name == "" || r == nil:
 			if _, shown := d.revealedItem(it); shown {
 				sd.revealed = true
 			}
-			objs = append(objs, d.keyName(it.Name), d.itemValue(sd.ref, sec, it))
+			objs = append(objs, sd.nameLine(it.Name), d.itemValue(sd.ref, sec, it))
 		case r.masked:
-			objs = append(objs, d.keyName(it.Name), sd.maskedLine(r))
+			objs = append(objs, sd.nameLine(it.Name), sd.maskedLine(r))
 		default:
 			objs = append(objs, sd.keyLine(r), r.frame)
 		}
 	}
-	for _, k := range slices.Sorted(maps.Keys(sd.rows)) { // an edited key the cluster dropped: its save is refused
-		if r := sd.rows[k]; !listed[k] && r.dirty() {
+	delete(listed, "")
+	sd.listed = listed
+	for _, k := range slices.Sorted(maps.Keys(sd.rows)) { // an edited key the cluster dropped: the review shows the conflict
+		if r := sd.rows[k]; !listed[k] && r.dirty() && !sd.removed[k] {
 			objs = append(objs, sd.keyLine(r), r.frame)
 		}
+	}
+	for _, k := range slices.Sorted(maps.Keys(sd.removed)) { // a removed key the cluster dropped: the review shows it
+		if !listed[k] {
+			name, note := removedKeyLines(d, k, func() { sd.undoRemove(k) })
+			objs = append(objs, name, note)
+		}
+	}
+	for _, k := range sd.added {
+		objs = append(objs, sd.addedLines(sd.addedRows[k], listed[k])...)
 	}
 	sd.list.Objects = objs
 	sd.list.Refresh()
@@ -219,11 +266,103 @@ func (sd *secData) dropStale() {
 	}
 }
 
-// keyLine is a key above its editor, with Hide at its end.
+// keyLine is a key above its editor, with Hide and the remove button at its end.
 func (sd *secData) keyLine(r *secRow) fyne.CanvasObject {
 	hide := widget.NewButton("Hide", func() { sd.hide(r.key) })
 	hide.Importance = widget.LowImportance
-	return container.NewBorder(nil, nil, nil, hide, sd.d.keyName(r.key))
+	right := container.NewHBox(hide)
+	if sd.editable() {
+		right.Add(removeKeyButton(sd.d.sh, r.key, func() { sd.removeKey(r.key) }))
+	}
+	return container.NewBorder(nil, nil, nil, right, sd.d.keyName(r.key))
+}
+
+// nameLine is a key above its masked value: its name and, where the data can be saved, the remove
+// button.
+func (sd *secData) nameLine(key string) fyne.CanvasObject {
+	if key == "" || !sd.editable() {
+		return sd.d.keyName(key)
+	}
+	return container.NewBorder(nil, nil, nil, removeKeyButton(sd.d.sh, key, func() { sd.removeKey(key) }), sd.d.keyName(key))
+}
+
+// addedLines are an added key's lines: its name with Hide and the button that drops it, and its
+// editor, or its value masked once hidden.
+func (sd *secData) addedLines(r *secRow, exists bool) []fyne.CanvasObject {
+	if r.masked {
+		return []fyne.CanvasObject{addedKeyLine(sd.d, r.key, exists, nil, func() { sd.dropAdded(r.key) }), sd.maskedLine(r)}
+	}
+	return []fyne.CanvasObject{addedKeyLine(sd.d, r.key, exists, func() { sd.hide(r.key) }, func() { sd.dropAdded(r.key) }), r.frame}
+}
+
+// rowOf is a key's editor row, an added key's included; nil when its value is in none.
+func (sd *secData) rowOf(key string) *secRow {
+	if r := sd.addedRows[key]; r != nil {
+		return r
+	}
+	return sd.rows[key]
+}
+
+// keyTaken says why key cannot be added: the Secret, or the drawer, holds it already.
+func (sd *secData) keyTaken(key string) string {
+	switch {
+	case sd.addedRows[key] != nil:
+		return "You added this key already."
+	case sd.listed[key] || sd.rows[key] != nil:
+		return "The Secret holds this key already: Show its value to edit it."
+	}
+	return ""
+}
+
+// addKey adds a key with an empty value at the end of the data.
+func (sd *secData) addKey(key string) {
+	sd.beginEdit()
+	r := sd.newAddedRow(key)
+	sd.d.rebuild()
+	if c := fyne.CurrentApp().Driver().CanvasForObject(sd.list); c != nil {
+		c.Focus(r.view)
+	}
+}
+
+// newAddedRow makes the editor row of an added key, typed at the version the drawer lists.
+func (sd *secData) newAddedRow(key string) *secRow {
+	r := &secRow{cmRow: newValueRow(sd.d, sd, key, sd.edited), at: sd.latest, added: true}
+	r.read = true
+	r.view.OnCopy = sd.copied
+	sd.addedRows[key] = r
+	sd.added = append(sd.added, key)
+	return r
+}
+
+// dropAdded drops an added key and its value.
+func (sd *secData) dropAdded(key string) {
+	delete(sd.addedRows, key)
+	sd.added = slices.DeleteFunc(sd.added, func(k string) bool { return k == key })
+	sd.d.rebuild()
+}
+
+// removeKey marks a key removed; Save removes it.
+func (sd *secData) removeKey(key string) {
+	sd.beginEdit()
+	sd.removed[key] = true
+	sd.d.rebuild()
+}
+
+// undoRemove takes a key's removal back; a value kept only as the removal's base leaves the
+// window's memory.
+func (sd *secData) undoRemove(key string) {
+	delete(sd.removed, key)
+	if r := sd.rows[key]; r != nil && r.masked && !r.dirty() {
+		delete(sd.rows, key)
+	}
+	sd.d.rebuild()
+}
+
+// beginEdit bases the edits on the version the drawer lists when this is the first of them.
+func (sd *secData) beginEdit() {
+	if !sd.dirty() {
+		sd.base = sd.latest
+	}
 }
 
 // maskedLine is an edited value hidden again: masked, with Show to bring the editor back.
@@ -259,14 +398,14 @@ func (sd *secData) reveal(a model.ItemAction) {
 	})
 }
 
-// hide masks a value again: an unedited one leaves the window's memory, an edited one stays,
-// masked, until it is saved or reverted.
+// hide masks a value again: an unedited one leaves the window's memory, an edited or added one
+// stays, masked, until it is saved or reverted.
 func (sd *secData) hide(key string) {
-	r := sd.rows[key]
+	r := sd.rowOf(key)
 	if r == nil {
 		return
 	}
-	if r.dirty() {
+	if r.dirty() || r.added {
 		r.masked = true
 	} else {
 		delete(sd.rows, key)
@@ -276,7 +415,7 @@ func (sd *secData) hide(key string) {
 
 // unmask shows an edited value that Hide masked.
 func (sd *secData) unmask(key string) {
-	if r := sd.rows[key]; r != nil {
+	if r := sd.rowOf(key); r != nil {
 		r.masked = false
 		sd.d.rebuild()
 	}
@@ -292,30 +431,46 @@ func (sd *secData) edited(cr *cmRow) {
 	sd.refreshFooter()
 }
 
-// dirtyBesides counts the edited values other than key's.
+// dirtyBesides counts the edited values other than key's, and the keys added and removed.
 func (sd *secData) dirtyBesides(key string) int {
-	n := 0
+	n := len(sd.added) + len(sd.removed)
 	for k, r := range sd.rows {
-		if k != key && r.dirty() {
+		if k != key && r.dirty() && !sd.removed[k] {
 			n++
 		}
 	}
 	return n
 }
 
-// dirty reports whether a value was edited.
+// dirty reports whether a value was edited or a key added or removed.
 func (sd *secData) dirty() bool { return sd.dirtyBesides("") > 0 }
 
-// edits are the edited values by key, and froms the values they are based on.
+// edits are the edited values by key, of the keys not removed, and froms the values they and the
+// removed keys whose values were revealed are based on.
 func (sd *secData) edits() (values, from map[string]string) {
 	values, from = map[string]string{}, map[string]string{}
 	for k, r := range sd.rows {
-		if r.dirty() {
+		switch {
+		case sd.removed[k]:
+			from[k] = r.from
+		case r.dirty():
 			values[k], from[k] = r.view.Text(), r.from
 		}
 	}
 	return values, from
 }
+
+// adds are the added keys with their editors' text.
+func (sd *secData) adds() map[string]string {
+	out := map[string]string{}
+	for k, r := range sd.addedRows {
+		out[k] = r.view.Text()
+	}
+	return out
+}
+
+// removes are the keys marked removed, sorted.
+func (sd *secData) removes() []string { return slices.Sorted(maps.Keys(sd.removed)) }
 
 // saveReason says why no value can be saved: the command's reason (the demo cluster, no update
 // permission, an immutable Secret, a Helm release record); "" when Save is possible.
@@ -336,9 +491,17 @@ func (sd *secData) refreshFooter() {
 			r.view.SetReadOnly(ro)
 		}
 	}
+	for _, r := range sd.addedRows {
+		if ro := !editable; ro != r.view.ReadOnly() {
+			r.view.SetReadOnly(ro)
+		}
+	}
 	dirty := sd.dirty()
-	showButtons := !sd.hidden && (len(sd.rows) > 0 || dirty)
-	setVisible(sd.buttons, showButtons)
+	editing := len(sd.rows) > 0 || dirty // Revert and Save once a value is in an editor or a key changes
+	setVisible(sd.buttons, !sd.hidden && (editing || editable))
+	setVisible(sd.revert, editing)
+	setVisible(sd.save, editing)
+	sd.adder.setEditable(editable && sd.review == nil)
 	enable(sd.save, editable && dirty && sd.review == nil)
 	enable(sd.revert, dirty && sd.review == nil)
 	switch {
@@ -354,7 +517,7 @@ func (sd *secData) refreshFooter() {
 		if !strings.HasPrefix(sd.status.text, "Your unsaved changes are back") {
 			values, _ := sd.edits()
 			sd.setStatus(fmt.Sprintf("Edited: %s, based on version %s. Save shows the keys that change and their sizes, never a value.",
-				valuesText(len(values)), sd.base), colorMuted)
+				editsText(len(values), len(sd.added), len(sd.removed)), sd.base), colorMuted)
 		}
 	case strings.HasPrefix(sd.status.text, "Saved"):
 	default:
@@ -392,21 +555,34 @@ func (sd *secData) revertAll() {
 			delete(sd.rows, k)
 		}
 	}
+	sd.removed, sd.added, sd.addedRows = map[string]bool{}, nil, map[string]*secRow{}
 	sd.base = ""
 	sd.setStatus("", colorMuted)
 	sd.d.rebuild()
 }
 
-// saved follows a save: the values written are the editors' values now, at the stored version.
-func (sd *secData) saved(values map[string]string, rv string) {
-	for k, v := range values {
-		if r := sd.rows[k]; r != nil {
-			r.orig, r.from, r.at = v, v, rv
+// saved follows a save: the values written are the editors' values now, an added key's editor a
+// revealed value's, a removed key gone, at the stored version.
+func (sd *secData) saved(p secretDataParams, rv string) {
+	for k, v := range p.Data {
+		if r := sd.rowOf(k); r != nil {
+			r.orig, r.from, r.at, r.added = v, v, rv, false
+			sd.rows[k] = r
 		}
 	}
+	for k, v := range p.Add {
+		if r := sd.addedRows[k]; r != nil {
+			r.orig, r.from, r.at, r.added = v, v, rv, false
+			sd.rows[k] = r
+		}
+	}
+	for _, k := range p.Remove {
+		delete(sd.rows, k)
+	}
+	sd.removed, sd.added, sd.addedRows = map[string]bool{}, nil, map[string]*secRow{}
 	sd.base = ""
-	sd.setStatus(fmt.Sprintf("Saved %s · version %s", valuesText(len(values)), rv), colorStatusOK)
-	sd.refreshFooter()
+	sd.setStatus(fmt.Sprintf("Saved %s · version %s", editsText(len(p.Data), len(p.Add), len(p.Remove)), rv), colorStatusOK)
+	sd.d.rebuild()
 }
 
 // copied puts text an editor copied on the clipboard as a Secret's value: concealed for clipboard
@@ -424,14 +600,14 @@ func (sd *secData) close() {
 		sd.review.hide()
 	}
 	sd.closed = true
-	values, from := sd.edits()
-	if len(values) == 0 {
+	if !sd.dirty() {
 		return
 	}
+	values, from := sd.edits()
 	if sd.d.secretUnsaved == nil {
 		sd.d.secretUnsaved = map[string]*secUnsaved{}
 	}
-	sd.d.secretUnsaved[sd.ref.String()] = &secUnsaved{base: sd.base, values: values, from: from}
+	sd.d.secretUnsaved[sd.ref.String()] = &secUnsaved{base: sd.base, values: values, from: from, add: sd.adds(), remove: sd.removes()}
 	sd.d.sh.toast("info", fmt.Sprintf("Your unsaved changes to Secret %s are kept in this window's memory until Cogpit quits, never "+
 		"on disk: open it again to save or revert them.", sd.ref.Key()))
 }
@@ -448,35 +624,49 @@ func (d *drawer) secretDataOf(ref model.ObjectRef) *secData {
 
 // secReview is the review of a Secret's save: the masked diff and the server's dry run, then Save.
 type secReview struct {
-	sd           *secData
-	values, from map[string]string
-	base         string // the version the shown changes and dry run are of, which Save writes with
-	dlg          *dialog.CustomDialog
-	changes      *fyne.Container // one line per key that changes
-	banner       *textLine
-	status       *paragraph
-	save         *widget.Button
-	over         string // the newer version Save writes the values over; "" none
-	closed       bool
+	sd                *secData
+	values, from, add map[string]string
+	removes           []string
+	base              string // the version the shown changes and dry run are of, which Save writes with
+	uid               string // the Secret's the review is of, which a removal's confirmation binds
+	last              *engine.SecretDataReview
+	dlg               *dialog.CustomDialog
+	changes           *fyne.Container // one line per key that changes
+	banner            *textLine
+	keys              *fyne.Container // what keysBlock says
+	status            *paragraph
+	save              *widget.Button
+	width             float32
+	opened            time.Time
+	ready             bool   // Save may be enabled
+	over              string // the newer version Save writes the values over; "" none
+	closed            bool
 }
 
-// openReview reviews the edited values in a dialog over the window.
+// openReview reviews the edits in a dialog over the window.
 func (sd *secData) openReview() {
 	values, from := sd.edits()
-	if len(values) == 0 || sd.review != nil {
+	add, removes := sd.adds(), sd.removes()
+	if len(values)+len(add)+len(removes) == 0 || sd.review != nil {
 		return
 	}
 	width := min(float32(620), sd.d.sh.win.Canvas().Size().Width-120)
-	rv := &secReview{sd: sd, values: values, from: from, base: sd.base, changes: container.NewVBox()}
+	rv := &secReview{sd: sd, values: values, from: from, add: add, removes: removes, base: sd.base, changes: container.NewVBox(),
+		width: width, opened: time.Now()}
 	rv.banner = newTextLine("Changes to Secret "+sd.ref.Key(), theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	rv.banner.truncate = true
+	rv.keys = container.NewVBox()
+	rv.keys.Hide()
 	rv.status = newParagraph("", colorMuted, width)
 	rv.save = widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), rv.commit)
 	rv.save.Importance = widget.HighImportance
+	if len(removes) > 0 {
+		rv.save.Importance = widget.DangerImportance
+	}
 	cancel := widget.NewButton("Cancel", func() { rv.hide() })
 	list := box(sizedMin{size: fyne.NewSize(width, 120)}, container.NewStack(newSurface(theme.ColorNameInputBackground),
 		inset(theme.SizeNameInnerPadding, theme.SizeNameInnerPadding, container.NewVScroll(rv.changes))))
-	content := container.NewBorder(container.NewVBox(rv.banner, newDivider(false)), container.NewVBox(newDivider(false), rv.status), nil, nil, list)
+	content := container.NewBorder(container.NewVBox(rv.banner, newDivider(false), rv.keys), container.NewVBox(newDivider(false), rv.status), nil, nil, list)
 	rv.dlg = dialog.NewCustomWithoutButtons("Save Secret "+sd.ref.Name, content, sd.d.sh.win)
 	rv.dlg.SetButtons([]fyne.CanvasObject{cancel, rv.save})
 	rv.dlg.SetOnClosed(func() { rv.closed = true; sd.review = nil; sd.refreshFooter() })
@@ -490,19 +680,20 @@ func (sd *secData) openReview() {
 func (rv *secReview) setChanges(changes []engine.SecretKeyChange) {
 	objs := make([]fyne.CanvasObject, 0, len(changes))
 	for _, c := range changes {
-		var what string
+		what, colour := "changed, "+byteText(c.Bytes)+" → "+byteText(c.NewBytes), colorMuted
 		switch c.Change {
 		case engine.SecretKeyAdded:
 			what = "added, " + byteText(c.NewBytes)
 		case engine.SecretKeyRemoved:
-			what = "removed, " + byteText(c.Bytes)
-		default:
-			what = "changed, " + byteText(c.Bytes) + " → " + byteText(c.NewBytes)
+			what, colour = "removed, "+byteText(c.Bytes), colorStatusError
 		}
 		key := newTextLine(c.Key, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Monospace: true})
+		if c.Change == engine.SecretKeyRemoved {
+			key.SetColor(colorStatusError)
+		}
 		key.truncate = true
 		objs = append(objs, container.NewBorder(nil, nil, nil,
-			newTextLine(what+"  "+engine.MaskedValue, colorMuted, theme.SizeNameText, fyne.TextStyle{}), key))
+			newTextLine(what+"  "+engine.MaskedValue, colour, theme.SizeNameText, fyne.TextStyle{}), key))
 	}
 	rv.changes.Objects = objs
 	rv.changes.Refresh()
@@ -513,12 +704,12 @@ func (rv *secReview) setChanges(changes []engine.SecretKeyChange) {
 // newer version, which the review is of from then on.
 func (rv *secReview) check() {
 	sd := rv.sd
-	rv.over = ""
+	rv.over, rv.ready = "", false
 	rv.save.SetText("Save")
 	rv.save.Disable()
 	rv.banner.SetColor(theme.ColorNameForeground)
 	rv.setStatus("Comparing with the Secret in the cluster and checking with the server (dry run)…", colorMuted)
-	params := secretDataParams{Ref: sd.ref, ResourceVersion: rv.base, Data: rv.values, From: rv.from}
+	params := secretDataParams{Ref: sd.ref, ResourceVersion: rv.base, Data: rv.values, Add: rv.add, Remove: rv.removes, From: rv.from}
 	sd.d.sh.dispatch(engine.SecretReviewDataCommand, params, func(res any, err error) {
 		if rv.closed {
 			return
@@ -536,7 +727,10 @@ func (rv *secReview) check() {
 			sd.setStatus("No changes to save: the values are the Secret's.", colorMuted)
 			return
 		}
+		rv.last, rv.uid = &r, r.UID
 		rv.setChanges(r.Changes)
+		added, removed := changedKeys(r.Changes)
+		setKeysBlock(rv.keys, keysBlock("Secret", resolvedRef(r.Ref, sd.ref), added, removed, rv.width))
 		rebased := ""
 		if r.RebasedFrom != "" && !r.Stale {
 			rv.base, sd.base = r.BaseResourceVersion, r.BaseResourceVersion
@@ -547,13 +741,14 @@ func (rv *secReview) check() {
 		case r.Stale:
 			rv.showOver(r.BaseResourceVersion, r.CachedResourceVersion)
 		case r.Accepted:
-			title := fmt.Sprintf("Changes to Secret %s: %s", sd.ref.Key(), valuesText(len(r.Changes)))
+			added, removed := changedKeys(r.Changes)
+			title := fmt.Sprintf("Changes to Secret %s: %s", sd.ref.Key(), editsText(len(r.Changes)-len(added)-len(removed), len(added), len(removed)))
 			if rebased != "" {
 				title += ", rebased onto version " + r.BaseResourceVersion
 			}
 			rv.banner.SetText(title)
 			rv.setStatus(rebased+"The server accepts the change (dry run). Save writes it to the cluster; no value is shown here.", colorStatusOK)
-			rv.save.Enable()
+			rv.arm()
 		default:
 			rv.setStatus(rebased+"The server refuses the change: "+r.Refused, colorStatusError)
 		}
@@ -567,16 +762,52 @@ func (rv *secReview) showOver(base, current string) {
 	if current == "" || current == base {
 		rv.setStatus(fmt.Sprintf("The Secret changed on the cluster since version %s and Cogpit has not seen the new version yet; "+
 			"nothing was saved. Save again in a moment.", base), colorStatusWarning)
-		rv.save.Enable()
+		rv.arm()
 		return
 	}
 	rv.over = current
 	rv.banner.SetText(fmt.Sprintf("Secret %s changed on the cluster since version %s: your changes against version %s", rv.sd.ref.Key(), base, current))
 	rv.banner.SetColor(colorStatusWarning)
-	rv.setStatus(fmt.Sprintf("Nothing was saved: a key you edited changed there too. Save over version %s writes your values over "+
-		"it; the cluster's other changes stay.", current), colorStatusWarning)
+	rv.setStatus(fmt.Sprintf("Nothing was saved: a key you edited, added or removed changed there too. Save over version %s writes "+
+		"your changes over it; the cluster's other changes stay.", current), colorStatusWarning)
 	rv.save.SetText("Save over version " + current)
-	rv.save.Enable()
+	rv.arm()
+}
+
+// arm enables Save, a removal's after the confirmation's delay (armSave).
+func (rv *secReview) arm() {
+	rv.ready = true
+	armSave(rv.sd.d.sh, rv.save, len(rv.removes) > 0, rv.opened, func() bool { return rv.ready && !rv.closed })
+}
+
+// takeOver makes the edit what the review against the newer version showed, which Save over that
+// version writes: an added key the Secret holds by then is a change of its value, a removed key it
+// no longer holds is dropped.
+func (rv *secReview) takeOver() {
+	if rv.last == nil {
+		return
+	}
+	added, removed := changedKeys(rv.last.Changes)
+	for k, v := range rv.add {
+		if !slices.Contains(added, k) {
+			rv.values[k] = v
+			delete(rv.add, k)
+		}
+	}
+	rv.removes = slices.DeleteFunc(rv.removes, func(k string) bool { return !slices.Contains(removed, k) })
+}
+
+// changedKeys are the keys a masked diff adds and removes.
+func changedKeys(changes []engine.SecretKeyChange) (added, removed []string) {
+	for _, c := range changes {
+		switch c.Change {
+		case engine.SecretKeyAdded:
+			added = append(added, c.Key)
+		case engine.SecretKeyRemoved:
+			removed = append(removed, c.Key)
+		}
+	}
+	return added, removed
 }
 
 // commit saves the reviewed values, over the newer version when the review showed one; a save
@@ -585,10 +816,17 @@ func (rv *secReview) commit() {
 	sd := rv.sd
 	if rv.over != "" {
 		rv.base, sd.base, rv.over = rv.over, rv.over, ""
+		rv.takeOver()
 	}
+	rv.ready = false
 	rv.save.Disable()
 	rv.setStatus("Saving…", colorMuted)
-	sd.d.sh.dispatch(engine.SecretSaveDataCommand, secretDataParams{Ref: sd.ref, ResourceVersion: rv.base, Data: rv.values}, func(res any, err error) {
+	params := secretDataParams{Ref: sd.ref, ResourceVersion: rv.base, Data: rv.values, Add: rv.add, Remove: rv.removes}
+	// A removal is destructive: this review is its confirmation (datakeys.go).
+	forget := confirmRemoval(sd.d.sh, engine.SecretSaveDataCommand, rv.target(), rv.uid,
+		engine.SecretSaveDetail(mapKeys(params.Data), mapKeys(params.Add), params.Remove), len(params.Remove) > 0)
+	sd.d.sh.dispatch(engine.SecretSaveDataCommand, params, func(res any, err error) {
+		forget()
 		if rv.closed {
 			return
 		}
@@ -599,13 +837,13 @@ func (rv *secReview) commit() {
 			return
 		case err != nil:
 			rv.setStatus("Not saved: "+errText(err), colorStatusError)
-			rv.save.Enable()
+			rv.arm()
 			return
 		}
 		var s engine.SecretDataSaved
 		_ = decode(res, &s)
 		rv.hide()
-		sd.saved(rv.values, s.ResourceVersion)
+		sd.saved(params, s.ResourceVersion)
 	})
 }
 

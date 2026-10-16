@@ -205,6 +205,36 @@ data:
 		t.Fatalf("the rebased save: %v", got)
 	}
 
+	// Keys added and removed (the owner's audit decision of 2026-10-16): the server accepts the dry
+	// run of an edit that adds a key of 253 characters and one more and removes one; the save is
+	// destructive and asks the confirmer, naming the keys; the Config Map then holds the new keys and
+	// not the removed one.
+	var asked []engine.ConfirmRequest
+	s.SetConfirmer(engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
+		asked = append(asked, req)
+		return true, nil
+	}))
+	longKey := strings.Repeat("k", 253)
+	keys := map[string]any{"ref": ref, "resourceVersion": saved.ResourceVersion, "add": map[string]string{longKey: "v", "log-level": "debug"},
+		"remove": []string{"hubble-flowlogs-config.yaml"}}
+	if !testkit.WaitFor(ctx, func() bool {
+		review = engine.ConfigMapDataReview{}
+		return run("configMap.reviewData", keys, &review) == nil && !review.Stale
+	}) {
+		t.Fatal("the cache never saw the rebased save")
+	}
+	if !review.Accepted || len(review.KeysAdded) != 2 || len(review.KeysRemoved) != 1 || review.KeysRemoved[0] != "hubble-flowlogs-config.yaml" {
+		t.Fatalf("the review of keys: %+v", review)
+	}
+	must("configMap.saveData", keys, &saved)
+	if len(asked) != 1 || asked[0].Danger != engine.DangerDestructive || !strings.HasPrefix(asked[0].Detail, "Removes key hubble-flowlogs-config.yaml and adds keys ") {
+		t.Errorf("the confirmation of a removal: %+v", asked)
+	}
+	got, _, _ = unstructured.NestedStringMap(get().Object, "data")
+	if _, kept := got["hubble-flowlogs-config.yaml"]; kept || got[longKey] != "v" || got["log-level"] != "debug" || got["bpf-lb-acceleration"] != "native" {
+		t.Fatalf("after the save of keys: %v", got)
+	}
+
 	// An immutable Config Map: refused before anything is sent.
 	frozen := model.ObjectRef{Kind: "configmaps", Namespace: configMapDataNamespace, Name: "frozen"}
 	var fd engine.ConfigMapData

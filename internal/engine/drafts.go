@@ -78,9 +78,12 @@ type Draft struct {
 	Owner               *JournalOwner    `json:"owner,omitempty"`
 	Text                string           `json:"text"`
 	// A Config Map's values edited in the drawer (DraftConfigMapData, drafts_drawer.go): each
-	// edited key's text and the value it is based on.
+	// edited key's text and the value it is based on, the keys added with their text, the keys
+	// removed.
 	Values map[string]string `json:"values,omitempty"`
 	From   map[string]string `json:"from,omitempty"`
+	Add    map[string]string `json:"add,omitempty"`
+	Remove []string          `json:"remove,omitempty"`
 }
 
 // DraftInfo is a draft as editor.drafts lists it: what it is for, never its text (restore it and
@@ -95,9 +98,11 @@ type DraftInfo struct {
 	Saved               time.Time        `json:"saved"`
 	Lines               int              `json:"lines"`
 	Bytes               int              `json:"bytes"`
-	// Keys are the edited keys of a Config Map's values kept from the drawer (type
-	// configMapData); Bytes is then their values' size.
-	Keys []string `json:"keys,omitempty"`
+	// Keys are the edited, added and removed keys of a Config Map's values kept from the drawer
+	// (type configMapData), KeysRemoved those removed; Bytes is then the edited and added values'
+	// size.
+	Keys        []string `json:"keys,omitempty"`
+	KeysRemoved []string `json:"keysRemoved,omitempty"`
 }
 
 func (dr Draft) info() DraftInfo {

@@ -206,4 +206,48 @@ stringData:
 	if value(get(), "password") != "kind-pass-4" {
 		t.Fatal("the save over the newer version did not write")
 	}
+
+	// Keys added and removed (the owner's audit decision of 2026-10-16): the server accepts the dry
+	// run of an edit that adds a key and removes one; the save is destructive and asks the
+	// confirmer, naming the keys only; the Secret then holds the added value base64-encoded and not
+	// the removed key. A key added meanwhile by another client is a conflict, never a rebase.
+	var asked []engine.ConfirmRequest
+	s.SetConfirmer(engine.ConfirmFunc(func(_ context.Context, req engine.ConfirmRequest) (bool, error) {
+		asked = append(asked, req)
+		return true, nil
+	}))
+	at := get().GetResourceVersion()
+	if !testkit.WaitFor(ctx, func() bool { o, err := s.Lookup(ref); return err == nil && o.GetResourceVersion() == at }) {
+		t.Fatal("the cache never saw the save")
+	}
+	keys := map[string]any{"ref": ref, "resourceVersion": at, "add": map[string]string{"api-token": "kind-token-1"}, "remove": []string{"user"}}
+	review = engine.SecretDataReview{}
+	must(engine.SecretReviewDataCommand, keys, &review)
+	if !review.Accepted || len(review.Changes) != 2 || review.Changes[0] != (engine.SecretKeyChange{Key: "api-token", Change: engine.SecretKeyAdded, NewBytes: 12}) ||
+		review.Changes[1] != (engine.SecretKeyChange{Key: "user", Change: engine.SecretKeyRemoved, Bytes: 12}) {
+		t.Fatalf("the review of keys: %+v", review)
+	}
+	var keysSaved engine.SecretDataSaved
+	must(engine.SecretSaveDataCommand, keys, &keysSaved)
+	if len(asked) != 1 || asked[0].Danger != engine.DangerDestructive || asked[0].Detail != "Removes key user and adds key api-token. The values are not shown." {
+		t.Errorf("the confirmation of a removal: %+v", asked)
+	}
+	cur = get()
+	if _, kept := cur.Object["data"].(map[string]any)["user"]; kept || value(cur, "api-token") != "kind-token-1" || value(cur, "password") != "kind-pass-4" {
+		t.Fatalf("after the save of keys: %v", cur.Object["data"])
+	}
+	cur.Object["data"].(map[string]any)["extra"] = base64.StdEncoding.EncodeToString([]byte("other-client"))
+	if other, err = dyn.Resource(kindSecretsGVR).Namespace(secretDataNamespace).Update(ctx, cur, metav1.UpdateOptions{FieldManager: "other-client"}); err != nil {
+		t.Fatal(err)
+	}
+	appeared := map[string]any{"ref": ref, "resourceVersion": keysSaved.ResourceVersion, "add": map[string]string{"extra": "mine"}}
+	if !testkit.WaitFor(ctx, func() bool {
+		review = engine.SecretDataReview{}
+		return runAs(engine.OriginGUI, engine.SecretReviewDataCommand, appeared, &review) == nil && review.CachedResourceVersion == other.GetResourceVersion()
+	}) {
+		t.Fatal("the review never saw the other client's key")
+	}
+	if !review.Stale || review.RebasedFrom != "" || len(review.Changes) != 1 || review.Changes[0].Change != engine.SecretKeyChanged {
+		t.Errorf("an added key that appeared: %+v", review)
+	}
 }

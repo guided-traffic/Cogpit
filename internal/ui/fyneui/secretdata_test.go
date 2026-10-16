@@ -39,6 +39,8 @@ type secFake struct {
 	ref    model.ObjectRef
 	values map[string]string
 	rv     int
+	// confirmed, when set, answers a save that removes keys as the engine's confirmation does.
+	confirmed func(engine.ConfirmRequest) (ok, handled bool)
 }
 
 func secretEditFake(t testing.TB) (*fakeEngine, *secFake) {
@@ -76,11 +78,16 @@ func secretEditFake(t testing.TB) (*fakeEngine, *secFake) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		cur := strconv.Itoa(s.rv)
-		r := engine.SecretDataReview{Ref: s.ref, Changes: s.changes(p.Data), BaseResourceVersion: p.ResourceVersion, CachedResourceVersion: cur}
+		r := engine.SecretDataReview{Ref: s.ref, UID: "uid-checkout-db", Changes: s.changesOf(p), BaseResourceVersion: p.ResourceVersion, CachedResourceVersion: cur}
 		if p.ResourceVersion != cur {
-			rebase := len(p.From) > 0
-			for k := range p.Data {
+			rebase := len(p.From) > 0 || (len(p.Data)+len(p.Remove) == 0 && len(p.Add) > 0)
+			for _, k := range append(mapKeys(p.Data), p.Remove...) {
 				if from, ok := p.From[k]; !ok || from != s.values[k] {
+					rebase = false
+				}
+			}
+			for k := range p.Add {
+				if _, ok := s.values[k]; ok {
 					rebase = false
 				}
 			}
@@ -98,20 +105,36 @@ func secretEditFake(t testing.TB) (*fakeEngine, *secFake) {
 		if err != nil {
 			return nil, err
 		}
+		if len(p.Remove) > 0 && s.confirmed != nil { // destructive: the engine asks the confirmer
+			req := engine.ConfirmRequest{Command: engine.SecretSaveDataCommand, Origin: inv.Origin, Context: p.Ref.Context,
+				Danger: engine.DangerDestructive, Objects: []model.ObjectRef{p.Ref}, UIDs: []string{"uid-checkout-db"},
+				Detail: engine.SecretSaveDetail(mapKeys(p.Data), mapKeys(p.Add), p.Remove)}
+			if ok, handled := s.confirmed(req); !handled || !ok {
+				return nil, engine.ErrDeclined
+			}
+		}
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		if cur := strconv.Itoa(s.rv); p.ResourceVersion != cur {
-			return nil, &engine.DataConflictError{Ref: s.ref, BaseResourceVersion: p.ResourceVersion, CurrentResourceVersion: cur, Changes: s.changes(p.Data)}
+			return nil, &engine.DataConflictError{Ref: s.ref, BaseResourceVersion: p.ResourceVersion, CurrentResourceVersion: cur, Changes: s.changesOf(p)}
 		}
-		var keys []string
+		var keys, added []string
 		for k, v := range p.Data {
 			s.values[k] = v
 			keys = append(keys, k)
 		}
+		for k, v := range p.Add {
+			s.values[k] = v
+			added = append(added, k)
+		}
+		for _, k := range p.Remove {
+			delete(s.values, k)
+		}
 		sort.Strings(keys)
+		sort.Strings(added)
 		s.rv++
 		s.publish()
-		return engine.SecretDataSaved{Ref: s.ref, Keys: keys, ResourceVersion: strconv.Itoa(s.rv)}, nil
+		return engine.SecretDataSaved{Ref: s.ref, Keys: keys, KeysAdded: added, KeysRemoved: p.Remove, ResourceVersion: strconv.Itoa(s.rv)}, nil
 	}
 	if err := engine.Register(f.reg, engine.Spec[secretDataParams]{ID: engine.SecretSaveDataCommand, Label: "Save Secret Data",
 		Danger: engine.DangerMutating, GUIOnly: engine.ErrSecretDataGUIOnly,
@@ -131,6 +154,28 @@ func (s *secFake) changes(data map[string]string) []engine.SecretKeyChange {
 	for k, v := range data {
 		if s.values[k] != v {
 			out = append(out, engine.SecretKeyChange{Key: k, Change: engine.SecretKeyChanged, Bytes: len(s.values[k]), NewBytes: len(v)})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
+	return out
+}
+
+// changesOf is the masked diff of an edit against the fake's values, as the engine reports it
+// against a newer version too; mu is held.
+func (s *secFake) changesOf(p secretDataParams) []engine.SecretKeyChange {
+	out := s.changes(p.Data)
+	for k, v := range p.Add {
+		old, ok := s.values[k]
+		switch {
+		case !ok:
+			out = append(out, engine.SecretKeyChange{Key: k, Change: engine.SecretKeyAdded, NewBytes: len(v)})
+		case old != v:
+			out = append(out, engine.SecretKeyChange{Key: k, Change: engine.SecretKeyChanged, Bytes: len(old), NewBytes: len(v)})
+		}
+	}
+	for _, k := range p.Remove {
+		if old, ok := s.values[k]; ok {
+			out = append(out, engine.SecretKeyChange{Key: k, Change: engine.SecretKeyRemoved, Bytes: len(old)})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Key < out[j].Key })
@@ -244,8 +289,8 @@ func valueLeaks(sh *shell, f *fakeEngine) string {
 func TestSecretDrawerEditAndSave(t *testing.T) {
 	sh, w, q, f, s := secShell(t, ThemeDark)
 	sd := secDataOf(sh)
-	if sd.buttons.Visible() || sd.status.Visible() {
-		t.Error("the footer shows before a value is in an editor")
+	if !sd.buttons.Visible() || !sd.adder.button.Visible() || sd.revert.Visible() || sd.save.Visible() || sd.status.Visible() {
+		t.Error("before a value is in an editor the footer shows Add Key only")
 	}
 	r := showKey(t, sh, q, "DB_PASSWORD")
 	calls := f.callsOf(engine.RevealCommand)
