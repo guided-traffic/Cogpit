@@ -37,7 +37,7 @@ const (
 	MetricsChartName = "prometheus"
 	// MetricsChartVersion is the bundled chart version.
 	// renovate: datasource=helm depName=prometheus registryUrl=https://prometheus-community.github.io/helm-charts
-	MetricsChartVersion = "29.36.1"
+	MetricsChartVersion = "29.37.0"
 	// MetricsChartSHA256 is the archive's digest as the repository's index lists it.
 	MetricsChartSHA256 = "8492d3a0e99f99a12bb389f1c83f3636e3fc5d68f995a09e815044773246217e"
 	// MetricsBundleRepository is the repository name a bundled chart carries (Chart.Repository),
