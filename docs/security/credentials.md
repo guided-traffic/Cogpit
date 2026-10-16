@@ -19,7 +19,7 @@ them in these forms ([kubeconfig](https://kubernetes.io/docs/concepts/configurat
 |---|---|---|
 | Client certificate and key (`client-certificate[-data]`, `client-key[-data]`) | the kubeconfig, or a file it names | Read when connecting; held in memory by the TLS stack |
 | Static bearer token (`token`, `tokenFile`) | the kubeconfig, or a file it names | Read when connecting; held in memory |
-| Exec credential plugin (`exec`) | a program the kubeconfig names | Run on connect and on expiry; the returned credential is held in memory only, never written to disk. Since 2026-10-16 ([D-58](../developer/decisions.md#d-58-standby-and-lost-connections)) client-go runs it on a 401 only once after a request that worked (the login guard), Cogpit runs it by itself once after an interruption or a rejected heartbeat (an approved plugin only), and a run that waits longer than 30 s (a browser login) makes the login "expired" until the user logs in again; a run Cogpit stopped waiting for goes on, and the connection is back by itself if it ends with a working login. The checks of the connection send its credential with `GET /version` every 15 s; the reconnect attempts send none ([H-101](trust-boundaries.md#h-101-a-credential-plugin-runs-again-during-a-connection-without-being-checked-again)) |
+| Exec credential plugin (`exec`) | a program the kubeconfig names | Run on connect and on expiry; the returned credential is held in memory only, never written to disk. Since 2026-10-16 ([D-58](../developer/decisions.md#d-58-standby-and-lost-connections)) client-go runs it on a 401 only once after a request that worked (the login guard), Cogpit runs it by itself once after an interruption or a rejected heartbeat (an approved plugin only), and a run that waits longer than 30 s (a browser login) makes the login "expired" until the user logs in again; a run Cogpit stopped waiting for goes on, and the connection is back by itself if it ends with a working login. The checks of the connection send its credential with `GET /version` every 15 s; the reconnect attempts send none ([H-101](trust-boundaries.md#h-101-a-credential-plugin-runs-again-during-a-connection-without-being-checked-again)). The plugin's standard output, the credential, goes to a buffer of client-go's own that Cogpit never reads. Its standard error goes to Cogpit's standard error as client-go always sent it, and since 2026-10-16 ([D-66](../developer/decisions.md#d-66-the-connection-log)) a copy of the newest 64 KiB is held in memory: after a connect or a heartbeat that failed because the plugin failed, it is scrubbed, cut to 4 KiB and written to the [connection log](#where-credentials-must-never-end-up); after a request that worked it is dropped ([`pluginstderr.go`](../../internal/cluster/pluginstderr.go), [H-112](#h-112-a-credential-plugins-standard-error-in-the-connection-log)) |
 | A proxy's user and password in the cluster's `proxy-url` (`http://user:password@proxy:3128`) | the kubeconfig | Handed to client-go, which sends it to the proxy alone (Basic `Proxy-Authorization` on the CONNECT; in clear for an `http://` proxy); shown nowhere: the plugin approval dialog strips it, and since 2026-10-13 connect errors replace it with `•••` ([`proxyurl.go`](../../internal/cluster/proxyurl.go), `TestKubeconfigProxyPasswordNeverInErrors`) |
 | Legacy auth provider `oidc` | the kubeconfig | Refreshed tokens go through a persister Cogpit supplies; see [H-4](#h-4-auth-provider-token-refresh) |
 | Legacy auth providers `azure` and `gcp` | the kubeconfig | client-go 0.37.1 rejects `azure` and points to kubelogin; the user replaces them with exec plugins |
@@ -221,7 +221,8 @@ That `kubectl` reads the same `KUBECONFIG` as any other.
 
 | Place | Rule |
 |---|---|
-| Application log | No tokens, keys, certificates, exec-plugin output or Secret data, at any log level |
+| Application log | No tokens, keys, certificates, a credential plugin's output or Secret data, at any log level |
+| Connection log | One file per context, `<user config dir>/Cogpit/connection-logs/<first 32 hex digits of the context id's SHA-256>.jsonl`, 0600 in a 0700 directory, never through a symlink, 7 days and 1 MiB per context ([D-66](../developer/decisions.md#d-66-the-connection-log), [`connectlog_files.go`](../../internal/engine/connectlog_files.go)); read back by the Connection Updates dialog and by `cluster.connectLog` for every origin, agents included. Its lines are built from what the configuration and the errors say, never from a credential: a login is named by its method (a client certificate by its subject CN and expiry date, public facts; a token "not shown"; a plugin by its program's name), URLs lose their user information, query and fragment, a proxy's password is `•••`, error texts pass `kubeconfig.SafeError` (`TestConnectTraceRecordsTheSteps`, `TestConnectTraceNamesTheClientCertificate`, `TestConnectTraceErrorPicture`). A credential plugin's standard error is in it only after a failed login, scrubbed (the user entry's token, password, the plugin's environment values and `--flag=value` arguments and the proxy's password replaced; a JWT, a PEM block, a `Bearer` or `Basic` value, a value after a key naming a secret and a run of 32 or more token characters with letters and digits replaced; URL queries dropped) and cut to 4 KiB; its standard output never (`TestPluginStderrOnFailureIsScrubbed`, `TestPluginStderrOfASuccessfulRunIsNotKept`, `TestScrubPluginOutput`; what the scrubber can miss: [H-112](#h-112-a-credential-plugins-standard-error-in-the-connection-log)) |
 | Audit log | An agent's parameters are logged (D-2), with Secret values, Helm values and a proxy's password redacted ([`audit.go`](../../internal/engine/audit.go) `auditParams`) |
 | Error messages and toasts | Same rule; errors name the context, never the credential. client-go's own errors can echo a kubeconfig's `users` entries; `kubeconfig.SafeError` ([`kubeconfig.go`](../../internal/kubeconfig/kubeconfig.go)) strips them, and connect errors are tested not to contain a known token. client-go's validation also quotes a `proxy-url` it cannot use whole (`invalid 'proxy-url' "http://user:password@…"`, "could not parse: …"): fixed 2026-10-13, `cluster.Connect` replaces the user information of every `proxy-url` of the kubeconfig, as written, as `%q` writes it, and the password alone, with `•••` (`TestKubeconfigProxyPasswordNeverInErrors`, `TestKubeconfigProxySecrets`). A certificate the server presents is checked, not a secret: a failed check names the kubeconfig field to look at (`TestConnectTrustsTheKubeconfigCA`) |
 | Drafts of unsaved editor text | Never a Secret's values, never Helm values (2026-10-13, see [above](#where-they-live-inside-cogpit)); the drafts' listing for agents carries no text; a Config Map's drawer values (since 2026-10-15) listed by their keys only |
@@ -428,6 +429,29 @@ MVP appends the usual tool directories (`/opt/homebrew/bin`, `/usr/local/bin`, `
 `~/.local/bin`, `~/bin`) that exist and are missing from `PATH` at start
 (`cluster.EnsureToolPath`); variables such as `AWS_PROFILE` are still missing. Whether Cogpit reads
 the login shell's environment, and which variables it then passes to plugins, is not designed yet.
+
+### H-112: A credential plugin's standard error in the connection log
+
+Since 2026-10-16 ([D-66](../developer/decisions.md#d-66-the-connection-log), the owner's "only on
+failure, filtered") the standard error of a credential plugin whose login failed is written to the
+context's connection log, scrubbed and cut to 4 KiB ([above](#where-credentials-must-never-end-up)).
+The scrubber replaces what it knows (the user entry's own values) and what has the shape of a
+credential; it cannot know a secret the plugin prints in another shape: a short password, a
+one-time code in prose, a token of fewer than 32 characters or of letters only, a value after a
+word it does not take for a secret's name. Such a value then stays, live for every context whose
+credential plugin fails with it on its standard error:
+
+- in the file, owner-only, for up to 7 days (or until 1 MiB of newer attempts pushes it out);
+- in what `cluster.connectLog` returns to agents, external ones and the built-in agent alike,
+  and so possibly at the LLM endpoint;
+- on the clipboard after the dialog's Copy, as the user chose.
+
+A plugin that prints its secrets on standard error on failure is the case that makes it real; the
+plugins' usual messages (the error, a URL to open, a device code's instructions) are what the
+filter is for. A successful plugin's standard error is not kept, and its standard output, the
+credential, is never read. The capture also rests on an unexported field of client-go's
+Authenticator (`stderr`, client-go v0.37.1): a client-go that renames it leaves the plugin's
+standard error on Cogpit's own standard error, as before, and fails the capture's test.
 
 ### H-25: A copied Secret value reaches the clipboard
 

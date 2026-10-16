@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/guided-traffic/cogpit/internal/cluster"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -289,10 +290,14 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 		u.Filter = ""
 	})
 
-	st.logs.restart(name, "Connecting to "+name)
+	// The connection log's attempt (connectlog.go, D-66): the connector and the cluster layer add
+	// their steps to it through the connect's context.
+	attempt := st.logs.begin(name, AttemptConnect, LogInfo, "Connecting to "+name)
+	steps := &connectSteps{logs: &st.logs, attempt: attempt}
 	if line := s.proxyLogLine(name); line != "" {
-		st.logs.add(name, LogInfo, line) // the proxy of the cluster's settings, its password as ••• (proxy.go)
+		steps.step(LogInfo, cluster.StepProxy, line, 0) // the proxy of the cluster's settings, its password as ••• (proxy.go)
 	}
+	cctx = withConnectSteps(cctx, steps)
 	var b *Backend
 	err := s.safeCall("connect", func() (err error) { b, err = connector.Connect(cctx, name); return err })
 	if err == nil && b == nil {
@@ -300,10 +305,12 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	}
 	if err != nil {
 		if st.current(seq) {
-			st.logs.add(name, LogError, err.Error())
+			st.logs.finish(attempt, OutcomeFailed, LogError, err.Error())
 			msg := err.Error()
 			s.UpdateUI(func(u *UIState) { u.Connection = Connection{State: ConnectError, Error: msg} })
 			s.settleGoneConnect(name, nil) // its context left Cogpit meanwhile: forget it (connect_gone.go)
+		} else {
+			st.logs.finish(attempt, OutcomeAbandoned, LogInfo, "Superseded by a newer connect")
 		}
 		return fmt.Errorf("connect %s: %w", name, err)
 	}
@@ -312,16 +319,19 @@ func (s *Session) Connect(ctx context.Context, name string) error {
 	if st.closed || st.connectSeq != seq {
 		st.mu.Unlock()
 		b.close(s.log)
+		st.logs.finish(attempt, OutcomeAbandoned, LogInfo, "Superseded by a newer connect")
 		return fmt.Errorf("connect %s: superseded by a newer connect", name)
 	}
 	s.attachCustomKinds(b)
+	s.noteAccessReviews(b, steps) // their first answers, when they come (accessreviews.go)
 	s.attachAccess(b)
 	s.attachRefusals(b) // a refused read in all namespaces is followed, whoever sent it (accessiblens_plan.go)
 	if line := insecureLogLine(b); line != "" {
-		st.logs.add(name, LogWarn, line) // insecure-skip-tls-verify (tlswarning.go)
+		steps.step(LogWarn, cluster.StepTLS, line, 0) // insecure-skip-tls-verify (tlswarning.go)
 	}
-	st.logs.add(name, LogInfo, "Connected to "+name)
 	b.watch = newConnWatch(s, b, seq) // nil for the demo cluster (connwatch.go, D-58)
+	logConnectedSteps(steps, b)
+	st.logs.finish(attempt, OutcomeOK, LogInfo, "Connected to "+name)
 	st.backend = b
 	st.diagStop = make(chan struct{})
 	diagStop := st.diagStop

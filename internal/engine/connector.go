@@ -145,13 +145,17 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	}
 	opts.ExecPolicy = proxyBoundPolicy(opts.ExecPolicy, RedactProxyURL(rawProxy))
 	opts.DiscoveryCacheDir = c.DiscoveryCacheDir
+	steps := connectStepsOf(ctx) // the connection log's attempt (connectlog_steps.go, D-66)
+	opts.Trace = steps.traceFunc()
 	conn, err := cluster.Connect(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 	profiles := kinds.Builtin()
 	customResources := true
+	discoStart := time.Now()
 	served, err := conn.ServedResources(ctx)
+	steps.logDiscovery(conn, len(served), time.Since(discoStart), err)
 	if err != nil {
 		c.logger().Warn("engine: discovery failed; offering every built-in kind", "context", name, "err", err)
 	} else {

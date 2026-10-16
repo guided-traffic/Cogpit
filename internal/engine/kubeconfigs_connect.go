@@ -249,7 +249,10 @@ func (s *Session) disconnectBackend(b *Backend, reason string) bool {
 	old := st.detachLocked()
 	st.mu.Unlock()
 	old.close(s.log)
-	st.logs.add(b.Context, LogError, reason)
+	// A disconnect of Cogpit's own: an attempt that "failed", its line an error, so the context is
+	// marked (connectlog.go).
+	a := st.logs.begin(b.Context, AttemptDisconnect, LogError, reason)
+	st.logs.finish(a, OutcomeFailed, LogError, "")
 	s.UpdateUI(func(u *UIState) {
 		// Connecting: b's own connect, between publishing b and saying Connected, which then
 		// leaves the UI as this leaves it (connect_gone.go). A newer connect detaches b first.

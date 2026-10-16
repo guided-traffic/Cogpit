@@ -31,7 +31,8 @@ const (
 // Dirs are the directories a Cogpit process reads and writes.
 type Dirs struct {
 	// Config is Cogpit's own directory, <user config dir>/Cogpit: the kubeconfig sources and
-	// approvals, the journals, the hotbar, the audit log and the MCP token live there.
+	// approvals, the journals, the hotbar, the audit log, the connection log and the MCP token
+	// live there.
 	Config string
 	// Home is the user's home directory, whose .kube is the default sync folder (D-28); empty
 	// means none.
@@ -94,6 +95,17 @@ func (d Dirs) HelmHTTPApprovalsPath() string {
 		return ""
 	}
 	return filepath.Join(d.Config, engine.HelmHTTPApprovalsFile)
+}
+
+// ConnectLogDir is where the connection log keeps one owner-only file per context,
+// d.Config/connection-logs (engine.Options.ConnectLogDir, D-66): beside the audit log, since it is
+// a record of what happened, not a cache Cogpit can fetch again. Empty without a configuration
+// directory: the log lasts for the session.
+func (d Dirs) ConnectLogDir() string {
+	if d.Config == "" {
+		return ""
+	}
+	return filepath.Join(d.Config, engine.ConnectLogDirName)
 }
 
 // AuditLogPath is the audit log's file, d.Config/audit.log, which the Audit Log reads back.

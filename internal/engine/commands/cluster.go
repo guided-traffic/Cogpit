@@ -27,12 +27,19 @@ type connectParams struct {
 
 // ConnectLogResult is cluster.connectLog's result.
 type ConnectLogResult struct {
-	Context string                  `json:"context"`
-	Lines   []engine.ConnectLogLine `json:"lines"`
+	Context string `json:"context"`
+	// Lines are this session's lines since its latest connect, as before attempts (D-66).
+	Lines []engine.ConnectLogLine `json:"lines"`
+	// Attempts are the context's attempts newest first, from its file (7 days, 1 MiB) and this
+	// session.
+	Attempts []engine.ConnectAttempt `json:"attempts"`
+	// FileError says the context's file could not be read; Attempts then holds this session's.
+	FileError string `json:"fileError,omitempty"`
 }
 
 type connectLogParams struct {
 	Context string `json:"context" jsonschema:"context id as cluster_contexts lists it"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"the newest attempts to return; 0 or absent: every attempt kept (at most 7 days and 1 MiB per context)"`
 }
 
 func registerCluster(g *registrar) {
@@ -63,12 +70,25 @@ func registerCluster(g *registrar) {
 
 	add(g, engine.Spec[connectLogParams]{
 		ID: "cluster.connectLog", Label: "Show Connection Updates", Danger: engine.DangerRead,
-		Description: "Returns the log of the last attempt to connect to a context this session (and of a connection Cogpit " +
-			"closed because its kubeconfig file went away): lines with a time, a level (INFO or ERROR) and a text. The " +
-			"contexts cluster_contexts lists with connectProblem set have an error in it. Lines never contain a credential. " +
-			"Empty when there was no attempt.",
+		Description: "Returns a context's connection log. attempts: every connect, reconnect, login and disconnect kept " +
+			"(7 days, at most 1 MiB per context, also from earlier runs), newest first, each with its kind, start, end, " +
+			"duration (tookMs), outcome (ok, failed, abandoned; empty and running:true while it runs, empty otherwise when " +
+			"Cogpit stopped first) and lines: a time, a level (INFO, WARN or ERROR), a text, the step it documents (kubeconfig, " +
+			"server, login, tls, proxy, answer, discovery, cache, access, heartbeat, error, plugin) and its duration. A failed " +
+			"step is followed by its error picture (class, HTTP status, the presented certificate's public facts, the error " +
+			"chain) and, for a credential plugin that failed, its standard error, scrubbed and cut to 4 KiB. lines: this " +
+			"session's lines since its latest connect. The contexts cluster_contexts lists with connectProblem set have an " +
+			"error at the end. No line contains a credential. A read: nothing is asked of the cluster.",
 		Run: func(_ context.Context, s *engine.Session, p connectLogParams) (any, error) {
-			return ConnectLogResult{Context: p.Context, Lines: s.ConnectLog(p.Context)}, nil
+			attempts, err := s.ConnectAttempts(p.Context, max(p.Limit, 0))
+			res := ConnectLogResult{Context: p.Context, Lines: s.ConnectLog(p.Context), Attempts: attempts}
+			if res.Attempts == nil {
+				res.Attempts = []engine.ConnectAttempt{}
+			}
+			if err != nil {
+				res.FileError = err.Error()
+			}
+			return res, nil
 		},
 	})
 

@@ -123,8 +123,9 @@ Run tests with the race detector.
    and attach before/after images to the pull request.
 8. **Performance is a feature.** Lists at 10,000 rows, 1,000 watch events per second, and the API
    request budgets in [`testing.md`](docs/developer/testing.md#performance-budgets-proposed-not-measured).
-9. **Secrets stay secret.** Tokens, keys, exec-plugin output and Secret values never reach logs,
-   errors, crash reports or an LLM endpoint ([credentials](docs/security/credentials.md),
+9. **Secrets stay secret.** Tokens, keys, a credential plugin's standard output and Secret values
+   never reach logs, errors, crash reports or an LLM endpoint; its standard error only after a
+   failed login, scrubbed and capped, into the connection log (D-66) ([credentials](docs/security/credentials.md),
    [agents and MCP](docs/security/agents-and-mcp.md)).
 10. **The docs always show the current state** (owner, 2026-10-15). Every change, patch and fix
     updates the documentation it affects in the same commit as the code, so the docs never

@@ -101,7 +101,8 @@ func run(previousCrash string) int {
 	// Every time the window writes is in the computer's region format (D-31), read once here.
 	timeFormat := locale.System()
 	logger.Debug("time format", "source", timeFormat.Source, "date", timeFormat.Layout.Date, "time", timeFormat.Layout.Time)
-	s := engine.New(engine.Options{Connector: connector, Audit: audit, AuditPath: auditPath, Logger: logger, Drains: openDrainJournal(logger),
+	s := engine.New(engine.Options{Connector: connector, Audit: audit, AuditPath: auditPath, ConnectLogDir: connectLogDir(),
+		Logger: logger, Drains: openDrainJournal(logger),
 		NodeShells: openNodeShellJournal(logger), Helm: openHelmJournal(logger), Hotbar: openHotbar(logger), HelmRepos: openHelmRepos(logger),
 		Preferences: openPreferences(logger), ClusterSettings: clusterSettings, Kubectl: openKubectl(logger),
 		Drafts: openDrafts(logger), Workspace: openWorkspace(logger), TimeLayout: timeFormat.Layout,
@@ -169,6 +170,16 @@ func discoveryCacheDir() string {
 		return ""
 	}
 	return dirs.DiscoveryCacheDir()
+}
+
+// connectLogDir is <user config dir>/Cogpit/connection-logs (app.Dirs.ConnectLogDir, D-66); empty,
+// and the connection log in memory only, without a configuration directory.
+func connectLogDir() string {
+	dirs, err := app.UserDirs()
+	if err != nil {
+		return ""
+	}
+	return dirs.ConnectLogDir()
 }
 
 // newLogger logs to stderr and to <user cache dir>/Cogpit/cogpit.log, so a Cogpit.app started

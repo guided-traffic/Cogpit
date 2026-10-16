@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -97,8 +98,10 @@ func TestInsecureContextIsMarkedAndLogged(t *testing.T) {
 			if len(warns) != 1 || !strings.Contains(warns[0], "insecure-skip-tls-verify") || !strings.Contains(warns[0], srv.URL) {
 				t.Errorf("the connect log's warnings: %q", warns)
 			}
-			if lines := s.ConnectLog(tt.unchecked); lines[len(lines)-1].Text != "Connected to "+tt.unchecked {
-				t.Errorf("the log does not end with the connect: %+v", lines)
+			// The attempt ends with the connect; the access reviews' answer may follow it (D-66).
+			if a, _ := s.ConnectAttempts(tt.unchecked, 1); len(a) != 1 || a[0].Outcome != OutcomeOK ||
+				!slices.ContainsFunc(a[0].Lines, func(l ConnectLogLine) bool { return l.Text == "Connected to "+tt.unchecked }) {
+				t.Errorf("the attempt does not end with the connect: %+v", a)
 			}
 			// A29: the connection's state says so while it stands, for the status bar and agents.
 			if c := s.UIState().Connection; c.State != Connected || !c.TLSUnchecked {

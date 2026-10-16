@@ -155,7 +155,8 @@ func (e *env) newSession(opts sessionOptions) (*engine.Session, func(), error) {
 		// The app's discovery cache: a run reuses what the window or the last run asked (D-65).
 		DiscoveryCacheDir: e.dirs.DiscoveryCacheDir(),
 	}
-	so := engine.Options{Connector: connector, Logger: e.logger, TimeLayout: e.timeLayout}
+	// The app's connection log: a connect of the CLI is in the Connection Updates dialog too (D-66).
+	so := engine.Options{Connector: connector, Logger: e.logger, TimeLayout: e.timeLayout, ConnectLogDir: e.dirs.ConnectLogDir()}
 	closers := []func(){}
 	if opts.audit {
 		f, err := e.dirs.OpenAuditLog()

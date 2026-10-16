@@ -46,7 +46,8 @@ func (s *Session) Disconnect() error {
 		name = b.Context
 	}
 	if name != "" {
-		st.logs.add(name, LogInfo, "Disconnected from "+name+" (Cluster › Disconnect)")
+		a := st.logs.begin(name, AttemptDisconnect, LogInfo, "Disconnected from "+name+" (Cluster › Disconnect)")
+		st.logs.finish(a, OutcomeOK, LogInfo, "")
 	}
 	s.UpdateUI(func(u *UIState) {
 		u.Connection = Connection{State: Disconnected}

@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync"
 	"time"
@@ -97,6 +98,51 @@ type accessReviews struct {
 	nsHandle *cache.Handle // the namespaces, held once the sidebar needs them (visibleLocked)
 	nsUnsub  func()
 	uiUnsub  func()
+
+	// The connection log's line for the rules reviews a connect starts (noteFirst, D-66).
+	firstNote func(level, text string, took time.Duration)
+	first     *firstRules
+}
+
+// firstRules are the rules reviews attach started, until each answered.
+type firstRules struct {
+	pending map[string]bool
+	total   int
+	failed  []string // their errors
+	start   time.Time
+}
+
+// noteFirst has the reviews tell note how the rules reviews of the connect went, once they all
+// answered: their number and time, or which failed. Call it before attach.
+func (a *accessReviews) noteFirst(note func(level, text string, took time.Duration)) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.firstNote = note
+}
+
+// firstDoneLocked takes the answer of namespace ns's rules review for the connect's line and
+// returns the line's note once every first review answered; nil until then.
+func (a *accessReviews) firstDoneLocked(ns string, err error) func() {
+	f, note := a.first, a.firstNote
+	if f == nil || note == nil || !f.pending[ns] {
+		return nil
+	}
+	delete(f.pending, ns)
+	if err != nil {
+		f.failed = append(f.failed, oneLine(err.Error()))
+	}
+	if len(f.pending) > 0 {
+		return nil
+	}
+	a.first = nil
+	took := time.Since(f.start)
+	if len(f.failed) == 0 {
+		text := fmt.Sprintf("Access reviews: the rules of %d namespace(s) answered", f.total)
+		return func() { note(LogInfo, text, took) }
+	}
+	text := fmt.Sprintf("Access reviews: %d of %d rules reviews failed (the commands' access is then asked per verb): %s",
+		len(f.failed), f.total, f.failed[0])
+	return func() { note(LogWarn, text, took) }
 }
 
 // rulesReview is one namespace's rules review: pending until done.
@@ -153,6 +199,18 @@ func (a *accessReviews) attach(s *Session, b *Backend) {
 	interval := s.opts.SnapshotInterval * accessCoalesce
 	s.goSafe("access reviews", func() { runCoalesced(a.quit, a.wake, interval, nil, a.changed) })
 	a.uiUnsub = s.Subscribe(a.onEvent)
+	if a.firstNote != nil { // the connection log's line once these answered (noteFirst)
+		f := &firstRules{pending: map[string]bool{}, start: time.Now()}
+		for _, ns := range a.prefetchLocked() {
+			if r, ok := a.rules[ns]; ok && !r.done {
+				f.pending[ns] = true
+			}
+		}
+		if f.total = len(f.pending); f.total > 0 {
+			a.first = f
+		}
+		return
+	}
 	a.prefetchLocked()
 }
 
@@ -527,7 +585,11 @@ func (a *accessReviews) finishRules(ns string, r *rulesReview, rules cluster.Acc
 	}
 	r.done, r.rules, r.err = true, rules, err
 	s, b := a.s, a.b
+	note := a.firstDoneLocked(ns, err)
 	a.mu.Unlock()
+	if note != nil {
+		note() // the connection log's line for the connect's reviews (noteFirst)
+	}
 	if err != nil {
 		s.log.Warn("engine: rules review failed; access reviews ask per verb instead", "context", b.Context, "namespace", ns, "err", err)
 	}

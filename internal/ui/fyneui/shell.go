@@ -407,6 +407,9 @@ func (sh *shell) onEvent(ev engine.Event) {
 		})
 	case engine.EventAudit: // a line in the audit log: the Audit Log tab reads it (auditlog.go)
 		sh.do(sh.dock.auditChanged)
+	case engine.EventConnectLog: // a context's connection log changed: its open dialog reads it (connectlog.go)
+		id := ev.View
+		sh.do(func() { sh.kc.connectLogChanged(id) })
 	case engine.EventDockRead: // an agent read a terminal tab: it flashes (dockagentread.go)
 		id := ev.View
 		sh.do(func() { sh.dock.flashAgentRead(id) })

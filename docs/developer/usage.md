@@ -176,7 +176,7 @@ row: [docs/parity](../parity/README.md).
 ```sh
 make kind-down     # deletes the kind cluster and its kubeconfig file
 make clean         # removes bin/ and dist/
-rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, the discovery and Helm caches, audit log, token, downloaded kubectl releases
+rm -rf ~/Library/Caches/Cogpit "~/Library/Application Support/Cogpit"   # logs, the discovery and Helm caches, audit and connection logs, token, downloaded kubectl releases
 ```
 
 </details>
@@ -477,6 +477,32 @@ browser login), the dot turns red at once (its tooltip: **Login expired**), and 
 runs the login program, browser included, keeping your views. Cogpit never runs it again on its own
 meanwhile. A login program that changed since you allowed it is shown to you first, as at a connect.
 
+### Connection Updates: the connection log
+
+Since 2026-10-16 ([D-66](decisions.md#d-66-the-connection-log)). Every connect, reconnect, login
+and disconnect of a context is written down step by step, the ones that worked too, and kept for
+7 days (at most 1 MiB per context; the file is in the [naming table](#naming-conventions)).
+**Connection Updates: <context>** shows it: a click on a cluster's status dot opens it (and, as
+before, the warning icon on the welcome page and Show Connection Updates… in a navigator row's
+menu), for any context, connected or not; one with nothing recorded says so.
+
+- The newest attempt comes first, with its kind, start, outcome and duration (green when it
+  worked, red when it failed, "running…" while it runs); its lines follow in the order they
+  happened: time of day, INFO, WARN or ERROR, the text and how long the step took.
+- A connect lists the kubeconfig file and context, the API server, how you log in (a client
+  certificate by its name and expiry, a token "not shown", a login program by its name and
+  whether you allowed it), how the server's certificate is checked, the proxy, the first answer
+  with the server's version, discovery (from the disk cache or the server), the kinds the cache
+  offers, the heartbeat, and the access reviews' first answer.
+- A failure adds what went wrong in detail: its class (DNS, a refused or timed-out connection, the
+  server's certificate with its subject, issuer, validity and names, the login program, a 401 or
+  403 with the API server's message), the error chain, the limit a timeout ran into, and, when a
+  login program failed, what it wrote to its standard error, scrubbed of tokens and passwords and
+  cut to 4 KiB.
+- While the dialog is open it follows the log: a connect or reconnect that runs adds its lines as
+  they come. **Copy** puts every attempt shown on the clipboard as plain text, for a bug report.
+- Agents read the same log with `cluster_connectLog`.
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,
@@ -509,6 +535,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | MCP endpoint file | `<user config dir>/Cogpit/mcp-endpoint`, beside the token and with its rules: the endpoint's URL, for `cogpit-cli mcp`, written while the server listens and removed when it stops (on exit and when you switch the external MCP server off) | `http://127.0.0.1:59449/mcp` # example |
 | MCP switch | `<user config dir>/Cogpit/mcp-switch`, beside the token and with its rules: `on` or `off`, the status bar's MCP switch, written only by a click in the window; `cogpit-cli mcp` serves nothing but a note that the server is off while it says `off` (D-49) | `off` # example; no file means on |
 | Audit log | `<user config dir>/Cogpit/audit.log`, owner-only, one JSON line per agent-initiated command; read back newest first in Help › Audit Log and by `audit_list` (its last 4 MiB) | |
+| Connection log | `<user config dir>/Cogpit/connection-logs/<32 hex digits>.jsonl`, owner-only (0600, directory 0700), shared by the app and `cogpit-cli` (since 2026-10-16, [D-66](decisions.md#d-66-the-connection-log)): one file per context, named by the first 32 hex digits of the SHA-256 of the context id (the id itself is inside); one JSON line per record (an attempt's begin with its kind and context, its lines, its end with the outcome and duration), appended as it happens. Attempts older than 7 days, and the oldest beyond 1 MiB per context, are dropped; a file nobody wrote for 7 days is deleted at a run's first connect. Read back by the Connection Updates dialog and `cluster_connectLog`; no credential in it, a credential plugin's standard error only after a failed login, scrubbed ([H-112](../security/credentials.md#h-112-a-credential-plugins-standard-error-in-the-connection-log)) | `~/Library/Application Support/Cogpit/connection-logs/4f1c0a9e7b2d6c35e8a1f0b9d2c47e61.jsonl` # example |
 | Agent chat connections | `<user config dir>/Cogpit/llm-connections.json`, owner-only (0600, directory 0700): each LLM connection's id, name, kind (`lmstudio`, `litellm`, `openwebui`, `openai`), base URL, model, limits, private mark, whether it sends all tools (`allTools`, since 2026-10-15), its CA file's path (`caFile`, since 2026-10-15), whether a key was given and which one is the default; never a key ([D-10](decisions.md#d-10-built-in-agent)) | |
 | Agent chat API keys | `<user config dir>/Cogpit/llm-keys.json`, owner-only (0600, directory 0700), on every platform: the connection's id to its API key, in plain text ([H-99](../security/credentials.md#h-99-llm-api-keys-are-plaintext-in-cogpits-settings-folder)); written when you save a key, a key removed with Remove Key or its connection; a file other users could access is made owner-only again at the next read, and the log says so. Never in a keychain since 2026-10-15 (the owner's decision): a key an earlier version kept in the macOS login keychain is not read, so its connection shows "no API key" until you enter the key once again; that keychain item (named `Cogpit LLM connection`, service `io.guided-traffic.cogpit.llm`) is left alone, and you can delete it in Keychain Access | `{"version":1,"keys":{"3f9a…":"sk-…"}}` # example |
 | Agent chat conversations | `<user config dir>/Cogpit/chat-conversations.json`, owner-only (0600, directory 0700): the last 20 conversations per context with their items and the history the model is sent, every text with the cached Secrets' values replaced (`«secret <ns>/<name>/<key>»`), a text that could not be scrubbed `<withheld: …>`; the request bodies sent are never written, and never a conversation in which a turn ran over a private connection: it lives in memory only and is gone when Cogpit quits, and one an earlier version (v0.8.0 to v0.10.0) wrote is removed from the file at the next start ([H-96](../security/agents-and-mcp.md#h-96-a-private-turns-reads-are-kept-where-the-scrubber-does-not-know-them)) | |

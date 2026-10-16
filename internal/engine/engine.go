@@ -98,6 +98,11 @@ type Options struct {
 	// AuditPath is the file Audit appends to, which the Audit Log and audit.list read back
 	// (auditlist.go). Empty: the session cannot read its audit log.
 	AuditPath string
+	// ConnectLogDir is where the connection log keeps one owner-only file per context, every line
+	// appended as it happens and read back by the Connection Updates dialog and cluster.connectLog
+	// (connectlog_files.go, D-66): <user config dir>/Cogpit/connection-logs in both binaries
+	// (app.Dirs.ConnectLogDir). Empty: the log lasts for the session.
+	ConnectLogDir string
 	// SnapshotInterval is the minimum time between two table snapshots of a view; zero means
 	// 100 ms, at most ten snapshots per second (architecture §5).
 	SnapshotInterval time.Duration
@@ -224,6 +229,8 @@ func New(opts Options) *Session {
 	// Each line written to the audit log tells the Audit Log tab (auditlist.go).
 	s.opts.Audit = s.notifyingAudit(opts.Audit)
 	s.state = newState(s)
+	s.state.logs.setup(s.opts.Now, newConnectLogFiles(opts.ConnectLogDir), // connectlog.go, D-66
+		func(ctx string) { s.emit(Event{Type: EventConnectLog, View: ctx}) }, s.connectLogUnwritable)
 	opts.Drains.attach(s) // nil-safe
 	opts.Helm.attach(s)   // nil-safe
 	opts.Hotbar.attach(s) // nil-safe

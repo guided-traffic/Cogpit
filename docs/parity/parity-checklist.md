@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 121 | 118 | 9 | 109 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 52 | 50 | 43 | 7 | 2 |
+| Beyond Lens (not in feature breadth) | 53 | 51 | 44 | 7 | 2 |
 
 Not counted: 7 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -339,6 +339,7 @@ Not counted: 7 interface rows that are not a target, 5 platform rows that are pa
 | Logs resume with a marker of the gap, port forwards wait and dial at once, shells end with Reconnect | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | A drain or a Helm action stops at the interruption and is offered after the reconnect, as after a crash | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | The window does not hang after the Mac slept | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
+| Every connect, reconnect, login and disconnect documented step by step, the successful ones too, with times, durations and a failure's erro… | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | Every value in the detail drawer can be selected, and has a copy icon on hover; an entry of a value with several entries is copied in YAML… | partial | [Everyday use](beyond-lens.md#everyday-use) |
 | Names in the lists (Pods, Deployments and every other view) are copyable: a list's cells get the drawer's copy icon on hover, at least the… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | Certificates in Secrets decoded, in the drawer and for agents: for every key that holds a PEM certificate, each certificate's information i… | done | [Everyday use](beyond-lens.md#everyday-use) |

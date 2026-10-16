@@ -455,6 +455,12 @@ linters:
       - path: ^(cmd/cogpit/crash|internal/engine/(auditlist|drainjournal|journallock|privatefile)|internal/mcp/(endpoint|token))\.go$
         text: G304
         linters: [gosec]
+      # G304: the connection log's files (D-66), Cogpit's own in <user config dir>/Cogpit/
+      # connection-logs, named by the SHA-256 of a context id (never the id, never cluster data or
+      # an agent's parameter), Lstat-checked as regular files; 0600 in 0700 (credentials.md).
+      - path: ^internal/engine/connectlog_files\.go$
+        text: G304
+        linters: [gosec]
       # G304: cogpit.log, Cogpit's own log in <user cache dir>/Cogpit (0600 in 0700).
       - path: ^cmd/cogpit/main\.go$
         text: G304

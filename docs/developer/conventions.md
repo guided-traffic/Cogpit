@@ -73,8 +73,10 @@ cluster operation is worse than a crash.
 
 ## Secrets stay secret
 
-- Secret values, bearer tokens, client keys, exec-plugin output and LLM API keys never appear in
-  logs, errors, crash reports or telemetry. Credential types implement `slog.LogValuer` and
+- Secret values, bearer tokens, client keys, a credential plugin's standard output and LLM API
+  keys never appear in logs, errors, crash reports or telemetry; a credential plugin's standard
+  error only after a failed login, scrubbed and cut to 4 KiB, in the connection log
+  ([D-66](decisions.md#d-66-the-connection-log)). Credential types implement `slog.LogValuer` and
   `fmt.Stringer` as `"<redacted>"`.
 - Secret data in the UI is hidden until the user reveals one field.
 - Nothing from a Secret's data is sent to an LLM endpoint unless the user explicitly allows it for

@@ -201,16 +201,17 @@ func TestSyncFolderReadsDotFiles(t *testing.T) {
 	}
 }
 
-// TestConnectLogOfAFailedConnect: a failed connect leaves an INFO line and the ERROR lines of the
-// failure; the context is marked, a later success replaces the log, and no line is empty.
+// TestConnectLogOfAFailedConnect: a failed connect leaves its attempt's INFO line and the ERROR
+// line of the failure; the context is marked, a later success ends with "Connected", and no line
+// is empty.
 func TestConnectLogOfAFailedConnect(t *testing.T) {
 	s, _ := newTestSession(t, testkit.NewMemorySource(), 0)
 	if err := s.Connect(t.Context(), "broken"); err == nil {
 		t.Fatal("broken connected")
 	}
 	lines := s.ConnectLog("broken")
-	if len(lines) != 2 || lines[0].Level != LogInfo || lines[0].Text != "Connecting to broken" ||
-		lines[1].Level != LogError || !strings.Contains(lines[1].Text, "connection refused") || lines[1].Time.IsZero() {
+	if n := len(lines); n < 2 || lines[0].Level != LogInfo || lines[0].Text != "Connecting to broken" ||
+		lines[n-1].Level != LogError || !strings.Contains(lines[n-1].Text, "connection refused") || lines[n-1].Time.IsZero() {
 		t.Fatalf("log %+v", lines)
 	}
 	marked := map[string]bool{}
@@ -227,30 +228,50 @@ func TestConnectLogOfAFailedConnect(t *testing.T) {
 	if err := s.Connect(t.Context(), "test"); err != nil {
 		t.Fatal(err)
 	}
-	if l := s.ConnectLog("test"); len(l) != 2 || l[1].Level != LogInfo || s.state.logs.problem("test") {
+	l := s.ConnectLog("test")
+	if n := len(l); n < 2 || l[n-1].Level != LogInfo || l[n-1].Text != "Connected to test" || s.state.logs.problem("test") {
 		t.Errorf("log of a good connect %+v", l)
+	}
+	for _, line := range append(lines, l...) {
+		if strings.TrimSpace(line.Text) == "" {
+			t.Errorf("an empty line: %+v", line)
+		}
+	}
+	attempts, err := s.ConnectAttempts("broken", 0)
+	if err != nil || len(attempts) != 1 || attempts[0].Kind != AttemptConnect || attempts[0].Outcome != OutcomeFailed || attempts[0].Running {
+		t.Errorf("attempts of broken: %+v, %v", attempts, err)
 	}
 }
 
 // TestConnectLogIsBoundedAndEscaped: a long, multi-line, control-character error becomes capped,
-// escaped lines; the log keeps at most maxConnectLogLines lines per context and
+// escaped lines; an attempt keeps at most maxAttemptLines lines and says how many it left out, a
+// context at most maxMemAttempts attempts in memory, and the session at most
 // maxConnectLogContexts contexts.
 func TestConnectLogIsBoundedAndEscaped(t *testing.T) {
 	var l connectLogs
-	l.restart("c", "start")
+	l.begin("c", AttemptConnect, LogInfo, "start")
 	l.add("c", LogError, "first\n\n  second \x1b[31mred\n"+strings.Repeat("x", 5000))
 	lines := l.lines("c")
 	if len(lines) != 4 || lines[1].Text != "first" || strings.ContainsRune(lines[2].Text, 0x1b) || len(lines[3].Text) > maxConnectLogText+8 {
 		t.Fatalf("lines %+v", lines)
 	}
-	for range 3 * maxConnectLogLines {
+	for range 3 * maxAttemptLines {
 		l.add("c", LogInfo, "more")
 	}
-	if n := len(l.lines("c")); n != maxConnectLogLines {
-		t.Errorf("%d lines kept", n)
+	l.end("c", AttemptConnect, OutcomeOK, LogInfo, "done")
+	got, _ := l.attempts("c", 0)
+	if len(got) != 1 || len(got[0].Lines) != maxAttemptLines+1 || got[0].Omitted == 0 ||
+		!strings.Contains(got[0].Lines[maxAttemptLines].Text, "lines left out") {
+		t.Errorf("attempts %d, lines %d, left out %d", len(got), len(got[0].Lines), got[0].Omitted)
+	}
+	for range 2 * maxMemAttempts {
+		l.begin("c", AttemptReconnect, LogWarn, "again")
+	}
+	if got, _ := l.attempts("c", 0); len(got) != maxMemAttempts {
+		t.Errorf("%d attempts kept", len(got))
 	}
 	for i := range 3 * maxConnectLogContexts {
-		l.restart("ctx-"+string(rune('a'+i%26))+string(rune('a'+i/26)), "x")
+		l.begin("ctx-"+string(rune('a'+i%26))+string(rune('a'+i/26)), AttemptConnect, LogInfo, "x")
 	}
 	if len(l.byCtx) > maxConnectLogContexts {
 		t.Errorf("%d contexts kept", len(l.byCtx))

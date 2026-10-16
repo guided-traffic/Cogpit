@@ -68,6 +68,7 @@ type connWatch struct {
 	waiters       []chan struct{}
 	sessions      map[*trackedSession]struct{} // pod shells, node shells, attach (connwatch_streams.go)
 	pending       chan error                   // a heartbeat that has not returned yet (its plugin runs)
+	loggedReason  string                       // the reason the connection log has of the last failed try (connwatch_log.go)
 }
 
 // ConnWatchOptions tune the connection watch; zero fields are the owner's values.
@@ -277,6 +278,9 @@ func (w *connWatch) healthy(fails, rejects *int) bool {
 	case checkQuit:
 		return false
 	case checkOK:
+		if *rejects > 0 { // the login the plugin renewed works (connectlog.go)
+			w.s.state.logs.end(w.b.Context, AttemptLogin, OutcomeOK, LogInfo, "The renewed login works")
+		}
 		*fails, *rejects = 0, 0
 		w.verdict()
 	case checkDown:
@@ -287,6 +291,10 @@ func (w *connWatch) healthy(fails, rejects *int) bool {
 		}
 	case checkRejected:
 		*rejects++
+		if *rejects == 1 { // a login attempt: the guard handed this 401 to the plugin (connectlog.go)
+			w.s.state.logs.begin(w.b.Context, AttemptLogin, LogInfo,
+				"The API server rejected the login (401 Unauthorized); a credential plugin renews it once, and the next check tells")
+		}
 		if *rejects >= 2 { // the first 401 renewed the login once (the guard); this one did not help
 			*fails, *rejects = 0, 0
 			w.expire(rejectedReason(err), false)
@@ -386,6 +394,7 @@ func (w *connWatch) login() {
 	}
 	w.setLoggingIn(true)
 	defer w.setLoggingIn(false)
+	w.s.state.logs.begin(w.b.Context, AttemptLogin, LogInfo, "Logging in again (Log in again): the credential plugin may run once, with its browser")
 	w.p.ArmLogin()
 	w.mu.Lock()
 	ch := w.pending
@@ -455,6 +464,7 @@ func (w *connWatch) check(bound time.Duration) (checkResult, error) {
 	select {
 	case err := <-ch:
 		cancel()
+		w.logPluginStderr(err)
 		return classifyCheck(err), err
 	case <-first.C:
 	case <-w.ctx.Done():
@@ -473,6 +483,7 @@ func (w *connWatch) check(bound time.Duration) (checkResult, error) {
 		w.heartbeat(ctx2, again)
 		select {
 		case err := <-again:
+			w.logPluginStderr(err)
 			return classifyCheck(err), err
 		case <-w.ctx.Done():
 			return checkQuit, nil
@@ -566,7 +577,7 @@ func (w *connWatch) interrupt(cause error) {
 	w.mu.Unlock()
 	w.p.SetHealth(cluster.HealthInterrupted)
 	w.p.ResetConnections()
-	w.s.state.logs.add(w.b.Context, LogWarn, "Connection interrupted: "+reason+"; Cogpit is reconnecting")
+	w.logInterrupted(reason, cause) // a reconnect attempt begins (connectlog.go)
 	w.s.log.Warn("engine: connection interrupted", "context", w.b.Context, "reason", reason)
 	w.publish()
 	w.s.endSessions(w, sessions, now) // after the state: the tabs' Reconnect waits for the connection
@@ -589,7 +600,9 @@ func (w *connWatch) expire(reason string, needsApproval bool) {
 	w.releaseWaitersLocked()
 	w.mu.Unlock()
 	w.p.SetHealth(cluster.HealthLoginExpired)
-	w.s.state.logs.add(w.b.Context, LogWarn, "Login expired: "+reason)
+	// The attempt that runs (a login, a reconnect) failed; without one, a login renewal by the
+	// plugin's own expiry did (connectlog.go).
+	w.s.state.logs.end(w.b.Context, AttemptLogin, OutcomeFailed, LogWarn, "Login expired: "+reason)
 	w.s.log.Warn("engine: login expired", "context", w.b.Context, "reason", reason)
 	w.publish()
 }
@@ -600,6 +613,10 @@ func (w *connWatch) reconnect() {
 	now := w.s.Now()
 	w.mu.Lock()
 	from := w.since
+	kind := AttemptReconnect
+	if w.state == LoginExpired {
+		kind = AttemptLogin
+	}
 	w.lastFrom, w.lastTo = from, now
 	w.state, w.since, w.reason, w.next, w.needsApproval = Connected, time.Time{}, "", time.Time{}, false
 	w.attempt = 0
@@ -612,7 +629,11 @@ func (w *connWatch) reconnect() {
 		a.forgetFailures() // the reviews the interruption failed are asked again
 	}
 	away := now.Sub(from).Round(time.Second)
-	w.s.state.logs.add(w.b.Context, LogInfo, fmt.Sprintf("Reconnected to %s after %s", w.b.Context, away))
+	text := fmt.Sprintf("Reconnected to %s after %s", w.b.Context, away)
+	if kind == AttemptLogin {
+		text = fmt.Sprintf("Logged in again to %s; the connection was away %s", w.b.Context, away)
+	}
+	w.s.state.logs.end(w.b.Context, kind, OutcomeOK, LogInfo, text)
 	w.s.log.Info("engine: reconnected", "context", w.b.Context, "after", away)
 	w.publish()
 	w.s.emit(Event{Type: EventToast, Level: LevelInfo, Message: fmt.Sprintf("Reconnected to %s (interrupted %s–%s)",
@@ -634,7 +655,9 @@ func (w *connWatch) retryLater(err error) {
 	w.attempt++
 	w.next = w.s.Now().Add(w.delay)
 	w.reason = downReason(err)
+	reason, delay := w.reason, w.delay
 	w.mu.Unlock()
+	w.logTry(reason, delay)
 	w.publish()
 }
 
