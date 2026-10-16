@@ -455,8 +455,10 @@ func (c *Conn) Heartbeat(ctx context.Context) error {
 	if c == nil || c.disco == nil {
 		return errors.New("not connected")
 	}
+	mark := c.stderr.mark()
 	_, err := discovery.ToDiscoveryInterfaceWithContext(c.disco).ServerVersionWithContext(withProbe(ctx))
-	return probeError(err)
+	// A login the plugin failed to renew carries the plugin's standard error (pluginstderr.go).
+	return probeError(withPluginStderr(err, c.stderr, mark, c.secrets))
 }
 
 // Reachable asks the API server for its version without credentials, on connections of its own,

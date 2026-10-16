@@ -96,6 +96,11 @@ type Options struct {
 	// DiscoveryCacheTTL is how long an answer the cluster's definitions confirmed is reused; zero
 	// means DefaultDiscoveryCacheTTL.
 	DiscoveryCacheTTL time.Duration
+	// Trace, when set, receives Connect's steps for the connection log (connecttrace.go, D-66):
+	// the kubeconfig, the server, the login, the certificate check, the proxy and the first
+	// answer, and the error picture of a failed one. It is called on Connect's goroutine and must
+	// not block. No step holds a credential.
+	Trace func(ConnectStep)
 }
 
 // loadingRules returns client-go's loading rules for paths: exactly these files in this order,
@@ -245,6 +250,12 @@ type Conn struct {
 	access  reviewClient // the access reviews' client, with their own budget (access.go)
 	health  *health      // the gate, the login guard, the tracked dialer and the probe's client (health.go); nil in tests' bare Conns
 
+	// The credential plugin's standard error (pluginstderr.go, D-66): nil without a plugin; secrets
+	// are the user entry's values it is scrubbed of.
+	stderr  *pluginStderr
+	secrets []string
+	trace   tracer // Connect's steps; nil after Connect
+
 	closed atomic.Bool
 }
 
@@ -279,6 +290,8 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 	if !ok || kctx == nil {
 		return nil, &ConnectError{Context: name, Problem: "no such context in the kubeconfig files " + describePaths(usable)}
 	}
+	trace := tracer(opts.Trace)
+	trace.step(StepKubeconfig, describeKubeconfig(name, kctx, usable))
 
 	// A token file outside the kubeconfig's folder is read by ClientConfig below: ask first (D-17).
 	if err := checkTokenFilePolicy(opts.ExecPolicy, raw, name, kctx); err != nil {
@@ -296,6 +309,7 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 	// memory (gap H-4, docs/security/credentials.md).
 	cfg.AuthConfigPersister = memoryPersister{}
 	applyProxy(cfg, opts.Proxy) // the cluster's proxy in Cogpit's settings, over the kubeconfig's
+	trace.traceSetup(cfg, raw, kctx, opts.ExecPolicy != nil, opts.Proxy != nil)
 	namespace, _, err := cc.Namespace()
 	if err != nil || namespace == "" {
 		namespace = "default"
@@ -328,6 +342,9 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 		return nil, &ConnectError{Context: name, Problem: "cannot build the client: " + kubeconfig.SafeError(err).Error(), Err: err}
 	}
 
+	// The credential plugin's standard error, kept for a failed login (pluginstderr.go): set on the
+	// Authenticator the client built next uses.
+	stderr := capturePluginStderr(cfg)
 	httpClient, err := rest.HTTPClientFor(cfg)
 	if err != nil {
 		return nil, &ConnectError{Context: name, Problem: "cannot build the client: " + kubeconfig.SafeError(err).Error(), Err: err}
@@ -375,8 +392,13 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 		counter:     counter,
 		warnings:    warnings,
 		health:      health,
+		stderr:      stderr,
+		secrets:     knownLoginSecrets(raw, kctx),
+		trace:       trace,
 	}
-	if err := c.checkReachable(ctx, opts.ConnectTimeout); err != nil {
+	err = c.checkReachable(ctx, opts.ConnectTimeout)
+	c.trace = nil
+	if err != nil {
 		c.Close()
 		return nil, err
 	}
@@ -401,13 +423,25 @@ func (c *Conn) checkReachable(ctx context.Context, timeout time.Duration) error 
 	}
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	start := time.Now()
+	mark := c.stderr.mark()
 	info, err := discovery.ToDiscoveryInterfaceWithContext(c.disco).ServerVersionWithContext(tctx)
+	took := time.Since(start)
+	err = withPluginStderr(err, c.stderr, mark, c.secrets)
 	if err == nil {
 		if info != nil {
 			c.version = info.GitVersion
 		}
+		c.trace.timed(StepAnswer, "First answer: GET /version: Kubernetes "+c.version, took, false)
 		return nil
 	}
+	c.trace.timed(StepAnswer, fmt.Sprintf("First answer: GET /version failed (the limit is %s)", timeout), took, true)
+	var pe *PluginError
+	stderr := ""
+	if errors.As(err, &pe) {
+		stderr = pe.Stderr
+	}
+	c.trace.failure(err, stderr)
 	return &ConnectError{Context: c.contextName, Problem: c.describeConnectFailure(ctx, tctx, timeout, err), Err: err}
 }
 

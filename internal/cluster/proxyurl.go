@@ -68,12 +68,7 @@ func scrubSecrets(err error, secrets []string) error {
 	if err == nil || len(secrets) == 0 {
 		return err
 	}
-	scrub := func(s string) string {
-		for _, secret := range secrets {
-			s = strings.ReplaceAll(s, secret, "•••")
-		}
-		return s
-	}
+	scrub := func(s string) string { return replaceSecrets(s, secrets) }
 	var ce *ConnectError
 	if errors.As(err, &ce) {
 		out := *ce
@@ -87,4 +82,20 @@ func scrubSecrets(err error, secrets []string) error {
 		return errors.New(text)
 	}
 	return err
+}
+
+// replaceSecrets replaces each of secrets in s by "•••", the longest first, so that a secret inside
+// a longer one does not split it. Empty secrets are skipped.
+func replaceSecrets(s string, secrets []string) string {
+	if len(secrets) == 0 {
+		return s
+	}
+	sorted := slices.Clone(secrets)
+	slices.SortStableFunc(sorted, func(a, b string) int { return cmp.Compare(len(b), len(a)) })
+	for _, secret := range sorted {
+		if secret != "" {
+			s = strings.ReplaceAll(s, secret, "•••")
+		}
+	}
+	return s
 }
