@@ -169,8 +169,19 @@ func registerEdit(g *registrar) {
 			"the result is a conflict; the tab then compares with the newer version, and applying again overwrites it. On " +
 			"success returns the stored version, which becomes the tab's text. An agent's request waits for the user's acceptance; " +
 			"for a RoleBinding or ClusterRoleBinding it always does, also where the user allowed agent writes. " +
-			"An edit that scales the object to zero replicas is destructive and is always confirmed, as Scale to zero is.",
-		Escalate:  func(s *engine.Session, p applyParams) bool { return s.EditScalesToZero(p.ID, p.YAML) },
+			"An edit that scales the object to zero replicas is destructive and is always confirmed, as Scale to zero is; " +
+			"so is an edit that removes a key of a Config Map's data or binaryData or of a Secret's data (stringData " +
+			"counting as data) against the cached object, as removing a key in the drawer is, and the confirmation names " +
+			"the removed keys, never a value.",
+		// A removed data key is data lost and a change of what workloads read: destructive for every
+		// origin, as the drawer's removal is (the owner, 2026-10-16 evening; D-55).
+		Escalate: func(s *engine.Session, p applyParams) bool {
+			return s.EditScalesToZero(p.ID, p.YAML) || len(s.EditRemovesDataKeys(p.ID, p.YAML)) > 0
+		},
+		// The removed keys, names only (editdatakeys.go); "" for an apply that removes none.
+		Detail: func(s *engine.Session, p applyParams) string {
+			return engine.DataKeysDetail(nil, s.EditRemovesDataKeys(p.ID, p.YAML))
+		},
 		AgentsAsk: func(s *engine.Session, p applyParams) bool { return s.EditorHoldsRBAC(p.ID, p.YAML) }, // H-27, A1
 		Refuse: func(ctx context.Context, s *engine.Session, p applyParams) error {
 			return s.GuardSecretEditor(ctx, p.ID, p.YAML) // a Secret: the GUI only (D-19), before asking

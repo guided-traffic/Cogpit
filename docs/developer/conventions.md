@@ -34,8 +34,8 @@ documentation.
 - **Read-only unless asked.** Opening a view, hovering or selecting never writes to a cluster.
 - **Declare verbs.** Every mutating command lists the API verbs and resources it uses.
 - **Confirm destructive actions** (delete, drain, evict, scale to zero, a data key removed in a
-  drawer, Helm uninstall and rollback, node shell) with a dialog naming the objects, the namespace
-  and the context. The engine enforces it, for the CLI and agents too.
+  drawer or through the Edit tab, Helm uninstall and rollback, node shell) with a dialog naming the
+  objects, the namespace and the context. The engine enforces it, for the CLI and agents too.
 - **Agent origin** follows [D-2](decisions.md#d-2-agent-interface-scope): mutating commands need the
   user's acceptance unless allowed for that context, destructive ones always; all of it is logged.
 - **No implicit installs, no implicit kubeconfig writes.** A node shell, which creates a privileged
