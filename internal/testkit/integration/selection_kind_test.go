@@ -105,17 +105,28 @@ func TestKindDeleteSelection(t *testing.T) {
 	}
 	// selectAll selects every ConfigMap the view shows once it shows n of them, as the header's
 	// checkbox does.
-	selectAll := func(n int) []model.ObjectRef {
+	// selectAll waits until the view shows exactly the named ConfigMaps (a count alone matched a
+	// snapshot that still held a deleted one beside a created one: CI, 2026-10-16), then checks all.
+	selectAll := func(names ...string) []model.ObjectRef {
 		t.Helper()
+		n := len(names)
 		wctx, wcancel := context.WithTimeout(ctx, time.Minute)
 		defer wcancel()
 		var last *engine.TableSnapshot
 		if !testkit.WaitFor(wctx, func() bool {
 			last = s.Table("configmaps")
-			return last != nil && last.Synced && len(last.Rows) == n
+			if last == nil || !last.Synced || len(last.Rows) != n {
+				return false
+			}
+			for _, r := range last.Rows {
+				if !slices.Contains(names, r.Ref.Name) {
+					return false
+				}
+			}
+			return true
 		}) {
 			u := s.UIState()
-			t.Fatalf("the view never showed %d configmaps: view %q namespaces %v, last snapshot %+v", n, u.View, u.Namespaces, last)
+			t.Fatalf("the view never showed %v: view %q namespaces %v, last snapshot %+v", names, u.View, u.Namespaces, last)
 		}
 		must("ui.select", map[string]any{"all": true, "noDrawer": true})
 		sel := s.UIState().Selected
@@ -128,7 +139,7 @@ func TestKindDeleteSelection(t *testing.T) {
 	must("ui.openView", map[string]any{"view": "configmaps"})
 	must("ui.setNamespace", map[string]any{"namespaces": []string{ns}})
 	must("ui.setFilter", map[string]any{"filter": "sel-"}) // not the namespace's kube-root-ca.crt
-	sel := selectAll(3)
+	sel := selectAll("sel-one", "sel-two", "sel-three")
 	res := must("object.deleteMany", map[string]any{"refs": sel}).(commands.DeleteManyResult)
 	if len(res.Deleted) != 3 {
 		t.Fatalf("deleted %v", res.Deleted)
@@ -160,7 +171,7 @@ func TestKindDeleteSelection(t *testing.T) {
 	// A ConfigMap created again under its name while the dialog is open keeps its life.
 	create("sel-four")
 	create("sel-five")
-	sel = selectAll(2)
+	sel = selectAll("sel-four", "sel-five")
 	var again string
 	mu.Lock()
 	during = func() {
