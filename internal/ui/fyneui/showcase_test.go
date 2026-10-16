@@ -91,6 +91,11 @@ func saveShowcase(t *testing.T, w fyne.Window, name string, mode ThemeMode) {
 func saveShowcaseSized(t *testing.T, w fyne.Window, name string, mode ThemeMode, least fyne.Size) {
 	t.Helper()
 	file := name + "_" + string(mode) + ".png"
+	// The README is the showcase page: no build's version beside the wordmark, which a test build
+	// would show as "dev" (F12, the lead's decision).
+	for _, v := range findAll[*buildLabel](w.Content()) {
+		v.conceal()
+	}
 	settle(w)
 	c, ok := w.Canvas().(interface{ SetScale(float32) })
 	if !ok {

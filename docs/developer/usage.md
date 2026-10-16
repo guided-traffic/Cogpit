@@ -95,6 +95,11 @@ spctl -a -t open --context context:primary-signature -vv Cogpit-<version>-macos-
 /Applications/Cogpit.app/Contents/MacOS/cogpit-cli version   # once the app is in Applications
 ```
 
+The window says which version runs: right of the wordmark "Cogpit" in the top bar, in its style,
+a release shows `v0.16.0` (# example), a build from source `dev`, its commit in the tooltip
+(`dev 0691fb32abcd` # example, `-dirty` when the tree had changes; since 2026-10-16, the owner's
+F12). About Cogpit says the same.
+
 ### Run the MVP
 
 The MVP is a local build for macOS (tested on Apple silicon, macOS 26). It needs Go (1.26 or

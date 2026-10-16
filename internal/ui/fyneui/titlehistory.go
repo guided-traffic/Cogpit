@@ -44,6 +44,9 @@ func newTitleHistory(sh *shell) *titleHistory {
 	return h
 }
 
+// shown reports whether an arrow shows: false in a build without the commands.
+func (h *titleHistory) shown() bool { return h.back.Visible() || h.forward.Visible() }
+
 // arrow is one arrow, named by its command's label and shortcut; hidden in a build without the
 // command.
 func (h *titleHistory) arrow(id string, icon fyne.Resource, back bool) *tipButton {

@@ -15,6 +15,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/guided-traffic/cogpit/internal/buildinfo"
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/model"
 	logoart "github.com/guided-traffic/cogpit/internal/ui/logo"
@@ -52,12 +53,12 @@ func connectionText(c engine.Connection) string {
 	return "Not connected"
 }
 
-// topBar is the window's top bar: the Cogpit wordmark, the history arrows, the active context with
-// its connection state (a display: the navigator's section chooses a cluster, D-57) and at the
-// right end the Update button while an update is available, the layout toggles (layoutbar.go, F7)
-// and the notifications' bell (the MCP details are the status bar's, F6). On macOS it is also the
-// window's title bar (titlebar.go): room for the window buttons before the logo, and a drag area
-// under its contents.
+// topBar is the window's top bar: the Cogpit wordmark and the build's version (F12), the history
+// arrows, the active context with its connection state (a display: the navigator's section chooses
+// a cluster, D-57) and at the right end the Update button while an update is available, the layout
+// toggles (layoutbar.go, F7) and the notifications' bell (the MCP details are the status bar's,
+// F6). On macOS it is also the window's title bar (titlebar.go): room for the window buttons
+// before the logo, and a drag area under its contents.
 type topBar struct {
 	sh          *shell
 	dot         *dot
@@ -69,6 +70,7 @@ type topBar struct {
 	notes       *notificationsUI  // the bell and its panel (notifications.go)
 	left        *fyne.Container
 	right       *fyne.Container // the Update button, the layout toggles and the bell
+	version     *buildLabel     // the build's version right of the wordmark (buildlabel.go, F12)
 	edge        *surface        // the line under the bar, directly under it (shell.go, F11)
 	titleHeight float32         // the title bar's height the bar covers, in Fyne units; 0 without
 	titleLead   float32         // the window buttons' room last made (lead's width); 0 without
@@ -89,10 +91,16 @@ func newTopBar(sh *shell) *topBar {
 	wordmark := newTextLine("Cogpit", theme.ColorNameForeground, theme.SizeNameSubHeadingText, fyne.TextStyle{Bold: true})
 	t.lead = canvas.NewRectangle(color.Transparent)
 	t.lead.Hide()
+	t.version = newBuildLabel(sh, buildinfo.Read())
 	t.history = newTitleHistory(sh)
 	t.notes = newNotificationsUI(sh)
-	t.left = container.NewHBox(t.lead, newLogo(), wordmark, t.history.root, newHGap(theme.SizeNameInnerPadding), newDivider(true),
-		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state)
+	left := []fyne.CanvasObject{t.lead, newLogo(), wordmark, t.version}
+	if t.history.shown() { // the arrows a gap away from the version, as the divider is from them
+		t.version.gap = newHGap(theme.SizeNameInnerPadding)
+		left = append(left, t.version.gap)
+	}
+	t.left = container.NewHBox(append(left, t.history.root, newHGap(theme.SizeNameInnerPadding), newDivider(true),
+		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file, t.state)...)
 	t.layout = newLayoutBar(sh)
 	t.right = container.NewHBox(t.layout.root, t.notes.bell)
 	// The line under the bar lies directly under it (shell.go): what the bar centres then sits

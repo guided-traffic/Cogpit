@@ -27,6 +27,7 @@ const (
 	aboutLicence  = "Apache License 2.0"
 	repoURL       = "https://github.com/guided-traffic/cogpit"
 	licenceURL    = "https://github.com/guided-traffic/cogpit/blob/main/LICENSE"
+	devBuild      = "Development build" // also the top bar's version tooltip without a commit (buildlabel.go)
 )
 
 // aboutVersion returns the dialog's version line and, for a development build, the line below it
@@ -36,13 +37,13 @@ func aboutVersion(info buildinfo.Info) (version, detail string) {
 		return "Version " + info.Version, ""
 	}
 	if info.Commit == "" {
-		return "Development build", ""
+		return devBuild, ""
 	}
 	detail = "Commit " + info.Commit
 	if info.Modified {
 		detail += " (modified)"
 	}
-	return "Development build", detail
+	return devBuild, detail
 }
 
 // showAbout shows About Cogpit for this binary's build.
