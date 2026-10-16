@@ -52,7 +52,9 @@ type secretsHarness struct {
 }
 
 // The values of the harness's Secret, in every form they could leak in.
-var secretLeaks = []string{"hunter2", base64.StdEncoding.EncodeToString([]byte("hunter2")), "5432", "kubectl-applied-s3cr3t"}
+// "db:5432", not the port alone: four digits turn up in a timestamp's nanoseconds in the audit log
+// (CI run 38972598188).
+var secretLeaks = []string{"hunter2", base64.StdEncoding.EncodeToString([]byte("hunter2")), "db:5432", "kubectl-applied-s3cr3t"}
 
 func newSecretsHarness(t *testing.T) *secretsHarness {
 	t.Helper()

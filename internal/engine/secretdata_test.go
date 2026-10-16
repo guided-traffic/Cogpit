@@ -71,7 +71,7 @@ func TestSecretDrawerReadsTheCacheAndMasks(t *testing.T) {
 	if got := snap.Rows[0].Cells[3].Text + " | " + snap.Rows[0].Cells[4].Text; got != "blob, password, url | Opaque" {
 		t.Errorf("Keys | Type of db: %q", got)
 	}
-	values := []string{"hunter2", base64Of("hunter2"), "5432", "BEGIN KEY"}
+	values := []string{"hunter2", base64Of("hunter2"), "db:5432", "BEGIN KEY"} // not the port alone: four digits turn up in a timestamp
 	carries := func(v any) string {
 		b, _ := json.Marshal(v)
 		for _, s := range values {
