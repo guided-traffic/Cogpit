@@ -35,6 +35,10 @@ import (
 //   - with two objects or more selected, the header shows "N selected", Delete and a clear button,
 //     and the row menu of a selected row acts on the selection (Delete, Clear Selection); Delete is
 //     the only action on a selection, the others stay on one object.
+//
+// The owner's decision (N112, 2026-10-16 evening): while exactly one row is checked, that row's
+// menu is the object's full menu with Clear Selection after a separator; from two checked rows the
+// selection's menu as above.
 
 // checkColumn is the table column of the row checkboxes; the view's visible columns follow it from
 // firstDataColumn, and the ⋮ ends the row (tableView.menuColumn).
@@ -55,7 +59,8 @@ const (
 const minSelectionBar = 1
 
 // minSelectionMenu is the selection size from which a checked row's menu acts on the selection:
-// the row menu of the one checked object acts on that object, with every action of one object.
+// the row menu of the one checked object acts on that object, with every action of one object, and
+// ends with Clear Selection (loneChecked, N112).
 const minSelectionMenu = 2
 
 // selectModeParams are ui.select's parameters with its mode (engine/commands/ui.go).
@@ -232,6 +237,17 @@ func (tv *tableView) clearSelection() {
 // inSelection reports whether a row's menu acts on the selection: the row is selected, with others.
 func (tv *tableView) inSelection(row int) bool {
 	return len(tv.selected) >= minSelectionMenu && tv.rowChecked(row)
+}
+
+// loneChecked reports whether ref is the one checked object: its row menu is the object's and
+// ends with Clear Selection (the owner, 2026-10-16 evening, N112).
+func (tv *tableView) loneChecked(ref model.ObjectRef) bool {
+	return len(tv.selected) == 1 && tv.check.has(ref)
+}
+
+// endWithClearSelection ends a lone checked row's menu with a separator and Clear Selection.
+func (tv *tableView) endWithClearSelection(m *fyne.Menu) {
+	m.Items = append(m.Items, fyne.NewMenuItemSeparator(), fyne.NewMenuItem("Clear Selection", tv.clearSelection))
 }
 
 // selectionAction is an action on a selection evaluated off the main goroutine.

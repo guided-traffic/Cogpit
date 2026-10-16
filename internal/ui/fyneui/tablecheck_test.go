@@ -306,7 +306,8 @@ func TestHeaderCheckbox(t *testing.T) {
 
 // TestSelectionMenu: the menu of a row inside a selection of several acts on the selection: its
 // count, Delete of every selected object (one confirmation listing each) and Clear Selection; a
-// row outside it keeps its own menu.
+// row outside it keeps its own menu. The one checked row's menu is the object's full menu with
+// Clear Selection after a separator (N112), another row's has none.
 func TestSelectionMenu(t *testing.T) {
 	f := connectedFake(t, 20)
 	withDeleteMany(t, f)
@@ -314,12 +315,34 @@ func TestSelectionMenu(t *testing.T) {
 	q.until(t, "kinds", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil })
 	settle(w)
 	rows := f.tables["pods"].Rows
+
+	own := labels(openMenu(t, sh, q, 2))
+	f.update(func(u *engine.UIState) { u.Selected = []model.ObjectRef{rows[2].Ref} })
+	q.until(t, "one selected", func() bool { return len(sh.ui.Selected) == 1 })
+	settle(w)
+	m := openMenu(t, sh, q, 2)
+	if got, want := labels(m), append(slices.Clone(own), "", "Clear Selection"); !slices.Equal(got, want) {
+		t.Fatalf("the lone checked row's menu %v, want %v", got, want)
+	}
+	if got := labels(openMenu(t, sh, q, 6)); slices.Contains(got, "Clear Selection") || got[0] != "Show Details" {
+		t.Fatalf("an unchecked row's menu beside one checked row %v", got)
+	}
+	item(t, m, "Clear Selection").Action()
+	q.until(t, "the lone row cleared", func() bool { return len(sh.ui.Selected) == 0 })
+	if p := lastSelect(t, f); len(p.Refs) != 0 || !p.NoDrawer || p.Mode != "replace" {
+		t.Fatalf("Clear Selection sent %+v", p)
+	}
+	settle(w)
+	if got := labels(openMenu(t, sh, q, 2)); !slices.Equal(got, own) {
+		t.Fatalf("the row's menu unchecked again %v, want %v", got, own)
+	}
+
 	sel := []model.ObjectRef{rows[1].Ref, rows[2].Ref, rows[3].Ref}
 	f.update(func(u *engine.UIState) { u.Selected = slices.Clone(sel) })
 	q.until(t, "three selected", func() bool { return len(sh.ui.Selected) == 3 })
 	settle(w)
 
-	m := openMenu(t, sh, q, 2)
+	m = openMenu(t, sh, q, 2)
 	if got := labels(m); !slices.Equal(got, []string{"3 objects selected", "", "Delete", "", "Clear Selection"}) || !m.Items[0].Disabled {
 		t.Fatalf("selection menu %v", got)
 	}
@@ -523,6 +546,32 @@ func renderClickKeepsChecks(t *testing.T, mode ThemeMode, name string) {
 func TestRenderClickKeepsTheCheckedRows(t *testing.T) {
 	renderClickKeepsChecks(t, ThemeDark, "selection_click_dark.png")
 	renderClickKeepsChecks(t, ThemeLight, "selection_click_light.png")
+}
+
+// renderLoneChecked checks one pod and opens its menu: the object's full menu, then Clear Selection
+// after a separator (N112).
+func renderLoneChecked(t *testing.T, mode ThemeMode, name string) {
+	f := kindsFake(t, "pods")
+	withDeleteMany(t, f)
+	sh, w, q := newTestShell(t, f, Options{Theme: mode})
+	q.until(t, "the pods view", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil && sh.diag.total > 0 })
+	settle(w)
+	test.Tap(cellAt(t, sh, 2, checkColumn))
+	q.until(t, "the row checked", func() bool { return sh.view.check.has(sh.view.snap.Rows[2].Ref) })
+	settle(w)
+	c := cellAt(t, sh, 2, firstDataColumn)
+	test.TapSecondaryAt(c, fyne.NewPos(60, c.Size().Height/2))
+	q.until(t, "the row menu", func() bool {
+		m := sh.view.menuModel
+		return sh.view.menu != nil && m != nil && m.Items[len(m.Items)-1].Label == "Clear Selection"
+	})
+	settle(w)
+	savePNG(t, w, name)
+}
+
+func TestRenderLoneCheckedRowMenu(t *testing.T) {
+	renderLoneChecked(t, ThemeDark, "selection_one_menu_dark.png")
+	renderLoneChecked(t, ThemeLight, "selection_one_menu_light.png")
 }
 
 func TestRenderSelectionDark(t *testing.T) { renderSelection(t, ThemeDark, "selection_menu_dark.png") }
