@@ -22,6 +22,16 @@ type alertsButton struct {
 	sh       *shell
 	critical int
 	warning  int
+	divider  []fyne.CanvasObject // the divider right of the bell and its gaps, hidden with the pill
+}
+
+// conceal hides the pill and the divider after it: the README's showcase pictures show neither
+// (showcase_test.go), as the bell is not in them either.
+func (b *alertsButton) conceal() {
+	b.Hide()
+	for _, o := range b.divider {
+		o.Hide()
+	}
 }
 
 var _ desktop.Hoverable = (*alertsButton)(nil)

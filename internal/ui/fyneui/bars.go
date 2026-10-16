@@ -89,8 +89,10 @@ func newTopBar(sh *shell) *topBar {
 	t.layout = newLayoutBar(sh)
 	t.alerts = newAlertsButton(sh)
 	// The divider is a short line, a line of text high (the owner: "wie so ein Zeichen |").
-	t.right = container.NewHBox(t.layout.updateBox, t.alerts, t.notes.bell, newHGap(theme.SizeNameInnerPadding),
-		box(compactLayout{}, newDivider(true)), newHGap(theme.SizeNameInnerPadding), t.layout.root)
+	t.alerts.divider = []fyne.CanvasObject{newHGap(theme.SizeNameInnerPadding), box(compactLayout{}, newDivider(true)),
+		newHGap(theme.SizeNameInnerPadding)}
+	t.right = container.NewHBox(append(append([]fyne.CanvasObject{t.layout.updateBox, t.alerts, t.notes.bell},
+		t.alerts.divider...), t.layout.root)...)
 	// The line under the bar lies directly under it (shell.go): what the bar centres then sits
 	// midway between the window's top and the line (F11, the owner: "hängt ein wenig zu hoch"; with
 	// a box's padding between the two the line lay 4 units lower, and in the dark theme, the

@@ -96,6 +96,11 @@ func saveShowcaseSized(t *testing.T, w fyne.Window, name string, mode ThemeMode,
 	for _, v := range findAll[*buildLabel](w.Content()) {
 		v.conceal()
 	}
+	// Nor the alerts pill, prepared without a source (D-54, the lead's decision): it would show
+	// a 0 that nothing counts.
+	for _, a := range findAll[*alertsButton](w.Content()) {
+		a.conceal()
+	}
 	settle(w)
 	c, ok := w.Canvas().(interface{ SetScale(float32) })
 	if !ok {
