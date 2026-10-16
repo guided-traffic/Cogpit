@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/theme"
 
@@ -48,7 +49,10 @@ func TestBuildLabelBesideTheWordmark(t *testing.T) {
 	if wordmark == nil {
 		t.Fatal("no wordmark")
 	}
-	if v.size != wordmark.size || v.style != wordmark.style || v.color != wordmark.color || v.size != theme.SizeNameSubHeadingText {
+	// The wordmark's colour and weight, about 30% smaller (11 against 16), on its baseline.
+	th := fyne.CurrentApp().Settings().Theme()
+	if v.style != wordmark.style || v.color != wordmark.color || v.size != theme.SizeNameCaptionText ||
+		wordmark.size != theme.SizeNameSubHeadingText || th.Size(v.size) > 0.72*th.Size(wordmark.size) {
 		t.Errorf("the label's style %v %+v %v, the wordmark's %v %+v %v", v.size, v.style, v.color, wordmark.size, wordmark.style, wordmark.color)
 	}
 	if v.text != "dev" { // a test binary is a development build
@@ -65,7 +69,7 @@ func TestBuildLabelBesideTheWordmark(t *testing.T) {
 	}
 	arrows, _ := absRect(sh.top.history.root)
 	near(t, "the arrows a gap right of the label", arrows.X, vEnd.X+pad+inner+pad)
-	near(t, "the label's vertical centre against the wordmark's", middleOf(v).Y, middleOf(wordmark).Y)
+	near(t, "the label's baseline on the wordmark's", baselineOf(v), baselineOf(wordmark))
 
 	v.set(buildinfo.Info{Version: buildinfo.Dev, Commit: "0691fb32abcd", Modified: true})
 	sh.tip.delay = time.Millisecond
@@ -76,4 +80,17 @@ func TestBuildLabelBesideTheWordmark(t *testing.T) {
 	if v.text != "v0.16.0" || v.tip != "" {
 		t.Errorf("a release's label %q, tooltip %q", v.text, v.tip)
 	}
+}
+
+// baselineOf is the absolute height of a text line's baseline: its canvas text's top and the
+// font's baseline.
+func baselineOf(l fyne.Widget) float32 {
+	var txt *canvas.Text
+	for _, o := range test.WidgetRenderer(l).Objects() {
+		if c, ok := o.(*canvas.Text); ok {
+			txt = c
+		}
+	}
+	_, base := fyne.CurrentApp().Driver().RenderedTextSize("Mg", txt.TextSize, txt.TextStyle, nil)
+	return fyne.CurrentApp().Driver().AbsolutePositionForObject(txt).Y + base
 }

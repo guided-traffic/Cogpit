@@ -56,6 +56,10 @@ type textLine struct {
 	style    fyne.TextStyle
 	align    fyne.TextAlign
 	truncate bool // shorten with an ellipsis to the given width instead of asking for room
+	// baselineOf, when set, puts the text's baseline where a line of that size centred in the
+	// same height has its own: a smaller text beside a larger one sits on its line (the version
+	// beside the top bar's wordmark).
+	baselineOf fyne.ThemeSizeName
 }
 
 func newTextLine(text string, c fyne.ThemeColorName, size fyne.ThemeSizeName, style fyne.TextStyle) *textLine {
@@ -110,8 +114,20 @@ func (r *textLineRenderer) Layout(size fyne.Size) {
 	case fyne.TextAlignTrailing:
 		x = size.Width - ms.Width
 	}
-	r.obj.Move(fyne.NewPos(x, (size.Height-ms.Height)/2))
+	r.obj.Move(fyne.NewPos(x, r.top(size.Height, ms.Height)))
 	r.obj.Resize(ms)
+}
+
+// top is the text's distance from the top: centred, or on the baseline of a centred line of the
+// size baselineOf names.
+func (r *textLineRenderer) top(height, textHeight float32) float32 {
+	if r.t.baselineOf == "" {
+		return (height - textHeight) / 2
+	}
+	drv := fyne.CurrentApp().Driver()
+	big, bigBase := drv.RenderedTextSize("Mg", r.t.Theme().Size(r.t.baselineOf), r.obj.TextStyle, nil)
+	_, base := drv.RenderedTextSize("Mg", r.obj.TextSize, r.obj.TextStyle, nil)
+	return (height-big.Height)/2 + bigBase - base
 }
 
 func (r *textLineRenderer) MinSize() fyne.Size {
