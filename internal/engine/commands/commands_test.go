@@ -72,7 +72,6 @@ var wantCommands = map[string]engine.Danger{
 	"ui.setMetricsVariant": engine.DangerUI,
 
 	"cluster.prometheus": engine.DangerRead, "cluster.setPrometheus": engine.DangerUI,
-	"cluster.metricsStack": engine.DangerRead, "cluster.setMetricsStack": engine.DangerMutating,
 
 	"pod.portForward":     engine.DangerMutating,
 	"service.portForward": engine.DangerMutating,

@@ -2,6 +2,8 @@ package metrics_test
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -165,15 +167,24 @@ func TestPrometheusOverHTTPS(t *testing.T) {
 	}
 }
 
-// Cogpit's own install (D-61) ranks before every other Prometheus the cluster has.
-func TestCogpitsOwnPrometheusRanksFirst(t *testing.T) {
+// The prometheus chart's server is found under any release's name, and none ranks first for being
+// the release Cogpit Metrics installed in v0.16.0 and v0.17.0 (cogpit-metrics/cogpit-prometheus-server):
+// Cogpit installs nothing of its own (D-61, owner 2026-10-16), detection ranks what the cluster runs.
+func TestPrometheusChartServerOfAnyRelease(t *testing.T) {
 	cands := metrics.Candidates([]metrics.Service{
+		web("cogpit-metrics", "cogpit-prometheus-server", 80),
 		web("monitoring", "kube-prometheus-stack-prometheus", 9090),
-		web("monitoring", "prometheus-server", 80),
-		web(metrics.CogpitPrometheusNamespace, metrics.CogpitPrometheusService, 80),
-		web("team-a", metrics.CogpitPrometheusService, 80), // the name alone is not Cogpit's install
+		web("team-a", "monitoring-prometheus-server", 80),
+		web("monitoring", "myprometheus-server", 80),
+		web("monitoring", "prometheus-server-exporter", 80), // not the chart's server
 	})
-	if len(cands) != 3 || cands[0].Target.Namespace != metrics.CogpitPrometheusNamespace || cands[0].Score != 110 {
-		t.Errorf("candidates %+v", cands)
+	var got []string
+	for _, c := range cands {
+		got = append(got, fmt.Sprintf("%s=%d", c.Target, c.Score))
+	}
+	want := []string{"monitoring/kube-prometheus-stack-prometheus=100", "monitoring/myprometheus-server=80",
+		"cogpit-metrics/cogpit-prometheus-server=80", "team-a/monitoring-prometheus-server=80"}
+	if !slices.Equal(got, want) {
+		t.Errorf("candidates\n got %v\nwant %v", got, want)
 	}
 }

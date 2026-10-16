@@ -250,23 +250,6 @@
       "automerge": false
     },
     {
-      "description": "Cogpit Metrics' bundled chart (internal/helm/metricsstack.go MetricsChartVersion, D-61): Renovate proposes prometheus-community's new prometheus chart version but cannot replace the embedded archive, so TestBundledMetricsChartIsPinned fails until make metrics-bundle puts it in and MetricsChartSHA256 is set to the digest it prints; the chart's templates are installed into users' clusters with cluster-wide roles, so a person reads its changes and never merges it on its own",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "matchPackageNames": [
-        "prometheus"
-      ],
-      "matchDatasources": [
-        "helm"
-      ],
-      "automerge": false,
-      "labels": [
-        "dependencies",
-        "metrics-bundle"
-      ]
-    },
-    {
       "description": "Group Kubernetes-related Go dependencies",
       "matchManagers": [
         "gomod"
@@ -366,17 +349,6 @@
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>sparkle-project/Sparkle)\\nSPARKLE_VERSION\\s*:=\\s*(?<currentValue>\\d[^\\s]*)"
-      ],
-      "versioningTemplate": "semver"
-    },
-    {
-      "description": "Cogpit Metrics' bundled chart (D-61): MetricsChartVersion in internal/helm/metricsstack.go under a renovate comment that names the Helm repository; the archive and its SHA-256 are updated with make metrics-bundle (the packageRule above)",
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/^internal/helm/metricsstack\\.go$/"
-      ],
-      "matchStrings": [
-        "// renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+) registryUrl=(?<registryUrl>[^\\s]+)\\n\\s*MetricsChartVersion\\s*=\\s*\"(?<currentValue>[^\"]+)\""
       ],
       "versioningTemplate": "semver"
     },

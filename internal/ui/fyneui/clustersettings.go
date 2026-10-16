@@ -29,8 +29,9 @@ import (
 // clustersettings_namespaces.go), Metrics (the Prometheus setting, the
 // existing dialog of cluster.setPrometheus, and the hidden metrics, clustersettings_metrics.go).
 // Node Shell (the node shells' image and pull secret, clustersettings_nodeshell.go, 2026-10-13).
-// Lens's Lens Metrics page is Cogpit Metrics (clustersettings_metricsstack.go, 2026-10-16, D-61);
-// its Cost page is not built and not listed. Cogpit's own: the row of
+// Lens's Lens Metrics page, which installs a metrics stack into the cluster, has no counterpart:
+// Cogpit installs nothing for its own features and reads what the cluster runs (D-61, owner
+// 2026-10-16); its Cost page is not built and not listed. Cogpit's own: the row of
 // colour swatches under the icon, which picks a colour in one click (the menu's Pick Icon Color
 // does the same).
 
@@ -122,8 +123,6 @@ func (p *settingsPage) clusterSection(section string) fyne.CanvasObject {
 		return p.clusterAgentsSection() // clustersettings_agents.go
 	case engine.SectionNodeShell:
 		return p.clusterNodeShellSection() // clustersettings_nodeshell.go
-	case engine.SectionMetricsStack:
-		return p.clusterMetricsStackSection() // clustersettings_metricsstack.go
 	}
 	return p.clusterGeneralSection()
 }

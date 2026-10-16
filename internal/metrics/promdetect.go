@@ -61,21 +61,21 @@ type Candidate struct {
 // Detection of Prometheus by well-known Service names, observed from the documentation of the
 // charts and of Lens's metrics providers (clean-room, D-12):
 //
-//	score 110  cogpit-prometheus-server in cogpit-metrics  Cogpit's own install (D-61)
 //	score 100  <release>-kube-prometheus-prometheus      kube-prometheus-stack
 //	            <release>-kube-prometheus-stack-prometheus
 //	            kube-prometheus-stack-prometheus
 //	score  95  prometheus-k8s                            kube-prometheus manifests
 //	score  90  prometheus-operated                       the Prometheus Operator's governing service
 //	score  80  prometheus-server                         the prometheus Helm chart
+//	            <release>-prometheus-server
 //	score  70  prometheus in monitoring, prometheus, lens-metrics (Lens's own install, a
 //	           hand-written install)
 //	score  40  prometheus in any other namespace
 //
-// Cogpit's own install (Cluster Settings › Cogpit Metrics) ranks first: the user installed it for
-// Cogpit's charts, beside a Prometheus of the cluster's own that may label its series otherwise.
-// Ties go to the namespaces named in preferredNamespaces, then by name. A name that is not one of
-// these is never tried: probing every Service of a cluster would send a request each.
+// Detection finds what the cluster runs: Cogpit installs no Prometheus of its own (D-61, owner
+// 2026-10-16), so no install ranks first for being Cogpit's. Ties go to the namespaces named in
+// preferredNamespaces, then by name. A name that is not one of these is never tried: probing every
+// Service of a cluster would send a request each.
 var promNames = []struct {
 	re    *regexp.Regexp
 	score int
@@ -87,15 +87,12 @@ var promNames = []struct {
 	{regexp.MustCompile(`^(.+-)?kube-prometheus(-stack)?-prometheus$`), 100},
 	{regexp.MustCompile(`^prometheus-k8s$`), 95},
 	{regexp.MustCompile(`^prometheus-operated$`), 90},
-	{regexp.MustCompile(`^prometheus-server$`), 80},
+	// The prometheus chart names its server <release>-prometheus-server, or <release>-server when
+	// the release contains "prometheus" ("prometheus-server" for the release prometheus): any name
+	// ending so is found, monitoring-prometheus-server, or cogpit-prometheus-server, the release
+	// v0.16.0 and v0.17.0 installed from Cluster Settings › Cogpit Metrics, now the user's own.
+	{regexp.MustCompile(`^.*prometheus-server$`), 80},
 }
-
-// Cogpit's own install of Prometheus (D-61; the engine checks that internal/helm's bundle names
-// the same): the release cogpit-prometheus of the prometheus chart in the namespace cogpit-metrics.
-const (
-	CogpitPrometheusNamespace = "cogpit-metrics"
-	CogpitPrometheusService   = "cogpit-prometheus-server"
-)
 
 const (
 	nsMonitoring = "monitoring"
@@ -139,9 +136,6 @@ func Candidates(services []Service) []Candidate {
 }
 
 func scoreName(namespace, name string) int {
-	if namespace == CogpitPrometheusNamespace && name == CogpitPrometheusService {
-		return 110
-	}
 	for _, n := range promNames {
 		if n.re.MatchString(name) {
 			return n.score

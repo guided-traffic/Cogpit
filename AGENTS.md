@@ -86,6 +86,9 @@ Cogpit acts with the user's identity on clusters that may be production.
   acceptance unless allowed for that context; destructive commands always need it; everything an
   agent does is in the audit log.
 - **No implicit installs and no implicit kubeconfig writes.**
+- **Cogpit never installs anything into a cluster for its own features** (metrics, agents,
+  exporters): it finds and uses what is installed and makes its information useful; installing is
+  the user's own action on their charts (owner, 2026-10-16).
 - The verb-by-verb contract is [privilege footprint](docs/security/privilege-footprint.md).
 
 ### Cache first

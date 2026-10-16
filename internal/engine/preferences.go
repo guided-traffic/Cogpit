@@ -557,9 +557,6 @@ const (
 	SectionNamespaces = "namespaces"
 	SectionAgents     = "agents"    // a cluster's agents: the allowance of their writes (allowance.go)
 	SectionNodeShell  = "nodeShell" // a cluster's node shell: its image and pull secret (nodeshell.go)
-	// SectionMetricsStack is a cluster's Cogpit Metrics: the metrics stack Cogpit installs on
-	// request (metricsstack.go, D-61), Lens's Lens Metrics page.
-	SectionMetricsStack = "metricsStack"
 	// SectionAgent is Preferences › Agent: the built-in agent's LLM connections (chat.go, D-10). The
 	// window edits them through Session.Chat, not through commands: only the user sets them.
 	SectionAgent = "agent"
@@ -574,11 +571,12 @@ var PreferencesSections = []string{SectionApp, SectionProxy, SectionKubernetes, 
 	SectionAgent}
 
 // ClusterSettingsSections are the Cluster settings page's built sections, in Lens's captured
-// order (General, Proxy, Terminal, Namespaces, Metrics, Lens Metrics, ..., Node Shell) without the
-// missing one (Cost), Lens Metrics as Cogpit Metrics (since 2026-10-16), then Cogpit's own Agents
-// (allowance.go; its place inferred: last, Lens has no such section).
+// order (General, Proxy, Terminal, Namespaces, Metrics, ..., Node Shell) without Lens's Cost and
+// Lens Metrics (Cogpit installs nothing into a cluster for its own features: it reads the metrics
+// stack the cluster runs, D-61, owner 2026-10-16), then Cogpit's own Agents (allowance.go; its
+// place inferred: last, Lens has no such section).
 var ClusterSettingsSections = []string{SectionGeneral, SectionProxy, SectionTerminal, SectionNamespaces, SectionMetrics,
-	SectionMetricsStack, SectionNodeShell, SectionAgents}
+	SectionNodeShell, SectionAgents}
 
 // SettingsPage is the open settings page: Preferences, or one context's Cluster settings, and the
 // section shown.

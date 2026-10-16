@@ -264,15 +264,6 @@ tidy: ## go mod tidy
 sigstore-root: ## Refresh internal/kubectl/sigstore_trusted_root.json from sigstore's TUF repository (D-50)
 	$(GO) run ./hack/sigstoreroot -o internal/kubectl/sigstore_trusted_root.json
 
-# The chart archive of Cogpit Metrics (D-61): prometheus-community's prometheus chart at the version
-# internal/helm/metricsstack.go pins, checked against the repository index's SHA-256 and put into
-# internal/helm/bundle (hack/metricsbundle). Renovate bumps the version constant, not the archive:
-# run this on its pull request, set MetricsChartSHA256 to the digest it prints, read the chart's
-# changes; TestBundledMetricsChartIsPinned fails until archive and constants agree.
-.PHONY: metrics-bundle
-metrics-bundle: ## Download the pinned Cogpit Metrics chart into internal/helm/bundle (digest checked against the index, D-61)
-	$(GO) run ./hack/metricsbundle
-
 # The kind targets need docker and kind; kubectl talks only to KIND_KUBECONFIG.
 kind-up: ## Create the kind cluster (own kubeconfig file), or reuse it, seed it from hack/kind, add the Metrics Server
 	@command -v kind >/dev/null || { echo "kind is not installed: https://kind.sigs.k8s.io"; exit 1; }
