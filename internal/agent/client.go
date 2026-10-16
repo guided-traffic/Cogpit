@@ -244,9 +244,10 @@ func cleanMessage(msg, key string) string {
 
 // client sends one connection's requests.
 type client struct {
-	hc  *http.Client
-	ep  endpoint
-	key string
+	hc     *http.Client
+	ep     endpoint
+	key    string
+	caFile string // the connection's CA file, the only roots its TLS trusts; "" for the system's
 }
 
 // errNoStreamOptions marks a server that refused stream_options (400 naming it): the request is
@@ -277,7 +278,7 @@ func (c *client) complete(ctx context.Context, body []byte, onText func(string))
 	}
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return response{}, transportError(ctx, err, c.key)
+		return response{}, transportError(ctx, err, c.key, c.caFile)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
@@ -292,7 +293,7 @@ func (c *client) complete(ctx context.Context, body []byte, onText func(string))
 	if ct == "application/json" {
 		data, err := io.ReadAll(io.LimitReader(resp.Body, maxEventBytes+1))
 		if err != nil {
-			return response{}, transportError(ctx, err, c.key)
+			return response{}, transportError(ctx, err, c.key, c.caFile)
 		}
 		if len(data) > maxEventBytes {
 			return response{}, errors.New("the endpoint's answer is larger than 8 MiB")
@@ -311,21 +312,29 @@ func (c *client) complete(ctx context.Context, body []byte, onText func(string))
 		if errors.As(err, &se) {
 			return response{}, err
 		}
-		return response{}, transportError(ctx, err, c.key)
+		return response{}, transportError(ctx, err, c.key, c.caFile)
 	}
 	return acc.result(), nil
 }
 
 // transportError is a failed request in words, the context's end named as such; the key removed
 // (Go's errors quote the URL, never a header, but a key in a base URL is refused anyway). A server
-// certificate that could not be verified says so and where a private CA goes.
-func transportError(ctx context.Context, err error, key string) error {
+// certificate that could not be verified says so and where a private CA goes; with a CA file, that
+// the connection trusts that file alone (caFile), so a server with a public certificate needs the
+// field cleared.
+func transportError(ctx context.Context, err error, key, caFile string) error {
 	if ctxErr := context.Cause(ctx); ctxErr != nil {
 		return ctxErr
 	}
 	var cv *tls.CertificateVerificationError
 	if errors.As(err, &cv) {
-		return errors.New("the endpoint's certificate is not trusted (" + cleanMessage(cv.Err.Error(), key) +
+		why := cleanMessage(cv.Err.Error(), key)
+		if caFile != "" {
+			return errors.New("the endpoint's certificate is not trusted (" + why + "): this connection trusts only its CA file " +
+				caFile + ", not the system's certificate authorities; for a server with a public certificate, clear the CA file " +
+				"in the connection's settings")
+		}
+		return errors.New("the endpoint's certificate is not trusted (" + why +
 			"): for a server with a private CA, name its CA file in the connection's settings")
 	}
 	return errors.New("the endpoint could not be reached: " + cleanMessage(err.Error(), key))
@@ -555,7 +564,7 @@ func (c *client) listModels(ctx context.Context) ([]string, error) {
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxModelsBytes+1))
 	if err != nil {
-		return nil, transportError(ctx, err, c.key)
+		return nil, transportError(ctx, err, c.key, c.caFile)
 	}
 	if len(data) > maxModelsBytes {
 		return nil, errors.New("the endpoint's models list is larger than 4 MiB")
@@ -607,7 +616,7 @@ func (c *client) get(ctx context.Context, u string, withKey bool) (*http.Respons
 	}
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return nil, transportError(ctx, err, c.key)
+		return nil, transportError(ctx, err, c.key, c.caFile)
 	}
 	return resp, nil
 }

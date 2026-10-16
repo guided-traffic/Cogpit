@@ -17,23 +17,21 @@ import (
 )
 
 // A connection's CA file (engine.ChatConnection.CAFile, the owner's decision of 2026-10-15): the
-// CA certificates of an https server with a private CA, trusted for that connection beside the
-// system's roots, never instead of them.
+// CA certificates of an https server with a private CA. For that connection they replace the
+// system's roots, as a kubeconfig's certificate-authority does for kubectl: only the file's CAs
+// vouch for the endpoint, a public CA cannot (N141, the owner's decision in the audit of
+// 2026-10-16; until then the file was added to the system's roots). A server that moves to a public
+// certificate fails until the field is cleared, with an error that says the connection trusts only
+// its CA file (transportError).
 //
-// How the roots are built, checked in Go 1.27.2's crypto/x509 (cert_pool.go SystemCertPool,
-// root.go loadSystemRoots, verify.go Certificate.Verify): x509.SystemCertPool returns a copy of the
-// system pool. On macOS (and Windows) that pool holds no certificates but is marked as the system's
-// (systemPool), and Verify hands it to the platform verifier (macOS's Security framework: its trust
-// store, the user's trust settings). AppendCertsFromPEM keeps the mark and adds the file's
-// certificates; Verify then asks the platform verifier first and, only when it fails, verifies
-// again with Go's own verifier against the added certificates alone. So a public server is still
-// verified by macOS, and a server under the private CA by Go against the file. A pool from
-// x509.NewCertPool would replace the system's roots instead: only the file trusted, the platform
-// verifier never asked; Cogpit does not do that. On Linux the system pool is the distribution's
-// bundle read from disk, and the file's certificates are added to that copy. Since Go 1.27,
-// SSL_CERT_FILE or SSL_CERT_DIR in the environment make macOS load roots from those files instead
-// of asking the platform verifier (unless GODEBUG=x509sslcertoverrideplatform=0), for every
-// connection alike.
+// How the roots are built, checked in Go 1.27.2's crypto/x509 (cert_pool.go, verify.go
+// Certificate.Verify): a pool from x509.NewCertPool is not the system's, so Verify never hands it
+// to the platform verifier (macOS's Security framework, its trust store and the user's trust
+// settings) and checks the chain with Go's own verifier against the file's certificates alone.
+// x509.SystemCertPool with the file appended would keep the system's mark, and Verify would ask
+// the platform verifier first and Go only when that failed: every public CA trusted beside the
+// file, which is what the owner chose against. Since Go 1.27, SSL_CERT_FILE or SSL_CERT_DIR in the
+// environment change the system's roots only, so they do not reach a connection with a CA file.
 //
 // The file is read whenever a request is sent (a turn, a connection test, the models list), so a
 // changed file counts from the next; the client is kept per connection and file content, so the
@@ -43,18 +41,16 @@ import (
 // maxCAFile bounds a CA file: a bundle of a few hundred certificates.
 const maxCAFile = 1 << 20
 
-// loadCAPool reads a CA file and returns the system's roots with its certificates added, and a
-// digest of the file. Errors name the file and why, never its content.
+// loadCAPool reads a CA file and returns a pool of its certificates alone, the roots of its
+// connection in place of the system's, and a digest of the file. Errors name the file and why,
+// never its content.
 func loadCAPool(path string) (*x509.CertPool, [sha256.Size]byte, error) {
 	var sum [sha256.Size]byte
 	data, err := readCAFile(path)
 	if err != nil {
 		return nil, sum, err
 	}
-	pool, err := x509.SystemCertPool()
-	if err != nil || pool == nil {
-		pool = x509.NewCertPool() // no system roots to add to: the file's alone, as Go would have none
-	}
+	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(data) {
 		return nil, sum, fmt.Errorf("the connection's CA file %s holds no PEM certificate (-----BEGIN CERTIFICATE-----)", path)
 	}
@@ -110,7 +106,7 @@ type caClient struct {
 }
 
 // httpClientFor returns the client a connection's requests go through: the agent's own, or, for a
-// connection with a CA file, one whose TLS trusts the file's certificates beside the system's
+// connection with a CA file, one whose TLS trusts the file's certificates only, not the system's
 // roots. It reads the file on every call.
 func (a *Agent) httpClientFor(c engine.ChatConnection) (*http.Client, error) {
 	if c.CAFile == "" {

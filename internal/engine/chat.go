@@ -114,9 +114,10 @@ type ChatConnection struct {
 	// confirmations, the Secret filter); only the user sets it, in the window.
 	AllTools bool `json:"allTools,omitempty"`
 	// CAFile names a PEM file of CA certificates for an https base URL whose server has a private
-	// CA (the owner's decision of 2026-10-15): trusted for this connection beside the system's roots
-	// (on macOS its trust store), read whenever a request is sent. An absolute path, not secret;
-	// empty: the system's roots only.
+	// CA (the owner's decision of 2026-10-15): for this connection they replace the system's roots,
+	// as a kubeconfig's certificate-authority does for kubectl (N141, the owner's decision in the
+	// audit of 2026-10-16), read whenever a request is sent. An absolute path, not secret; empty:
+	// the system's roots (on macOS its trust store).
 	CAFile string `json:"caFile,omitempty"`
 	// HasKey reports whether an API key for the connection is stored. A connection saved with a
 	// key that is not stored (one kept in the macOS keychain before 2026-10-15) reports false.

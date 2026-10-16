@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"net"
@@ -137,30 +138,61 @@ func TestCAFileErrorsAreNamed(t *testing.T) {
 	}
 }
 
-// TestCAFileAddsToTheSystemRoots: the pool a CA file makes is the system's roots with the file's
-// certificates added (on macOS the platform verifier's pool, which Verify asks first), never the
-// file's alone (Go 1.27's crypto/x509; the analysis at loadCAPool).
-func TestCAFileAddsToTheSystemRoots(t *testing.T) {
+// TestCAFileReplacesTheSystemRoots (N141, the owner's decision in the audit of 2026-10-16): the
+// pool a CA file makes holds the file's certificates alone, never the system's roots with them, as
+// kubectl's certificate-authority: Go's verifier checks the chain against the file, and macOS's
+// platform verifier, which Verify asks only for a pool marked as the system's, is not asked (Go
+// 1.27's crypto/x509; the analysis at loadCAPool).
+func TestCAFileReplacesTheSystemRoots(t *testing.T) {
 	ca := testkit.NewTestCA(t, "Cogpit test private CA")
 	path := writeFile(t, t.TempDir(), "ca.pem", ca.PEM())
 	got, _, err := loadCAPool(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want, err := x509.SystemCertPool()
-	if err != nil {
-		t.Skipf("no system roots here: %v", err)
-	}
-	empty := !want.Equal(x509.NewCertPool())
-	want.AppendCertsFromPEM(ca.PEM())
-	if !got.Equal(want) {
-		t.Error("the pool is not the system's roots plus the CA file's certificates")
-	}
 	alone := x509.NewCertPool()
 	alone.AppendCertsFromPEM(ca.PEM())
-	if empty && got.Equal(alone) {
-		t.Error("the CA file replaced the system's roots")
+	if !got.Equal(alone) {
+		t.Error("the pool is not the CA file's certificates alone")
 	}
+	if sys, err := x509.SystemCertPool(); err == nil {
+		sys.AppendCertsFromPEM(ca.PEM())
+		if got.Equal(sys) {
+			t.Error("the CA file was added to the system's roots")
+		}
+	}
+}
+
+// TestCAFileRefusesAPublicServer (N141): with a CA file set, a server whose certificate the
+// client trusts otherwise (a CA the agent's own client trusts, standing in for the system's
+// roots: a public certificate) fails the TLS layer, saying that the connection trusts only its CA
+// file and that the field is to be cleared for a public certificate; cleared, the same server
+// passes.
+func TestCAFileRefusesAPublicServer(t *testing.T) {
+	h := newHarness(t, engine.ChatLimits{})
+	public := testkit.NewTestCA(t, "a public CA")
+	srv := fakellm.NewTLS(t, public.Issue(t, "127.0.0.1"))
+	roots := x509.NewCertPool()
+	roots.AppendCertsFromPEM(public.PEM())
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
+	a := New(Options{Session: h.s, Keys: NewMemoryKeyStore(), HTTPClient: &http.Client{Transport: tr, Timeout: 10 * time.Second}})
+	conn := engine.ChatConnection{Name: "public", Kind: engine.ChatLMStudio, BaseURL: srv.Base, Model: "test-model"}
+
+	srv.Script(fakellm.Reply{ToolCalls: []fakellm.ToolCall{{Name: "get_time", Args: `{}`}}})
+	if steps := a.TestConnection(context.Background(), conn, nil, nil); states(steps) != "tcp=pass http=pass auth=pass tools=pass" {
+		t.Fatalf("without a CA file: %s %+v", states(steps), steps)
+	}
+
+	private := testkit.NewTestCA(t, "Cogpit test private CA")
+	conn.CAFile = writeFile(t, t.TempDir(), "ca.pem", private.PEM())
+	steps := a.TestConnection(context.Background(), conn, nil, nil)
+	if got := states(steps); got != "tcp=pass http=fail auth=notReached tools=notReached" ||
+		!strings.Contains(steps[1].Detail, "this connection trusts only its CA file "+conn.CAFile) ||
+		!strings.Contains(steps[1].Detail, "clear the CA file") {
+		t.Fatalf("with a CA file: %s %+v", got, steps)
+	}
+	t.Logf("with a CA file: %s", steps[1].Detail)
 }
 
 // TestPlainHTTPToAnotherMachineIsWarned (the owner's decision of 2026-10-15, H-95): the connection

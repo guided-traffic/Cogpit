@@ -85,9 +85,10 @@ const (
 	allToolsHelp = "For large cloud models: each request then carries some 180 tools, about 56,000 tokens, more than " +
 		"many local models' context holds. Off: 20 core tools and a search that finds the rest, about 7,600 tokens. " +
 		"The same rules either way: reads as the private mark says, writes ask."
-	// caHelp is the CA file's hint (the owner's decision of 2026-10-15; agent/cafile.go).
-	caHelp = "For an https server with a private CA: a PEM file of its CA certificates, trusted for this connection " +
-		"beside the system's (on macOS its keychains), read when connecting. Empty: the system's alone."
+	// caHelp is the CA file's hint (the owner's decisions of 2026-10-15 and, N141, of 2026-10-16: the
+	// file replaces the system's roots for the connection; agent/cafile.go).
+	caHelp = "For an https server with a private CA: a PEM file of its CA certificates, the only ones this connection " +
+		"trusts, not the system's, read when connecting. Empty: the system's (on macOS its keychains)."
 )
 
 // agentPrefs is the Agent section's state.

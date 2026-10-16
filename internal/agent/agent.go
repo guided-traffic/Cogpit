@@ -388,7 +388,7 @@ func (a *Agent) clientFor(c engine.ChatConnection, key string) (*client, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &client{hc: hc, ep: ep, key: key}, nil
+	return &client{hc: hc, ep: ep, key: key, caFile: c.CAFile}, nil
 }
 
 // Models implements engine.ChatAgent.

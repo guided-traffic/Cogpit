@@ -82,42 +82,52 @@ UNTRUSTED                                   BOUNDARY                          TR
 | Link to navigation | `internal/engine`, `cmd/cogpit`, `internal/ui/fyneui` | Built 2026-10-14 ([D-47](../developer/decisions.md#d-47-deep-links-cogpit), [`engine/deeplink.go`](../../internal/engine/deeplink.go)): only the app bundle registers the scheme; the Apple event handler hands at most 2,049 bytes of a link to a queue that holds at most 8 and drops a longer link (`TestDeepLinkAppleEvents`, `TestDeepLinkQueue`); a link is parsed strictly or refused whole: `cogpit://open` with the parameters `context`, `view`, `namespace` and `name` only, each once, not empty, without control or format characters, in its form and bounds (`TestParseDeepLinkRefusals`, `FuzzParseDeepLink`); its context must be one of the kubeconfig sources' (or a development build's demo cluster; a release has none since 2026-10-16, [D-67](../developer/decisions.md#d-67-the-demo-cluster-stays-out-of-releases)), never a file, and one whose credential plugin or token file waits for the user's approval is not connected: the approval stays the user's, in the window (the navigator's clusters, ⌘P; `TestDeepLinkRefusals`); what it asks for runs as five navigation commands with origin `deeplink`, and `Dispatch` refuses that origin every other command and any invocation that is not a UI or read command, before the parameters decode and again after `Escalate`, so no write is reachable from a link (`TestDeepLinkCommandsOnlyNavigate` over the whole registry, `TestDeepLinkGuardsAnAlteredCommand`); every link is audited (origin `deeplink`) and said in a toast, the window raised. Decided (owner, 2026-10-14 evening) and built 2026-10-14: a link that names another cluster than the connected one asks the user once, naming the context, before it switches; within the connected cluster it navigates at once (`askLinkConnect`, `TestDeepLinkAsksBeforeItConnects`; [H-89](#h-89-a-link-switches-the-cluster-and-the-view-under-the-user)). Confirmed by the owner (2026-10-15): navigation only, as built, with these defaults |
 | MCP request to engine | `internal/mcp` | Loopback only, bearer token, `Host` and `Origin` checks: [`internal/mcp/http.go`](../../internal/mcp/http.go), `TestHTTPGuard`, `TestNewRefusesNonLoopbackAddresses` |
 | Cluster data to the LLM endpoint | `internal/agent` | Secret values withheld by default; what is sent is shown. Built 2026-10-14 (the engine) and in the night run of 2026-10-14/15 (the chat column, [D-10](../developer/decisions.md#d-10-built-in-agent)): a turn's tool results pass the filter that replaces the cached Secrets' values, as every agent's reads do, unless the user marked the connection private ([agents and MCP › H-94](agents-and-mcp.md#h-94-a-private-connection-gives-the-model-what-the-window-shows); `TestTurnKeepsSecretValuesFromTheEndpoint`); each user message in the chat shows what its turn sent, requests, bytes, tokens and the endpoint's host, and opens the last request body as sent (`SentPayload`, `TestChatSentPayload`) |
-| The LLM endpoint's certificate to the chat | `internal/agent`, `internal/ui/fyneui` | Built 2026-10-15 (the owner's decision, [D-10](../developer/decisions.md#d-10-built-in-agent) (6)): an `https://` endpoint's certificate is verified against the system's roots (on macOS its trust store, through the platform verifier); a connection's CA file, which only the user names in Preferences › Agent, adds its certificates to them for that connection alone, read whenever a request is sent ([`agent/cafile.go`](../../internal/agent/cafile.go); `TestCAFileTrustsAPrivateCA`, `TestCAFileAddsToTheSystemRoots`, `TestCAFileErrorsAreNamed`); no redirect is followed. A plain `http://` endpoint on another machine is allowed and warned about in Preferences › Agent and the connection test ([credentials › H-95](credentials.md#h-95-an-llm-api-key-over-plain-http)). What the CA file leaves open: [H-104](#h-104-a-connections-ca-file-is-trusted-beside-the-systems-roots-by-gos-verifier) |
+| The LLM endpoint's certificate to the chat | `internal/agent`, `internal/ui/fyneui` | Built 2026-10-15 (the owner's decision, [D-10](../developer/decisions.md#d-10-built-in-agent) (6)): an `https://` endpoint's certificate is verified against the system's roots (on macOS its trust store, through the platform verifier); a connection's CA file, which only the user names in Preferences › Agent, replaces them for that connection alone, as a kubeconfig's `certificate-authority` does for kubectl (the owner's decision in the audit of 2026-10-16, N141): only the file's CAs vouch for its endpoint, read whenever a request is sent ([`agent/cafile.go`](../../internal/agent/cafile.go); `TestCAFileTrustsAPrivateCA`, `TestCAFileReplacesTheSystemRoots`, `TestCAFileRefusesAPublicServer`, `TestCAFileErrorsAreNamed`); no redirect is followed. A plain `http://` endpoint on another machine is allowed and warned about in Preferences › Agent and the connection test ([credentials › H-95](credentials.md#h-95-an-llm-api-key-over-plain-http)). What the CA file leaves open: [H-104](#h-104-a-connections-ca-file-replaces-the-systems-roots-checked-by-gos-verifier) |
 | Download to installed app | `internal/update` (Sparkle 2) | Built 2026-10-14, not proven by a release ([D-4](../developer/decisions.md#d-4-packaging-and-updates)): Sparkle checks the feed's and the disk image's EdDSA signatures with the key in the app's `Info.plist`, before extracting anything, then the new app's Developer ID against the running one's, and offers only a newer version ([updates](updates.md)); the app loads Sparkle only from its own installed bundle (`TestSparkleLoadsFromTheBundle`) |
 | kubectl download to a terminal's `PATH` | `internal/kubectl`, `internal/engine`, `internal/terminal` | Built 2026-10-13 ([D-3](../developer/decisions.md#d-3-helm-and-kubectl-binaries)): only the user's click in the window downloads (`kubectl.download` refuses agents and the CLI before anything is fetched, `TestKubectlDownloadCommand`), and only the user sets the path to kubectl, the directory for binaries and the mirror (`ErrKubectlGUIOnly`); the mirror is an https URL without user information, query or fragment, and redirects are followed to https only (`TestCheckMirror`, `TestDownloadHTTPSOnly`); the `.sha256`, `.sig` and `.cert` files are read first (16 KiB each at most), and before the binary is asked for the signature is checked (since 2026-10-15 with sigstore-go, [D-50](../developer/decisions.md#d-50-kubectls-signature-check)): offline, the signature must have been made over the published digest by the certificate's key (`ParseSigned`); then sigstore's transparency log (`rekor.sigstore.dev`, through the same client and proxy, 30 s and 64 KiB at most) is asked for its entry of exactly that digest, signature and certificate ([`rekor.go`](../../internal/kubectl/rekor.go)), and sigstore-go checks, against the trusted root Cogpit embeds ([`sigstore_trusted_root.json`](../../internal/kubectl/sigstore_trusted_root.json)), the entry's inclusion proof up to a checkpoint the log signed and its signed entry timestamp, that timestamp inside the certificate's ten minutes, the certificate's chain to Fulcio at that time and one signed certificate timestamp of a CT log, the identity `krel-staging@k8s-releng-prod.iam.gserviceaccount.com` with the OIDC issuer `https://accounts.google.com`, and the signature over the digest ([`verify.go`](../../internal/kubectl/verify.go); `TestRealReleaseSignature` verifies kubectl 1.36.1's and 1.37.1's published signatures and Rekor entries offline, `TestRealReleaseRefused`, `TestVerifierRefuses`, `TestDownloadRefusesBadSignatures`); no entry, no answer from the log or an entry that does not verify refuses the download, with no fallback to a check without the log (`TestDownloadWithoutTheLog`); the binary (at most 128 MiB, `TestDownloadSizeBound`) goes into a temporary file beside its place, must have the published digest (`TestDownloadRefusesTamperedBinary`), and is made 0755 and renamed into `<directory for binaries>/<version>/kubectl` (directories 0700); nothing is left on failure. It goes first on `PATH` in Cogpit's terminals only, as a link in the terminal's own temporary directory, never in a shell profile or a global location (`TestStartLocalKubectlFirst`, `TestZshKubectlFirstAfterTheProfile`). What the check rests on, an embedded trusted root and Rekor v1's search: [H-35](#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search); a profile can still reorder `PATH` ([H-36](#h-36-a-shells-profile-can-put-another-kubectl-first); decided the same evening and built the same night, A26 and A27: the hand-over for bash and fish too, and Preferences › Kubernetes › Enforce kubectl, a shell function that enforces Cogpit's kubectl; `TestBashKubectlFirstAfterTheProfile`, `TestFishKubectlFirstAfterTheConfig`, `TestZshKubectlEnforced`) |
 
 ## What this does not cover
 
-### H-104: A connection's CA file is trusted beside the system's roots, by Go's verifier
+### H-104: A connection's CA file replaces the system's roots, checked by Go's verifier
 
 Since 2026-10-15 (the owner's decision, [D-10](../developer/decisions.md#d-10-built-in-agent) (6)):
-an LLM connection may name a CA file for an `https://` server with a private CA. Its certificates
-join the system's roots for that connection's requests (`x509.SystemCertPool` plus
-`AppendCertsFromPEM`, [`agent/cafile.go`](../../internal/agent/cafile.go)). In Go 1.27.2 (read in
-its `crypto/x509`), macOS's platform verifier is asked first; when it refuses the server's chain,
-Go's own verifier checks the chain against the file's certificates alone. What remains, per case:
+an LLM connection may name a CA file for an `https://` server with a private CA. Since 2026-10-16
+(the owner's decision in the audit of 2026-10-16, N141) its certificates are that connection's only
+roots, as a kubeconfig's `certificate-authority` is for kubectl (`x509.NewCertPool` plus
+`AppendCertsFromPEM`, [`agent/cafile.go`](../../internal/agent/cafile.go)); until then they were
+added to the system's roots. In Go 1.27.2 (read in its `crypto/x509` `verify.go`), only a pool
+marked as the system's goes to macOS's platform verifier, so for such a connection Go's own
+verifier checks every chain against the file's certificates alone. What remains, per case:
 
 - **What the file vouches for:** every certificate its CAs signed, for any host name; Cogpit sends
   this connection's requests to its base URL's host only (no redirects), so the reach is that host.
   A broad CA in the file (a company's TLS-inspection CA, a whole bundle) vouches for whatever it
   signed. The user's choice; live only for connections with a CA file.
-- **Go's verifier, not macOS's, for the private chain:** no revocation check (OCSP, CRL), no
-  Certificate Transparency, and none of the keychain's trust settings: a CA the user marked "Never
-  Trust" in Keychain Access is still trusted through the file. Go checks the validity period, the
-  host name, the key usage and name constraints. Live for every connection with a CA file whose
-  server macOS does not trust by itself, which is the case the file is for.
-- **The file is the user's own:** a process of the user that writes the file adds a CA of its own;
-  a machine on the network path could then answer as the endpoint for that connection and read the
-  key, the conversation and what the agent reads. It needs both, write access to the file and a
-  place on the path; Cogpit does not notice a changed file (it reads the file anew for each
-  request, by design: a renewed CA counts at once). Dormant unless both hold, as for a kubeconfig's
-  `certificate-authority` file.
+- **Public CAs no longer vouch for the endpoint:** a mis-issued or stolen certificate from a public
+  CA cannot answer as the endpoint of a connection with a CA file, which the night run's addition
+  to the system's roots allowed. The other side: a server that moves to a public certificate fails
+  the connection test and every turn with "this connection trusts only its CA file …; for a server
+  with a public certificate, clear the CA file" until the user clears the field
+  (`TestCAFileRefusesAPublicServer`). An availability matter, not a gap.
+- **Go's verifier, not macOS's, for every chain of the connection:** no revocation check (OCSP,
+  CRL), no Certificate Transparency, and none of the keychain's trust settings: a CA the user marked
+  "Never Trust" in Keychain Access is still trusted through the file. Go checks the validity
+  period, the host name, the key usage and name constraints. Live for every connection with a CA
+  file; before 2026-10-16 only for one whose server macOS refused.
+- **The file is the user's own:** a process of the user that writes the file puts a CA of its own
+  in its place or beside it; a machine on the network path could then answer as the endpoint for
+  that connection and read the key, the conversation and what the agent reads. It needs both,
+  write access to the file and a place on the path; Cogpit does not notice a changed file (it reads
+  the file anew for each request, by design: a renewed CA counts at once). Dormant unless both hold,
+  as for a kubeconfig's `certificate-authority` file.
 - **`SSL_CERT_FILE` and `SSL_CERT_DIR`:** since Go 1.27, either one in Cogpit's environment makes
-  macOS's Go code load roots from those files instead of asking the platform verifier, for every TLS
-  connection of the process (clusters, Helm repositories, the chat), unless
-  `GODEBUG=x509sslcertoverrideplatform=0`. An app started from the Finder or the Dock does not
-  inherit a shell's variables; one started from a terminal does. Not checked how Cogpit behaves
-  then beyond Go's documented rule.
+  macOS's Go code load the system's roots from those files instead of asking the platform verifier
+  (unless `GODEBUG=x509sslcertoverrideplatform=0`), for every TLS connection of the process that
+  uses the system's roots: clusters, Helm repositories, a chat connection without a CA file. A
+  connection with a CA file uses its own pool and is not affected (Go 1.27.2's `verify.go` uses a
+  pool it is given as it is). An app started from the Finder or the Dock does not inherit a shell's
+  variables; one started from a terminal does. Not checked how Cogpit behaves then beyond Go's
+  documented rule.
 - **The path is not secret** and sits in `llm-connections.json` (0600) beside the base URL.
 
 ### H-89: A link switches the cluster and the view under the user
