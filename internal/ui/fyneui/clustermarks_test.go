@@ -126,6 +126,20 @@ func checkMark(t *testing.T, d *connDot, token fyne.ThemeColorName, ring bool, w
 func TestDotsShowEachClustersMark(t *testing.T) {
 	sh, w, q, _, _ := marksScene(t, ThemeDark, true)
 	q.until(t, "the section's rows", func() bool { return sh.side.sec.rows[cCold] != nil })
+	// The failed connect's red comes with the contexts' read, which may land after the tiles were
+	// drawn (CI's race shard, 2026-10-16: the tile stayed grey until the read refreshed the tiles
+	// too): wait for it on the tile and the row.
+	red := tokenColor(colorStatusError)
+	q.until(t, "the failed cluster's red", func() bool {
+		settle(w) // the dots draw on refresh
+		ti, row := tileOf(sh, cFailed), sh.side.sec.rows[cFailed]
+		if ti == nil || row == nil {
+			return false
+		}
+		tf, _, _ := drawnShape(tileDot(ti))
+		rf, _, _ := drawnShape(row.dot)
+		return tf == red && rf == red
+	})
 	settle(w)
 	marks := []struct {
 		ctx   string
