@@ -346,8 +346,8 @@ func TestClusterSettingsFromTheSectionSetIdentityAndTerminal(t *testing.T) {
 
 	// Metrics: the Prometheus setting needs the cluster connected.
 	test.Tap(sh.settings.navItems["metrics"])
-	q.until(t, "the Metrics section", func() bool { return sh.settings.controls["prometheusButton"] != nil })
-	q.until(t, "the button disabled", func() bool { return sh.settings.controls["prometheusButton"].(*widget.Button).Disabled() })
+	q.until(t, "the Metrics section", func() bool { return sh.settings.prom != nil })
+	q.until(t, "the fields disabled", func() bool { return sh.settings.prom.address.Disabled() && sh.settings.prom.format.Disabled() })
 }
 
 // ⌘⇧, opens the connected cluster's Settings from the window's menu; the hotbar tile's and the

@@ -58,8 +58,8 @@ type settingsPage struct {
 	pickIcon      func(done func(path string))
 	pickFolder    func(done func(path string))
 	openFolder    func(path string)
-	promLine      *textLine  // the Metrics section's line about the Prometheus in use
-	iconMenuModel *fyne.Menu // the icon's open "…" menu, for tests
+	prom          *promFields // the Metrics section's Prometheus fields (clustersettings_prometheus.go)
+	iconMenuModel *fyne.Menu  // the icon's open "…" menu, for tests
 
 	agentsDialog *agentsDialog // the open question before agents' changes are allowed (clustersettings_agents.go)
 	agent        *agentPrefs   // Preferences › Agent while it is built (preferences_agent.go)
@@ -134,7 +134,7 @@ func (p *settingsPage) stateChanged() {
 func (p *settingsPage) build() {
 	clear(p.controls)
 	clear(p.errs)
-	p.sync, p.promLine = nil, nil
+	p.sync, p.prom = nil, nil
 	if p.agent != nil && p.agent.form != nil {
 		p.agent.form.close() // a connection test under way ends with its section
 	}

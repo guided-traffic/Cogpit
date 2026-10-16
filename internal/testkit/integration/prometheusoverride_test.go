@@ -108,8 +108,9 @@ func TestPrometheusOverrideFromTheSettings(t *testing.T) {
 		t.Error("the named service got no request")
 	}
 	res, err = dispatch(s, "cluster.prometheus", `{}`)
-	if set, ok := res.(engine.PrometheusSetting); err != nil || !ok || set.Auto || set.Address != "observability/thanos-query:9090" {
-		t.Errorf("cluster.prometheus = %+v, %v", res, err)
+	if set, ok := res.(engine.PrometheusSetting); err != nil || !ok || set.Auto || set.Address != "observability/thanos-query:9090" ||
+		set.InUse != "Prometheus observability/thanos-query:9090/prometheus" || set.InUseStatus != metrics.StatusAvailable {
+		t.Errorf("cluster.prometheus = %+v, %v", res, err) // the one in use: Cluster Settings › Metrics names it (2026-10-16 night)
 	}
 
 	// Not a service address: refused, the setting stays.

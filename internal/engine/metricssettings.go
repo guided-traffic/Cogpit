@@ -203,6 +203,13 @@ type PrometheusSetting struct {
 	// Kept says whether the setting is in Cogpit's preferences (it outlives the connection); false
 	// when Cogpit has no configuration directory.
 	Kept bool `json:"kept"`
+	// InUse is the Prometheus the cluster's metrics come from now, as the status line names it
+	// ("Prometheus monitoring/prometheus-k8s:web", "Thanos monitoring/thanos-query:http"), and
+	// InUseStatus what Cogpit knows of it (metrics.Status: unknown while nothing looked for it,
+	// notServed when detection found none). Read from the hub's last answers: no request. Since
+	// 2026-10-16 night, for Cluster Settings › Metrics.
+	InUse       string         `json:"inUse,omitempty"`
+	InUseStatus metrics.Status `json:"inUseStatus,omitempty"`
 }
 
 func settingOf(context string, o *metrics.Override, q metrics.QuerySettings, kept bool) PrometheusSetting {
@@ -210,6 +217,23 @@ func settingOf(context string, o *metrics.Override, q metrics.QuerySettings, kep
 		FilterEmptyContainers: !q.KeepEmptyContainers, HTTPS: q.HTTPS}
 	if o != nil {
 		s.Address, s.Prefix = o.Namespace+"/"+o.Service+":"+o.Port, o.Prefix
+	}
+	return s
+}
+
+// withInUse adds the Prometheus the hub found (its status line's row) to a setting.
+func withInUse(s PrometheusSetting, hub *metrics.Hub) PrometheusSetting {
+	if hub == nil {
+		return s
+	}
+	for _, ps := range hub.Providers() {
+		if ps.Provider != metrics.PrometheusID {
+			continue
+		}
+		s.InUseStatus = ps.Status
+		if ps.Service != "" {
+			s.InUse = strings.TrimSpace(ps.Label + " " + ps.Service)
+		}
 	}
 	return s
 }
@@ -234,7 +258,7 @@ func (s *Session) PrometheusSetting(contextID string) (PrometheusSetting, error)
 		return PrometheusSetting{}, noPrometheusDetection(b)
 	}
 	d := b.PrometheusDetector
-	return settingOf(b.Context, d.Override(), d.Query(), b.MetricsSettings != nil), nil
+	return withInUse(settingOf(b.Context, d.Override(), d.Query(), b.MetricsSettings != nil), b.Metrics), nil
 }
 
 // SetPrometheusOverride sets a connected cluster's Prometheus ("" the shown one; nil: detect by
@@ -282,5 +306,5 @@ func (s *Session) SetPrometheusSetting(contextID string, o *metrics.Override, q 
 	d.SetQuery(q)
 	b.Metrics.Forget()
 	s.emit(Event{Type: EventMetrics})
-	return settingOf(b.Context, d.Override(), d.Query(), b.MetricsSettings != nil), nil
+	return withInUse(settingOf(b.Context, d.Override(), d.Query(), b.MetricsSettings != nil), b.Metrics), nil
 }

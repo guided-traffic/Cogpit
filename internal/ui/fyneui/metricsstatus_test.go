@@ -13,7 +13,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/driver/desktop"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/metrics"
@@ -281,97 +280,28 @@ func TestRenderMetricsStatusLine(t *testing.T) {
 	}
 }
 
-// withPrometheusCommands answers cluster.prometheus with set and records cluster.setPrometheus.
-func withPrometheusCommands(f *fakeEngine, set engine.PrometheusSetting) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.handlers["cluster.prometheus"] = func(context.Context, engine.Invocation) (any, error) { return set, nil }
-	f.handlers["cluster.setPrometheus"] = func(context.Context, engine.Invocation) (any, error) { return set, nil }
-}
-
-// The button under the status line opens the Prometheus dialog with the engine's setting; saving
-// sends the address and prefix (or auto) to cluster.setPrometheus. The demo cluster, which has no
-// Prometheus to set, shows no button.
-func TestPrometheusSettingsDialog(t *testing.T) {
+// The button under the status line opens the cluster's Settings › Metrics, where the Prometheus is
+// set (since 2026-10-16 night; before, a dialog with the same fields). The demo cluster, which has
+// no Prometheus to set, shows no button.
+func TestPrometheusButtonOpensTheSettings(t *testing.T) {
 	sh, f, q, p := promDrawer(t, ThemeDark, withProviders(bothAnswering()))
-	withPrometheusCommands(f, engine.PrometheusSetting{Context: "demo", Auto: true, Kept: true})
 	if !p.status.settings.Visible() {
 		t.Fatal("no Prometheus button under the status line")
 	}
 	p.status.settings.OnTapped()
-	q.until(t, "the dialog", func() bool { return findButton(sh.win, "Save") != nil })
-	overlay := sh.win.Canvas().Overlays().Top()
-	checks, entries := findAll[*widget.Check](overlay), findAll[*widget.Entry](overlay)
-	selects := findAll[*widget.Select](overlay)
-	// Auto detect, then Lens's provider settings since 2026-10-16: empty containers filtered (on)
-	// and HTTPS (off), the query format at Auto detect.
-	if len(checks) != 3 || len(entries) != 2 || !checks[0].Checked || !entries[0].Disabled() || !checks[1].Checked || checks[2].Checked ||
-		len(selects) != 1 || selects[0].Selected != metrics.QueryFormats[0].Label {
-		t.Fatalf("dialog: %d checks, %d entries, %d selects", len(checks), len(entries), len(selects))
+	q.until(t, "cluster.settings.open", func() bool { return len(f.callsOf("cluster.settings.open")) == 1 })
+	var params clusterSettingsOpenParams
+	if err := json.Unmarshal(normalize(f.callsOf("cluster.settings.open")[0].Params), &params); err != nil ||
+		params.Section != engine.SectionMetrics || params.Context != "" {
+		t.Errorf("cluster.settings.open %+v (%v): want the shown cluster's Metrics section", params, err)
 	}
-	if texts := overlayTexts(sh.win); !slices.Contains(texts, "Prometheus for demo") {
-		t.Errorf("dialog texts %q", texts)
-	}
-	checks[0].SetChecked(false)
-	entries[0].SetText("observability/thanos-query:9090")
-	entries[1].SetText("/prometheus")
-	selects[0].SetSelected(metrics.QueryOperator.Label())
-	checks[1].SetChecked(false)
-	checks[2].SetChecked(true)
-	settle(sh.win)
-	findButton(sh.win, "Save").OnTapped()
-	q.until(t, "cluster.setPrometheus", func() bool { return len(f.callsOf("cluster.setPrometheus")) == 1 })
-	var params struct {
-		Address, Prefix, Format string
-		FilterEmptyContainers   bool
-		HTTPS                   bool
-	}
-	if err := json.Unmarshal(normalize(f.callsOf("cluster.setPrometheus")[0].Params), &params); err != nil ||
-		params.Address != "observability/thanos-query:9090" || params.Prefix != "/prometheus" || params.Format != "prometheus-operator" ||
-		params.FilterEmptyContainers || !params.HTTPS {
-		t.Errorf("params %+v (%v)", params, err)
-	}
-
-	// Auto again sends auto.
-	p.status.settings.OnTapped()
-	q.until(t, "the dialog again", func() bool { return findButton(sh.win, "Save") != nil })
-	findButton(sh.win, "Save").OnTapped()
-	q.until(t, "the second set", func() bool { return len(f.callsOf("cluster.setPrometheus")) == 2 })
-	if s := string(f.callsOf("cluster.setPrometheus")[1].Params); !strings.Contains(s, `"address":"auto"`) {
-		t.Errorf("auto sent %s", s)
+	if sh.win.Canvas().Overlays().Top() != nil {
+		t.Error("a dialog opened")
 	}
 
 	// Without a Prometheus among the providers (the demo cluster): no button.
 	p.status.set([]metrics.ProviderStatus{{Provider: "demo", Label: metrics.ServerLabel, Status: metrics.StatusAvailable}}, fixedNow)
 	if p.status.settings.Visible() {
 		t.Error("a Prometheus button without Prometheus")
-	}
-}
-
-// TestRenderPrometheusSettings draws the dialog in both themes, to COGPIT_PNG_DIR or a temporary
-// directory, never to testdata.
-func TestRenderPrometheusSettings(t *testing.T) {
-	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
-		name := "metrics_prometheus_settings_" + string(mode) + ".png"
-		t.Run(name, func(t *testing.T) {
-			sh, f, q, p := promDrawer(t, mode, withProviders(bothAnswering()))
-			withPrometheusCommands(f, engine.PrometheusSetting{Context: "kind-cogpit", Address: "observability/thanos-query:9090", Prefix: "/prometheus", Kept: true})
-			p.status.settings.OnTapped()
-			q.until(t, "the dialog", func() bool { return findButton(sh.win, "Save") != nil })
-			settle(sh.win)
-			dir := os.Getenv("COGPIT_PNG_DIR")
-			if dir == "" {
-				dir = t.TempDir()
-			}
-			out, err := os.Create(filepath.Join(dir, name))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer out.Close()
-			if err := png.Encode(out, sh.win.Canvas().Capture()); err != nil {
-				t.Fatal(err)
-			}
-			t.Log("rendered", out.Name())
-		})
 	}
 }

@@ -26,8 +26,9 @@ import (
 // Color and Reset Icon, the kubeconfig's path as a link to its folder), Proxy (the proxy of the
 // cluster's API traffic, clustersettings_proxy.go), Terminal (the working directory, "$HOME" when
 // unset, and kubectl's namespace, "default" when unset), Namespaces (the accessible namespaces,
-// clustersettings_namespaces.go), Metrics (the Prometheus setting, the
-// existing dialog of cluster.setPrometheus, and the hidden metrics, clustersettings_metrics.go).
+// clustersettings_namespaces.go), Metrics (the metrics source, the Prometheus's fields of
+// cluster.setPrometheus, clustersettings_prometheus.go, and the hidden metrics,
+// clustersettings_metrics.go).
 // Node Shell (the node shells' image and pull secret, clustersettings_nodeshell.go, 2026-10-13).
 // Lens's Lens Metrics page, which installs a metrics stack into the cluster, has no counterpart:
 // Cogpit installs nothing for its own features and reads what the cluster runs (D-61, owner
@@ -292,61 +293,19 @@ func (p *settingsPage) clusterTerminalSection() fyne.CanvasObject {
 }
 
 func (p *settingsPage) clusterMetricsSection() fyne.CanvasObject {
-	line := newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
-	line.truncate = true
-	p.promLine = line
-	button := widget.NewButtonWithIcon("Prometheus…", theme.SettingsIcon(), p.sh.openPrometheusSettings)
-	p.controls["prometheusButton"] = button
 	hide, hideSync := p.hideMetricsSetting() // clustersettings_metrics.go
 	source, sourceSync := p.metricsSourceSetting()
+	prom, promSync := p.prometheusSettings() // clustersettings_prometheus.go
 	p.sync = func() {
 		sourceSync()
 		hideSync()
-		v := p.clusterView()
-		switch {
-		case engine.IsDemoContext(p.shown.Context):
-			button.Disable()
-			line.SetText("The demo cluster's metrics are its own.")
-		case !v.Connected:
-			button.Disable()
-			line.SetText("Connect to this cluster to set its Prometheus.")
-		default:
-			button.Enable()
-			p.requestPrometheus()
-		}
+		promSync()
 	}
-	return container.NewVBox(
-		source,
-		p.setting("prometheus", "Prometheus", "Auto detect, or the service address namespace/service:port and a path prefix; kept in Cogpit's settings, never the kubeconfig.",
-			container.NewVBox(line, container.NewHBox(button))),
-		hide,
-	)
+	return container.NewVBox(source, prom, hide)
 }
 
-// requestPrometheus shows which Prometheus the connected cluster's metrics come from.
-func (p *settingsPage) requestPrometheus() {
-	line, ctx := p.promLine, p.shown.Context
-	if line == nil {
-		return
-	}
-	p.sh.dispatch("cluster.prometheus", struct{}{}, func(res any, err error) {
-		if p.promLine != line || p.shown.Context != ctx {
-			return
-		}
-		var set engine.PrometheusSetting
-		switch {
-		case err != nil:
-			line.SetText(err.Error())
-		case decode(res, &set) != nil:
-		case set.Auto:
-			line.SetText("Auto detect: Prometheus is found among the cluster's services by name." + queryLine(set))
-		default:
-			line.SetText("Set: " + set.Address + set.Prefix + "." + queryLine(set))
-		}
-	})
-}
-
-// metricsChanged follows a change of the metrics' providers: the Prometheus setting may be new.
+// metricsChanged follows a change of the metrics' providers: the Prometheus setting, or the one in
+// use, may be new.
 func (p *settingsPage) metricsChanged() {
 	if p.visible() && p.shown.Page == engine.SettingsCluster && p.shown.Section == engine.SectionMetrics && p.view != nil && p.view.Connected {
 		p.requestPrometheus()
