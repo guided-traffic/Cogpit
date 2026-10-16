@@ -153,8 +153,8 @@ your confirmation in Cogpit's window ([agents and MCP](../security/agents-and-mc
 **Verify.** `make test-unit-race` runs every test without a cluster; with the kind cluster up,
 `make test-kind` also runs the cluster tests (views, logs, pod shell, `kubectl` in the terminal).
 
-**Not built yet (2026-10-15):** Windows and Linux packages (the only way `cogpit-cli` is to reach them in a release, M11), the app for Intel Macs, the Homebrew cask. Updates are built, but no
-installed copy has updated yet: no release with the update key has passed notarization
+**Not built yet (2026-10-16):** Windows and Linux packages (the only way `cogpit-cli` is to reach them in a release, M11), the app for Intel Macs, the Homebrew cask. Updates work on
+macOS: the first installed copy updated from 0.15.0 to 0.16.0 on 2026-10-16
 ([Preferences › App: updates](#preferences--app-updates)). What exists and what is missing, row by
 row: [docs/parity](../parity/README.md).
 

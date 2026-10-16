@@ -8,8 +8,9 @@ and the release pipeline signs and publishes its appcast
 key on 2026-10-15 and every release since v0.11.0 is built with it; v0.14.0 to v0.16.0 passed
 notarization on 2026-10-16, and since ~06:20 UTC that day Pages serves the signed feed with 0.16.0
 and 0.15.0 (the owner approved the appcasts; checked: the feed's signature and the 0.16.0 disk
-image's EdDSA signature against the public key). No installed copy is known to have updated yet
-([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). `cogpit-cli` has no
+image's EdDSA signature against the public key). The first installed copy updated on 2026-10-16:
+the owner's, from 0.15.0 to 0.16.0, through the signed feed and Sparkle's install (a person's
+observation; [setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). `cogpit-cli` has no
 updater of its own: since 2026-10-14 it is part of the app bundle
 ([D-16](../developer/decisions.md#d-16-the-first-real-release)), so Sparkle's update replaces it
 with the app under the same checks; Windows and Linux have no updater. The other place, built 2026-10-13, is the
@@ -93,14 +94,18 @@ signed, naming the certificate the signature carries, or that the build was unsi
 The owner set up the update key on 2026-10-15 (checked with `gh` that day, ~19:00 UTC: the secret
 `SPARKLE_ED_PRIVATE_KEY` in the environment `sparkle` since 07:00 UTC, the repository variable
 `SPARKLE_PUBLIC_ED_KEY` set), and v0.11.0, v0.12.0 and v0.13.0 are built with it (the app job's
-log of v0.11.0 and v0.12.0: "Sparkle bundled with the update key"). No appcast is signed yet:
-`https://guided-traffic.github.io/cogpit/appcast.xml` served it from 2026-10-16: v0.9.0 to v0.13.0
+log of v0.11.0 and v0.12.0: "Sparkle bundled with the update key"). No appcast was signed before 2026-10-16, when
+`https://guided-traffic.github.io/cogpit/appcast.xml` first served one: v0.9.0 to v0.13.0
 got no files (Apple kept each notarization "In Progress" beyond the old job's 45 minutes, and
 v0.13.0's beyond the new job's 330 minutes: submission d72ef4b5-…, given up 2026-10-15 23:43 UTC);
 v0.14.0 to v0.16.0 passed, and the owner approved the appcasts of v0.15.0 and v0.16.0 (the feed
-holds both since ~06:20 UTC). The first update: a copy of 0.15.0 to 0.16.0. Until then no copy
-updates itself: a user learns of a new version from the release page, and the Developer ID
-signature is what Gatekeeper checks when the new copy first starts. A build without the key (a
+holds both since ~06:20 UTC). The first update went through the same morning: the owner's MacBook
+(0.15.0 installed from its disk image) updated to 0.16.0; after `defaults delete
+io.guided-traffic.cogpit SULastCheckTime` and a relaunch, the launch check found 0.16.0 at once and
+showed the Update button (Sparkle's gentle reminder), and its click handed the update to Sparkle,
+which installed it and started Cogpit again (a person's observation, not a test). Sparkle requires
+the feed's signature and the disk image's (`SURequireSignedFeed`, `SUVerifyUpdateBeforeExtraction`),
+so the update passed both checks with the key built into the app. A build without the key (a
 local `make app`; the releases with files, v0.8.0 and earlier) says "this build has no update key"
 under Preferences › App › Check for updates automatically and greys Help › Check for Updates….
 Copies installed before the first release built with the key never update themselves (no updater,
