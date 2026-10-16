@@ -60,7 +60,8 @@ func chatEngine(t *testing.T) *engine.Session {
 	return s
 }
 
-// The three toggles at the top bar's right end, in VS Code's order before the bell, drive the
+// The three toggles at the top bar's right end (the owner, 2026-10-16 night: after the bell and a
+// divider), in VS Code's order, drive the
 // engine's state and show it: the navigator hides (the views take its room, the hotbar stays) and
 // comes back, the dock collapses to its strip and opens again (its own arrow and a click on its
 // shown tab too), the chat column shows; the dock's toggle is disabled while the dock has no tabs.
@@ -69,8 +70,8 @@ func TestLayoutTogglesThroughTheEngine(t *testing.T) {
 	s := chatEngine(t)
 	sh, _, q := newEngineShell(t, s, Options{})
 	l := sh.top.layout
-	if got := l.root.Objects; len(got) != 4 || got[0] != l.updateBox || got[1] != l.navigator || got[2] != l.dock || got[3] != l.chat {
-		t.Fatalf("the layout bar holds %v, want Update, Navigator, Dock, Chat", got)
+	if got := l.toggles.Objects; len(got) != 3 || got[0] != l.navigator || got[1] != l.dock || got[2] != l.chat {
+		t.Fatalf("the layout bar holds %v, want Navigator, Dock, Chat", got)
 	}
 	q.until(t, "the toggles", func() bool {
 		return l.navigator.Visible() && l.dock.Visible() && l.chat.Visible() && !l.update.Visible() &&

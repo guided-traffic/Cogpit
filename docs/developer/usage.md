@@ -434,7 +434,7 @@ window, installed on your click ([D-4](decisions.md#d-4-packaging-and-updates));
 Updates… checks now. While "Check for updates automatically" is on (its line reads "At every start
 and every hour; a new release installs with one click"), Cogpit checks at every start and then
 every hour. A release such a check finds shows as a button at the top bar's right
-end, left of the layout toggles, not as Sparkle's window: "Update to v0.16.0" (# example: the
+end, left of the alerts pill, the bell and the layout toggles, not as Sparkle's window: "Update to v0.16.0" (# example: the
 version the feed names), "Update" when it names none or the bar has no room for the version (a
 narrow window beside a long context name); the tooltip names the version, and a click opens
 Sparkle's window with the release. The button stays until Sparkle's update session ends (the

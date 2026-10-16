@@ -40,9 +40,10 @@ func connectionText(c engine.Connection) string {
 
 // topBar is the window's top bar: the Cogpit wordmark and the build's version (F12), the history
 // arrows, the active context with its connection state (a display: the navigator's section chooses
-// a cluster, D-57) and at the right end the Update button while an update is available, the layout
-// toggles (layoutbar.go, F7) and the notifications' bell (the MCP details are the status bar's,
-// F6). On macOS it is also the window's title bar (titlebar.go): room for the window buttons
+// a cluster, D-57) and at the right: the Update button while an update is available, the alerts
+// pill (alerts.go), the notifications' bell, a divider and the layout toggles at the right end
+// (layoutbar.go, F7; their order the owner's, 2026-10-16 night; the MCP details are the status
+// bar's, F6). On macOS it is also the window's title bar (titlebar.go): room for the window buttons
 // before the logo, and a drag area under its contents.
 type topBar struct {
 	sh          *shell
@@ -53,7 +54,8 @@ type topBar struct {
 	history     *titleHistory     // the history arrows and the bar's context menu (titlehistory.go)
 	notes       *notificationsUI  // the bell and its panel (notifications.go)
 	left        *fyne.Container
-	right       *fyne.Container // the Update button, the layout toggles and the bell
+	right       *fyne.Container // the Update button, the alerts, the bell, a divider, the layout toggles
+	alerts      *alertsButton   // the alerts pill left of the bell (alerts.go), prepared without a source
 	version     *buildLabel     // the build's version right of the wordmark (buildlabel.go, F12)
 	edge        *surface        // the line under the bar, directly under it (shell.go, F11)
 	titleHeight float32         // the title bar's height the bar covers, in Fyne units; 0 without
@@ -85,7 +87,10 @@ func newTopBar(sh *shell) *topBar {
 	t.left = container.NewHBox(append(left, t.history.root, newHGap(theme.SizeNameInnerPadding), newDivider(true),
 		newHGap(theme.SizeNameInnerPadding), t.dot, t.context, t.file)...)
 	t.layout = newLayoutBar(sh)
-	t.right = container.NewHBox(t.layout.root, t.notes.bell)
+	t.alerts = newAlertsButton(sh)
+	// The divider is a short line, a line of text high (the owner: "wie so ein Zeichen |").
+	t.right = container.NewHBox(t.layout.updateBox, t.alerts, t.notes.bell, newHGap(theme.SizeNameInnerPadding),
+		box(compactLayout{}, newDivider(true)), newHGap(theme.SizeNameInnerPadding), t.layout.root)
 	// The line under the bar lies directly under it (shell.go): what the bar centres then sits
 	// midway between the window's top and the line (F11, the owner: "hängt ein wenig zu hoch"; with
 	// a box's padding between the two the line lay 4 units lower, and in the dark theme, the

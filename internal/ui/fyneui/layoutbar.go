@@ -1,11 +1,13 @@
 package fyneui
 
 import (
+	"image/color"
 	"math"
 	"runtime"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -17,7 +19,8 @@ import (
 // three layout toggles in VS Code's order: the navigator (its primary side bar), the dock (its
 // panel) and the agent chat's column (its secondary side bar). Each toggle dispatches its engine
 // command (ui.toggleNavigator ⌘B, ui.toggleDock ⌘J, chat.toggle ⌘I), so agents see and drive the
-// same state, and its icon shows whether its part is open. The bell stays at the bar's right end.
+// same state, and its icon shows whether its part is open. Since 2026-10-16 night (the owner's)
+// the toggles stand at the bar's right end, after the bell and a divider (bars.go).
 // The View menu has the three with their shortcuts (layoutMenuItems).
 
 // layoutIcon is one of the toggles' icons, Cogpit's own drawing (no VS Code asset or codicon,
@@ -56,9 +59,10 @@ type layoutBar struct {
 	update                *tipButton
 	updateBox             *fyne.Container // the Update button as a pill in the bar's middle (compactLayout)
 	navigator, dock, chat *tipButton
-	root                  *fyne.Container
-	label                 string  // the Update button's label with the version (updateLabel), shown where it fits
-	room                  float32 // the width the bar's row left for the Update button at its last layout
+	root                  fyne.CanvasObject // the toggles in their compact theme
+	toggles               *fyne.Container   // the three toggles
+	label                 string            // the Update button's label with the version (updateLabel), shown where it fits
+	room                  float32           // the width the bar's row left for the Update button at its last layout
 }
 
 // updateShort is the Update button's label without a version, and where the bar has no room for
@@ -86,7 +90,11 @@ func newLayoutBar(sh *shell) *layoutBar {
 			b.b.Hide() // a build without the command (a test fake)
 		}
 	}
-	l.root = container.NewHBox(l.updateBox, l.navigator, l.dock, l.chat)
+	// At the bar's right end (bars.go), close together: no gap between the buttons and half their
+	// inner padding, so that the icons stand a padding apart as VS Code's do (the owner,
+	// 2026-10-16 night: "können näher zusammen rücken").
+	l.toggles = container.New(layout.NewCustomPaddedHBoxLayout(0), l.navigator, l.dock, l.chat)
+	l.root = container.NewThemeOverride(l.toggles, &compactButtonTheme{app: sh.app})
 	return l
 }
 
@@ -339,4 +347,22 @@ func (sh *shell) layoutMenuItems() []*fyne.MenuItem {
 		items = append(items, item)
 	}
 	return items
+}
+
+// compactButtonTheme is the app's current theme with half the inner padding: the layout toggles'
+// buttons, close together.
+type compactButtonTheme struct{ app fyne.App }
+
+func (t *compactButtonTheme) cur() fyne.Theme { return t.app.Settings().Theme() }
+
+func (t *compactButtonTheme) Color(n fyne.ThemeColorName, v fyne.ThemeVariant) color.Color {
+	return t.cur().Color(n, v)
+}
+func (t *compactButtonTheme) Font(s fyne.TextStyle) fyne.Resource     { return t.cur().Font(s) }
+func (t *compactButtonTheme) Icon(n fyne.ThemeIconName) fyne.Resource { return t.cur().Icon(n) }
+func (t *compactButtonTheme) Size(n fyne.ThemeSizeName) float32 {
+	if n == theme.SizeNameInnerPadding {
+		return t.cur().Size(n) / 2
+	}
+	return t.cur().Size(n)
 }
