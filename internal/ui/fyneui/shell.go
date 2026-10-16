@@ -43,9 +43,12 @@ const (
 type shell struct {
 	eng  Engine
 	sess *engine.Session // the real session, for Command.Enabled; nil with test fakes
-	app  fyne.App
-	win  fyne.Window
-	opts Options
+	// orderMu guards orderTail, the end of the dispatches that run in order (dispatchInOrder).
+	orderMu   sync.Mutex
+	orderTail chan struct{}
+	app       fyne.App
+	win       fyne.Window
+	opts      Options
 	// do runs a function on the main goroutine (fyne.Do, a queue in tests); once the shell stopped,
 	// what it queued before and what arrives after is dropped (stopped).
 	do      func(func())
@@ -674,20 +677,50 @@ func (sh *shell) dispatch(id string, params any, done func(any, error)) {
 		sh.toast("error", fmt.Sprintf("%s: %v", id, err))
 		return
 	}
+	go sh.run(id, raw, done)
+}
+
+// dispatchInOrder dispatches as dispatch does, once every earlier dispatchInOrder has finished: a
+// setting changed twice in quick succession is written in the order it was changed, where two
+// goroutines could write the older value last (CI, 2026-10-16: TestHideMetricsFromTheSettings).
+func (sh *shell) dispatchInOrder(id string, params any, done func(any, error)) {
+	raw, err := json.Marshal(params)
+	if err != nil {
+		sh.toast("error", fmt.Sprintf("%s: %v", id, err))
+		return
+	}
+	sh.orderMu.Lock()
+	prev, mine := sh.orderTail, make(chan struct{})
+	sh.orderTail = mine
+	sh.orderMu.Unlock()
 	go func() {
-		defer sh.recoverTo(id)
-		res, err := sh.eng.Dispatch(sh.ctx, engine.Invocation{ID: id, Params: raw, Origin: engine.OriginGUI})
-		if done == nil && (err == nil || errors.Is(err, engine.ErrDeclined) || sh.ctx.Err() != nil) {
-			return
-		}
-		sh.do(func() {
-			if done != nil {
-				done(res, err)
+		defer close(mine)
+		if prev != nil {
+			select {
+			case <-prev:
+			case <-sh.ctx.Done():
 				return
 			}
-			sh.showError(err)
-		})
+		}
+		sh.run(id, raw, done)
 	}()
+}
+
+// run dispatches one command from the GUI and hands its result to done on the main goroutine, or
+// shows its error.
+func (sh *shell) run(id string, raw json.RawMessage, done func(any, error)) {
+	defer sh.recoverTo(id)
+	res, err := sh.eng.Dispatch(sh.ctx, engine.Invocation{ID: id, Params: raw, Origin: engine.OriginGUI})
+	if done == nil && (err == nil || errors.Is(err, engine.ErrDeclined) || sh.ctx.Err() != nil) {
+		return
+	}
+	sh.do(func() {
+		if done != nil {
+			done(res, err)
+			return
+		}
+		sh.showError(err)
+	})
 }
 
 // showError shows a dispatch error as a toast; a declined confirmation is the user's answer.

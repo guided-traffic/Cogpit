@@ -104,7 +104,7 @@ func (p *settingsPage) setCluster(name string, value any) {
 		return
 	}
 	params := map[string]any{contextParam: p.shown.Context, name: value}
-	p.sh.dispatch("cluster.settings.set", params, func(_ any, err error) { p.showResult(name, err) })
+	p.sh.dispatchInOrder("cluster.settings.set", params, func(_ any, err error) { p.showResult(name, err) })
 }
 
 // clusterSection builds one section of a cluster's Settings page.
