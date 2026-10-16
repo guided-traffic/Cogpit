@@ -38,8 +38,8 @@ func realCluster(t *testing.T) (kubeconfig, contextName string) {
 	return kubeconfig, contextName
 }
 
-// realSession connects the engine to the real cluster, its metrics tuned by opts.
-func realSession(ctx context.Context, t *testing.T, opts metrics.Options) (*engine.Session, func(id string, params any) any) {
+// realMetricsSession connects the engine to the real cluster, its metrics tuned by opts.
+func realMetricsSession(ctx context.Context, t *testing.T, opts metrics.Options) (*engine.Session, func(id string, params any) any) {
 	t.Helper()
 	kubeconfig, contextName := realCluster(t)
 	s := engine.New(engine.Options{Connector: &engine.ClusterConnector{KubeconfigPaths: []string{kubeconfig}, MetricsOptions: opts}})
@@ -72,7 +72,7 @@ func realSession(ctx context.Context, t *testing.T, opts metrics.Options) (*engi
 func TestRealClusterNodeDrawer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
-	s, dispatch := realSession(ctx, t, metrics.Options{})
+	s, dispatch := realMetricsSession(ctx, t, metrics.Options{})
 	proxy := func() int64 { return s.Diagnostics().Requests.ByVerbResource["get services/proxy"] }
 
 	dispatch("ui.openView", map[string]any{"view": "nodes"})
