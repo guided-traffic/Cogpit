@@ -435,11 +435,17 @@ jobs:
           SPARKLE_PUBLIC_ED_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
         run: make appcast-verify VERSION="${GITHUB_REF_NAME#v}"
 
+      # The site's artifact is named per run attempt: deploy-pages refuses a run that holds two
+      # artifacts of one name, and a re-run of this job (or of the whole run) uploads its site
+      # beside the earlier attempt's (v0.16.0's run, 2026-10-16).
       - name: Upload the site
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist/site/
+          name: github-pages-${{ github.run_attempt }}
 
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}

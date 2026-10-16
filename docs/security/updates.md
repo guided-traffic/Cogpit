@@ -5,10 +5,10 @@ places where Cogpit downloads code that then runs. Since 2026-10-14 the macOS ap
 and the release pipeline signs and publishes its appcast
 ([D-4](../developer/decisions.md#d-4-packaging-and-updates),
 [releasing › the appcast](../developer/releasing.md#the-appcast)); the owner set up the update
-key on 2026-10-15 and every release since v0.11.0 is built with it; v0.14.0 and v0.15.0 passed
-notarization on 2026-10-16 (53 and 7 minutes) and carry their disk images, but no signed feed is on
-Pages yet: their "Appcast (sign)" jobs wait for the owner's approval in `sparkle` (2026-10-16
-~02:00 UTC), so no copy updates itself until one is approved
+key on 2026-10-15 and every release since v0.11.0 is built with it; v0.14.0 to v0.16.0 passed
+notarization on 2026-10-16, and since ~06:20 UTC that day Pages serves the signed feed with 0.16.0
+and 0.15.0 (the owner approved the appcasts; checked: the feed's signature and the 0.16.0 disk
+image's EdDSA signature against the public key). No installed copy is known to have updated yet
 ([setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). `cogpit-cli` has no
 updater of its own: since 2026-10-14 it is part of the app bundle
 ([D-16](../developer/decisions.md#d-16-the-first-real-release)), so Sparkle's update replaces it
@@ -94,12 +94,11 @@ The owner set up the update key on 2026-10-15 (checked with `gh` that day, ~19:0
 `SPARKLE_ED_PRIVATE_KEY` in the environment `sparkle` since 07:00 UTC, the repository variable
 `SPARKLE_PUBLIC_ED_KEY` set), and v0.11.0, v0.12.0 and v0.13.0 are built with it (the app job's
 log of v0.11.0 and v0.12.0: "Sparkle bundled with the update key"). No appcast is signed yet:
-`https://guided-traffic.github.io/cogpit/appcast.xml` answers 404, because v0.9.0 to v0.13.0 got no
-files (Apple kept each notarization "In Progress" beyond the old job's 45 minutes, and v0.13.0's
-beyond the new job's 330 minutes: submission d72ef4b5-…, given up 2026-10-15 23:43 UTC), and the
-first releases that passed, v0.14.0 and v0.15.0 (2026-10-16), wait with their appcast jobs for the
-owner's approval in `sparkle`. The first appcast the owner approves starts the signed feed; the
-release after it is the first update. Until then no copy
+`https://guided-traffic.github.io/cogpit/appcast.xml` served it from 2026-10-16: v0.9.0 to v0.13.0
+got no files (Apple kept each notarization "In Progress" beyond the old job's 45 minutes, and
+v0.13.0's beyond the new job's 330 minutes: submission d72ef4b5-…, given up 2026-10-15 23:43 UTC);
+v0.14.0 to v0.16.0 passed, and the owner approved the appcasts of v0.15.0 and v0.16.0 (the feed
+holds both since ~06:20 UTC). The first update: a copy of 0.15.0 to 0.16.0. Until then no copy
 updates itself: a user learns of a new version from the release page, and the Developer ID
 signature is what Gatekeeper checks when the new copy first starts. A build without the key (a
 local `make app`; the releases with files, v0.8.0 and earlier) says "this build has no update key"
@@ -137,7 +136,7 @@ another owner, moves the feed: the copies installed before stop finding updates,
 error the user sees, and only a manual download brings them back. Dormant until a release built
 with the update key has files to install (the environment `sparkle`, Pages and the key set up
 2026-10-15; every release since v0.11.0 is built with the key: v0.11.0 to v0.13.0 have no files,
-v0.14.0 and v0.15.0 have theirs since 2026-10-16 and their appcasts wait for the owner's approval).
+v0.14.0 to v0.16.0 have theirs since 2026-10-16, the signed feed serves 0.16.0 and 0.15.0).
 What bounds it: nothing in the code; the rename is a GitHub setting. A custom domain for Pages, or
 a redirect page at the old path, would keep the URL stable; neither is set up.
 

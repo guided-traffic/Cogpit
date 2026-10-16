@@ -26,7 +26,7 @@ version by version, and `kubectl` from `PATH`. Cogpit ships for macOS first; Win
 ([D-7](../developer/decisions.md#d-7-language-and-platforms)). Remaining (estimated, from the gap
 entries): the universal macOS app, the cask, an SBOM, signed checksums and the first proven update
 ([G14](gaps.md#g14-packaging-signing-and-updates-macos); the Developer ID signature, the disk image
-and the notarization proven by v0.6.0 to v0.8.0, and by v0.14.0 and v0.15.0 on 2026-10-16, the first releases with the update key that have files), Windows and Linux ([G22](gaps.md#g22-windows-and-linux),
+and the notarization proven by v0.6.0 to v0.8.0, and by v0.14.0 to v0.16.0 on 2026-10-16, the first releases with the update key that have files; the signed feed served with 0.16.0 and 0.15.0 since that morning), Windows and Linux ([G22](gaps.md#g22-windows-and-linux),
 with Windows signing material a human must provide) and authentication
 ([G2](gaps.md#g2-cluster-connection-and-authentication); the cloud providers' plugins out of scope
 until long after parity).
