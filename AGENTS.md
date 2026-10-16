@@ -8,22 +8,26 @@ The product name is always written **Cogpit** in user-facing text; machine names
 (module `github.com/guided-traffic/cogpit`, binaries `cogpit` and `cogpit-cli`). Read this file
 first, then `docs/`.
 
-**State on 2026-10-15:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
-runs on macOS, extended by ten further implementation runs (2026-10-11 to 2026-10-15, night runs
+**State on 2026-10-16:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
+runs on macOS, extended by twelve further implementation runs (2026-10-11 to 2026-10-16, night runs
 and day runs): 46 built-in views and the custom resource views from the cache, the cluster Overview,
-the detail drawer and row menus, the hotbar, the navigator with its sections, a tab bar, the
-command palette, Preferences and Cluster settings, a welcome page, YAML editing with drafts, the
-create dialogs, row selection, Delete of a selection and copy icons in the lists, node and workload actions with a
-crash-safe drain, Helm install from the repositories of Helm's own `repositories.yaml` (credentials included), upgrade, rollback and uninstall (Secrets and
-ConfigMaps drivers), kubeconfig sources with approved credential plugins, metrics from the Metrics
-Server and Prometheus together, logs, a terminal with a verified kubectl download, pod shells,
+the detail drawer (a Config Map's and a Secret's values and keys edited in it) and row menus, the
+hotbar, the navigator with its sections, a tab bar, the command palette, Preferences and Cluster
+settings, a welcome page, YAML editing with drafts, the create dialogs, row selection (each view
+keeps its own), Delete of a selection and copy icons in the lists, node and workload actions with a
+crash-safe drain as a background job, Helm install from the repositories of Helm's own `repositories.yaml` (credentials included), upgrade, rollback and uninstall (Secrets and
+ConfigMaps drivers), kubeconfig sources with approved credential plugins, **several clusters
+connected at once with one shown** (D-69), standby and lost connections with a connection log on
+disk, the logged-in user from a SelfSubjectReview, metrics read from the Metrics Server and the
+Prometheus a cluster runs (Cogpit installs nothing into a cluster for its own features), logs, a
+terminal with a verified kubectl download, pod shells,
 `cogpit-cli` with an MCP stdio bridge, Flux CD and Argo CD sections, a node shell, a built-in agent chat
 on OpenAI-compatible endpoints (local models first), CI on every push, releases
-with a signed, notarized disk image and Sparkle 2 (the owner's update key in the releases since v0.11.0; no
-signed appcast until the first of them passes notarization), and MCP
+with a signed, notarized disk image in the window the owner chose and Sparkle 2 updates through a
+signed feed (the first installed copy updated on 2026-10-16; v0.19.0 the newest that day), and MCP
 control of all of it; it doubled
 as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
-What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-15). The documentation method, and parts of
+What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-16). The documentation method, and parts of
 this file, come from [PhotoCraft](https://github.com/storytold/photocraft)
 ([attribution](ATTRIBUTION.md)).
 
