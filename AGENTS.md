@@ -9,11 +9,11 @@ The product name is always written **Cogpit** in user-facing text; machine names
 first, then `docs/`.
 
 **State on 2026-10-17:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
-runs on macOS, extended by thirteen further implementation runs (2026-10-11 to the night of
-2026-10-16/17, night runs and day runs): 46 built-in views and the custom resource views from the cache, the cluster Overview,
-the detail drawer (a Config Map's and a Secret's values and keys edited in it) and row menus, the
-hotbar, the navigator with its sections, a tab bar, the command palette, Preferences and Cluster
-settings, a welcome page, YAML editing with drafts, the create dialogs, row selection (each view
+runs on macOS, extended by fourteen further implementation runs (2026-10-11 to the evening of
+2026-10-17, night runs and day runs): 46 built-in views and the custom resource views from the cache, the cluster Overview,
+the detail drawer (a Config Map's and a Secret's values and keys edited in it) and row menus, one
+hotbar that scrolls and whose tiles are dragged live (D-83), the navigator with its sections, a tab bar, the command palette, Preferences and Cluster
+settings, a welcome page, YAML editing with drafts and undo (D-84), the create dialogs, row selection (each view
 keeps its own), Delete of a selection and copy icons in the lists, node and workload actions with a
 crash-safe drain as a background job, Helm install from the repositories of Helm's own `repositories.yaml` (credentials included), upgrade, rollback and uninstall (Secrets and
 ConfigMaps drivers), kubeconfig sources with approved credential plugins (a login that waits
@@ -26,11 +26,12 @@ terminal with a verified kubectl download, pod shells,
 `cogpit-cli` with an MCP stdio bridge, Flux CD and Argo CD sections, a node shell, a built-in agent chat
 on OpenAI-compatible endpoints (local models first), CI on every push, releases
 with a signed, notarized disk image in the window the owner chose and Sparkle 2 updates through a
-signed feed, checked at every start (the first installed copy updated on 2026-10-16; v0.22.1 the
-newest, released 2026-10-17), **integrations per cluster** (2026-10-17, D-76 to D-79: the Metrics
+signed feed, checked at every start (the first installed copy updated on 2026-10-16; v0.24.0 the
+newest, released 2026-10-17 evening with the owner's walk findings WF1–WF10), **integrations per cluster** (2026-10-17, D-76 to D-79: the Metrics
 Server and Prometheus, Alertmanager with the title bar's alerts pill and an alert board, the Trivy
 Operator's image ratings of the pods, Kyverno's policy violations on the objects; each switched on or
-off in Cluster Settings › Integrations, a new cluster asks), a Reconnect that keeps the tabs and a
+off in Cluster Settings › Integrations, a new cluster asks first and nothing is looked for before
+the answer, D-82), a Reconnect that keeps the tabs and a
 Log in again that takes a renewed certificate from the kubeconfig file (D-81), and MCP control of all of it (M9 done: an external agent's triage and change
 workflows over MCP on kind); it doubled
 as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
