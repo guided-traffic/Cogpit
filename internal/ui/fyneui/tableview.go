@@ -3,6 +3,7 @@ package fyneui
 import (
 	"image/color"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1319,6 +1320,7 @@ func (c *tableCell) apply() {
 	}
 	c.setIcon(c.tv.cellIcon(c.content, c.checked))
 	c.fit(th)
+	c.colourMore(th)
 	c.placeBar(th) // the table updates a reused cell without laying it out: the share and bar move here
 	c.bg.Refresh()
 	c.text.Refresh()
@@ -1374,13 +1376,10 @@ func (c *tableCell) fit(th fyne.Theme) bool {
 		return changed
 	}
 	if c.content.marks != nil {
-		size, gap := markSize(th)
-		n := len(*c.content.marks)
-		c.shown = min(n, int((avail+gap)/(size+gap)))
-		c.truncated = c.shown < n
+		more := c.fitMarks(th, avail)
 		c.hideMore(0)
-		changed := c.text.Text != ""
-		c.text.Text = ""
+		changed := c.text.Text != more
+		c.text.Text = more
 		return changed
 	}
 	c.shown = 0
@@ -1418,6 +1417,48 @@ func (c *tableCell) fit(th fyne.Theme) bool {
 	}
 	c.hideMore(len(parts) - 1)
 	return true
+}
+
+// fitMarks decides how many of the cell's squares show in avail and returns the text after them:
+// "+N" for the N that do not fit, empty when all do (the owner's F24 of 2026-10-17: a pod with more
+// containers than the column is wide must not look as if the few shown were all it has). The
+// squares give way until the count fits beside them; apply colours the count by the hidden
+// containers' gravest state (moreStatus), so that "+1" in the Running colour tells a running
+// container behind finished init containers.
+func (c *tableCell) fitMarks(th fyne.Theme, avail float32) string {
+	size, gap := markSize(th)
+	marks := *c.content.marks
+	n := len(marks)
+	c.shown = max(0, min(n, int((avail+gap)/(size+gap)))) // a cell not laid out yet has no room
+	c.truncated = c.shown < n
+	if !c.truncated {
+		return ""
+	}
+	for c.shown > 0 && float32(c.shown)*(size+gap)+fyne.MeasureText("+"+strconv.Itoa(n-c.shown), c.text.TextSize, c.text.TextStyle).Width > avail {
+		c.shown--
+	}
+	return "+" + strconv.Itoa(n-c.shown)
+}
+
+// colourMore colours the "+N" of a cell whose squares do not all fit (fitMarks) by the hidden
+// containers' gravest state.
+func (c *tableCell) colourMore(th fyne.Theme) {
+	if c.content.marks != nil && c.content.kind == cellText && c.truncated {
+		c.text.Color = themeColor(th, markColorName(moreStatus((*c.content.marks)[c.shown:])))
+	}
+}
+
+// moreStatus is the gravest state among hidden squares: an error, a warning, one waiting, one
+// running, else stopped.
+func moreStatus(hidden []model.CellMark) model.Status {
+	rank := map[model.Status]int{model.StatusError: 5, model.StatusWarning: 4, model.StatusPending: 3, model.StatusOK: 2, model.StatusStopped: 1}
+	best := model.StatusStopped
+	for _, m := range hidden {
+		if rank[m.Status] > rank[best] {
+			best = m.Status
+		}
+	}
+	return best
 }
 
 // hideMore empties the part texts from index n on.
@@ -1471,6 +1512,7 @@ func (r *tableCellRenderer) Layout(size fyne.Size) {
 		c.ring.Resize(fyne.NewSize(size.Width+gap, size.Height+gap))
 	}
 	if c.fit(th) {
+		c.colourMore(th)
 		c.text.Refresh() // a column resize shortened or lengthened the text
 		for _, t := range c.more {
 			t.Refresh()
@@ -1479,7 +1521,12 @@ func (r *tableCellRenderer) Layout(size fyne.Size) {
 	pad := th.Size(sizeCellPadding)
 	ts := c.text.MinSize()
 	y := (size.Height - ts.Height) / 2
-	c.text.Move(fyne.NewPos(c.layoutBar(th, size, pad, ts.Width), y))
+	x := c.layoutBar(th, size, pad, ts.Width)
+	if c.content.marks != nil && c.content.kind == cellText {
+		ms, mg := markSize(th)
+		x = pad + float32(c.shown)*(ms+mg) // the count of the squares that do not fit, after the shown (fitMarks)
+	}
+	c.text.Move(fyne.NewPos(x, y))
 	c.text.Resize(ts)
 	for i, t := range c.more {
 		if i+1 < len(c.runX) && t.Text != "" {

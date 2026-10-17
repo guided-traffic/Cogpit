@@ -129,10 +129,10 @@ func containersCell(obj any, s podSummary) model.Cell {
 
 // containerMarks are the squares of a pod's Containers cell, one per container in the order the
 // spec lists them, init containers first, as Lens draws them (owner, 2026-10-12): a running
-// container in the Running colour, a stopped one grey (a finished init container too), one that
-// waits in the pending colour, or red when it waits on an error (CrashLoopBackOff,
-// ImagePullBackOff). A container without a status yet waits. Each mark names its container and
-// state for the tooltip.
+// container in the Running colour, or orange while it is not ready (the owner's F23 of
+// 2026-10-17), a stopped one grey (a finished init container too), one that waits in the pending
+// colour, or red when it waits on an error (CrashLoopBackOff, ImagePullBackOff). A container
+// without a status yet waits. Each mark names its container and state for the tooltip.
 func containerMarks(obj any) *[]model.CellMark {
 	var out []model.CellMark
 	for _, group := range [][2]string{{fieldInitContainers, "initContainerStatuses"}, {"containers", "containerStatuses"}} {
@@ -143,7 +143,11 @@ func containerMarks(obj any) *[]model.CellMark {
 		}
 		for _, spec := range specs {
 			name := model.NestedString(spec, "name")
-			out = append(out, containerMark(name, byName(statuses, name)))
+			// A plain init container is never ready while it runs (Kubernetes marks it ready when it
+			// has finished): readiness is asked of the pod's containers and of sidecars only, init
+			// containers that keep running (restartPolicy Always).
+			readiness := group[0] != fieldInitContainers || model.NestedString(spec, "restartPolicy") == "Always"
+			out = append(out, containerMark(name, byName(statuses, name), readiness))
 		}
 	}
 	if len(out) == 0 {
@@ -152,17 +156,17 @@ func containerMarks(obj any) *[]model.CellMark {
 	return &out
 }
 
-// containerMark is one container's square: its colour and what the tooltip says about it.
-func containerMark(name string, status any) model.CellMark {
+// containerMark is one container's square: its colour and what the tooltip says about it. A
+// running container whose readiness counts (readiness) is a warning while it is not ready.
+func containerMark(name string, status any, readiness bool) model.CellMark {
 	switch {
 	case status == nil:
 		return model.CellMark{Text: name + ": waiting to start", Status: model.StatusPending}
 	case model.NestedMap(status, "state", "running") != nil:
-		text := name + ": running"
-		if ready, _ := model.NestedBool(status, "ready"); !ready {
-			text += ", not ready"
+		if ready, _ := model.NestedBool(status, "ready"); !ready && readiness {
+			return model.CellMark{Text: name + ": running, not ready", Status: model.StatusWarning}
 		}
-		return model.CellMark{Text: text, Status: model.StatusOK}
+		return model.CellMark{Text: name + ": running", Status: model.StatusOK}
 	}
 	if term := model.NestedMap(status, "state", "terminated"); term != nil {
 		reason := model.NestedString(term, "reason")
