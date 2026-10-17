@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -21,13 +22,18 @@ import (
 // nothing: it reads the reports a running Trivy Operator wrote.
 //
 // While the integration is on for a connected cluster that serves the reports' kind (its custom
-// resource definition, through the custom kinds watch), the cluster's backend holds one handle on
-// the reports (trivyReads, started and stopped by the follower below, as the UI state changes), read
-// as an open page reads its kinds: in all namespaces, or in each namespace the user named for a
-// user who may not list them everywhere, and nothing while the access reviews have not said which
-// (acquireForPage, accessiblens_pages.go). The index over them is built from the cache on the first
-// lookup after a change and maps a workload and a container to the report's summary. Switched off,
-// the handle goes back: no request, no drawer section, nothing in ui_state.
+// resource definition, through the custom kinds watch), the integration's follower puts its overlay
+// on the backend (trivySource, overlay.go) and takes it off when the integration is switched off.
+// The overlay holds one handle on the reports, read as their namespace plan says (in all
+// namespaces, or in each namespace the user named for a user who may not list them everywhere;
+// nothing while the access reviews have not said which), in a trimmed scope (cache.Scope.Trim): the
+// cache keeps each report without its vulnerability list (trimVulnerabilityReport), while the
+// reports' own view, YAML and editor read the untrimmed scope and keep them whole. The index over
+// them is built from the cache on the first lookup after a change and maps a workload and a
+// container to the report's summary; a change of the reports tells the overlays, coalesced, which
+// wakes the open view and drawer. The overlay gives the Pods list its column "Image Rating" (the
+// worst rating of a pod's images) and a pod's drawer its "Image Ratings". Switched off: no overlay,
+// so no column, no section and no read.
 //
 // A pod's reports are its controller's, as Trivy Operator resolves a pod's workload (its
 // ReportOwner, read in its source and seen on kind 2026-10-17): a ReplicaSet's (a Deployment's
@@ -37,16 +43,24 @@ import (
 // ("<cronjob>-<scheduled minute>"), after the Job's own reports: the lead's decision (2026-10-17),
 // so that a pod costs no read of its Job (the Jobs are not watched for it); a Job made by hand from
 // a CronJob under another name has no rating.
-//
-// What Phase 2 adds (D-78): the Pods list's column, the worst rating of a pod's images, and an
-// informer transform that keeps only each report's summary in the cache (the vulnerability lists
-// are the reports' weight: 186 KB of JSON for nginx:1.16.1's 363, measured on kind).
 
 // trivyReportsKind is the kind key of Trivy Operator's vulnerability reports.
 const trivyReportsKind = "vulnerabilityreports.aquasecurity.github.io"
 
 // trivyNotServed is the Trivy integration's detail on a cluster without the reports' kind.
 const trivyNotServed = "Trivy Operator's reports are not served"
+
+// trivyTrim names the trim of the reports' scope (cache.RegisterTrim).
+const trivyTrim = "trivy-summary"
+
+// trivyColumnID is the Pods list's column of the worst image rating, its title, its width and the
+// column it shows after.
+const (
+	trivyColumnID    = "imageRating"
+	trivyColumnTitle = "Image Rating"
+	trivyColumnWidth = 96
+	trivyColumnAfter = specContainers // the Containers column: the images' rating beside their squares
+)
 
 // The workload kinds a report names that a pod's lookup picks itself, and a pod spec's container lists.
 const (
@@ -58,72 +72,42 @@ const (
 )
 
 func init() {
+	cache.RegisterTrim(trivyTrim, trimVulnerabilityReport)
 	integrationProbes[IntegrationTrivy] = probeTrivy
 	integrationFollowers = append(integrationFollowers, followTrivy)
 }
 
-// trivyReads is a backend's read of Trivy Operator's reports: the index while the integration is
-// on, nil otherwise. The backend's close stops it.
-type trivyReads struct {
-	mu     sync.Mutex
-	ix     *trivyIndex
-	closed bool
-}
-
-// current returns the running index, or nil.
-func (t *trivyReads) current() *trivyIndex {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.ix
-}
-
-// stop ends the index for good: the backend closes.
-func (t *trivyReads) stop() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.closed = true
-	if t.ix != nil {
-		t.ix.stop()
-		t.ix = nil
+// trimVulnerabilityReport keeps what the integration reads of a report: everything but its
+// vulnerability list (report.vulnerabilities), which is 95 % of a report's weight (D-78, measured
+// on kind). Metadata, the artifact, the registry, the summary and the scan's time stay.
+func trimVulnerabilityReport(u *unstructured.Unstructured) {
+	if report, ok := u.Object["report"].(map[string]any); ok {
+		delete(report, "vulnerabilities")
 	}
 }
 
-// follow starts the index (want, read as key says), starts it again when key changed, or stops it;
-// it reports whether it did any of that.
-func (t *trivyReads) follow(s *Session, b *Backend, p *model.KindProfile, want bool, key string) bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.closed || (t.ix == nil && !want) || (t.ix != nil && want && t.ix.key == key) {
-		return false
-	}
-	if t.ix != nil {
-		t.ix.stop()
-		t.ix = nil
-	}
-	if want {
-		t.ix = startTrivyIndex(s, b, p, key)
-	}
-	return true
-}
-
-// followTrivy is the Trivy integration's follower: it reads the reports of a connected cluster
-// while the integration is on and the cluster serves them, as their namespace plan says, and stops
-// when either ends. It runs while the engine reconciles (state.mu held): it does not wait.
+// followTrivy is the Trivy integration's follower: it puts the overlay on a connected cluster while
+// the integration is on and the cluster serves the reports, puts a new one when the reports' kind
+// or namespace plan changes, and takes it off when either ends. It runs while the engine reconciles
+// (state.mu held): it does not wait.
 func followTrivy(st *state, b *Backend, now UIState) {
 	if b == nil || b.Cache == nil {
 		return
 	}
+	cur, _ := overlayOf[*trivySource](b)
 	p, served := b.Profile(trivyReportsKind)
 	want := served && p.Namespaced && now.IntegrationOn(b.Context, IntegrationTrivy)
 	key := ""
 	if want {
-		key = p.GVR().String() + "|" + b.pageReadKey([]string{trivyReportsKind}, false)
+		key = p.GVR().String() + "=" + b.namespacePlan(p).key()
 	}
-	if !b.trivy.follow(st.s, b, p, want, key) {
+	switch {
+	case cur == nil && !want, cur != nil && cur.key == key:
 		return
-	}
-	if d := st.drawer; d != nil && d.backend == b && isPodsKind(d.profile) {
-		signal(d.wake) // its image ratings come or go
+	case want:
+		b.overlays.put(IntegrationTrivy, startTrivy(st.s, b, p, key))
+	default:
+		b.overlays.put(IntegrationTrivy, nil)
 	}
 	ctx := b.Context
 	st.s.goSafe("trivy integration", func() { st.s.integrationsChanged(ctx) })
@@ -137,13 +121,15 @@ func isPodsKind(p *model.KindProfile) bool {
 // trivyWorkload names the workload a report is of: its namespace, kind and name.
 type trivyWorkload struct{ namespace, kind, name string }
 
-// trivyIndex is one read of the reports and the index over them.
-type trivyIndex struct {
+// trivySource is the integration's read of the reports on one cluster and the index over them; it
+// is the backend's Trivy overlay while the integration is on.
+type trivySource struct {
 	s       *Session
 	b       *Backend
-	key     string // how it reads them (followTrivy): another key starts it again
+	p       *model.KindProfile
+	key     string // what it reads (followTrivy): another key puts a new overlay
+	plan    nsPlan
 	h       *cache.Handle
-	pending bool // the reports' namespace plan was pending: h holds nothing until it is decided
 	unsub   func()
 	wake    chan struct{}
 	quit    chan struct{}
@@ -182,65 +168,160 @@ func newTrivyReportIndex(objs []*unstructured.Unstructured) (trivyReportIndex, i
 	return idx, count
 }
 
-func startTrivyIndex(s *Session, b *Backend, p *model.KindProfile, key string) *trivyIndex {
-	ix := &trivyIndex{
-		s: s, b: b, key: key, h: b.acquireForPage(p), pending: b.namespacePlan(p).pending,
-		wake: make(chan struct{}, 1), quit: make(chan struct{}),
+// startTrivy acquires the reports' trimmed scope as their plan says and starts the loop that tells
+// the overlays of changes.
+func startTrivy(s *Session, b *Backend, p *model.KindProfile, key string) *trivySource {
+	t := &trivySource{s: s, b: b, p: p, key: key, plan: b.namespacePlan(p),
+		wake: make(chan struct{}, 1), quit: make(chan struct{})}
+	sc := b.Scope(p)
+	sc.Trim = trivyTrim
+	switch {
+	case t.plan.pending: // the access reviews have not said whether the user may list them everywhere
+		t.h = cache.Pending(sc)
+	case t.plan.perNamespace:
+		t.h = b.Cache.AcquireNamespaces(sc, t.plan.watch)
+	default:
+		t.h = b.Cache.Acquire(sc)
 	}
-	ix.unsub = ix.h.Subscribe(func(cache.Event) {
-		ix.gen.Add(1)
-		signal(ix.wake)
+	t.unsub = t.h.Subscribe(func(cache.Event) {
+		t.gen.Add(1)
+		signal(t.wake)
 	})
-	settled := ix.settled()
-	poll := func() bool { return ix.settled() != settled }
-	s.goSafe("trivy reports", func() {
-		runCoalesced(ix.quit, ix.wake, s.opts.SnapshotInterval, poll, func() {
-			if ix.stopped.Load() {
-				return
-			}
-			s.wakePodDrawer(b) // the open pod's ratings may have changed
-			if now := ix.settled(); now != settled {
-				settled = now
-				s.integrationsChanged(b.Context) // the reports were listed, or refused
-			}
-		})
+	s.goSafe("trivy reports "+b.Context, t.run)
+	return t
+}
+
+// run tells the overlays, at most once per snapshot interval, that the reports changed (the open
+// view's ratings and the drawer's sections follow), the settings page when what the integration
+// knows changed (the reports listed, a refusal), and the session when a plan that was pending is
+// decided (the follower then reads as it says), until the overlay stops.
+func (t *trivySource) run() {
+	settled, replanned := t.settled(), false
+	poll := func() bool {
+		return t.settled() != settled || (!replanned && t.planSettled())
+	}
+	runCoalesced(t.quit, t.wake, t.s.opts.SnapshotInterval, poll, func() {
+		if t.stopped.Load() {
+			return
+		}
+		t.b.overlays.changed()
+		if now := t.settled(); now != settled {
+			settled = now
+			t.s.integrationsChanged(t.b.Context)
+		}
+		if !replanned && t.planSettled() {
+			replanned = true
+			t.b.ns.wakeReplan()
+		}
 	})
-	return ix
 }
 
 // settled is what the integration's state reads of the handle: synced, and its error.
-func (ix *trivyIndex) settled() string {
-	return fmt.Sprint(ix.h.HasSynced(), errText(ix.h.Err()))
+func (t *trivySource) settled() string {
+	return fmt.Sprint(t.h.HasSynced(), errText(t.h.Err()))
 }
 
-func (ix *trivyIndex) stop() {
-	if !ix.stopped.CompareAndSwap(false, true) {
+// planSettled reports whether the read started while its plan was pending and the plan is decided now.
+func (t *trivySource) planSettled() bool {
+	return t.plan.pending && !t.b.namespacePlan(t.p).pending
+}
+
+func (t *trivySource) stop() {
+	if !t.stopped.CompareAndSwap(false, true) {
 		return
 	}
-	close(ix.quit)
-	ix.unsub()
-	ix.h.Release()
+	close(t.quit)
+	t.unsub()
+	t.h.Release()
 }
 
 // synced reports whether the reports' initial list is done.
-func (ix *trivyIndex) synced() bool { return ix != nil && ix.h.HasSynced() }
+func (t *trivySource) synced() bool { return t != nil && t.h.HasSynced() }
+
+// waitSynced waits, bounded by ctx, until the reports listed or were refused: an agent's read sees
+// what a connect just started to read.
+func (t *trivySource) waitSynced(ctx context.Context) {
+	if t.plan.pending {
+		return
+	}
+	for !t.h.HasSynced() && !cache.IsRefused(t.h.Err()) && ctx.Err() == nil && !t.stopped.Load() {
+		select {
+		case <-ctx.Done():
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
 
 // index returns the index, built from the cache first when the reports changed since.
-func (ix *trivyIndex) index() (trivyReportIndex, int) {
-	ix.mu.Lock()
-	defer ix.mu.Unlock()
-	gen := ix.gen.Load() // before the list: an event during the build builds it again next time
-	if ix.idx == nil || ix.built != gen {
-		ix.idx, ix.count = newTrivyReportIndex(ix.h.List())
-		ix.built = gen
+func (t *trivySource) index() (trivyReportIndex, int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	gen := t.gen.Load() // before the list: an event during the build builds it again next time
+	if t.idx == nil || t.built != gen {
+		t.idx, t.count = newTrivyReportIndex(t.h.List())
+		t.built = gen
 	}
-	return ix.idx, ix.count
+	return t.idx, t.count
 }
 
 // reports returns how many reports the index holds.
-func (ix *trivyIndex) reports() int {
-	_, n := ix.index()
+func (t *trivySource) reports() int {
+	_, n := t.index()
 	return n
+}
+
+// columns: the Pods list's "Image Rating", shown after Containers, while the overlay is on (also
+// while no pod has a rating yet: a column that comes and goes with the reports would move the
+// columns after it). Other kinds get none.
+func (t *trivySource) columns(p *model.KindProfile) []overlayColumn {
+	if !isPodsKind(p) {
+		return nil
+	}
+	return []overlayColumn{{
+		Column: model.Column{ID: trivyColumnID, Title: trivyColumnTitle, Type: model.ColumnRank, Width: trivyColumnWidth},
+		After:  trivyColumnAfter,
+	}}
+}
+
+// cell is a pod's worst image rating ("Critical · 39"), sorted by the rating, then the count; none
+// while the reports list or when none of its images has a report.
+func (t *trivySource) cell(p *model.KindProfile, column string, obj *unstructured.Unstructured) (model.Cell, bool) {
+	if column != trivyColumnID || !isPodsKind(p) || !t.synced() {
+		return model.Cell{}, false
+	}
+	idx, _ := t.index()
+	worst, ok := worstImage(idx.podImages(obj))
+	if !ok {
+		return model.Cell{}, false
+	}
+	r, c := worst.rating()
+	return model.Cell{Text: model.RatingText(r, c), Status: r.Status(), Num: model.RatingRank(r, c)}, true
+}
+
+// worstImage returns the image of the worst rating among those with a report (by rating, then the
+// count of that severity); ok is false when none has one.
+func worstImage(images []podImage) (podImage, bool) {
+	var worst podImage
+	found := false
+	for _, im := range images {
+		if im.report == nil {
+			continue
+		}
+		r, c := im.rating()
+		if !found || model.RatingRank(r, c) > model.RatingRank(worst.rating()) {
+			worst, found = im, true
+		}
+	}
+	return worst, found
+}
+
+// sections: a pod's "Image Ratings" (imageRatingSections).
+func (t *trivySource) sections(p *model.KindProfile, obj *unstructured.Unstructured, f model.TimeFormat) []model.DetailSection {
+	if !isPodsKind(p) || obj == nil || !t.synced() {
+		return nil
+	}
+	idx, _ := t.index()
+	return f.WriteSections(imageRatingSections(idx.podImages(obj), t.s.displayNow()))
 }
 
 // trivyWorkloadsOf returns the workloads whose reports hold a pod's containers, in the order to
@@ -350,41 +431,15 @@ func (idx trivyReportIndex) podImages(pod *unstructured.Unstructured) []podImage
 }
 
 func worseReport(a, b model.VulnerabilityReport) bool {
-	ra, rb := a.Counts.Rating(), b.Counts.Rating()
+	ra, rb := model.RatingRank(a.Counts.Rating(), a.Counts), model.RatingRank(b.Counts.Rating(), b.Counts)
 	if ra != rb {
 		return ra > rb
 	}
 	return a.Scanned.After(b.Scanned)
 }
 
-// trivyIndexOf returns a context's index when the integration is on and its reports are listed,
-// else nil: then nothing of it shows.
-func (s *Session) trivyIndexOf(b *Backend) *trivyIndex {
-	if b == nil {
-		return nil
-	}
-	if u := s.UIState(); !u.IntegrationOn(b.Context, IntegrationTrivy) {
-		return nil
-	}
-	if ix := b.trivy.current(); ix.synced() {
-		return ix
-	}
-	return nil
-}
-
-// wakePodDrawer has the open drawer read its model again when it shows a pod of b.
-func (s *Session) wakePodDrawer(b *Backend) {
-	st := s.state
-	st.mu.Lock()
-	d := st.drawer
-	st.mu.Unlock()
-	if d != nil && d.backend == b && isPodsKind(d.profile) {
-		signal(d.wake)
-	}
-}
-
 // probeTrivy is the Trivy integration's probe: whether the cluster serves the reports' kind (the
-// custom kinds), and what the index's read of them met. It sends nothing.
+// custom kinds), and what the overlay's read of them met. It sends nothing.
 func probeTrivy(_ *Session, b *Backend, on bool) (IntegrationState, string, string) {
 	if !on {
 		return IntegrationOff, "", ""
@@ -408,23 +463,23 @@ func probeTrivy(_ *Session, b *Backend, on bool) (IntegrationState, string, stri
 		return IntegrationMissing, "", trivyNotServed
 	}
 	where := p.Group + "/" + p.Version
-	ix := b.trivy.current()
-	if ix == nil {
+	t, _ := overlayOf[*trivySource](b)
+	if t == nil {
 		return IntegrationChecking, where, ""
 	}
-	err := ix.h.Err()
+	err := t.h.Err()
 	switch {
-	case cache.IsRefused(err):
+	case refusedAll(t.h):
 		return IntegrationForbidden, where, "list " + trivyReportsKind
-	case ix.h.HasSynced():
-		n := ix.reports()
+	case t.h.HasSynced():
+		n := t.reports()
 		if n == 1 {
 			return IntegrationFound, where, "1 vulnerability report"
 		}
 		return IntegrationFound, where, fmt.Sprintf("%d vulnerability reports", n)
 	case err != nil:
 		return IntegrationUnavailable, where, errText(err)
-	case ix.pending:
+	case t.plan.pending:
 		return IntegrationChecking, where, "waiting for the access reviews"
 	}
 	return IntegrationChecking, where, ""
@@ -437,27 +492,13 @@ func probeTrivy(_ *Session, b *Backend, on bool) (IntegrationState, string, stri
 // images has a report gets no section (the owner's "wenn verfügbar": a namespace Trivy Operator
 // does not scan, a scan not done yet), and neither does a pod while the integration is off, the
 // cluster does not serve the reports, or they are still being listed. The lead's decisions
-// (2026-10-17).
+// (2026-10-17). The sections come through the overlay (trivySource.sections), after the kind's own.
 
 // groupImageRatings is the drawer's group heading of the image sections.
 const groupImageRatings = "Image Ratings"
 
-// imageRatings adds a pod's image sections to its drawer model, from the index alone.
-func (s *Session) imageRatings(b *Backend, p *model.KindProfile, obj *unstructured.Unstructured, m *DetailModel) {
-	if !isPodsKind(p) || obj == nil {
-		return
-	}
-	ix := s.trivyIndexOf(b)
-	if ix == nil {
-		return
-	}
-	idx, _ := ix.index()
-	secs := imageRatingSections(idx.podImages(obj), s.displayNow())
-	m.Sections = append(m.Sections, s.TimeFormat().WriteSections(secs)...)
-}
-
 // PodImageRatings returns a pod's "Image Ratings" sections from Trivy Operator's report objects, as
-// the session builds them from its index, with absolute times in ISO 8601 in now's zone (as
+// the overlay builds them from its index, with absolute times in ISO 8601 in now's zone (as
 // BuildDetail writes them): the drawer's content without the cache, for tests of the UI.
 func PodImageRatings(pod *unstructured.Unstructured, reports []*unstructured.Unstructured, now time.Time) []model.DetailSection {
 	idx, _ := newTrivyReportIndex(reports)

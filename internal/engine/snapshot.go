@@ -400,7 +400,8 @@ func compareRows(a, b *model.Row, ci int, typ model.ColumnType, desc bool) int {
 	}
 	if !ea {
 		var c int
-		if typ == model.ColumnNumber || typ == model.ColumnAge || typ == model.ColumnUntil || typ == model.ColumnTime || typ == model.ColumnWarning || typ == model.ColumnMetric {
+		if typ == model.ColumnNumber || typ == model.ColumnAge || typ == model.ColumnUntil || typ == model.ColumnTime || typ == model.ColumnWarning ||
+			typ == model.ColumnMetric || typ == model.ColumnRank {
 			c = cmp.Compare(ca.Num, cb.Num)
 		} else {
 			c = compareFold(ca.Text, cb.Text)

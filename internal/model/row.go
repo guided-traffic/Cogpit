@@ -36,6 +36,10 @@ const (
 	// cell and the user allows it (D-46), drawing a glyph of its own otherwise. Its cells have no
 	// text, so that searching, sorting and copying ignore it.
 	ColumnIcon ColumnType = "icon"
+	// ColumnRank is text that sorts by Cell.Num, a rank rather than an amount: a pod's worst image
+	// rating, "Critical · 39" above "Critical · 3" above "High · 120" (D-78, [RatingRank]). A cell
+	// without Text is empty: it shows nothing and sorts last.
+	ColumnRank ColumnType = "rank"
 )
 
 // Column describes one table column of a kind.

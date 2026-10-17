@@ -151,6 +151,18 @@ func RatingText(r ImageRating, c VulnerabilityCounts) string {
 	return r.String()
 }
 
+// RatingRank is a rating's sort key: the rating, then the count of its severity, so that
+// "Critical · 39" sorts above "Critical · 3", which sorts above "High · 120". Not scanned is 0.
+func RatingRank(r ImageRating, c VulnerabilityCounts) int64 {
+	if !r.valid() {
+		return 0
+	}
+	return int64(r)*rankStep + min(c.Of(r), rankStep-1)
+}
+
+// rankStep separates the ratings in RatingRank: a count of one severity beyond it is cut there.
+const rankStep = 10_000_000
+
 // Chips are the counts as chips, the worst severity first, each in its rating's colour, leaving
 // out the severities without a vulnerability: "1 Critical", "14 High". None for clean counts.
 func (c VulnerabilityCounts) Chips() []Chip {

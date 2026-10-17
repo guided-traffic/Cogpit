@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 120 | 117 | 9 | 108 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 66 | 63 | 52 | 11 | 3 |
+| Beyond Lens (not in feature breadth) | 66 | 64 | 53 | 11 | 2 |
 
 Not counted: 8 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -356,7 +356,7 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | A cluster without integration settings asks at its first connect which integrations to enable, with the same found or manual status per int… | partial | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | Every integration on by default, the default for new clusters the user's to change (the owner, 2026-10-17, I3) | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | A pod's drawer rates each of its images from Trivy Operator's reports, when one has a report: the worst severity found and how many of it,… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
-| Every pod in the Pods list shows the worst image rating of its containers; nothing while the integration is off (the owner, 2026-10-17, I6,… | missing | [Cluster integrations](beyond-lens.md#cluster-integrations) |
+| Every pod in the Pods list shows the worst image rating of its containers; nothing while the integration is off (the owner, 2026-10-17, I6,… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | Kyverno: the objects that violate a policy show it, in their lists and their drawer: an Audit policy's fail, and an Enforce policy's on an… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | Agents read every policy violation of a cluster in one call, with each object's reference, from the cache (D-79) | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | The title bar's alerts pill shows the shown cluster's active alerts while the Alertmanager integration is on: red from a critical alert, or… | done | [Alerts](beyond-lens.md#alerts) |

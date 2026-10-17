@@ -13,7 +13,7 @@ import (
 // kind's whole objects: the kind's view, the editor and an agent's read of the kind keep reading
 // the untrimmed scope, so nothing that shows or writes an object ever sees it trimmed. Kyverno's
 // policy reports keep their violations only, not every pass and skip (engine/kyvernoreport.go);
-// Trivy's vulnerability reports may keep their summary only.
+// Trivy's vulnerability reports keep everything but their vulnerability lists (engine/trivy.go).
 //
 // A trim is registered once, by name, before any scope names it (an init function). It runs on
 // the reflector's goroutine for every object of every scope that names it: it must be quick, must

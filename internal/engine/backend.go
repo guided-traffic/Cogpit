@@ -88,8 +88,6 @@ type Backend struct {
 	ns nsState
 	// scrub replaces the cached Secrets' values in what agents read (secretscrub.go, H-82).
 	scrub secretScrub
-	// trivy reads Trivy Operator's reports while the Trivy integration is on (trivy.go, D-78).
-	trivy trivyReads
 	// alerts polls the cluster's Alertmanager while the integration is on (alerts.go, D-77).
 	alerts alertSource
 	// overlays are the integrations' cells and drawer sections on its objects (overlay.go, D-79).
@@ -133,7 +131,6 @@ func (b *Backend) close(log *slog.Logger) {
 		b.custom.stop()
 	}
 	b.forwards.stopAll()
-	b.trivy.stop() // its handle on the reports (trivy.go)
 	// The Alertmanager's polls (alerts.go), before the connection closes.
 	b.alerts.stop()
 	b.overlays.close() // the integrations' reads (overlay.go)

@@ -5,6 +5,7 @@ package integration_test
 import (
 	"context"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -26,8 +27,9 @@ const trivyReportsKey = "vulnerabilityreports.aquasecurity.github.io"
 // cogpit-trivy-a and cogpit-trivy-b. The integration says it found the reports; each pod's drawer
 // rates its images from its controller's reports (a ReplicaSet's of two images and an init
 // container, a StatefulSet's, a Job's, the CronJob's of the Job made from it, a bare pod's own);
-// switched off, nothing is held. It logs what the reports cost in the cache, the number that
-// decides how much Phase 2's transform matters. Skipped without the operator.
+// the Pods list rates every pod by its worst image; switched off, nothing is held and the column is
+// gone. It logs what the reports cost in the cache, trimmed as the integration reads them and whole
+// as their own view does. Skipped without the operator.
 func TestKindTrivy(t *testing.T) {
 	kubeconfig, contextName := os.Getenv("COGPIT_KIND_KUBECONFIG"), os.Getenv("COGPIT_KIND_CONTEXT")
 	if kubeconfig == "" || contextName == "" {
@@ -100,17 +102,20 @@ func TestKindTrivy(t *testing.T) {
 		}
 		return out
 	}
+	worst := map[string]string{} // pod name → the word of its Image Rating in the Pods list
 	for _, c := range []struct {
 		ns, selector string
 		images       map[string]string // image → its rating's word and the containers
+		worst        string
 	}{
-		{"cogpit-trivy-a", "app=mixed", map[string]string{"busybox:1.37.0": "Clean (init (init), new)", "nginx:1.16.1": "Critical"}},
-		{"cogpit-trivy-a", "app=store", map[string]string{"nginx:1.30.0-alpine": "High"}},
-		{"cogpit-trivy-a", "batch.kubernetes.io/job-name=once", map[string]string{"busybox:1.37.0": "Clean (task)"}},
-		{"cogpit-trivy-a", "batch.kubernetes.io/job-name=nightly-29000000", map[string]string{"alpine:3.12": "Critical"}},
-		{"cogpit-trivy-b", "", map[string]string{"alpine:3.12": "Critical"}},
+		{"cogpit-trivy-a", "app=mixed", map[string]string{"busybox:1.37.0": "Clean (init (init), new)", "nginx:1.16.1": "Critical"}, "Critical"},
+		{"cogpit-trivy-a", "app=store", map[string]string{"nginx:1.30.0-alpine": "High"}, "High"},
+		{"cogpit-trivy-a", "batch.kubernetes.io/job-name=once", map[string]string{"busybox:1.37.0": "Clean (task)"}, "Clean"},
+		{"cogpit-trivy-a", "batch.kubernetes.io/job-name=nightly-29000000", map[string]string{"alpine:3.12": "Critical"}, "Critical"},
+		{"cogpit-trivy-b", "", map[string]string{"alpine:3.12": "Critical"}, "Critical"},
 	} {
 		ref := model.ObjectRef{Kind: "pods", Namespace: c.ns, Name: pod(c.ns, c.selector)}
+		worst[ref.Name] = c.worst
 		waitFor(ctx, t, "the ratings of "+ref.String(), func() bool {
 			got := ratings(ref)
 			if len(got) != len(c.images) {
@@ -126,17 +131,57 @@ func TestKindTrivy(t *testing.T) {
 		t.Logf("%s: %v", ref, ratings(ref))
 	}
 
-	// What the reports cost in the cache: their scope, objects and estimated bytes.
-	for _, is := range s.Backend().Cache.StatsWithMemory() {
-		if is.Scope.GVR.Resource == "vulnerabilityreports" {
-			t.Logf("cache: %s: %d reports, %d bytes (%d sized)", is.Scope, is.Objects, is.Bytes, is.Sized)
-			if is.Objects == 0 || is.Bytes == 0 {
-				t.Errorf("the reports' memory was not measured: %+v", is)
+	// The Pods list's Image Rating: each test pod's worst rating, coloured.
+	s.UpdateUI(func(u *engine.UIState) { u.View = "pods" })
+	cellOf := func(snap *engine.TableSnapshot, name string) model.Cell {
+		ci := slices.IndexFunc(snap.Columns, func(c model.Column) bool { return c.ID == "imageRating" })
+		for _, r := range snap.Rows {
+			if r.Ref.Name == name && ci >= 0 && ci < len(r.Cells) {
+				return r.Cells[ci]
 			}
 		}
+		return model.Cell{}
+	}
+	waitFor(ctx, t, "the Pods list's ratings", func() bool {
+		snap := s.Table("pods")
+		if snap == nil || !snap.Synced {
+			return false
+		}
+		for name, want := range worst {
+			if c := cellOf(snap, name); !strings.HasPrefix(c.Text, want) || c.Status == model.StatusNone {
+				return false
+			}
+		}
+		return true
+	})
+	for name := range worst {
+		t.Logf("Pods list: %s: %q", name, cellOf(s.Table("pods"), name).Text)
 	}
 
-	// Switched off: the handle goes back, the drawer shows no rating, the state says off.
+	// What the reports cost in the cache: the integration's trimmed scope, and the whole reports as
+	// their own view reads them.
+	p, _ := s.Backend().Profile(trivyReportsKey)
+	whole := s.Backend().Acquire(p)
+	waitFor(ctx, t, "the whole reports listed", whole.HasSynced)
+	var trimmed, full int64
+	for _, is := range s.Backend().Cache.StatsWithMemory() {
+		if is.Scope.GVR.Resource != "vulnerabilityreports" {
+			continue
+		}
+		t.Logf("cache: %s: %d reports, %d bytes (%d sized)", is.Scope, is.Objects, is.Bytes, is.Sized)
+		if is.Scope.Trim != "" {
+			trimmed += is.Bytes
+		} else {
+			full += is.Bytes
+		}
+	}
+	whole.Release()
+	if trimmed == 0 || full == 0 || trimmed*5 > full {
+		t.Errorf("the trimmed reports take %d bytes, the whole ones %d", trimmed, full)
+	}
+
+	// Switched off: the handle goes back, the drawer shows no rating, the column is gone, the state
+	// says off.
 	s.UpdateUI(func(u *engine.UIState) {
 		if u.ClusterSettings == nil {
 			u.ClusterSettings = map[string]engine.ClusterSettings{}
@@ -160,4 +205,8 @@ func TestKindTrivy(t *testing.T) {
 	if got := ratings(bare); len(got) != 0 {
 		t.Errorf("off, the drawer rates %v", got)
 	}
+	waitFor(ctx, t, "the column gone", func() bool {
+		snap := s.Table("pods")
+		return snap != nil && !slices.ContainsFunc(snap.Columns, func(c model.Column) bool { return c.ID == "imageRating" })
+	})
 }

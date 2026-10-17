@@ -85,6 +85,20 @@ func TestImageRatings(t *testing.T) {
 	if ImageRating(42).String() != "Not scanned" || ImageRating(-1).Status() != StatusNone {
 		t.Error("an out-of-range rating")
 	}
+	// The rank: the rating, then the count of its severity.
+	ranks := []int64{
+		RatingRank(RatingNotScanned, VulnerabilityCounts{}), RatingRank(RatingClean, VulnerabilityCounts{}),
+		RatingRank(RatingHigh, VulnerabilityCounts{High: 120}), RatingRank(RatingCritical, VulnerabilityCounts{Critical: 3}),
+		RatingRank(RatingCritical, VulnerabilityCounts{Critical: 39}), RatingRank(RatingCritical, VulnerabilityCounts{Critical: 1 << 40}),
+	}
+	for i := 1; i < len(ranks); i++ {
+		if ranks[i] <= ranks[i-1] {
+			t.Errorf("ranks out of order: %v", ranks)
+		}
+	}
+	if ranks[0] != 0 || RatingRank(ImageRating(9), VulnerabilityCounts{}) != 0 {
+		t.Errorf("not scanned ranks %d", ranks[0])
+	}
 	b, _ := json.Marshal(map[string]ImageRating{"r": RatingHigh})
 	var back map[string]ImageRating
 	if string(b) != `{"r":"high"}` || json.Unmarshal(b, &back) != nil || back["r"] != RatingHigh {

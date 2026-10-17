@@ -86,7 +86,7 @@ func trivyPod(namespace, name string, owner []string, containers ...string) *uns
 
 // trivySource is a cluster running Trivy Operator: a Deployment's pod of two images and an init
 // container, a StatefulSet's pod not scanned yet, a CronJob's Job's pod, a Job's pod and a bare pod.
-func trivySource() *testkit.MemorySource {
+func trivyFixture() *testkit.MemorySource {
 	src := testkit.NewMemorySource()
 	src.Set(crdsGVR, vulnReportsCRD())
 	for _, p := range []*unstructured.Unstructured{
@@ -110,6 +110,12 @@ func trivySource() *testkit.MemorySource {
 		src.Set(vulnReportsGVR, r)
 	}
 	return src
+}
+
+// trivyOn returns the backend's Trivy overlay, nil while there is none.
+func trivyOn(b *Backend) *trivySource {
+	t, _ := overlayOf[*trivySource](b)
+	return t
 }
 
 // imageSections returns a drawer model's image rating sections.
@@ -170,11 +176,11 @@ func detailOf(t *testing.T, s *Session, ref model.ObjectRef) *DetailModel {
 // a Deployment's pod are its ReplicaSet's, of a CronJob's Job's pod the CronJob's, of a bare pod
 // its own; a pod without any report has no section. A changed report reaches the open drawer.
 func TestTrivyImageRatings(t *testing.T) {
-	src := trivySource()
+	src := trivyFixture()
 	s := newCRDSession(t, src)
 	rec := record(s)
 	b := s.Backend()
-	waitFor(t, "the reports listed", func() bool { return b.trivy.current().synced() })
+	waitFor(t, "the reports listed", func() bool { return trivyOn(b).synced() })
 
 	st := trivyStatus(s)
 	if !st.On || st.State != IntegrationFound || st.Where != "aquasecurity.github.io/v1alpha1" || st.Detail != "6 vulnerability reports" {
@@ -246,7 +252,7 @@ func TestTrivyImageRatings(t *testing.T) {
 
 	// Switched off: no read of the reports, no section, the state says so; on again, they come back.
 	setTrivy(s, false)
-	waitFor(t, "the index stopped", func() bool { return b.trivy.current() == nil })
+	waitFor(t, "the index stopped", func() bool { return trivyOn(b) == nil })
 	if secs := imageSections(detailOf(t, s, web)); len(secs) != 0 {
 		t.Errorf("off, the drawer shows %+v", secs)
 	}
@@ -265,7 +271,7 @@ func TestTrivyImageRatings(t *testing.T) {
 // A cluster without Trivy Operator: the integration says the reports are not served, and the
 // drawer has no section; one whose reports the user may not list says which permission is missing.
 func TestTrivyNotServedOrForbidden(t *testing.T) {
-	src := trivySource()
+	src := trivyFixture()
 	src.Delete(crdsGVR, "", "vulnerabilityreports.aquasecurity.github.io")
 	s := newCRDSession(t, src)
 	b := s.Backend()
@@ -274,14 +280,14 @@ func TestTrivyNotServedOrForbidden(t *testing.T) {
 	if st := trivyStatus(s); st.Detail != trivyNotServed {
 		t.Errorf("not served: %+v", st)
 	}
-	if b.trivy.current() != nil {
+	if trivyOn(b) != nil {
 		t.Error("an index without the reports' kind")
 	}
 	if secs := imageSections(detailOf(t, s, model.ObjectRef{Kind: "pods", Namespace: "team", Name: "bare"})); len(secs) != 0 {
 		t.Errorf("not served: %+v", secs)
 	}
 
-	refused := testkit.RefusingSource{Inner: trivySource(), Refuse: map[schema.GroupVersionResource]error{
+	refused := testkit.RefusingSource{Inner: trivyFixture(), Refuse: map[schema.GroupVersionResource]error{
 		vulnReportsGVR: apierrors.NewForbidden(schema.GroupResource{Group: vulnReportsGVR.Group, Resource: vulnReportsGVR.Resource}, "", errors.New("no")),
 	}}
 	s2 := newCRDSession(t, refused)
@@ -294,7 +300,7 @@ func TestTrivyNotServedOrForbidden(t *testing.T) {
 // A user who may list the reports in team-a alone: the index reads them there, after the refusal
 // of the read in all namespaces, and the pod there has its rating.
 func TestTrivyNamespaceLimited(t *testing.T) {
-	mem := trivySource()
+	mem := trivyFixture()
 	mem.Set(testkit.PodsGVR, trivyPod("team-a", "bare", nil, "shell=alpine:3.12"))
 	mem.Set(vulnReportsGVR, vulnReport("team-a", "Pod", "bare", "shell", "library/alpine", "3.12", 0, 4))
 	src := &testkit.NamespacedOnlySource{Inner: mem, Denied: []string{"team-b"}, GVRs: []schema.GroupVersionResource{testkit.PodsGVR, vulnReportsGVR}}
@@ -307,7 +313,7 @@ func TestTrivyNamespaceLimited(t *testing.T) {
 	connectTest(t, s)
 	b := s.Backend()
 	waitFor(t, "the reports read in team-a", func() bool {
-		ix := b.trivy.current()
+		ix := trivyOn(b)
 		return ix.synced() && slices.Equal(ix.h.Namespaces(), []string{"team-a"})
 	})
 	ref := model.ObjectRef{Kind: "pods", Namespace: "team-a", Name: "bare"}
