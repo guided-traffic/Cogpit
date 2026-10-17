@@ -143,8 +143,10 @@ func TestPollerStates(t *testing.T) {
 		t.Errorf("forbidden keeps %+v", snap)
 	}
 	p.SetAddress(nil)
-	if p.Snapshot().State != StateChecking {
-		t.Errorf("a new address keeps %s", p.Snapshot().State)
+	// The new address drops the old state at once; detection without a candidate sends nothing and
+	// may already have found nothing (CI's race job, 2026-10-17: NotFound before the check ran).
+	if st := p.Snapshot().State; st != StateChecking && st != StateNotFound {
+		t.Errorf("a new address keeps %s", st)
 	}
 	waitFor(t, "detection again", func() bool { return p.Snapshot().State == StateNotFound })
 }
