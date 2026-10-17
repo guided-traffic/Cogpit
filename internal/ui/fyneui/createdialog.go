@@ -120,6 +120,10 @@ type createForm struct {
 	writers []func(map[string]any) error
 	// onNamespace runs when the namespace changes: options that depend on it are offered again.
 	onNamespace []func(string)
+	// nsFields are the fields that offer the namespaces; they follow the names while the dialog is
+	// open (stopNS ends it), so that a namespace created since is offered (WF10).
+	nsFields []*widget.SelectEntry
+	stopNS   func()
 
 	shown    bool
 	denied   string // the access reviews' reason; Create is greyed while it is set
@@ -189,8 +193,22 @@ func (sh *shell) newCreateForm(cmd *engine.Command, spec createDialogSpec) *crea
 	f.d = dialog.NewCustomWithoutButtons(cmd.Label, f.content, sh.win)
 	f.d.SetButtons([]fyne.CanvasObject{f.cancel, f.create})
 	f.cancel.OnTapped = f.d.Hide
-	f.d.SetOnClosed(func() { f.shown = false })
+	f.d.SetOnClosed(func() {
+		f.shown = false
+		if f.stopNS != nil {
+			f.stopNS()
+			f.stopNS = nil
+		}
+	})
 	return f
+}
+
+// namespaceField returns a field that offers the namespaces the window knows, kept current while
+// the dialog is open.
+func (f *createForm) namespaceField() *widget.SelectEntry {
+	e := widget.NewSelectEntry(slices.Clone(f.sh.namespaces))
+	f.nsFields = append(f.nsFields, e)
+	return e
 }
 
 // show shows the dialog, puts the cursor in its first field and asks the access reviews.
@@ -198,6 +216,14 @@ func (f *createForm) show() {
 	f.fit()
 	f.d.Show()
 	f.shown = true
+	if len(f.nsFields) > 0 && f.stopNS == nil {
+		f.stopNS = f.sh.followNamespaces(func(names []string) {
+			for _, e := range f.nsFields {
+				e.SetOptions(names)
+			}
+		})
+		f.sh.refreshNamespaces()
+	}
 	if f.name != nil {
 		f.sh.win.Canvas().Focus(f.name)
 	}
@@ -240,7 +266,7 @@ func (f *createForm) addName(placeholder string) {
 // command's Prefill answers it shows the filter's single namespace, else "default".
 func (f *createForm) addNamespace() {
 	f.caption("NAMESPACE")
-	f.ns = widget.NewSelectEntry(slices.Clone(f.sh.namespaces))
+	f.ns = f.namespaceField()
 	ns := "default"
 	if filter := f.sh.ui.Namespaces; len(filter) == 1 {
 		ns = filter[0]
@@ -642,7 +668,7 @@ func buildBindingForm(f *createForm, cluster bool) {
 	}
 	subjects = f.addRows("SUBJECTS", []string{"Kind", "Name", "Namespace"}, "Add Subject", func() *editorRow {
 		kind := widget.NewSelect([]string{subjectUser, subjectGroup, subjectServiceAccount}, nil)
-		name, ns := widget.NewSelectEntry(nil), widget.NewSelectEntry(slices.Clone(f.sh.namespaces))
+		name, ns := widget.NewSelectEntry(nil), f.namespaceField()
 		hint := "the binding's" // a role binding's service account defaults to its namespace
 		if cluster {
 			hint = "its namespace"

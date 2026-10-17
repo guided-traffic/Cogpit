@@ -61,7 +61,8 @@ func newNSFilter(tv *tableView) *nsFilter {
 func (f *nsFilter) visible() bool { return f.popup != nil && f.popup.Visible() }
 
 // openNamespaces shows the namespace filter's list below its button with an empty search field that
-// has the keyboard; the namespaces are loaded the first time.
+// has the keyboard; the namespaces are read from the cache again at every opening, so that one
+// created since is in the list (WF10, shell.loadNamespaces).
 func (tv *tableView) openNamespaces() {
 	f := tv.ns
 	c := fyne.CurrentApp().Driver().CanvasForObject(tv.nsButton)
@@ -77,7 +78,7 @@ func (tv *tableView) openNamespaces() {
 		f.popup = widget.NewPopUp(container.NewBorder(f.search, nil, nil, nil, f.scroll), c)
 	}
 	f.show()
-	if len(tv.sh.namespaces) == 0 && !tv.groupMode() && tv.sh.namespacesListable() {
+	if !tv.groupMode() && tv.sh.namespacesListable() {
 		tv.sh.loadNamespaces()
 	}
 }

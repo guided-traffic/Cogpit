@@ -71,6 +71,8 @@ type shell struct {
 	kindsFor   string // the context kinds were loaded for
 	kindsSeq   int    // the latest kinds.list request; older results are dropped
 	namespaces []string
+	nsFollow   map[int]func([]string) // open fields that offer the namespaces (followNamespaces)
+	nsFollowID int
 	diag       diagView
 
 	// Coalescing of engine events: the latest UI state wins, and at most one table, detail and
@@ -667,7 +669,11 @@ func (sh *shell) loadKinds() {
 	})
 }
 
-// loadNamespaces fetches the namespace names for the namespace filter.
+// loadNamespaces reads the namespace names from the cache for the namespace filter and the fields
+// that offer namespaces (followNamespaces). It runs when a cluster is shown and again whenever the
+// filter or such a field opens, so that a namespace created since is offered (the owner's walk,
+// 2026-10-17, WF10: walk-test, created in the window, was missing from both until the cluster was
+// shown anew); it reads the cache, never the API server. Only a changed list touches the widgets.
 func (sh *shell) loadNamespaces() {
 	ctxName := sh.ui.Context
 	sh.dispatch("resources.list", listParams{Kind: kindNamespaces}, func(res any, err error) {
@@ -675,11 +681,34 @@ func (sh *shell) loadNamespaces() {
 			return // the filter then offers "All namespaces" only; nothing to tell the user
 		}
 		names, derr := decodeNames(res)
-		if derr == nil {
-			sh.namespaces = names
-			sh.view.namespacesLoaded()
+		if derr != nil || (slices.Equal(names, sh.namespaces) && sh.namespaces != nil) {
+			return
+		}
+		sh.namespaces = names
+		sh.view.namespacesLoaded()
+		for _, id := range slices.Sorted(maps.Keys(sh.nsFollow)) {
+			sh.nsFollow[id](slices.Clone(names))
 		}
 	})
+}
+
+// refreshNamespaces reads the namespace names again when the shown cluster lets the user list them.
+func (sh *shell) refreshNamespaces() {
+	if live := sh.ui.Connection.State.Live(); live && sh.namespacesListable() {
+		sh.loadNamespaces()
+	}
+}
+
+// followNamespaces calls fn on the main goroutine with the namespace names each time they change,
+// until stop is called; an open dialog's namespace fields follow them so.
+func (sh *shell) followNamespaces(fn func([]string)) (stop func()) {
+	if sh.nsFollow == nil {
+		sh.nsFollow = map[int]func([]string){}
+	}
+	sh.nsFollowID++
+	id := sh.nsFollowID
+	sh.nsFollow[id] = fn
+	return func() { delete(sh.nsFollow, id) }
 }
 
 // kindTitle returns the display title of a kind key (from kinds.list, else the key itself) or of
