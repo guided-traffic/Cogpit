@@ -77,7 +77,16 @@ func TestCuratedKindsFromDiscovery(t *testing.T) {
 	connectTest(t, s)
 	b := s.Backend()
 	ks := "kustomizations.kustomize.toolkit.fluxcd.io"
-	waitFor(t, "the discovered kinds", func() bool { return hasKind(s, ks) })
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if !testkit.WaitFor(ctx, func() bool { return hasKind(s, ks) }) {
+		// What the custom kinds' loop last saw, for a failure under load (CI, 2026-10-17).
+		set := b.custom.set.Load()
+		h, errMsg := b.custom.current()
+		t.Fatalf("timed out waiting for the discovered kinds: discovery asked %d times; the set: synced %v, err %q, "+
+			"discovered %v, %d kinds; now: refused %v, synced %v, err %q, handle err %v",
+			c.calls.Load(), set.synced, set.err, set.discovered, len(set.profiles), b.custom.refused(), h.HasSynced(), errMsg, h.Err())
+	}
 	curated := map[string]*model.KindProfile{}
 	for _, p := range kinds.Curated() {
 		curated[p.Key] = p
