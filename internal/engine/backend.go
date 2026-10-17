@@ -137,7 +137,7 @@ func (b *Backend) close(log *slog.Logger) {
 	// The Alertmanager's polls (alerts.go), before the connection closes.
 	b.alerts.stop()
 	b.overlays.close() // the integrations' reads (overlay.go)
-	b.apps.close() // before the cluster's cache: it releases its handles on the workloads
+	b.apps.close()     // before the cluster's cache: it releases its handles on the workloads
 	b.local.close()
 	if b.Metrics != nil {
 		b.Metrics.Close()

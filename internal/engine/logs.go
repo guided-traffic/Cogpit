@@ -81,7 +81,7 @@ var WorkloadLogKinds = []string{logKindDeployments, logKindDaemonSets, logKindSt
 
 // controllerKinds maps the controller kinds of pods to their kind keys.
 var controllerKinds = map[string]string{
-	"ReplicaSet": logKindReplicaSets, "DaemonSet": logKindDaemonSets, "StatefulSet": logKindStatefulSets, "Job": logKindJobs,
+	apiKindReplicaSet: logKindReplicaSets, apiKindDaemonSet: logKindDaemonSets, apiKindStatefulSet: logKindStatefulSets, "Job": logKindJobs,
 	"Deployment": logKindDeployments,
 }
 
@@ -323,3 +323,10 @@ func (s *Session) MoveLogsTab(ctx context.Context, id string) (DockTab, error) {
 	}
 	return out, nil
 }
+
+// The API kinds of the apps group's workloads, as owner references and alert labels name them.
+const (
+	apiKindReplicaSet  = "ReplicaSet"
+	apiKindStatefulSet = "StatefulSet"
+	apiKindDaemonSet   = "DaemonSet"
+)

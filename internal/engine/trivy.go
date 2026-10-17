@@ -257,7 +257,7 @@ func trivyWorkloadsOf(pod *unstructured.Unstructured) []trivyWorkload {
 			group = "" // "v1": the core group
 		}
 		switch {
-		case group == "apps" && (o.Kind == "ReplicaSet" || o.Kind == "StatefulSet" || o.Kind == "DaemonSet"),
+		case group == "apps" && (o.Kind == apiKindReplicaSet || o.Kind == apiKindStatefulSet || o.Kind == apiKindDaemonSet),
 			group == "" && o.Kind == "ReplicationController":
 			return []trivyWorkload{{ns, o.Kind, o.Name}}
 		case group == "batch" && o.Kind == trivyKindJob:

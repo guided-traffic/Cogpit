@@ -446,11 +446,11 @@ func alertTitle(label string) string {
 	case "persistentvolume":
 		return "PersistentVolume"
 	case "statefulset":
-		return "StatefulSet"
+		return apiKindStatefulSet
 	case "daemonset":
-		return "DaemonSet"
+		return apiKindDaemonSet
 	case "replicaset":
-		return "ReplicaSet"
+		return apiKindReplicaSet
 	case "cronjob":
 		return "CronJob"
 	}
