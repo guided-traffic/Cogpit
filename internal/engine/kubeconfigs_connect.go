@@ -216,9 +216,11 @@ func (s *Session) WatchKubeconfigs(interval time.Duration) (stop func()) {
 // the reason in Connection.Error; every closed one gets a warning toast and the reason in its
 // context's connect log. It reports whether it closed a connection.
 //
-// Only a plain fact closes a connection: the file does not exist, or no source covers it. A file
-// that is merely being rewritten, or does not parse for a moment, leaves the connection alone (it
-// was built from the file as it was); so does a context dropped from a file that stays.
+// Only a plain fact closes a connection: the file does not exist, or no source covers it under the
+// label in the connection's context id (FateOf: the same file offered by a synced folder too is
+// another context, which does not keep this one). A file that is merely being rewritten, or does
+// not parse for a moment, leaves the connection alone (it was built from the file as it was); so
+// does a context dropped from a file that stays.
 func (s *Session) CloseGoneSourceConnection() bool {
 	k := s.KubeconfigSources()
 	if k == nil {
@@ -231,7 +233,7 @@ func (s *Session) CloseGoneSourceConnection() bool {
 		}
 		var reason string
 		path := kubeconfig.DisplayText(b.SourceFile, 400)
-		switch k.Fate(b.SourceFile) {
+		switch k.FateOf(b.SourceFile, ContextSourceLabel(b.Context)) {
 		case FileGone:
 			reason = "its kubeconfig file " + path + " is gone"
 		case FileUnlisted:

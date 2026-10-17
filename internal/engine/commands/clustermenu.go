@@ -84,7 +84,9 @@ func registerClusterMenu(g *registrar) {
 		GUIOnly: engine.ErrGUIOnly,
 		Description: "Removes a cluster from Cogpit by removing Cogpit's link to the kubeconfig file the user added for it, or " +
 			"to the synced folder its file is in (the default ~/.kube too): every context of that file or folder is no longer offered " +
-			"and its tabs close, the login programs allowed for them are forgotten and a connection made from one is closed. The " +
+			"and its tabs close, the login programs allowed for them and their cluster settings are forgotten (added again, it is a new " +
+			"cluster, asked its integrations again) and a connection made from one is closed, though another source (a synced " +
+			"folder) offers the same file as another context. The " +
 			"files stay on disk as they are; Cogpit never edits or deletes a kubeconfig. Refused, with the reason, for a context of " +
 			"a file $KUBECONFIG names and for one that comes from no kubeconfig file. The GUI asks the user first, naming the path and every context " +
 			"that leaves; a folder's removal is bound to the contexts it named." +

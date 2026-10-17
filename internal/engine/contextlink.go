@@ -189,6 +189,7 @@ func (s *Session) RemoveKubeconfigSource(id string) (KubeconfigSource, error) {
 	if src.ID != "" {
 		s.CloseGoneSourceConnection() // a connection made from the source's files ends with the link
 		s.closeTabsOfSource(k, src)
+		s.forgetSettingsOfSource(k, src)
 		s.emit(Event{Type: EventContexts})
 	}
 	return src, err
@@ -202,15 +203,9 @@ func (s *Session) RemoveKubeconfigSource(id string) (KubeconfigSource, error) {
 // notice: the user removed the source, after a confirmation naming its contexts; but one when an
 // editor's unsaved text of those contexts was kept as a draft (dock_gone.go).
 func (s *Session) closeTabsOfSource(k *KubeconfigSources, src KubeconfigSource) {
-	files, _, err := k.Files()
+	offered, err := offeredContexts(k)
 	if err != nil {
 		return
-	}
-	offered := map[string]bool{}
-	for _, f := range files {
-		for _, c := range f.Contexts {
-			offered[SourceContextID(c.Name, f.Label)] = true
-		}
 	}
 	gone := func(id string) bool { return ofSource(src, id) && !offered[id] }
 	u := s.UIState()
@@ -222,6 +217,56 @@ func (s *Session) closeTabsOfSource(k *KubeconfigSources, src KubeconfigSource) 
 	s.UpdateUI(func(u *UIState) { u.dropContexts(gone) })
 	if notice := keptDraftsText(kept, true); notice != "" {
 		s.emit(Event{Type: EventToast, Level: LevelInfo, Message: notice})
+	}
+}
+
+// offeredContexts returns the ids of every context the sources offer now.
+func offeredContexts(k *KubeconfigSources) (map[string]bool, error) {
+	files, _, err := k.Files()
+	if err != nil {
+		return nil, err
+	}
+	offered := map[string]bool{}
+	for _, f := range files {
+		for _, c := range f.Contexts {
+			offered[SourceContextID(c.Name, f.Label)] = true
+		}
+	}
+	return offered, nil
+}
+
+// forgetSettingsOfSource forgets the cluster settings (cluster-settings.json: name, icon, accent
+// colour, proxy, integrations, agent allowance, …) of the removed source's contexts that no source
+// offers any more: a cluster removed from Cogpit and added again is a new cluster, asked its
+// integrations again (the lead's decision, 2026-10-17 evening, after the owner's walk, WF4: he
+// removed and re-added a cluster to see the integrations question again, and its kept choice
+// stopped it). A session file ($KUBECONFIG) keeps them: it is offered again at the next start. When
+// the sources cannot be read, nothing is forgotten on a guess.
+func (s *Session) forgetSettingsOfSource(k *KubeconfigSources, src KubeconfigSource) {
+	c := s.opts.ClusterSettings
+	if c == nil || src.Session {
+		return
+	}
+	offered, err := offeredContexts(k)
+	if err != nil {
+		return
+	}
+	c.mu.Lock()
+	if err := c.load(); err != nil {
+		s.log.Warn("cluster settings", "err", err)
+	}
+	var gone []string
+	for id := range c.by {
+		if ofSource(src, id) && !offered[id] {
+			gone = append(gone, id)
+		}
+	}
+	c.mu.Unlock()
+	sort.Strings(gone)
+	for _, id := range gone {
+		if _, err := s.ChangeClusterSettings(id, func(cs *ClusterSettings) error { *cs = ClusterSettings{}; return nil }); err != nil {
+			s.log.Warn("cluster settings of a removed cluster", "context", id, "err", err)
+		}
 	}
 }
 

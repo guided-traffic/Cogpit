@@ -35,7 +35,9 @@ namespace already was ([credentials](credentials.md#the-terminals-kubeconfig)). 
 Remove from Cogpit (2026-10-13: `cluster.disconnect`, `cluster.remove`) send no request either:
 Disconnect stops the connection's informers, port forwards, logs and shells, and
 Remove takes out Cogpit's link to a kubeconfig file the user added, never editing or deleting the
-file (`TestDisconnectAndWelcomeCommands`, `TestClusterRemove`). **Several clusters connected**
+file (`TestDisconnectAndWelcomeCommands`, `TestClusterRemove`); since 2026-10-17 evening it also
+forgets the cluster settings of the contexts that leave, the agents' write allowance among them, so
+a cluster added again starts with none (`TestRemovingASourceForgetsItsClustersSettings`). **Several clusters connected**
 (since 2026-10-16, [D-69](../developer/decisions.md#d-69-several-clusters-connected-at-once) stage 1):
 switching to another cluster no longer ends a connection. A cluster the window left keeps sending
 what a connection sends on its own (the checks below, about 4 requests a minute; the watch of its

@@ -531,7 +531,7 @@ func (k *KubeconfigSources) Files() ([]KubeconfigFile, []SourceStatus, error) {
 				break
 			}
 			for _, e := range entries {
-				f := inspect(src, strings.TrimSuffix(src.ID, "/")+"/"+filepath.Base(e.Path), e.Path)
+				f := inspect(src, sourceLabel(src, e.Path), e.Path)
 				if f.Err != nil || len(f.Contexts) == 0 {
 					st.Skipped++
 					if len(st.SkippedFiles) < maxSkippedShown {
@@ -544,7 +544,7 @@ func (k *KubeconfigSources) Files() ([]KubeconfigFile, []SourceStatus, error) {
 				st.Contexts += len(f.Contexts)
 			}
 		default:
-			f := inspect(src, src.ID, src.Path)
+			f := inspect(src, sourceLabel(src, src.Path), src.Path)
 			files = append(files, f)
 			st.Files = []string{f.Label}
 			if f.Err != nil {
@@ -810,7 +810,16 @@ const (
 // naming rules)? A failure that is neither "does not exist" nor a clear answer from the source list
 // (a permission error, an unreadable list of sources) counts as FileOffered: Cogpit closes a
 // connection only on a plain fact.
-func (k *KubeconfigSources) Fate(path string) FileFate {
+func (k *KubeconfigSources) Fate(path string) FileFate { return k.FateOf(path, "") }
+
+// FateOf is Fate for a file offered under label, the label in its contexts' ids
+// (SourceContextID): the file is covered only while a source still offers it under that label.
+// One file can be offered twice, by a file source of its own and by a synced folder it lies in,
+// under two labels and so as two contexts; removing the file source leaves the file covered by the
+// folder, but not the context the removed source offered (the owner's walk 2026-10-17, WF3: a
+// connection made from a removed file source stayed open because the user's home folder was
+// synced too). An empty label asks whether any source covers the file.
+func (k *KubeconfigSources) FateOf(path, label string) FileFate {
 	if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 		return FileGone
 	}
@@ -819,14 +828,35 @@ func (k *KubeconfigSources) Fate(path string) FileFate {
 		return FileOffered
 	}
 	for _, s := range list {
-		switch {
-		case s.Kind == SourceFile && s.Path == path:
-			return FileOffered
-		case s.Kind == SourceFolder && filepath.Dir(path) == s.Path && kubeconfig.SyncCandidate(filepath.Base(path)):
+		covers := (s.Kind == SourceFile && s.Path == path) ||
+			(s.Kind == SourceFolder && filepath.Dir(path) == s.Path && kubeconfig.SyncCandidate(filepath.Base(path)))
+		if covers && (label == "" || sourceLabel(s, path) == label) {
 			return FileOffered
 		}
 	}
 	return FileUnlisted
+}
+
+// sourceLabel is the label under which src offers its file at path: the source's id for a file,
+// the folder's id and the file's name for a file of a synced folder (".kube/config").
+func sourceLabel(src KubeconfigSource, path string) string {
+	if src.Kind == SourceFolder {
+		return strings.TrimSuffix(src.ID, "/") + "/" + filepath.Base(path)
+	}
+	return src.ID
+}
+
+// ContextSourceLabel is the label of a source context id ("kind-dev [.kube/config]" →
+// ".kube/config"); "" for an id without one.
+func ContextSourceLabel(id string) string {
+	rest, ok := strings.CutSuffix(id, "]")
+	if !ok {
+		return ""
+	}
+	if i := strings.LastIndex(rest, " ["); i > 0 {
+		return rest[i+len(" ["):]
+	}
+	return ""
 }
 
 // absClean returns path made absolute and clean; an empty path is an error.
