@@ -366,7 +366,10 @@ allowed yet, or one whose program changed since, is not run, and the cluster say
 the navigator). `--context` shows its own cluster, and the restore connects the others behind it. A
 cluster whose kubeconfig is gone is left out with a notice. The dock's tabs (logs, terminals,
 editors) are not reopened. The tables' column choice and order, the navigator's collapsed groups and
-whether the navigator and the chat are shown come back whatever this says.
+whether the navigator and the chat are shown come back whatever this says. The welcome page has
+the same preference as a checkbox under "Add Kubeconfigs…", "Restore this session at the next start:
+its tabs and connected clusters" (since 2026-10-17 evening, the owner's walk, WF1): ticked there, it
+is on in the Preferences too.
 
 | Preference (`preferences.set`, `ui_state`'s `preferences`) | Default | Meaning |
 |---|---|---|

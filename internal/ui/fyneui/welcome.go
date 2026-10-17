@@ -34,7 +34,8 @@ import (
 //     kubeconfig sources offer (the kubeconfig's current one first), so that a failed connect
 //     always leaves another to try; each row as the context picker had it (clusterrow.go), with
 //     its right-click menu;
-//   - "Add Kubeconfigs…" (the Sync Files and Folders dialog), the documentation and the shortcuts
+//   - "Add Kubeconfigs…" (the Sync Files and Folders dialog) and below it the checkbox of the
+//     preference "Restore the last session" (welcomeRestoreLabel), the documentation and the shortcuts
 //     to remember, ⌘P finding a cluster by name among them. The page has no "Connect to Cluster…"
 //     (the owner, 2026-10-16 evening, N122; D-57): its cluster rows and the navigator's section
 //     beside it are the list already. It had one from 2026-10-15 (D-57; "All Clusters…" with the
@@ -69,6 +70,8 @@ type welcomePage struct {
 	list      *fyne.Container // the groups of clusters
 	hint      *textLine
 	addB      *widget.Button
+	restore   *widget.Check     // the preference "Restore the last session" (preferences_restore.go)
+	syncing   bool              // set while restore follows the preference, so that it sends nothing
 	docs      *widget.Hyperlink // the README: what Cogpit does
 	cmds      *widget.Hyperlink // docs/developer/commands.md: every command
 	shown     bool
@@ -104,6 +107,7 @@ func newWelcomePage(sh *shell) *welcomePage {
 	w.cmds = widget.NewHyperlink("Every command, for the palette, the menus and agents: commands.md on GitHub", cu)
 	w.cmds.OnTapped = func() { sh.openLink(commandsURL) }
 	w.hint = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	w.restore = widget.NewCheck(welcomeRestoreLabel, w.setRestore)
 	column := container.NewVBox(
 		head,
 		newSpace(theme.SizeNameInnerPadding),
@@ -112,6 +116,7 @@ func newWelcomePage(sh *shell) *welcomePage {
 		heading("Clusters"),
 		w.list,
 		container.NewHBox(w.addB),
+		w.restore,
 		newSpace(theme.SizeNameInnerPadding),
 		heading("Documentation"),
 		w.docs,
@@ -122,6 +127,37 @@ func newWelcomePage(sh *shell) *welcomePage {
 	w.root = container.NewStack(newSurface(theme.ColorNameBackground), container.NewVScroll(page))
 	w.root.Hide()
 	return w
+}
+
+// welcomeRestoreLabel is the welcome page's checkbox of the preference "Restore the last session"
+// (Preferences › App, D-69 item 8), which the owner missed on the page (walk 2026-10-17, WF1: "eine
+// kleine Box …, die anbietet den letzten Zustand von Cogpit beim Beenden zu speichern und beim
+// Wiederöffnen wiederherzustellen"). The same preference, not a second one: on or off here is on or
+// off in the Preferences. It shows whether it is on or off, under "Add Kubeconfigs…", where the page
+// lists what a start offers (the lead's decision, 2026-10-17 evening).
+const welcomeRestoreLabel = "Restore this session at the next start: its tabs and connected clusters"
+
+// renderRestore shows the preference in the checkbox.
+func (w *welcomePage) renderRestore() {
+	on := engine.DefaultPreferences().RestoreSession
+	if pr := w.sh.ui.Preferences; pr != nil {
+		on = pr.RestoreSession
+	}
+	w.syncing = true
+	w.restore.SetChecked(on)
+	w.syncing = false
+}
+
+// setRestore writes the preference when the user ticks or unticks the box.
+func (w *welcomePage) setRestore(on bool) {
+	if w.syncing {
+		return
+	}
+	w.sh.dispatchInOrder("preferences.set", map[string]any{"restoreSession": on}, func(_ any, err error) {
+		if err != nil {
+			w.sh.toast("error", "Could not change Restore the last session: "+err.Error())
+		}
+	})
 }
 
 // workspace is the tab bar's hook into the window's centre (newShell): the workspace with the dock,
@@ -311,6 +347,7 @@ func (w *welcomePage) groups() []welcomeGroup {
 func (w *welcomePage) render() {
 	w.renderStatus()
 	w.renderHint()
+	w.renderRestore()
 	groups := w.groups()
 	ui := w.sh.ui
 	var sig strings.Builder
