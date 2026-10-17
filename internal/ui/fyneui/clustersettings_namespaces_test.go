@@ -105,8 +105,8 @@ func TestNamespaceFilterOffersAccessibleNamespaces(t *testing.T) {
 	before := namespaceLists() // the shell asks once when it connects, before the access reviews answer
 	test.Tap(tv.nsButton)
 	var labels []string
-	for _, c := range tv.nsChecks {
-		labels = append(labels, c.Text)
+	for _, r := range tv.ns.rows {
+		labels = append(labels, r.label.text)
 	}
 	if want := []string{"All namespaces", "team-a", "team-b", "team-c"}; !slices.Equal(labels, want) {
 		t.Fatalf("filter offers %q, want %q", labels, want)
@@ -118,7 +118,7 @@ func TestNamespaceFilterOffersAccessibleNamespaces(t *testing.T) {
 	if want := "You may not list Pods in all namespaces: read in team-a only. Not permitted in team-b, team-c."; !tv.scopeLine.Visible() || tv.scopeLine.text != want {
 		t.Errorf("scope line %q (visible %v), want %q", tv.scopeLine.text, tv.scopeLine.Visible(), want)
 	}
-	test.Tap(tv.nsChecks[1])
+	test.Tap(tv.ns.rows[1].check)
 	q.until(t, "the filter set", func() bool {
 		calls := f.callsOf("ui.setNamespace")
 		return len(calls) > 0 && string(calls[len(calls)-1].Params) == `{"namespaces":["team-a"]}`
@@ -154,7 +154,7 @@ func renderNamespaceFilterAccessible(t *testing.T, mode ThemeMode, name string) 
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
 	q.until(t, "the pods view", func() bool { return len(sh.kinds) > 0 && sh.view.snap != nil && sh.view.scopeLine.Visible() })
 	test.Tap(sh.view.nsButton)
-	q.until(t, "the filter", func() bool { return sh.view.nsPopup != nil && sh.view.nsPopup.Visible() })
+	q.until(t, "the filter", func() bool { return sh.view.ns.visible() })
 	savePNG(t, w, name)
 }
 

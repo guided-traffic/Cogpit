@@ -110,9 +110,7 @@ type tableView struct {
 	filterBusy  int  // filter changes typed but not yet acknowledged by the engine
 	syncing2    bool // set while the search entry is updated from engine state
 
-	nsPopup  *widget.PopUp
-	nsChecks []*widget.Check
-	nsSync   bool
+	ns *nsFilter // the namespace filter's list (nsfilter.go)
 
 	colPopup  *widget.PopUp // the column list of the header's ⋮ (tableheader.go)
 	colChecks []*widget.Check
@@ -136,6 +134,7 @@ func newTableView(sh *shell) *tableView {
 	tv.scopeLine.Hide()
 
 	tv.nsButton = widget.NewButtonWithIcon("All namespaces", theme.MenuDropDownIcon(), tv.openNamespaces)
+	tv.ns = newNSFilter(tv)
 	tv.nsButton.IconPlacement = widget.ButtonIconTrailingText
 	tv.nsButton.Alignment = widget.ButtonAlignLeading
 	tv.search = newSearchEntry(sh)
@@ -999,100 +998,6 @@ func (tv *tableView) viewNamespaced() bool {
 		}
 	}
 	return true
-}
-
-// namespacesLoaded refreshes an open namespace popup with the newly loaded names.
-func (tv *tableView) namespacesLoaded() {
-	if tv.nsPopup != nil && tv.nsPopup.Visible() {
-		tv.nsPopup.Hide()
-		tv.openNamespaces()
-	}
-}
-
-// openNamespaces shows the namespace filter: "All namespaces" and one check per namespace (on
-// Definitions: "All groups" and one per API group). Checks toggle without closing the popup, as
-// Lens's filter does.
-func (tv *tableView) openNamespaces() {
-	all, choices, _ := tv.filterChoices()
-	names := append([]string{""}, choices...)
-	tv.nsChecks = tv.nsChecks[:0]
-	list := container.NewVBox()
-	for _, ns := range names {
-		label := ns
-		if ns == "" {
-			label = all
-		}
-		c := widget.NewCheck(label, func(on bool) { tv.toggleNamespace(ns, on) })
-		tv.nsChecks = append(tv.nsChecks, c)
-		list.Add(c)
-	}
-	tv.syncNamespaceChecks()
-	th := tv.table.Theme()
-	scroll := container.NewVScroll(list)
-	h := list.MinSize().Height
-	if maxH := th.Size(sizePopupMaxList); h > maxH {
-		h = maxH
-	}
-	scroll.SetMinSize(fyne.NewSize(th.Size(sizeFilterWidth)+th.Size(sizeCellPadding)*2, h))
-	c := fyne.CurrentApp().Driver().CanvasForObject(tv.nsButton)
-	if c == nil {
-		return
-	}
-	tv.nsPopup = widget.NewPopUp(scroll, c)
-	tv.nsPopup.ShowAtRelativePosition(fyne.NewPos(0, tv.nsButton.Size().Height), tv.nsButton)
-	if len(tv.sh.namespaces) == 0 && !tv.groupMode() && tv.sh.namespacesListable() {
-		tv.sh.loadNamespaces()
-	}
-}
-
-// syncNamespaceChecks makes the popup's checks show the engine's namespaces (or groups).
-func (tv *tableView) syncNamespaceChecks() {
-	if len(tv.nsChecks) == 0 {
-		return
-	}
-	_, _, sel := tv.filterChoices()
-	tv.nsSync = true
-	for i, c := range tv.nsChecks {
-		want := len(sel) == 0
-		if i > 0 {
-			want = slices.Contains(sel, c.Text)
-		}
-		if c.Checked != want {
-			c.SetChecked(want)
-		}
-	}
-	tv.nsSync = false
-}
-
-// toggleNamespace changes the namespace filter: "All" clears it, a namespace is added or removed.
-// On Definitions it changes the API group filter the same way.
-func (tv *tableView) toggleNamespace(ns string, on bool) {
-	if tv.nsSync {
-		return
-	}
-	_, _, cur := tv.filterChoices()
-	next := []string{}
-	switch {
-	case ns == "":
-		// "All namespaces": checking it clears the selection; unchecking it changes nothing.
-		if !on {
-			tv.syncNamespaceChecks()
-			return
-		}
-	case on:
-		next = append(slices.Clone(cur), ns)
-	default:
-		for _, n := range cur {
-			if n != ns {
-				next = append(next, n)
-			}
-		}
-	}
-	if tv.groupMode() {
-		tv.sh.dispatch("ui.setGroups", groupsParams{Groups: next}, nil)
-		return
-	}
-	tv.sh.dispatch("ui.setNamespace", namespacesParams{Namespaces: next}, nil)
 }
 
 // resourceTable is widget.Table with the hooks Fyne does not offer as callbacks: the pointer's

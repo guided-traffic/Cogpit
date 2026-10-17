@@ -464,16 +464,16 @@ func TestDefinitionsGroupFilter(t *testing.T) {
 	}
 	test.Tap(tv.nsButton)
 	var labels []string
-	for _, c := range tv.nsChecks {
-		labels = append(labels, c.Text)
+	for _, r := range tv.ns.rows {
+		labels = append(labels, r.label.text)
 	}
 	if want := []string{"All groups", "acme.cert-manager.io", "cert-manager.io", "gateway.networking.k8s.io"}; !slices.Equal(labels, want) {
 		t.Fatalf("group filter offers %v, want %v", labels, want)
 	}
-	test.Tap(tv.nsChecks[2]) // cert-manager.io
+	test.Tap(tv.ns.rows[2].check) // cert-manager.io
 	q.until(t, "two definitions", func() bool { return len(tv.snap.Rows) == 2 })
-	if tv.nsButton.Text != "cert-manager.io" || !tv.nsPopup.Visible() || tv.nsChecks[0].Checked {
-		t.Fatalf("after choosing a group: text %q, popup %v, all checked %v", tv.nsButton.Text, tv.nsPopup.Visible(), tv.nsChecks[0].Checked)
+	if tv.nsButton.Text != "cert-manager.io" || !tv.ns.visible() || tv.ns.rows[0].check.Checked {
+		t.Fatalf("after choosing a group: text %q, popup %v, all checked %v", tv.nsButton.Text, tv.ns.visible(), tv.ns.rows[0].check.Checked)
 	}
 	if got := decodeParams[groupsParams](t, f.callsOf("ui.setGroups")[0]).Groups; !slices.Equal(got, []string{"cert-manager.io"}) {
 		t.Fatalf("ui.setGroups %v", got)
@@ -481,7 +481,7 @@ func TestDefinitionsGroupFilter(t *testing.T) {
 	if len(f.callsOf("ui.setNamespace")) != 0 {
 		t.Fatal("the group filter changed the namespace filter")
 	}
-	test.Tap(tv.nsChecks[0]) // All groups
+	test.Tap(tv.ns.rows[0].check) // All groups
 	q.until(t, "every definition", func() bool { return len(tv.snap.Rows) == 5 })
 	if tv.nsButton.Text != "All groups" {
 		t.Fatalf("text %q after All groups", tv.nsButton.Text)

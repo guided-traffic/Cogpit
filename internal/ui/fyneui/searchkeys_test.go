@@ -43,4 +43,14 @@ func TestSearchFieldsHandFKeysToTheHotbar(t *testing.T) {
 	if got := slots(); !slices.Equal(got, []int{3, 1, 3}) {
 		t.Errorf("hotbar.openCluster's slots %v, want 3, 1, 3", got)
 	}
+
+	sh.view.openNamespaces() // the namespace filter's search (F21), its list closed first
+	if !sh.view.ns.visible() {
+		t.Fatal("the namespace filter's list did not open")
+	}
+	sh.view.ns.search.TypedKey(&fyne.KeyEvent{Name: fyne.KeyF2})
+	q.until(t, "F2 from the namespace filter's search, closed first", func() bool { return len(slots()) >= 4 && !sh.view.ns.visible() })
+	if got := slots(); got[3] != 2 {
+		t.Errorf("hotbar.openCluster's slots %v, want 3, 1, 3, 2", got)
+	}
 }
