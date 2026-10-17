@@ -150,6 +150,12 @@ Run tests with the race detector.
     change closes or moves one of its items. A sentence saying "not built yet", "planned" or
     "none yet" about what the change just built is wrong the moment it lands. A change is not
     finished while a page still describes the old state.
+11. **Decide details, record every one** (owner, 2026-10-17,
+    [D-74](docs/developer/decisions.md#d-74-how-the-leads-decisions-are-reviewed)): the owner
+    decides direction, scope, security posture and the irreversible or outward-facing; a detail
+    below that is decided by whoever builds it and recorded where it lives (question, options,
+    choice, why), as the lead's decision, open to revision. Nothing undocumented: a choice only a
+    report or a commit names goes into its page in the same change.
 
 ## 4. Picking work
 

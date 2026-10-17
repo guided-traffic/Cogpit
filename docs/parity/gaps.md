@@ -186,7 +186,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   plugin's standard error after a failed login, captured from client-go's Authenticator, scrubbed and cut to 4 KiB
   ([H-112](../security/credentials.md#h-112-a-credential-plugins-standard-error-in-the-connection-log)). Lens shows INFO and
   ERROR lines of a failed connect only; the rest is Cogpit's own ([beyond Lens](beyond-lens.md#standby-and-lost-connections)).
-  **Still open:** the owner's confirmation of the lead's choices; not tried with a real login program's failure.
+  **Still open:** not tried with a real login program's failure.
 - **Decided (owner, 2026-10-12, [D-17](../developer/decisions.md#d-17-token-files-named-by-added-kubeconfigs)):**
   a `tokenFile` of an added or synced kubeconfig outside its folder is asked for in the
   plugin approval dialog (H-24); **built 2026-10-12** (`TestTokenFileOutsideTheFolderIsAskedFor`;
@@ -360,7 +360,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   night: an agent's `object_get` and `cogpit-cli get` of one object (`DetailWait`) and the GUI's
   drawer read the plan's namespaces, which can miss the object's (it showed as missing); they read
   the object's namespace, its events there and a namespaced object's related objects there
-  (**night decision, the lead's, for the owner to confirm:** the namespace's events, not a
+  (**night decision, the lead's, open to revision:** the namespace's events, not a
   field-selected scope per object; [architecture §5](../developer/architecture.md#5-cache)),
   following a refusal (`TestDetailWaitReadsTheObjectsNamespace`, `TestDetailWaitFollowsARefusal`,
   `TestDrawerReadsTheObjectsNamespace`). Fixed the same night, found while checking the rest of the
@@ -758,11 +758,11 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `rekor.sigstore.dev` before the binary, no fallback when the log cannot be asked
   ([`verify.go`](../../internal/kubectl/verify.go), [`rekor.go`](../../internal/kubectl/rekor.go);
   `TestRealReleaseSignature`, `TestRealReleaseRefused`, `TestDownloadWithoutTheLog`); the lead's
-  decisions for the owner to confirm in D-50. Estimate not moved.
+  decisions, open to revision in D-50. Estimate not moved.
 - **Built 2026-10-15 (A81):** an application's logs in one merged tab, each line
   `<workload>/<pod>/<container>`, with a Workload selector beside the Pod and Container ones
   (`application.logs`; `argocd.logs` and `flux.logs` for Argo CD Applications and Flux
-  Kustomizations, the lead's decision for the owner to confirm,
+  Kustomizations, the lead's decision, open to revision,
   [architecture §4.4](../developer/architecture.md#44-tables-details-editors-and-streams)). Estimate
   not moved.
 - **Built 2026-10-14 (A84, #169):** a logs tab's Download saves what the tab shows, its filter
@@ -1229,7 +1229,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   node-exporter; not against a real kube-prometheus-stack with node-exporter, nor the owner's
   cluster (since 2026-10-16 against a real Prometheus Operator installation on a cluster the owner
   provides for tests, below) ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics), the choices
-  as the lead's decisions for the owner to confirm in
+  as the lead's decisions, open to revision in
   [D-43](../developer/decisions.md#d-43-where-the-nodes-disk-comes-from);
   [ui parity › Cluster overview and charts](ui-parity.md#cluster-overview-and-charts)).
 - **Decided (owner, 2026-10-14 evening; all of it built 2026-10-14 night):** node CPU and memory history
@@ -1501,8 +1501,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   asked for again as before. The window's lines break at a gap (a step longer than four times the
   series' usual step and two minutes), so no line crosses the time nobody measured, and the note
   under a chart without history reads "The Metrics Server keeps no history: Cogpit keeps what it
-  measured, the last hour at most." **Night decision (the lead's, 2026-10-14, for the owner to
-  confirm):** options (a) keep nothing, as before; (b) keep every closed chart for the session; (c)
+  measured, the last hour at most." **Night decision (the lead's, 2026-10-14, open to revision):** options (a) keep nothing, as before; (b) keep every closed chart for the session; (c)
   keep closed charts bounded by age, count and points, least recently closed dropped first; chosen
   (c), because (b) grows with every object a user clicks through and (a) throws away what the
   Metrics Server cannot give again. **Cogpit's defaults:** the last hour of each series (also how
@@ -1518,7 +1517,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   [light](../../internal/ui/fyneui/testdata/pod_metrics_reopened_light.png)). Not kept across a restart.
 - **Built (2026-10-14): the Overview's Pods history from Prometheus** ([ui parity](ui-parity.md#cluster-overview-and-charts);
   [architecture §9](../developer/architecture.md#9-metrics-internalmetrics)). **Night decision (the
-  lead's, 2026-10-14, for the owner to confirm):** options (a) the cache's counts since the page
+  lead's, 2026-10-14, open to revision):** options (a) the cache's counts since the page
   opened, as before; (b) kube-state-metrics' `kube_pod_info` (the pod's node) and
   `kube_pod_status_phase` through Prometheus, counted by the cache's rule (scheduled to a node of the
   group, not Succeeded or Failed); (c) cAdvisor's series, a pod counted while it has a container's
@@ -1565,7 +1564,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   counterpart Cluster Settings › Cogpit Metrics, built in the night of 2026-10-15/16, was withdrawn
   by the owner and removed the same day ([D-61](../developer/decisions.md#d-61-cogpit-metrics-the-bundled-metrics-stack));
   detection finds the prometheus chart's server under any release's name since then.
-- **Built (2026-10-16 night, the lead's decisions for the owner to confirm):** the Metrics provider
+- **Built (2026-10-16 night, the lead's decisions, open to revision):** the Metrics provider
   row's rest: a query format select (Cogpit's presets: auto, Prometheus Operator, cAdvisor only),
   the empty-container filter and HTTPS, in the Prometheus dialog (on the settings page since the
   night of 2026-10-16/17, below) and `cluster.setPrometheus`,
@@ -1576,7 +1575,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   drawer showing CPU, 8 with the network
   ([architecture §9](../developer/architecture.md#9-metrics-internalmetrics),
   [D-43](../developer/decisions.md#d-43-where-the-nodes-disk-comes-from)).
-- **Built (2026-10-16 night, the lead's decisions for the owner to confirm): the Prometheus setting's
+- **Built (2026-10-16 night, the lead's decisions, open to revision): the Prometheus setting's
   fields on Cluster Settings › Metrics** as Lens shows them (captured: the "Prometheus" dropdown,
   the empty-container filter, the auto-detected provider and path, HTTPS, the path prefix), in
   place of the dialog: the query format and "Filter empty containers" under PROMETHEUS; the
@@ -1609,7 +1608,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   `TestClusterOverviewPage` (the Overview's links), `TestHistoryThenLiveValues` (the place); PNGs of
   the Overview ([dark](../../internal/ui/fyneui/testdata/cluster_overview_dark.png),
   [light](../../internal/ui/fyneui/testdata/cluster_overview_light.png)). Not tried in a real window.
-- **Built (2026-10-16 night, the lead's decisions for the owner to confirm, [D-71](../developer/decisions.md#d-71-thanos-and-victoriametrics-read-as-prometheus)):
+- **Built (2026-10-16 night, the lead's decisions, open to revision, [D-71](../developer/decisions.md#d-71-thanos-and-victoriametrics-read-as-prometheus)):
   Thanos and VictoriaMetrics under their own names.** Detection among the cached Services, at most
   the three probes as before, finds Thanos's Querier and query frontend and VictoriaMetrics
   single-node and the cluster's vmselect (under `/select/0/prometheus`) by the names their charts
@@ -1639,7 +1638,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   a fake API server: 0 live gets in 20 polls with the network shown and with CPU and Memory hidden,
   20 before the change), `TestNetworkOnlyChartNeedsNoCurrentUsage`, `TestPrometheusInTheDrawer`
   (11 requests after its range change, was 13: no chart there shows CPU or memory).
-- **Built (2026-10-16 night, the lead's decisions for the owner to confirm): the Overview's five
+- **Built (2026-10-16 night, the lead's decisions, open to revision): the Overview's five
   partial rows as far as they go without a real window** ([ui-parity](ui-parity.md#cluster-overview-and-charts)).
   The area under every chart's series is filled as Lens's charts are (captured: "the chart's
   fill", missing since 2026-10-12): each run of points down to zero in the series' colour at a
@@ -1702,8 +1701,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   background job with a dock tab of its own asks each object of the chain in turn and waits for its
   controller through the cache (at most 5 minutes each), a source that ends not ready stopping the
   object; its steps and outcome are engine state that agents read with `ui_state`; closing the tab
-  stops it (`TestFluxReconcileWithSourceWaitsForTheSource`, `TestKindFlux`). The lead's decisions
-  for the owner to confirm are in D-33. Estimate not moved.
+  stops it (`TestFluxReconcileWithSourceWaitsForTheSource`, `TestKindFlux`). The lead's decisions, open to revision are in D-33. Estimate not moved.
 - **Built 2026-10-14 (A90):** a user who may not list the custom resource definitions gets Flux's
   and Argo CD's kinds from API discovery with their curated profiles (every curated profile, the
   Vertical Pod Autoscalers' too; generic custom resources stay invisible), and both dashboards count
@@ -1775,7 +1773,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   never in CI). What held: the columns, the status tokens, the Dashboard's counts against
   `kubectl`, the related objects, the settings without credentials (D-35), the merged logs (A81),
   Refresh, Sync and Sync with prune on one and a selection run by the controller, Open Argo CD UI.
-  Found and fixed (the lead's decisions for the owner to confirm, in
+  Found and fixed (the lead's decisions, open to revision, in
   [D-36](../developer/decisions.md#d-36-how-argo-cds-sync-writes-the-operation) and the
   [Argo CD row](resource-parity.md#paid-lens-desktop-views)): the Resources' empty Health column
   (Argo CD 3 keeps it in its resource tree), the project and sync windows of an Application in
@@ -1807,7 +1805,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   and keyboard row are engine state, visible and settable for agents (the palette's typed text
   too, [G13](#g13-clusters-hotbar-palette-menus-shortcuts-and-preferences);
   [D-51](../developer/decisions.md#d-51-the-navigators-and-the-command-palettes-state), with the
-  lead's night decisions for the owner to confirm); the navigator's focus ring on keyboard
+  lead's night decisions, open to revision); the navigator's focus ring on keyboard
   navigation only; the welcome page's "This session" became "Recent", and its links name the README
   for what Cogpit does and [the command list](../developer/commands.md) for the commands.
   Estimate not moved.
@@ -1818,7 +1816,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   lies over the cell's end, the text no longer shortened for it (A69, built 2026-10-15), and the
   drawer's Forward… sits right after the value with the copy icon over the value's end on hover
   (A71, built 2026-10-15; [D-25](../developer/decisions.md#d-25-copying-values) lists the lead's
-  readings for the owner to confirm) (the status filter's button in
+  readings, open to revision) (the status filter's button in
   the accent colour while a filter is active: built 2026-10-14, A80); after a create the new object's drawer opens and the
   list scrolls to its row (built 2026-10-14, A102; [G9](#g9-yaml-editor-and-create-resource)). Confirmed, now the owner's
   decisions: the checkmark and toast on a list copy; the copy icons' exclusion list, for custom
@@ -2145,7 +2143,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   into the gap between two tiles moves there through `hotbar.moveCluster`, Move Up and Move Down
   kept ([`fyneui/hotbardrag.go`](../../internal/ui/fyneui/hotbardrag.go), `TestHotbarTileDragMovesIt`,
   `TestHotbarTileDragCancels`, [PNG](../../internal/ui/fyneui/testdata/hotbar_drag_dark.png)). The
-  lead's decisions for the owner to confirm: an accent line in the gap and an outline where the
+  lead's decisions, open to revision: an accent line in the gap and an outline where the
   tile was; a drop on the "+" puts it last (no empty cells); a drop outside the bar does nothing
   (R3's seam, [D-52](../developer/decisions.md#d-52-several-windows)); a drag under eight points opens
   the cluster. Not built: scrolling the bar at its edge while dragging. Not tried with a real
@@ -2559,7 +2557,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   and other tools, whether Cogpit's cache holds it, and with `all` the built-in kinds the cluster
   does not serve ([`kindslist.go`](../../internal/engine/commands/kindslist.go),
   `TestKindsListActionsCacheAndServed`). Nothing of the rows is missing.
-- **Estimate:** 0 h, closed 2026-10-16 night (was 0–2 h; 4–12 before 2026-10-13, night build, after `dock_read`, `kinds_list` and the check of every command over the whole registry): the mitigation [H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on) named, an expiry of the terminal switch, is built (2026-10-14, A3: off 15 minutes after the last read, at the latest an hour after it went on; `TestAgentReadSwitchEndsAfterAnHour`), so nothing of the rows is left (checked 2026-10-15); D-44 is decided (owner, 2026-10-14), and the scrub [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) named is built (2026-10-14: the cached Secrets' values replaced by `«secret <ns>/<name>/<key>»` in what agents read, with the lead's choices for the owner to confirm in D-44). The actions G7 adds later become tools on registration, checked by `TestEveryCommandIsATool`.
+- **Estimate:** 0 h, closed 2026-10-16 night (was 0–2 h; 4–12 before 2026-10-13, night build, after `dock_read`, `kinds_list` and the check of every command over the whole registry): the mitigation [H-83](../security/agents-and-mcp.md#h-83-an-allowed-terminal-tab-gives-agents-everything-it-shows-from-then-on) named, an expiry of the terminal switch, is built (2026-10-14, A3: off 15 minutes after the last read, at the latest an hour after it went on; `TestAgentReadSwitchEndsAfterAnHour`), so nothing of the rows is left (checked 2026-10-15); D-44 is decided (owner, 2026-10-14), and the scrub [H-82](../security/agents-and-mcp.md#h-82-secret-values-printed-into-logs-reach-agents) named is built (2026-10-14: the cached Secrets' values replaced by `«secret <ns>/<name>/<key>»` in what agents read, with the lead's choices, open to revision in D-44). The actions G7 adds later become tools on registration, checked by `TestEveryCommandIsATool`.
 
 ### G21. Built-in agent
 - **Required (owner, 2026-10-12, later, after the alpha):** a VS Code-like chat in Cogpit (as in
@@ -2573,7 +2571,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   the turn loop over 20 core commands and two meta-tools with origin `builtInAgent`, the owner's
   limits and Stop, conversations kept scrubbed; checked against the owner's LM Studio with
   `qwen/qwen3.8-27b` ([D-10](../developer/decisions.md#d-10-built-in-agent), with the lead's
-  decisions of the night run for the owner to confirm).
+  decisions of the night run, open to revision).
 - **Built 2026-10-14 night, the window's half (M12 (b)), against the engine's contract
   (`engine.ChatAgent`) and a scripted agent:** the chat column at the right edge (⌘I, its width
   kept, beside a settings page too), the conversation drawn as the owner's design direction has it
@@ -2584,12 +2582,12 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   writes setting, and Preferences › Agent with the connection test by layer
   ([`fyneui/chat.go`](../../internal/ui/fyneui/chat.go),
   [`fyneui/preferences_agent.go`](../../internal/ui/fyneui/preferences_agent.go)); the lead's
-  decisions for the owner to confirm are in [D-10](../developer/decisions.md#d-10-built-in-agent).
+  decisions, open to revision are in [D-10](../developer/decisions.md#d-10-built-in-agent).
 - **Built (2026-10-14 night, M12 (c)):** the private connection's reads like the user's:
   `Invocation.ReadsLikeUser` honoured by the engine for the built-in agent only, every read path
   that withheld from agents asks it, no write rule does, the audit lines marked
   ([agents and MCP › H-94](../security/agents-and-mcp.md#h-94-a-private-connection-gives-the-model-what-the-window-shows),
-  six decisions of the lead for the owner to confirm in D-10).
+  six decisions of the lead, open to revision in D-10).
 - **Built 2026-10-15 (the owner's decision of the same day, H-96):** a conversation in which a turn
   ran over a private connection is not kept: memory only, gone when Cogpit quits, from that turn's
   start and for good (also after a switch to a connection not marked private); a file of v0.8.0 to

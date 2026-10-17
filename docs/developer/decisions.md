@@ -1,10 +1,14 @@
 # Decisions
 
-> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-16 · **Change:** minor (D-73 added, the owner's finding of 2026-10-16 night: Disconnect, the window's Cancel Connecting, ends a connect under way and the credential plugin it waits for; every plugin run bounded by 5 minutes; `connection.waitingForLogin`; the connect's timeout no longer counts the login; built with the lead's decisions for the owner to confirm; D-58 points to it; H-118 opened; its index row); minor (D-72 added: native file panels and macOS folder access, the owner's order of 2026-10-16 night, built the same night with the lead's decisions for the owner to confirm; H-116 opened; its index row); minor (D-39, night run 2026-10-16/17: the namespace-limited user's Pods history by the plan's namespaces not built, A47 standing; the lead's decision and the owner's question); minor (D-71 added, night run 2026-10-16/17: Thanos and VictoriaMetrics found by their Services' names after a Prometheus by its own names and named so, vmselect under the default tenant; the lead's decisions for the owner to confirm, built, checked against a real Thanos and VictoriaMetrics on kind; its index row); minor (D-54: the bar's right end reordered, the toggles at the very right after the bell and a divider, close together, and an alerts pill without a source, the owner's of 2026-10-16 night, built); minor (D-55: a key removed through the Edit tab destructive for every origin, built 2026-10-16 night, the "What it does not cover" bullet closed with the lead's decisions on it; the index row); minor (D-57: the welcome page without its "Connect to Cluster…" button built 2026-10-16 night (N122), the workspace's kept; verified the same night that the navigator shows the section wherever the workspace's button shows, but for a navigator ⌘B hid; the index row); minor (D-4: a check for updates at every start while the automatic checks are on, the owner's of 2026-10-16 night, built); minor (D-55 and D-57: the owner's answers of 2026-10-16 evening, asked one at a time after the audit: a key removed through the Edit tab is destructive for every origin (`object.apply` escalating as for a scale to zero), the welcome page without its "Connect to Cluster…" button and the workspace's kept; both not built yet; their index rows); minor (D-4: the appcast's deploy lets a newer release win over an older item its draft never saw, the owner's correction of F18 after v0.19.0's refused deploy, 2026-10-16); minor (D-58: the selection bar's greyed Delete names the engine's reason in its tooltip, "Delete — connection interrupted", the owner's audit decision of 2026-10-16 (c), built the same day with the build's choices for the owner to confirm; its index row); minor (D-59: the copy icon over a Secret's editor, the owner's audit decision of 2026-10-16 (c), built the same day, every copy through the clipboard rule for Secret values; D-25 says so; their index rows); minor (D-55 and D-59: keys added and removed in a Config Map's and a Secret's drawer, the owner's audit decision of 2026-10-16 (N152), built the same day with the lead's decisions for the owner to confirm; a save that removes a key destructive, the review its confirmation; their index rows); minor (D-10 (6): a chat connection's CA file replaces the system's roots for that connection, as kubectl's certificate-authority, the owner's decision in the audit of 2026-10-16, N141, built the same day); minor (D-57: every cluster and kubeconfig command under the menu path `Cluster/`, the inconsistency it noted resolved, the owner's decision in the audit of 2026-10-16, N121); minor (the owner's audit of the night decisions of 2026-10-15/16 (2026-10-16 afternoon): the lead's decisions in D-10, D-11, D-15, D-43, D-55, D-57, D-58, D-59, D-62, D-63, D-64 and D-65 confirmed as built where he chose the built option, the rows the audit did not ask left open; changed by him and not built yet: the copy from a Secret's editor, D-59, and the selection bar's greyed Delete, D-58; to be changed, how not said yet: the welcome page's button, D-57; his four other changes (the checked rows after `ui.navigate`, the Cluster menu's paths, D-10's CA file, D-59's keys) left to the changes that build them; their index rows, the stale duplicate rows of D-43, D-62 and D-63 removed); minor (D-61 withdrawn by the owner 2026-10-16 and removed: Cogpit installs nothing into a cluster for its own features; the stack, its commands and N183 to N192 gone, H-105 closed, the reading improvements kept; its index row); minor (D-69 stage 3 built 2026-10-16, the two settings: a cluster that is not shown holds its credential plugin while its setting "Renew the login while the cluster is not shown" is off, its login then lapsing (`loginLapsed`, not red) until it is shown or logged in again; Preferences › App › Restore the last session, off by default, connecting the clusters of the last quit at start, the shown one first; D-41 and D-42 changed by the owner's decision of 2026-10-16, D-58's background renewal; the lead's decisions for the owner to confirm); minor (D-69 stage 2 built 2026-10-16, the window: switching without reconnecting at every entry point, the marks of item 5 on every dot, each cluster blinking for itself, the dock per cluster as engine state, Disconnect per cluster in its menus, Diagnostics per cluster, a failed connect shows the cluster shown before again, `ConnectedCluster.LoginLapsed` for stage 3; the lead's decisions for the owner to confirm; its index row); minor (D-69 stage 1 built 2026-10-16, the engine: a pool of backends by context, one shown, `cluster.connect` of a connected context only shows it, the left cluster's views warm for 5 minutes and then cold, `cluster.disconnect {context?}`, every command on its own cluster (a reference's, a dock tab's, an optional `context`), the connection watch and the write gate per cluster, `UIState.Connections`; the lead's decisions for the owner to confirm; its index row); minor (D-69 added: several clusters connected at once, the owner's interview of 2026-10-16, not built); minor (D-58 S3: the light Running green #177f4a, the owner's decision 2026-10-16, 3.1:1 on a selected row); minor (D-68, the owner's F17 of 2026-10-16: one short name for a cluster everywhere, the part after the last "@"; the user Cogpit is logged in as in the navigator's root row from a SelfSubjectReview at every connect, the kubeconfig fallback marked, the last known user while not connected, the groups in a tooltip; agents read the username and the groups in `ui_state`; built, the lead's decisions for the owner to confirm; its index row); minor (D-70 added: the disk image's window, the owner's visual review and pipeline choice of 2026-10-16, built); minor (D-66: the connection log, decided by the owner 2026-10-16 and built, the lead's choices for the owner to confirm, H-112 opened, its index row); minor (D-58's S3 amended by the owner, F13 2026-10-16: the connection as a dot, never a word, Connected in the Running green, blinking while (re)connecting with a 3 s minimum, a click opening the connection log, D-66; the lead's decisions for the owner to confirm; D-22 and D-23 follow; its index row); minor (D-67: the demo cluster compiled out of releases by the tag `nodemo`, the owner's decision of 2026-10-16, built); minor (D-4: the appcast's deploy refuses a feed that drops a served item, F18, owner 2026-10-16); minor (F11, owner 2026-10-16: D-4's scheduled update check every hour instead of Sparkle's day; D-54's Update button names the version, "Update to v0.16.0", and says "Update" where the bar has no room for it; its index rows); minor (D-4: the first update through the feed, 2026-10-16); minor (D-36 checked against a live Argo CD 3.5.5 controller on a real cluster, 2026-10-16: the sync windows' check, the project's namespace and the operation's source brought to Argo CD's, the lead's decisions for the owner to confirm; its index row); minor (D-63: Drain built as a background job 2026-10-16, night run: a step per pod with the PodDisruptionBudget's wait, Cancel, a stopped drain kept in the journal as `stopped` and offered as after a crash, an MCP client that gives up no longer stops it; the lead's decisions for the owner to confirm; D-11 and D-58 follow, H-111 opened, its index row); minor (D-65 discovery cached on disk: the lead's decisions of the night run of 2026-10-16 for the owner to confirm, built, measured on a real cluster, its index row; D-13 says the answer holds no object); minor (D-62: checks against a real cluster, the lead's decisions for the owner to confirm, 2026-10-16); minor (D-15: the scorecard built 2026-10-16 in the night run, `make scorecard` and docs/parity/scorecard.md, the lead's choices for the owner to confirm; its index row); minor (D-64: envtest, a real API server in CI without Docker, built 2026-10-16 in the night run with the lead's decisions for the owner to confirm: controller-runtime's envtest v0.25.2, the binaries pinned by SHA-512, SIGSTOP of the API server for D-58's standby case, a job of its own); minor (D-64: envtest, a real API server in CI without Docker, built 2026-10-16 in the night run with the lead's decisions for the owner to confirm: controller-runtime's envtest v0.25.2, the binaries pinned by SHA-512, SIGSTOP of the API server for D-58's standby case, a job of its own); minor (D-61: Cogpit Metrics, the bundled metrics stack of Lens Metrics, the lead's decision for the owner to confirm, built and tried on kind and a real cluster; D-43: a node's network and filesystem from node-exporter, the lead's choices for the owner to confirm); minor (D-63 built 2026-10-16, night run: long commands as background jobs, an action on a selection of more than ten objects with progress in the dock and Cancel for every origin, the lead's decisions for the owner to confirm, with its index row); minor (D-58 standby and lost connections: the owner's decisions S1–S8 of 2026-10-15 evening, the lead's defaults, built 2026-10-15/16 with the build's decisions for the owner to confirm, its index row); minor (D-15: parity-checklist.md generated by hack/parity, built 2026-10-16); minor (D-59: a Secret's values edited in the drawer, the window's only, decided by the owner 2026-10-15 and built the same night; D-55: the owner's audit answers for a Config Map's drawer built); minor (D-55: the owner's audit answers of 2026-10-15 for a Config Map's drawer built: Save rebases by itself when no edited key changed, unsaved values kept as disk drafts; a Secret's values in the drawer decided); minor (D-57: an insecure context's warning icon on its section row; the selection bar in the item count's place); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; F9, a sent message edited and sent again, H-100; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the index row); minor (D-57 built: choosing a cluster in the navigator's section only, the context picker, "Switch context" and the scope dropdown gone; D-42, D-47 and D-51 follow); minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
+> **Last reviewed:** 2026-10-12 · **Last updated:** 2026-10-17 · **Change:** minor (D-74 added, the owner's choice of 2026-10-17: the lead decides details and records them, open to revision; every "for the owner to confirm" outside the change log reads "open to revision"); minor (D-73 added, the owner's finding of 2026-10-16 night: Disconnect, the window's Cancel Connecting, ends a connect under way and the credential plugin it waits for; every plugin run bounded by 5 minutes; `connection.waitingForLogin`; the connect's timeout no longer counts the login; built with the lead's decisions for the owner to confirm; D-58 points to it; H-118 opened; its index row); minor (D-72 added: native file panels and macOS folder access, the owner's order of 2026-10-16 night, built the same night with the lead's decisions for the owner to confirm; H-116 opened; its index row); minor (D-39, night run 2026-10-16/17: the namespace-limited user's Pods history by the plan's namespaces not built, A47 standing; the lead's decision and the owner's question); minor (D-71 added, night run 2026-10-16/17: Thanos and VictoriaMetrics found by their Services' names after a Prometheus by its own names and named so, vmselect under the default tenant; the lead's decisions for the owner to confirm, built, checked against a real Thanos and VictoriaMetrics on kind; its index row); minor (D-54: the bar's right end reordered, the toggles at the very right after the bell and a divider, close together, and an alerts pill without a source, the owner's of 2026-10-16 night, built); minor (D-55: a key removed through the Edit tab destructive for every origin, built 2026-10-16 night, the "What it does not cover" bullet closed with the lead's decisions on it; the index row); minor (D-57: the welcome page without its "Connect to Cluster…" button built 2026-10-16 night (N122), the workspace's kept; verified the same night that the navigator shows the section wherever the workspace's button shows, but for a navigator ⌘B hid; the index row); minor (D-4: a check for updates at every start while the automatic checks are on, the owner's of 2026-10-16 night, built); minor (D-55 and D-57: the owner's answers of 2026-10-16 evening, asked one at a time after the audit: a key removed through the Edit tab is destructive for every origin (`object.apply` escalating as for a scale to zero), the welcome page without its "Connect to Cluster…" button and the workspace's kept; both not built yet; their index rows); minor (D-4: the appcast's deploy lets a newer release win over an older item its draft never saw, the owner's correction of F18 after v0.19.0's refused deploy, 2026-10-16); minor (D-58: the selection bar's greyed Delete names the engine's reason in its tooltip, "Delete — connection interrupted", the owner's audit decision of 2026-10-16 (c), built the same day with the build's choices for the owner to confirm; its index row); minor (D-59: the copy icon over a Secret's editor, the owner's audit decision of 2026-10-16 (c), built the same day, every copy through the clipboard rule for Secret values; D-25 says so; their index rows); minor (D-55 and D-59: keys added and removed in a Config Map's and a Secret's drawer, the owner's audit decision of 2026-10-16 (N152), built the same day with the lead's decisions for the owner to confirm; a save that removes a key destructive, the review its confirmation; their index rows); minor (D-10 (6): a chat connection's CA file replaces the system's roots for that connection, as kubectl's certificate-authority, the owner's decision in the audit of 2026-10-16, N141, built the same day); minor (D-57: every cluster and kubeconfig command under the menu path `Cluster/`, the inconsistency it noted resolved, the owner's decision in the audit of 2026-10-16, N121); minor (the owner's audit of the night decisions of 2026-10-15/16 (2026-10-16 afternoon): the lead's decisions in D-10, D-11, D-15, D-43, D-55, D-57, D-58, D-59, D-62, D-63, D-64 and D-65 confirmed as built where he chose the built option, the rows the audit did not ask left open; changed by him and not built yet: the copy from a Secret's editor, D-59, and the selection bar's greyed Delete, D-58; to be changed, how not said yet: the welcome page's button, D-57; his four other changes (the checked rows after `ui.navigate`, the Cluster menu's paths, D-10's CA file, D-59's keys) left to the changes that build them; their index rows, the stale duplicate rows of D-43, D-62 and D-63 removed); minor (D-61 withdrawn by the owner 2026-10-16 and removed: Cogpit installs nothing into a cluster for its own features; the stack, its commands and N183 to N192 gone, H-105 closed, the reading improvements kept; its index row); minor (D-69 stage 3 built 2026-10-16, the two settings: a cluster that is not shown holds its credential plugin while its setting "Renew the login while the cluster is not shown" is off, its login then lapsing (`loginLapsed`, not red) until it is shown or logged in again; Preferences › App › Restore the last session, off by default, connecting the clusters of the last quit at start, the shown one first; D-41 and D-42 changed by the owner's decision of 2026-10-16, D-58's background renewal; the lead's decisions for the owner to confirm); minor (D-69 stage 2 built 2026-10-16, the window: switching without reconnecting at every entry point, the marks of item 5 on every dot, each cluster blinking for itself, the dock per cluster as engine state, Disconnect per cluster in its menus, Diagnostics per cluster, a failed connect shows the cluster shown before again, `ConnectedCluster.LoginLapsed` for stage 3; the lead's decisions for the owner to confirm; its index row); minor (D-69 stage 1 built 2026-10-16, the engine: a pool of backends by context, one shown, `cluster.connect` of a connected context only shows it, the left cluster's views warm for 5 minutes and then cold, `cluster.disconnect {context?}`, every command on its own cluster (a reference's, a dock tab's, an optional `context`), the connection watch and the write gate per cluster, `UIState.Connections`; the lead's decisions for the owner to confirm; its index row); minor (D-69 added: several clusters connected at once, the owner's interview of 2026-10-16, not built); minor (D-58 S3: the light Running green #177f4a, the owner's decision 2026-10-16, 3.1:1 on a selected row); minor (D-68, the owner's F17 of 2026-10-16: one short name for a cluster everywhere, the part after the last "@"; the user Cogpit is logged in as in the navigator's root row from a SelfSubjectReview at every connect, the kubeconfig fallback marked, the last known user while not connected, the groups in a tooltip; agents read the username and the groups in `ui_state`; built, the lead's decisions for the owner to confirm; its index row); minor (D-70 added: the disk image's window, the owner's visual review and pipeline choice of 2026-10-16, built); minor (D-66: the connection log, decided by the owner 2026-10-16 and built, the lead's choices for the owner to confirm, H-112 opened, its index row); minor (D-58's S3 amended by the owner, F13 2026-10-16: the connection as a dot, never a word, Connected in the Running green, blinking while (re)connecting with a 3 s minimum, a click opening the connection log, D-66; the lead's decisions for the owner to confirm; D-22 and D-23 follow; its index row); minor (D-67: the demo cluster compiled out of releases by the tag `nodemo`, the owner's decision of 2026-10-16, built); minor (D-4: the appcast's deploy refuses a feed that drops a served item, F18, owner 2026-10-16); minor (F11, owner 2026-10-16: D-4's scheduled update check every hour instead of Sparkle's day; D-54's Update button names the version, "Update to v0.16.0", and says "Update" where the bar has no room for it; its index rows); minor (D-4: the first update through the feed, 2026-10-16); minor (D-36 checked against a live Argo CD 3.5.5 controller on a real cluster, 2026-10-16: the sync windows' check, the project's namespace and the operation's source brought to Argo CD's, the lead's decisions for the owner to confirm; its index row); minor (D-63: Drain built as a background job 2026-10-16, night run: a step per pod with the PodDisruptionBudget's wait, Cancel, a stopped drain kept in the journal as `stopped` and offered as after a crash, an MCP client that gives up no longer stops it; the lead's decisions for the owner to confirm; D-11 and D-58 follow, H-111 opened, its index row); minor (D-65 discovery cached on disk: the lead's decisions of the night run of 2026-10-16 for the owner to confirm, built, measured on a real cluster, its index row; D-13 says the answer holds no object); minor (D-62: checks against a real cluster, the lead's decisions for the owner to confirm, 2026-10-16); minor (D-15: the scorecard built 2026-10-16 in the night run, `make scorecard` and docs/parity/scorecard.md, the lead's choices for the owner to confirm; its index row); minor (D-64: envtest, a real API server in CI without Docker, built 2026-10-16 in the night run with the lead's decisions for the owner to confirm: controller-runtime's envtest v0.25.2, the binaries pinned by SHA-512, SIGSTOP of the API server for D-58's standby case, a job of its own); minor (D-64: envtest, a real API server in CI without Docker, built 2026-10-16 in the night run with the lead's decisions for the owner to confirm: controller-runtime's envtest v0.25.2, the binaries pinned by SHA-512, SIGSTOP of the API server for D-58's standby case, a job of its own); minor (D-61: Cogpit Metrics, the bundled metrics stack of Lens Metrics, the lead's decision for the owner to confirm, built and tried on kind and a real cluster; D-43: a node's network and filesystem from node-exporter, the lead's choices for the owner to confirm); minor (D-63 built 2026-10-16, night run: long commands as background jobs, an action on a selection of more than ten objects with progress in the dock and Cancel for every origin, the lead's decisions for the owner to confirm, with its index row); minor (D-58 standby and lost connections: the owner's decisions S1–S8 of 2026-10-15 evening, the lead's defaults, built 2026-10-15/16 with the build's decisions for the owner to confirm, its index row); minor (D-15: parity-checklist.md generated by hack/parity, built 2026-10-16); minor (D-59: a Secret's values edited in the drawer, the window's only, decided by the owner 2026-10-15 and built the same night; D-55: the owner's audit answers for a Config Map's drawer built); minor (D-55: the owner's audit answers of 2026-10-15 for a Config Map's drawer built: Save rebases by itself when no edited key changed, unsaved values kept as disk drafts; a Secret's values in the drawer decided); minor (D-57: an insecure context's warning icon on its section row; the selection bar in the item count's place); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; F9, a sent message edited and sent again, H-100; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the warning for `http://` to another machine and a CA file per connection, item 10 revised; the index row); minor (D-10: the owner's audit answers of 2026-10-15 for the chat recorded and built in the night run: send all tools per connection; the index row); minor (D-57 built: choosing a cluster in the navigator's section only, the context picker, "Switch context" and the scope dropdown gone; D-42, D-47 and D-51 follow); minor (D-9: verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, the owner's decision of 2026-10-15, with its index row; the index brought to the code: D-10 built (M12), the missing rows of D-14 to D-32 added; D-1: S7's re-check half done since CI; D-2: the round's answers built, the token kept in the configuration directory; D-4: Sparkle no longer "not built"; D-44: the built-in agent built; D-48: the releases' Developer ID signature; D-16: the bundled `cogpit-cli` in signed releases since v0.7.0, a quarantined copy not tried; the round's intro says what the night run built); minor (D-4: Sparkle's update key set up by the owner on 2026-10-15, in v0.11.0 to v0.13.0, no signed appcast yet; A10 decided further, the App the tag ruleset's only bypass, the settings not made; confirmed by the owner on 2026-10-15: D-47 as a whole, D-10 item 12's repaired key file and no keychain migration, D-51's ↵ on an agent's palette text; D-51's dropdown bank moot; the index rows of D-2, D-33, D-34, D-36, D-41 and D-44 no longer say "not built", checked against the code); minor (D-24 revised: the glowing C helm as the logo everywhere, every earlier version kept and drawable)
 
 Decisions that shape the code, each with its options, the reasons, and its status. A decision
 moves from **open** to **decided** only by the owner; a recommendation is a proposal, not an
-outcome. Ecosystem facts were observed on 2026-10-11 from the Go module proxy, crates.io and the
+outcome. Details below that level are the lead's ([D-74](#d-74-how-the-leads-decisions-are-reviewed),
+the owner, 2026-10-17): the lead decides them and records each where it lives, with the question,
+the options weighed, the choice and why, marked as the lead's decision and open to revision; they
+stand as built until a walk, use or someone's feedback changes them. Entries written before
+2026-10-17 said "for the owner to confirm"; they read "open to revision" since. Ecosystem facts were observed on 2026-10-11 from the Go module proxy, crates.io and the
 projects' repositories; re-check them before relying on a version number.
 
 | Id | Decision | Status |
@@ -19,11 +23,11 @@ projects' repositories; re-check them before relying on a version number.
 | [D-8](#d-8-licence) | Licence | decided: Apache-2.0 |
 | [D-9](#d-9-scope-against-lenss-paid-and-vendor-features) | Scope against Lens's paid and vendor features | decided: Flux CD and Argo CD in the beta (built 2026-10-13 and 2026-10-14), other paid features after it, vendor features never; verifying the credential plugins against EKS, GKE and AKS out of scope until long after parity, no longer an alpha-gate or M1 item (owner, 2026-10-15) |
 | [D-10](#d-10-built-in-agent) | Built-in agent and LLM interface | decided: a chat column at the window's right edge, OpenAI-compatible endpoints, several connections, a private-connection mark, kept scrubbed conversations, limits per turn (owner, 2026-10-14 late evening); the API keys in an owner-only file, no keychain (owner, 2026-10-15); a key file others could access repaired with a log warning, no migration of keychain keys (confirmed, owner, 2026-10-15); built: the engine side 2026-10-14 late evening, the chat column, Preferences › Agent and the private connection in the night of 2026-10-14/15, the key file 2026-10-15; the owner's audit answers of 2026-10-15 for the chat (send all tools per connection, a warning for `http://` to another machine and a CA file per connection, a sent message edited and sent again, F9): all three built 2026-10-15 (night run); the CA file replacing the system's roots for its connection since the owner's decision in the audit of 2026-10-16 (N141); M12 stays open for the live runs against LiteLLM and Open WebUI ([roadmap](../parity/roadmap.md#milestones)) |
-| [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations; Helm install (owner, 2026-10-14 evening): nothing offered after an interrupted install, built 2026-10-14 (the journal still records installs and the banner offers Show release: the lead's decisions for the owner to confirm) |
+| [D-11](#d-11-crash-stance) | Crash stance | decided: crash-tolerant UI, crash-safe cluster operations; Helm install (owner, 2026-10-14 evening): nothing offered after an interrupted install, built 2026-10-14 (the journal still records installs and the banner offers Show release: the lead's decisions, open to revision) |
 | [D-12](#d-12-parity-sources) | Parity sources | decided: current Lens Desktop only; no OpenLens or Freelens |
 | [D-13](#d-13-cache) | Cache | decided: the UI reads only from a watch-fed cache, held in memory only; Secrets in full (revised 2026-10-12, built), Helm's releases from that watch or their own `owner=helm` watch |
 | [D-14](#d-14-terminal-widget) | Terminal widget | decided (owner, 2026-10-12): the patched copy of `fyne-io/terminal` in `third_party/fyne-terminal`, its patches offered upstream, the widget fuzzed alone; built 2026-10-12; 2026-10-14 evening: its four shell tests under the race detector in CI (A116), built 2026-10-15; the two newer patches offered upstream at the end (A86) |
-| [D-15](#d-15-progress-generators) | Progress generators | decided (owner, 2026-10-12): `make parity` first, the checklist page and the scorecard later; `make parity` built 2026-10-12; the checklist page and `make scorecard` built 2026-10-16 (night run; the scorecard's main choices confirmed by the owner, audit of 2026-10-16, the rest and the checklist page's for the owner to confirm); the scorecard in CI waits for a fixed runner |
+| [D-15](#d-15-progress-generators) | Progress generators | decided (owner, 2026-10-12): `make parity` first, the checklist page and the scorecard later; `make parity` built 2026-10-12; the checklist page and `make scorecard` built 2026-10-16 (night run; the scorecard's main choices confirmed by the owner, audit of 2026-10-16, the rest and the checklist page's, open to revision); the scorecard in CI waits for a fixed runner |
 | [D-16](#d-16-the-first-real-release) | The first real release | decided (owner, 2026-10-12): a dry run until the alpha; revised 2026-10-13 (releases live: semantic-release on every green `main`, built) and 2026-10-14 (only the complete product, `cogpit-cli` inside the app, built 2026-10-14) |
 | [D-17](#d-17-token-files-named-by-added-kubeconfigs) | Token files named by added kubeconfigs | decided (owner, 2026-10-12): a token file outside the kubeconfig's folder only once the user allowed it, as a credential plugin; built 2026-10-12 |
 | [D-18](#d-18-secret-annotations-seen-by-agents) | Secret annotations seen by agents | decided (owner, 2026-10-12): agents see them in full but kubectl's `last-applied-configuration`; the risk documented (H-23), nothing to build |
@@ -37,14 +41,14 @@ projects' repositories; re-check them before relying on a version number.
 | [D-26](#d-26-binding-a-credential-plugins-approval-to-its-program) | Binding a credential plugin's approval to its program | decided (owner, 2026-10-12): the program's content where a folder's writer can replace it, else its path; built 2026-10-12; 2026-10-14 evening: Cogpit's own proxy for the cluster bound too (A23), built 2026-10-14 |
 | [D-27](#d-27-an-agents-helm-values-in-the-confirmation) | An agent's Helm values in the confirmation | decided (owner, 2026-10-12): shown in the dialog before the user answers; built 2026-10-12 |
 | [D-28](#d-28-the-default-kubeconfig-as-sources-as-lens-has-it) | The default kubeconfig as sources, as Lens has it | decided (owner, 2026-10-12); built 2026-10-12; 2026-10-14 evening: Remove from Cogpit on a sync folder's context (A97), built 2026-10-15 |
-| [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) | Helm chart repositories from Helm's `repositories.yaml` | decided (owner, 2026-10-13): read, never written, credentials included; built 2026-10-13 and 2026-10-14; 2026-10-14 evening: http and insecure origins marked (A14, built 2026-10-15), dotted repository names (A36, built 2026-10-14), the lead's details for the owner to confirm |
-| [D-30](#d-30-certificates-in-secrets-decoded) | Certificates in Secrets, decoded | decided (owner, 2026-10-13); built 2026-10-13; 2026-10-14 evening: combined PEMs and encrypted keys (A99, A100), built 2026-10-14; the kind of CA (R1), built 2026-10-14 night as the lead's design for the owner to confirm |
+| [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) | Helm chart repositories from Helm's `repositories.yaml` | decided (owner, 2026-10-13): read, never written, credentials included; built 2026-10-13 and 2026-10-14; 2026-10-14 evening: http and insecure origins marked (A14, built 2026-10-15), dotted repository names (A36, built 2026-10-14), the lead's details, open to revision |
+| [D-30](#d-30-certificates-in-secrets-decoded) | Certificates in Secrets, decoded | decided (owner, 2026-10-13); built 2026-10-13; 2026-10-14 evening: combined PEMs and encrypted keys (A99, A100), built 2026-10-14; the kind of CA (R1), built 2026-10-14 night as the lead's design, open to revision |
 | [D-31](#d-31-every-timestamp-in-the-local-time-zone-and-format) | Every timestamp in the local time zone and format | decided (owner, 2026-10-13); built 2026-10-13; the format as a setting (the owner's "later") not built |
 | [D-32](#d-32-every-byte-amount-in-binary-units-with-one-decimal) | Every byte amount in binary units with one decimal | decided (owner, 2026-10-13); built 2026-10-13 |
 | [D-33](#d-33-the-flux-actions) | The Flux actions | decided (owner, 2026-10-14): Reconcile, Reconcile with Source, Reset, Suspend and Resume as the flux CLI patches them, mutating, on objects and selections; Force an agent's parameter; built 2026-10-13 and 2026-10-14; 2026-10-14 evening: Reconcile with Source waits for the source (built 2026-10-15, the night run, A91), the confirmation names the controller's identity (built 2026-10-14 night, A34) |
 | [D-34](#d-34-the-flux-dashboard) | The Flux dashboard | decided (owner, 2026-10-14): five states after kstatus, counts per kind and the objects that are not ready (built 2026-10-13); a state opens its kind's view filtered, through a status filter of every view (option a), built 2026-10-14; the filter's rules confirmed by the owner (2026-10-14 evening); the button in the accent colour while a filter is active, built 2026-10-14 night (A80) |
 | [D-35](#d-35-what-argo-cds-repository-and-cluster-secrets-show) | What Argo CD's repository and cluster Secrets show | decided (owner, 2026-10-14): an allowlist of non-credential keys for the window and agents (option b), built 2026-10-13; the labelled Secrets kept whole in the cache, confirmed 2026-10-14 evening |
-| [D-36](#d-36-how-argo-cds-sync-writes-the-operation) | How Argo CD's Sync writes the operation | decided (owner, 2026-10-14): what `argocd app sync` writes, bound to the UID and resourceVersion (option b), built 2026-10-13; 2026-10-14 evening: the AppProject's sync windows respected, built 2026-10-14 night (A33); checked against a live Argo CD 3.5.5 controller 2026-10-16, the windows' check, the project's namespace and the operation's source brought to Argo CD's (the lead's decisions for the owner to confirm) |
+| [D-36](#d-36-how-argo-cds-sync-writes-the-operation) | How Argo CD's Sync writes the operation | decided (owner, 2026-10-14): what `argocd app sync` writes, bound to the UID and resourceVersion (option b), built 2026-10-13; 2026-10-14 evening: the AppProject's sync windows respected, built 2026-10-14 night (A33); checked against a live Argo CD 3.5.5 controller 2026-10-16, the windows' check, the project's namespace and the operation's source brought to Argo CD's (the lead's decisions, open to revision) |
 | [D-37](#d-37-the-node-shell) | The node shell | decided (owner, 2026-10-14): Lens's privileged pod with nsenter (option b), built 2026-10-13; the default image the newest supported Alpine release pinned by digest and kept current by Renovate, the maximum duration a setting (default 2 hours), both built 2026-10-14; its bounds, 5 minutes to 24 hours, confirmed 2026-10-14 evening |
 | [D-38](#d-38-who-sets-the-node-shells-image) | Who sets the node shell's image | decided (owner, 2026-10-14): the user only, agents may reset it (option b), the maximum duration too; built 2026-10-13 and 2026-10-14 |
 | [D-39](#d-39-pod-metrics-for-a-user-who-may-list-pods-in-some-namespaces-only) | Pod metrics for a user who may list pods in some namespaces only | decided (owner, 2026-10-14): one list per namespace the Pods view reads (option b); a namespace's refusal affects that namespace only; built 2026-10-13 and 2026-10-14; the Overview's Pods history and a refused namespace's drawer history confirmed as built, 2026-10-14 evening |
@@ -52,35 +56,36 @@ projects' repositories; re-check them before relying on a version number.
 | [D-41](#d-41-what-survives-a-restart) | What survives a restart: the tabs and the tables' layout | decided (owner, 2026-10-14): Cogpit's own `workspace.json`, restored without connecting anything; built 2026-10-13; 2026-10-14 evening: the navigator's collapsed source groups kept too, built 2026-10-15 (the night run, A63); **changed by the owner's decision of 2026-10-16 (D-69 item 8), built 2026-10-16:** the tabs come back only while Preferences › App › Restore the last session is on (off by default), and then the clusters connected at quit connect again; the window's arrangement comes back either way |
 | [D-42](#d-42-the-start-screen) | The start screen: the welcome page, no context picker by itself | decided (owner, 2026-10-14): no picker at start (option b); built 2026-10-13; the picker gone since D-57; since 2026-10-16 (D-69 item 8) the start shows the last run's tabs only with the restore preference on |
 | [D-42](#d-42-the-start-screen) | The start screen: the welcome page, no context picker by itself | decided (owner, 2026-10-14): no picker at start (option b); built 2026-10-13 |
-| [D-43](#d-43-where-the-nodes-disk-comes-from) | Where the nodes' disk comes from | decided (owner, 2026-10-14): node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy (option b), built 2026-10-14; 2026-10-14 evening: the nodes' CPU and memory history from node-exporter where present (A43), built 2026-10-14 night with the lead's choices for the owner to confirm; a node's network and filesystem the same way, built 2026-10-16 night, the lead's choices confirmed by the owner (audit of 2026-10-16) |
+| [D-43](#d-43-where-the-nodes-disk-comes-from) | Where the nodes' disk comes from | decided (owner, 2026-10-14): node-exporter's root filesystem through Prometheus, never the kubelet's nodes/proxy (option b), built 2026-10-14; 2026-10-14 evening: the nodes' CPU and memory history from node-exporter where present (A43), built 2026-10-14 night with the lead's choices, open to revision; a node's network and filesystem the same way, built 2026-10-16 night, the lead's choices confirmed by the owner (audit of 2026-10-16) |
 | [D-44](#d-44-what-agents-read-of-the-docks-logs-and-terminal-tabs) | What agents read of the dock's logs and terminal tabs | decided (owner, 2026-10-14): logs freely, a terminal tab only once the user turned on its switch (option b), built 2026-10-13; 2026-10-14 evening: the switch ends 1 hour after it was turned on at the latest, the filter's minimum 10 bytes, a chart's README framed as third-party text, built 2026-10-14 night (A3, A5, A31) |
 | [D-46](#d-46-chart-icons-from-the-hosts-that-serve-them) | Chart icons from the hosts that serve them | decided (owner, 2026-10-14): fetched when shown, https only, no credentials, bounded and checked, with Preferences › Load chart icons on by default (option b); built 2026-10-14 |
 | [D-47](#d-47-deep-links-cogpit) | Deep links (`cogpit://`) | decided (owner): a link that names another cluster than the connected one asks once before switching (2026-10-14 evening, built 2026-10-14); the rest the lead's decision of 2026-10-14, confirmed (owner, 2026-10-15): navigation only, through the `ui.*` commands with origin `deeplink`; a write unreachable by construction; never a context whose login waits for approval (option a); the window raised, a toast and an audit line per link; an ask before every connect; built 2026-10-14 |
 | [D-48](#d-48-start-at-login) | Start at login | decided (owner, 2026-10-14 evening, as built): the macOS app's own login item (SMAppService), read from macOS, off by default, only the user turns it on (option a); built 2026-10-14 |
 | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp) | The external MCP server's switch, honoured by `cogpit-cli mcp` | decided (owner, 2026-10-14 evening): persisted, and with MCP off the bridge refuses to serve, headless too; built 2026-10-14 |
-| [D-50](#d-50-kubectls-signature-check) | kubectl's signature check | decided (owner, 2026-10-14 evening): sigstore-go with Rekor's transparency-log proof instead of the standard library; built 2026-10-15 (night run), the lead's decisions for the owner to confirm listed |
-| [D-51](#d-51-the-navigators-and-the-command-palettes-state) | The navigator's and the command palette's state | decided (owner, 2026-10-14 evening): the navigator's search text and keyboard selection and the palette's typed text are engine state; built 2026-10-15, with the lead's night decisions: an agent's palette text never running a change on ↵ confirmed (owner, 2026-10-15 evening, as built); the fields, the row's form and the bounds not asked, standing as built; one per window and what `workspace.json` keeps for the owner to confirm; the dropdown's bank moot (owner, 2026-10-15 evening: the scope dropdown goes; gone since D-57) |
+| [D-50](#d-50-kubectls-signature-check) | kubectl's signature check | decided (owner, 2026-10-14 evening): sigstore-go with Rekor's transparency-log proof instead of the standard library; built 2026-10-15 (night run), the lead's decisions, open to revision listed |
+| [D-51](#d-51-the-navigators-and-the-command-palettes-state) | The navigator's and the command palette's state | decided (owner, 2026-10-14 evening): the navigator's search text and keyboard selection and the palette's typed text are engine state; built 2026-10-15, with the lead's night decisions: an agent's palette text never running a change on ↵ confirmed (owner, 2026-10-15 evening, as built); the fields, the row's form and the bounds not asked, standing as built; one per window and what `workspace.json` keeps, open to revision; the dropdown's bank moot (owner, 2026-10-15 evening: the scope dropdown goes; gone since D-57) |
 | [D-52](#d-52-several-windows) | Several windows | postponed (owner, 2026-10-15): designed 2026-10-15; the owner chose the model (a) as the direction and answers the rest in a separate, larger interview once the rest is done (the owner's requirement, 2026-10-14 evening: a hotbar tile dragged out of the window opens another window with that cluster; the lead's proposal: one session, a window's state and a connection per window, seven questions in order); not built |
-| [D-53](#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it) | The MCP details, and a token kept until the user regenerates it | decided (owner, 2026-10-15, F6): the top bar's MCP button gone, a gear in the status bar's MCP item for the details and Regenerate token (with a warning first), the token and the port kept across starts; built 2026-10-15, the lead's decisions for the owner to confirm listed |
-| [D-54](#d-54-the-layout-toggles-and-the-update-button) | The layout toggles and the Update button | decided (owner, 2026-10-15, F7): three toggles at the top bar's right end for the navigator (⌘B), the dock (⌘J) and the chat column (⌘I) as engine state, kept in `workspace.json`; an Update button while Sparkle holds an update, "Update to v<version>" since 2026-10-16 (F11); built 2026-10-15, the lead's decisions for the owner to confirm listed; the right end reordered (the toggles at the very right after the bell and a divider) and an alerts pill without a source yet (owner, 2026-10-16 night; built) |
-| [D-55](#d-55-a-config-maps-values-edited-in-the-drawer) | A Config Map's values edited in the drawer | decided (owner, 2026-10-15, his finding F3): the key above its value, a Config Map's in an editor, names without spaces wrap at - . _ /, values saved in the drawer through the existing write path, a Secret's layout too; built 2026-10-15 with the lead's decisions for the owner to confirm; the owner's audit answers of 2026-10-15: Save rebases by itself when no edited key changed (shown to the user), unsaved values kept as disk drafts, built the same night, the lead's decisions confirmed by the owner (audit of 2026-10-16); a Secret's values in the drawer, the window's only: [D-59](#d-59-a-secrets-values-edited-in-the-drawer); the owner's audit decision of 2026-10-16: keys added and removed in the drawer too (a removal destructive, the review its confirmation), built the same day with the lead's decisions for the owner to confirm; a key removed through the Edit tab destructive too (owner, 2026-10-16 evening), built 2026-10-16 night |
-| [D-56](#d-56-the-terminals-scrollback) | The terminal's scrollback | decided (owner, 2026-10-15): no line limit, a compact scrollback bounded at 256 MiB, the view and a draggable bar, reflow, the wheel to full-screen programs, agents by stable line numbers; built 2026-10-15 with the lead's decisions for the owner to confirm; fixes and this model to be offered to #147 |
+| [D-53](#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it) | The MCP details, and a token kept until the user regenerates it | decided (owner, 2026-10-15, F6): the top bar's MCP button gone, a gear in the status bar's MCP item for the details and Regenerate token (with a warning first), the token and the port kept across starts; built 2026-10-15, the lead's decisions, open to revision listed |
+| [D-54](#d-54-the-layout-toggles-and-the-update-button) | The layout toggles and the Update button | decided (owner, 2026-10-15, F7): three toggles at the top bar's right end for the navigator (⌘B), the dock (⌘J) and the chat column (⌘I) as engine state, kept in `workspace.json`; an Update button while Sparkle holds an update, "Update to v<version>" since 2026-10-16 (F11); built 2026-10-15, the lead's decisions, open to revision listed; the right end reordered (the toggles at the very right after the bell and a divider) and an alerts pill without a source yet (owner, 2026-10-16 night; built) |
+| [D-55](#d-55-a-config-maps-values-edited-in-the-drawer) | A Config Map's values edited in the drawer | decided (owner, 2026-10-15, his finding F3): the key above its value, a Config Map's in an editor, names without spaces wrap at - . _ /, values saved in the drawer through the existing write path, a Secret's layout too; built 2026-10-15 with the lead's decisions, open to revision; the owner's audit answers of 2026-10-15: Save rebases by itself when no edited key changed (shown to the user), unsaved values kept as disk drafts, built the same night, the lead's decisions confirmed by the owner (audit of 2026-10-16); a Secret's values in the drawer, the window's only: [D-59](#d-59-a-secrets-values-edited-in-the-drawer); the owner's audit decision of 2026-10-16: keys added and removed in the drawer too (a removal destructive, the review its confirmation), built the same day with the lead's decisions, open to revision; a key removed through the Edit tab destructive too (owner, 2026-10-16 evening), built 2026-10-16 night |
+| [D-56](#d-56-the-terminals-scrollback) | The terminal's scrollback | decided (owner, 2026-10-15): no line limit, a compact scrollback bounded at 256 MiB, the view and a draggable bar, reflow, the wheel to full-screen programs, agents by stable line numbers; built 2026-10-15 with the lead's decisions, open to revision; fixes and this model to be offered to #147 |
 | [D-57](#d-57-choosing-a-cluster) | Choosing a cluster | decided (owner, 2026-10-15 evening): one list, the navigator's section; the context picker, the top bar's "Switch context" and the header's scope dropdown gone, ⌘P and Connect to Cluster… show the section with its search focused, Escape on its empty search goes back, a "+" adds kubeconfigs; built 2026-10-15 (night run); the lead's decisions confirmed by the owner (audit of 2026-10-16) but the registry's menu path, which he changed (every cluster and kubeconfig command under the menu path `Cluster/`, built the same day, N121), and the welcome page's button, which he changed (2026-10-16 evening: the welcome page without it, the workspace's kept; built 2026-10-16 night) |
-| [D-58](#d-58-standby-and-lost-connections) | Standby and lost connections | decided (owner, 2026-10-15 evening, S1–S8): reproduce the hang, detect by wake, heartbeat and broken watch, a banner (S3 amended 2026-10-16, F13: the dot alone, blinking green while reconnecting), writes disabled, reconnect with backoff without end, "Login expired" after one automatic renewal, streams by their kind, operations as after a crash; built 2026-10-15/16 (the hang not reproduced offscreen; a waiting credential plugin found to stall every request), the build's decisions confirmed by the owner (audit of 2026-10-16), the lead's defaults for the owner to confirm; the selection bar's greyed Delete names the reason in its tooltip (the owner, audit of 2026-10-16), built the same day |
+| [D-58](#d-58-standby-and-lost-connections) | Standby and lost connections | decided (owner, 2026-10-15 evening, S1–S8): reproduce the hang, detect by wake, heartbeat and broken watch, a banner (S3 amended 2026-10-16, F13: the dot alone, blinking green while reconnecting), writes disabled, reconnect with backoff without end, "Login expired" after one automatic renewal, streams by their kind, operations as after a crash; built 2026-10-15/16 (the hang not reproduced offscreen; a waiting credential plugin found to stall every request), the build's decisions confirmed by the owner (audit of 2026-10-16), the lead's defaults, open to revision; the selection bar's greyed Delete names the reason in its tooltip (the owner, audit of 2026-10-16), built the same day |
 | [D-59](#d-59-a-secrets-values-edited-in-the-drawer) | A Secret's values edited in the drawer | decided (owner, 2026-10-15, his audit answers): editable after Show as a Config Map's, in the window only (GUI-only, no path an agent or the CLI reaches), a masked diff and a dry run, never on disk; built 2026-10-15 (night run); the lead's decisions confirmed by the owner (audit of 2026-10-16) but adding and removing keys and the copy from the editor, which he changed: keys added and removed in the drawer too, as a Config Map's (D-55), the window's only, built the same day; the copy an icon over the editor, built the same day; H-103 opened |
 | [D-61](#d-61-cogpit-metrics-the-bundled-metrics-stack) | Cogpit Metrics: the bundled metrics stack (Lens Metrics) | withdrawn by the owner (2026-10-16) and removed the same day: Cogpit installs nothing into a cluster for its own features, it reads what the cluster runs; the night's stack (built 2026-10-16, in v0.16.0 and v0.17.0) is gone, H-105 closed; its improvements to reading an installed Prometheus stay (D-43, architecture §9) |
 | [D-62](#d-62-checks-against-a-real-cluster) | Checks against a real cluster | the lead's decisions (night run, 2026-10-16), confirmed by the owner (audit of 2026-10-16): the `TestReal*` tests in the kind-tagged `real_kind_test.go`, never in CI, acting only on their own namespaces and on what a variable names; P11 counts reads of objects; an OCI HelmRepository without a status Ready; events and owners link custom kinds through the definitions; a failed drain says what it left; confirmations name kinds, not kind keys; built |
 | [D-63](#d-63-long-commands-as-background-jobs) | Long commands as background jobs | built 2026-10-16 (night run), the lead's decisions confirmed by the owner (audit of 2026-10-16) but six details it did not ask, named in the section: an action on a selection of more than ten objects runs as a job with progress in the dock and Cancel (`job.cancel`, any origin), ten and fewer within the call; the bound of 500 kept; Drain built as a job the same night (a step per pod, the budget's wait in it, Cancel leaves the drain `stopped` in its journal, offered as after a crash; nothing uncordoned by itself) |
 | [D-64](#d-64-envtest-a-real-api-server-in-ci-without-docker) | envtest, a real API server in CI without Docker | the lead's decision (2026-10-16, G1), confirmed by the owner (audit of 2026-10-16) but four details it did not ask, named in the section: controller-runtime's envtest, etcd and kube-apiserver 1.37.0 pinned by SHA-512, the API server stopped with SIGSTOP for D-58's standby case; built 2026-10-16 (night run), the CI job not observed yet |
-| [D-69](#d-69-several-clusters-connected-at-once) | Several clusters connected at once | decided by the owner (2026-10-16 interview, F16): several connections open, one shown per window, switching without reconnecting; a left cluster warm 5 minutes, then slim; no limit; background logins renewed by default, configurable per cluster, a lapsed one not red; filled, blinking, ring and red marks; agents with a context parameter; the dock per cluster; restoring the last session a preference, off by default. Stage 1 (the engine) built 2026-10-16 with the lead's decisions for the owner to confirm: the pool, a connect of a connected context only shows it, cold after the warm period, every command on its own cluster, a `context` parameter, per-cluster connection watch and write gate, `UIState.Connections`. Stage 2 (the window) built 2026-10-16 with the lead's decisions for the owner to confirm: switching without reconnecting at every entry point, the marks on every dot (filled, blinking, green ring, grey ring, red), each cluster blinking for itself, the dock per cluster in the engine, Disconnect per cluster in its menus, Diagnostics per cluster, a failed connect shows the cluster before again. Stage 3 (the settings of items 4 and 8) built 2026-10-16 with the lead's decisions for the owner to confirm: the credential plugin of a cluster not shown held in client-go's authenticator, `loginLapsed`, renewed when shown or by Log in again; the restore of the last session, the shown cluster first, the others one after another in the background. |
+| [D-69](#d-69-several-clusters-connected-at-once) | Several clusters connected at once | decided by the owner (2026-10-16 interview, F16): several connections open, one shown per window, switching without reconnecting; a left cluster warm 5 minutes, then slim; no limit; background logins renewed by default, configurable per cluster, a lapsed one not red; filled, blinking, ring and red marks; agents with a context parameter; the dock per cluster; restoring the last session a preference, off by default. Stage 1 (the engine) built 2026-10-16 with the lead's decisions, open to revision: the pool, a connect of a connected context only shows it, cold after the warm period, every command on its own cluster, a `context` parameter, per-cluster connection watch and write gate, `UIState.Connections`. Stage 2 (the window) built 2026-10-16 with the lead's decisions, open to revision: switching without reconnecting at every entry point, the marks on every dot (filled, blinking, green ring, grey ring, red), each cluster blinking for itself, the dock per cluster in the engine, Disconnect per cluster in its menus, Diagnostics per cluster, a failed connect shows the cluster before again. Stage 3 (the settings of items 4 and 8) built 2026-10-16 with the lead's decisions, open to revision: the credential plugin of a cluster not shown held in client-go's authenticator, `loginLapsed`, renewed when shown or by Log in again; the restore of the last session, the shown cluster first, the others one after another in the background. |
 | [D-70](#d-70-the-disk-images-window) | The disk image's window | decided by the owner (2026-10-16) in a visual review: the plate background, an arrow, Cogpit's own helm wheel faint behind the Applications folder, names on grey pills for both Finder themes; the official Kubernetes logo not used (the Linux Foundation's guidelines); dmgbuild makes a template in the app's job, the signing job fills it with Apple's tools (the owner's choice); built 2026-10-16, checked locally |
-| [D-66](#d-66-the-connection-log) | The connection log | decided (owner, 2026-10-16): the Connection Updates dialog extended, opened from every status dot of a cluster, live, with Copy; one owner-only file per context on disk, 7 days and 1 MiB; every step of a connect, reconnect, login and disconnect with its time and duration, a failure's error picture; a credential plugin's standard error on a failed login only, scrubbed, cut to 4 KiB; built 2026-10-16 with the lead's choices for the owner to confirm (the order, the folder, the capture through client-go's field, the scrubber's shapes); H-112 opened |
+| [D-66](#d-66-the-connection-log) | The connection log | decided (owner, 2026-10-16): the Connection Updates dialog extended, opened from every status dot of a cluster, live, with Copy; one owner-only file per context on disk, 7 days and 1 MiB; every step of a connect, reconnect, login and disconnect with its time and duration, a failure's error picture; a credential plugin's standard error on a failed login only, scrubbed, cut to 4 KiB; built 2026-10-16 with the lead's choices, open to revision (the order, the folder, the capture through client-go's field, the scrubber's shapes); H-112 opened |
 | [D-65](#d-65-discovery-cached-on-disk) | Discovery cached on disk | the lead's decision (night run, 2026-10-16), built the same night, confirmed by the owner (audit of 2026-10-16) but three details it did not ask: Cogpit's own owner-only file per server and identity under `<user cache dir>/Cogpit/discovery`, for the same server version, 6 hours once the definitions' digest confirmed it, else 10 minutes; measured on a real cluster |
-| [D-67](#d-67-the-demo-cluster-stays-out-of-releases) | The demo cluster stays out of releases | decided by the owner (2026-10-16): compiled out of release builds by a tag only the release pipeline sets; built 2026-10-16 with the tag `nodemo` (`DIST_TAGS`), checked by `make dist-app`, a Go test and CI's lint job (`make check-nodemo`); about 0.3 MB less per binary; the build's choices for the owner to confirm |
-| [D-71](#d-71-thanos-and-victoriametrics-read-as-prometheus) | Thanos and VictoriaMetrics, read as Prometheus | the lead's decisions (night run 2026-10-16/17), built the same night, for the owner to confirm: found by their Services' names after a Prometheus by its own names, named "Thanos" and "VictoriaMetrics", vmselect under the default tenant `/select/0/prometheus` |
-| [D-68](#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as) | One short name for a cluster, and the user Cogpit is logged in as | decided by the owner (2026-10-16, F17): the part of a context's name after the last "@" everywhere the window names it (a display name still wins, the full name in the tooltips), the username a SelfSubjectReview confirms at every connect in the navigator's root row with the groups in a box's tooltip, the kubeconfig's user entry marked where the API server does not confirm it, the last known user dimmed while not connected, agents read the username and the groups; built 2026-10-16, the lead's decisions for the owner to confirm |
-| [D-72](#d-72-native-file-panels-and-macos-folder-access) | Native file panels and macOS folder access | the owner's order (2026-10-16 night): every file chooser the operating system's own, macOS first, and no macOS prompts for the user's folders; built the same night with the lead's decisions for the owner to confirm (the saves on the system's panel too, a sheet on the window, Fyne's dialogs and Cogpit's Sync browser where there is no panel, security-scoped bookmarks of what Cogpit reads again, the usage descriptions); whether the bookmarks keep macOS quiet after a restart is not known; H-116 opened |
-| [D-73](#d-73-a-login-that-waits-cancel-connecting-and-a-bound) | A login that waits: Cancel Connecting and a bound | the lead's decisions (night run 2026-10-16/17) after the owner's finding of that night (a connect waiting for an OIDC login nobody finished blinked ten minutes, could not be cancelled, Disconnect waited behind it); built the same night: Disconnect (the window's Cancel Connecting) ends a connect under way and the credential plugin it waits for, found among Cogpit's child processes; every run of a plugin bounded by 5 minutes; the connection says what it waits for (`waitingForLogin`); the connect's own timeout no longer counts the login; for the owner to confirm; H-118 opened |
+| [D-67](#d-67-the-demo-cluster-stays-out-of-releases) | The demo cluster stays out of releases | decided by the owner (2026-10-16): compiled out of release builds by a tag only the release pipeline sets; built 2026-10-16 with the tag `nodemo` (`DIST_TAGS`), checked by `make dist-app`, a Go test and CI's lint job (`make check-nodemo`); about 0.3 MB less per binary; the build's choices, open to revision |
+| [D-71](#d-71-thanos-and-victoriametrics-read-as-prometheus) | Thanos and VictoriaMetrics, read as Prometheus | the lead's decisions (night run 2026-10-16/17), built the same night, open to revision: found by their Services' names after a Prometheus by its own names, named "Thanos" and "VictoriaMetrics", vmselect under the default tenant `/select/0/prometheus` |
+| [D-68](#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as) | One short name for a cluster, and the user Cogpit is logged in as | decided by the owner (2026-10-16, F17): the part of a context's name after the last "@" everywhere the window names it (a display name still wins, the full name in the tooltips), the username a SelfSubjectReview confirms at every connect in the navigator's root row with the groups in a box's tooltip, the kubeconfig's user entry marked where the API server does not confirm it, the last known user dimmed while not connected, agents read the username and the groups; built 2026-10-16, the lead's decisions, open to revision |
+| [D-72](#d-72-native-file-panels-and-macos-folder-access) | Native file panels and macOS folder access | the owner's order (2026-10-16 night): every file chooser the operating system's own, macOS first, and no macOS prompts for the user's folders; built the same night with the lead's decisions, open to revision (the saves on the system's panel too, a sheet on the window, Fyne's dialogs and Cogpit's Sync browser where there is no panel, security-scoped bookmarks of what Cogpit reads again, the usage descriptions); whether the bookmarks keep macOS quiet after a restart is not known; H-116 opened |
+| [D-73](#d-73-a-login-that-waits-cancel-connecting-and-a-bound) | A login that waits: Cancel Connecting and a bound | the lead's decisions (night run 2026-10-16/17) after the owner's finding of that night (a connect waiting for an OIDC login nobody finished blinked ten minutes, could not be cancelled, Disconnect waited behind it); built the same night: Disconnect (the window's Cancel Connecting) ends a connect under way and the credential plugin it waits for, found among Cogpit's child processes; every run of a plugin bounded by 5 minutes; the connection says what it waits for (`waitingForLogin`); the connect's own timeout no longer counts the login;, open to revision; H-118 opened |
+| [D-74](#d-74-how-the-leads-decisions-are-reviewed) | How the lead's decisions are reviewed | decided (owner, 2026-10-17): the lead decides details and records them, open to revision; the owner decides direction, scope, security posture and the irreversible or outward-facing; what the window shows he judges in walks |
 
 ## Decision round 2026-10-14 evening
 
@@ -114,7 +119,7 @@ end by the owner's own answer. Each line says its state.
 | A11 | H-91 | Sparkle's 20-day failsafe kept (setting it to 0 declined); as built | [D-4](#d-4-packaging-and-updates), [H-91](../security/updates.md#h-91-after-20-days-of-unverifiable-feeds-sparkle-presents-items-again) |
 | A12 | D-4 | Agents and the CLI may turn the automatic update checks on, never off; the user both ways; as built. SPARKLE's technical defaults not asked: they stand as built | [D-4](#d-4-packaging-and-updates), [D-2](#d-2-agent-interface-scope) |
 | A13 | #3, H-42 | A repository that appears in Helm's file while Cogpit runs is downloaded at once; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-42](../security/trust-boundaries.md#h-42-a-repository-another-program-writes-into-helms-file-is-used-without-asking) |
-| A14 | #4, H-41 | An http or insecure-TLS origin marked in the Charts view (the repository cell), the Install tab and the install and upgrade confirmations; built 2026-10-15 (the window's own install confirmed in its preview, its upgrade in the Upgrade tab: the lead's decisions for the owner to confirm, see D-29) | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates) |
+| A14 | #4, H-41 | An http or insecure-TLS origin marked in the Charts view (the repository cell), the Install tab and the install and upgrade confirmations; built 2026-10-15 (the window's own install confirmed in its preview, its upgrade in the Upgrade tab: the lead's decisions, open to revision, see D-29) | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml), [H-41](../security/trust-boundaries.md#h-41-repositories-whose-content-nothing-authenticates) |
 | A15 | #31, H-28 | The MCP off switch persisted and honoured by `cogpit-cli mcp`: off, the bridge refuses to serve, headless too, with a clear message to the agent; built 2026-10-14 | [D-49](#d-49-the-external-mcp-servers-switch-honoured-by-cogpit-cli-mcp), [D-23](#d-23-a-link-to-the-owner-in-the-status-bar), [H-28](../security/agents-and-mcp.md#h-28-the-status-bars-switch-does-not-reach-a-headless-bridge) |
 | A16 | #40, H-26 | `cluster.setPrometheus` by an agent a write with confirmation (mutating); the window as today; built 2026-10-14 (always asks: N8) | [D-2](#d-2-agent-interface-scope), [H-26](../security/privilege-footprint.md#h-26-prometheus-is-found-by-name) |
 | A17 | #45, D-11 | Nothing offered after an interrupted Helm install; Cogpit shows the release's state; the user cleans up in the Helm Releases view; built 2026-10-14 (the offer removed, Show release in its place) | [D-11](#d-11-crash-stance) |
@@ -128,7 +133,7 @@ end by the owner's own answer. Each line says its state.
 | A25 | #97, H-35 | kubectl's signature checked with sigstore-go, the Rekor transparency-log proof included; a record of its own; built 2026-10-15 | [D-50](#d-50-kubectls-signature-check), [H-35](../security/trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search) |
 | A26 | #98, H-36 | The kubectl `PATH` hand-over for bash (`--rcfile` or `PROMPT_COMMAND`) and fish (`conf.d`), as for zsh; built 2026-10-14 | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
 | A27 | #100, H-36 | A setting (Preferences › Kubernetes): the `ZDOTDIR` hand-over by default, switchable to enforcement through a shell alias or function `kubectl`; built 2026-10-14 | [D-3](#d-3-helm-and-kubectl-binaries), [H-36](../security/trust-boundaries.md#h-36-a-shells-profile-can-put-another-kubectl-first) |
-| R1 | – | Certificates: show whether the chain leads to a public or an internal (private) CA; the design settled when built; built 2026-10-14 (the lead's design for the owner to confirm) | [D-30](#d-30-certificates-in-secrets-decoded) |
+| R1 | – | Certificates: show whether the chain leads to a public or an internal (private) CA; the design settled when built; built 2026-10-14 (the lead's design, open to revision) | [D-30](#d-30-certificates-in-secrets-decoded) |
 | A28 | #102, H-37 | Ask once per context before the first connect of an `insecure-skip-tls-verify` context, the answer kept like a plugin approval; built 2026-10-14 (the plugin's binding, per context, agents, the CLI and links refused until allowed: the lead's night decisions in H-37) | [H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A29 | #103, H-37 | While such a context is connected, the status bar shows "TLS not checked" in the warning colour beside the context; `cogpit-cli get` writes a warning line to stderr; built 2026-10-15 (engine state `connection.tlsUnchecked`, also in `cluster_connect`'s result; the lead's details in H-37) | [H-37](../security/trust-boundaries.md#h-37-a-context-that-skips-the-certificate-check), [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
 | A30 | #104 | Only the window chooses the configmap Helm driver; agents may only set it back to secret; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
@@ -138,7 +143,7 @@ end by the owner's own answer. Each line says its state.
 | A33 | #140, H-67 | Argo CD's Sync respects the AppProject's sync windows (refused, or greyed with the reason, in a deny window); Argo CD's RBAC not emulated; built 2026-10-14 | [D-36](#d-36-how-argo-cds-sync-writes-the-operation), [H-67](../security/privilege-footprint.md#h-67-a-sync-acts-with-argo-cds-rights-not-the-users) |
 | A34 | #144, H-64 | A Flux action's confirmation names the identity the controller acts as (its service account, or the object's `spec.serviceAccountName`); built 2026-10-14 | [D-33](#d-33-the-flux-actions), [H-64](../security/privilege-footprint.md#h-64-a-flux-action-is-carried-out-with-the-controllers-identity) |
 | A35 | #156 | The node shell's maximum 5 minutes to 24 hours, default 2 hours; as built | [D-37](#d-37-the-node-shell) |
-| A36 | #6 | Repositories with a dot in their name supported: an unambiguous chart id inside Cogpit, through refs, deep links and agents' parameters, saved ids migrated once; built 2026-10-14 (the id doubles a dot of the repository's name; nothing saved needed migrating; the form the lead's decision for the owner to confirm) | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
+| A36 | #6 | Repositories with a dot in their name supported: an unambiguous chart id inside Cogpit, through refs, deep links and agents' parameters, saved ids migrated once; built 2026-10-14 (the id doubles a dot of the repository's name; nothing saved needed migrating; the form the lead's decision, open to revision) | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
 | A37 | #46 | Install shows the preview first; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
 | A38 | #64 | An upgrade to the release's own version uses the stored chart; as built | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
 | A39 | #105 | A release name in both drivers: one release, the one deployed last, with a drawer note "also stored in the `<other>` driver (older)"; built 2026-10-14 (largely built before, the wording finished, see D-29) | [D-29](#d-29-helm-chart-repositories-from-helms-repositoriesyaml) |
@@ -149,7 +154,7 @@ end by the owner's own answer. Each line says its state.
 | F1 | – | The owner's finding in a real window: no node history is shown; take the history from Prometheus where it is available; built 2026-10-14 night (A43; the cause in architecture §9) | [D-43](#d-43-where-the-nodes-disk-comes-from), [architecture §9](architecture.md#9-metrics-internalmetrics) |
 | A44 | #42 | A provider's status from its last answers, no probe; as built | [architecture §9](architecture.md#9-metrics-internalmetrics) |
 | A45 | #54 | Chart ranges up to 30 days; as built | [architecture §9](architecture.md#9-metrics-internalmetrics) |
-| A46 | #114 | Charts of one object whose ranges lie far apart get separate Prometheus queries, each at its own step; built 2026-10-14 night (the lead's choices for the owner to confirm in architecture §9) | [architecture §9](architecture.md#9-metrics-internalmetrics) |
+| A46 | #114 | Charts of one object whose ranges lie far apart get separate Prometheus queries, each at its own step; built 2026-10-14 night (the lead's choices, open to revision in architecture §9) | [architecture §9](architecture.md#9-metrics-internalmetrics) |
 | A47 | #120 | The cluster Overview's Pods history counts the whole cluster, for a namespace-limited user too; as built | [D-39](#d-39-pod-metrics-for-a-user-who-may-list-pods-in-some-namespaces-only) |
 | A48 | #162 | A pod drawer in a refused namespace still shows Prometheus's history; as built | [D-39](#d-39-pod-metrics-for-a-user-who-may-list-pods-in-some-namespaces-only) |
 | A49 | #11 | `UIState.Context` forgotten when its cluster is removed and no connection holds it; as built | [architecture §6](architecture.md#6-cluster-connections-internalcluster) |
@@ -173,7 +178,7 @@ end by the owner's own answer. Each line says its state.
 | A64 | #109 | F1–F12 work as the hotbar in plain search fields too; the terminal and the editor keep their F-keys; built 2026-10-15 | [architecture §4.3](architecture.md#43-ui-state), [parity](../parity/README.md) |
 | A65 | #110 | An agent removing a hotbar bank with tiles waits for the user; built 2026-10-14 | [D-2](#d-2-agent-interface-scope) |
 | A66 | #113 | The "+" below the tiles; as built | [parity](../parity/README.md) |
-| R2 | – | Hotbar tiles reordered by drag and drop; built 2026-10-15 (`hotbar.moveCluster`; the line in the gap, the tile last when dropped on the "+", a slipped click opens: the lead's decisions for the owner to confirm) | [parity](../parity/README.md), [D-52](#d-52-several-windows) |
+| R2 | – | Hotbar tiles reordered by drag and drop; built 2026-10-15 (`hotbar.moveCluster`; the line in the gap, the tile last when dropped on the "+", a slipped click opens: the lead's decisions, open to revision) | [parity](../parity/README.md), [D-52](#d-52-several-windows) |
 | R3 | – | Dragging a hotbar tile out of the window opens another Cogpit window with that cluster; designed 2026-10-15; postponed by the owner on 2026-10-15 until the rest is done (the model (a) as the direction, the rest in a separate interview) | [D-52](#d-52-several-windows) |
 | A67 | #133 | The welcome page's "This session" heading becomes "Recent"; built 2026-10-15 | [parity](../parity/README.md) |
 | A68 | #8 | A list copy shows the checkmark and the toast; as built | [D-25](#d-25-copying-values) |
@@ -189,7 +194,7 @@ end by the owner's own answer. Each line says its state.
 | A78 | #158 | AND between state columns, OR within one; as built | [D-34](#d-34-the-flux-dashboard) |
 | A79 | #159 | The status filter belongs to its view and tab; as built | [D-34](#d-34-the-flux-dashboard) |
 | A80 | #160 | The status filter's button in the accent colour while a filter is active; built 2026-10-14 | [D-34](#d-34-the-flux-dashboard) |
-| A81 | #49 | An Application's logs in one merged tab, each line `<workload>/<pod>/<container>`, a filter per source; built 2026-10-15 for the Applications view's applications, and the same tab for Argo CD Applications and Flux Kustomizations (the lead's decisions for the owner to confirm in architecture §4.4) | [parity](../parity/README.md), [architecture §4.4](architecture.md#44-tables-details-editors-and-streams) |
+| A81 | #49 | An Application's logs in one merged tab, each line `<workload>/<pod>/<container>`, a filter per source; built 2026-10-15 for the Applications view's applications, and the same tab for Argo CD Applications and Flux Kustomizations (the lead's decisions, open to revision in architecture §4.4) | [parity](../parity/README.md), [architecture §4.4](architecture.md#44-tables-details-editors-and-streams) |
 | A82 | #66 | Older log lines only through the row or `logs.loadOlder`; as built | [parity](../parity/README.md) |
 | A83 | #68 | Init containers listed apart; as built | [parity](../parity/README.md) |
 | A84 | #69 | A logs tab's Download saves what is shown, the active filter applied; without a filter everything; built 2026-10-14 | [parity](../parity/README.md) |
@@ -200,8 +205,8 @@ end by the owner's own answer. Each line says its state.
 | A88 | #32 | `cogpit-cli get` prints Cogpit's view of a list, one object's manifest redacted; as built | [architecture › Current state](architecture.md#current-state-2026-10-16) |
 | – | #33 | D-2's "cogpit mcp": a doc fix, no owner's call; D-2 reads `cogpit-cli mcp` already | [D-2](#d-2-agent-interface-scope) |
 | A89 | #130 | GUI-only commands listed for agents, described and refused; as built | [D-2](#d-2-agent-interface-scope) |
-| A90 | #125 | Without the right to list the definitions, Flux and Argo CD recognised from API discovery with their curated profiles; generic custom resources stay invisible; built 2026-10-14 (every curated profile, the Vertical Pod Autoscalers' too, and Flux's HelmCharts left out, having none: the lead's decisions for the owner to confirm in architecture §5) | [architecture §5](architecture.md#5-cache) |
-| A91 | #161 | Reconcile with Source waits like the flux CLI: a background job until the source is ready, with a timeout, then the object; progress in the dock; built 2026-10-15 (the lead's decisions for the owner to confirm in D-33) | [D-33](#d-33-the-flux-actions) |
+| A90 | #125 | Without the right to list the definitions, Flux and Argo CD recognised from API discovery with their curated profiles; generic custom resources stay invisible; built 2026-10-14 (every curated profile, the Vertical Pod Autoscalers' too, and Flux's HelmCharts left out, having none: the lead's decisions, open to revision in architecture §5) | [architecture §5](architecture.md#5-cache) |
+| A91 | #161 | Reconcile with Source waits like the flux CLI: a background job until the source is ready, with a timeout, then the object; progress in the dock; built 2026-10-15 (the lead's decisions, open to revision in D-33) | [D-33](#d-33-the-flux-actions) |
 | A92 | #56 | The cluster's terminal namespace beats the filter's; as built | [architecture §4.3](architecture.md#43-ui-state) |
 | A93 | #58 | A cluster's accent colour: Solarized's eight plus a free colour picker; built 2026-10-15 | [D-22](#d-22-colour-theme) |
 | A94 | #59 | The default theme becomes Sync (follow macOS); built 2026-10-14 | [D-22](#d-22-colour-theme) |
@@ -227,7 +232,7 @@ end by the owner's own answer. Each line says its state.
 | A113 | #167 | The welcome page links the README for what Cogpit does and `docs/developer/commands.md` for the commands; the README stays the showcase; no further Markdown files in the repository root; built 2026-10-15 (two links to the repository on GitHub, in the browser) | [parity](../parity/README.md) |
 | A114 | #170 | One neutral demo context name in every showcase image; built 2026-10-15: `demo` connected in every picture (the Flux and Argo CD ones had `kind-flux` and `argo`), the other clusters of the many-clusters picture invented (`kind-cogpit` became `kind-local`) | [the README's pictures](#the-readmes-pictures-a110-a111-a112-a114) |
 | A115 | #119 | node-exporter and kube-state-metrics on in the `hack/kind` Prometheus values; kind tests cover node and pod history from Prometheus; built 2026-10-14 night | this table (tests), with F1 |
-| A116 | #153 | The terminal fork's four shell tests under `-race` in CI; built 2026-10-15 (seven races in `RunLocalShell`, its directory check and `ExitCode` patched in the fork, `TestRunLocalShell_MainLoop`; the patches upstream candidates not offered, the lead's decision for the owner to confirm) | [D-14](#d-14-terminal-widget) |
+| A116 | #153 | The terminal fork's four shell tests under `-race` in CI; built 2026-10-15 (seven races in `RunLocalShell`, its directory check and `ExitCode` patched in the fork, `TestRunLocalShell_MainLoop`; the patches upstream candidates not offered, the lead's decision, open to revision) | [D-14](#d-14-terminal-widget) |
 | A117 | #163 | Renders for the Deployment and StatefulSet drawers only; as built | [parity](../parity/README.md) |
 
 </details>
@@ -237,7 +242,7 @@ end by the owner's own answer. Each line says its state.
 Built 2026-10-15 ([`showcase_test.go`](../../internal/ui/fyneui/showcase_test.go),
 [`banner_showcase_test.go`](../../internal/ui/fyneui/banner_showcase_test.go), `make showcase`,
 [`hack/showcase/oxipng.sh`](../../hack/showcase/oxipng.sh); [testing](testing.md#tiers)). The
-lead's decisions for the owner to confirm, each with the options weighed:
+lead's decisions, open to revision, each with the options weighed:
 
 - **File names** (A110): `<name>_dark.png` and `<name>_light.png` side by side in `docs/images`,
   rather than a directory per theme; the existing pictures renamed to `_dark` (the old
@@ -366,7 +371,7 @@ All of it built 2026-10-14, the night after the round, each with its evidence be
   removed, instead of `model.Withheld`. Built 2026-10-14 (`Session.EmitWindowToast`,
   `withoutInlineValues`, `TestWindowOnlyNotificationsReachAgents`,
   `TestHelmErrorToastReachesAgentsFiltered`). The follow-up (6 of the round: accept the wider H-31,
-  or keep Helm's error toasts withheld) is the lead's night decision for the owner to confirm:
+  or keep Helm's error toasts withheld) is the lead's night decision, open to revision:
   ★ built as decided, the residual H-31 names stays documented (options: keep Helm action errors
   withheld as an exception to A19). Note: the Helm package already removes the release's
   user-supplied values from its errors (`<value withheld>`); the removal of inline values is a
@@ -376,8 +381,7 @@ All of it built 2026-10-14, the night after the round, each with its evidence be
   stays as it is. Built 2026-10-14: an agent's proxy, in a cluster's settings and in the
   Preferences, always waits for the user, the confirmation saying where the traffic goes with the
   password as `•••`; the CLI is still refused (`ErrProxyGUIOnly`: it has no window to confirm in)
-  (`TestClusterProxyCommands`, `TestNonClusterProxyCommands`). **The lead's night decisions for the
-  owner to confirm** (the follow-ups 1, 2 and 8 of the round): the allowance of agent writes does
+  (`TestClusterProxyCommands`, `TestNonClusterProxyCommands`). **The lead's night decisions, open to revision** (the follow-ups 1, 2 and 8 of the round): the allowance of agent writes does
   not skip it (options: an ordinary mutating write the allowance skips, ★ always ask as A1 and A2:
   a proxy reads the bearer token wherever TLS is not checked); both proxies, a cluster's and the
   Preferences' `httpProxy` (options: the cluster's only, ★ both: the Preferences' steers which chart
@@ -386,7 +390,7 @@ All of it built 2026-10-14, the night after the round, each with its evidence be
 - **Decided (owner, 2026-10-14 evening, A65):** an agent removing a hotbar bank that holds tiles
   waits for the user, as the window asks the user today. Built 2026-10-14: `hotbar.removeBank`
   declares `AgentsAsk` for a bank with tiles, the confirmation naming them.
-- **The mechanism for A16, A20 and A65 (the lead's night decision for the owner to confirm):** their
+- **The mechanism for A16, A20 and A65 (the lead's night decision, open to revision):** their
   commands are UI commands, and `AgentsAsk` took mutating commands only. Options: raise the
   agent's call to mutating (as `Escalate` raises Scale to zero; then the allowance of agent writes
   would skip the question, and the MCP tool would lose its read-only hint for every call);
@@ -399,7 +403,7 @@ All of it built 2026-10-14, the night after the round, each with its evidence be
   "This cannot be undone." stands only where something is lost (delete, drain, uninstall …). Built
   2026-10-14: the grant's `Detail` begins with the owner's words; `Spec.Undoable` (and
   `ConfirmRequest.Undoable`) drops the line for the destructive commands where nothing is lost.
-  **The lead's night decision for the owner to confirm**, which ones: the two grants
+  **The lead's night decision, open to revision**, which ones: the two grants
   (`clusterRoleBinding.create`, an escalated `roleBinding.create`: deleting the binding takes the
   grant back), `helm.release.rollback` (the release's history keeps the revision) and the node
   shell (nothing is lost); delete, delete of a selection, evict, drain, Helm uninstall, restart (the
@@ -417,7 +421,7 @@ SDK: `github.com/modelcontextprotocol/go-sdk` v1.8.0 (MCP specification 2026-07-
 Desktop's own MCP server is read-only and paid ([Lens MCP server](https://docs.lenshq.io/k8slens/mcp-server/));
 Cogpit's is the difference. Security perspective: [agents and MCP](../security/agents-and-mcp.md).
 
-**The command the window copies (the lead's default, 2026-10-14, for the owner to confirm; built
+**The command the window copies (the lead's default, 2026-10-14, open to revision; built
 by agent CLIBUNDLE).** Help › Copy MCP command copies a `claude mcp add`
 command (the top bar's MCP button did too until 2026-10-15; since F6 the MCP details show it beside
 the HTTP one, [D-53](#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it)). Since `Cogpit.app` carries `cogpit-cli` ([D-16](#d-16-the-first-real-release)), an app
@@ -491,7 +495,7 @@ above, or fills what it leaves open (Cogpit's defaults, not the owner's decision
   shell alias or function `kubectl` that always calls Cogpit's kubectl, in zsh, bash and fish
   (A27). Built 2026-10-14 ([`terminal/kubectl.go`](../../internal/terminal/kubectl.go),
   `Preferences.KubectlEnforce`; `TestBashKubectlFirstAfterTheProfile`, `TestZshKubectlEnforced`,
-  `TestFishKubectlFirstAfterTheConfig`). **The lead's night decisions for the owner to confirm:**
+  `TestFishKubectlFirstAfterTheConfig`). **The lead's night decisions, open to revision:**
   bash is started with `--init-file` (the way VS Code's terminal starts it), not as a login shell,
   its rc reading the files a login bash reads and then putting kubectl first (options: `--rcfile`,
   which a login bash ignores; `PROMPT_COMMAND`, which a profile can overwrite) — bash then reads no
@@ -565,7 +569,7 @@ by the owner on 2026-10-15. The decisions in this step:
   unsigned zip when signing fails (a release whose files are not what a signed release promises),
   the CLI archives attached without the macOS downloads (a release that looks finished without
   its main download).
-- **Signing in a job of its own (agent REL, 2026-10-14, for the owner to confirm):** the only job
+- **Signing in a job of its own (agent REL, 2026-10-14, open to revision):** the only job
   in the environment `release`; it takes the app and the archives as artifacts and runs no Go and
   no dependency's code, so nothing but Apple's tools and the script share a job with the
   identity. Option weighed: signing where the app is built (one hosted runner less, about a
@@ -699,7 +703,7 @@ a fallback for a system the newest does not support.
 UTC; the owner's MacBook, 0.15.0 from its disk image, found 0.16.0 at its launch check (after
 `defaults delete io.guided-traffic.cogpit SULastCheckTime`), showed the Update button, and on its
 click Sparkle installed 0.16.0 and started Cogpit again (a person's observation, not a test).
-The decisions of this step, each the lead's or agent SPARKLE's for the owner to confirm:
+The decisions of this step, each the lead's or agent SPARKLE's, open to revision:
 
 - **The appcast itself is signed (agent SPARKLE).** Sparkle 2.9 and later signs the feed
   (`SURequireSignedFeed`, which needs `SUVerifyUpdateBeforeExtraction`): whoever can change what
@@ -1006,7 +1010,7 @@ kind takes the OpenAI Chat Completions request and a `Bearer` key):
 | Open WebUI | `http://localhost:3000` | `<base>/api/chat/completions` | `<base>/api/models` | both paths, the key as `Bearer`, and that caller-provided `tools` are forwarded to the model instead of Open WebUI's own tools ([API endpoints](https://github.com/open-webui/docs/blob/main/docs/reference/api-endpoints.md)): the open detail above is answered from the documentation | the models list's shape (a third-party guide shows `data[].id`; the client takes `id` or `name`, wrapped in `data` or `models` or a bare array) and streaming in OpenAI's SSE format; not run against a real Open WebUI |
 | Other OpenAI-compatible | `https://api.openai.com/v1` | `<base>/chat/completions` | `<base>/models` | OpenAI's own shape | each server's quirks |
 
-**The lead's decisions for the owner to confirm** (night run of 2026-10-14, nobody to ask; each with
+**The lead's decisions, open to revision** (night run of 2026-10-14, nobody to ask; each with
 the options weighed):
 
 1. **The client.** Plain `net/http` with the protocol subset the chat uses (chosen), or
@@ -1121,7 +1125,7 @@ the options weighed):
     before the first save).
 
 **The window's chat, built 2026-10-14 night (M12 (b), [architecture §7](architecture.md#7-mcp-and-the-built-in-agent)):
-the lead's decisions for the owner to confirm** (a night run: each question weighed, one option
+the lead's decisions, open to revision** (a night run: each question weighed, one option
 built):
 
 - **A settings page and the column:** the column stays beside the page (the page replaces the work
@@ -1198,7 +1202,7 @@ The tool descriptions that say agents read a value withheld now say that the pri
 reads it as the window shows it, which put the core set at 22 tools and 29,746 bytes (measured
 2026-10-14 after the change, `TestToolsetSize`; decision 2 above has the earlier measure).
 
-**The lead's decisions for the owner to confirm** (night run of 2026-10-14, M12 (c); each with the
+**The lead's decisions, open to revision** (night run of 2026-10-14, M12 (c); each with the
 options weighed):
 
 15. **A Secret's Edit or Create tab the user opened.** The private turn reads its text
@@ -1275,7 +1279,7 @@ chat stays no command and no MCP tool, N3):
   for that connection the file replaces the system's roots (macOS: its trust store), as a
   kubeconfig's `certificate-authority` does for kubectl (**the owner's decision in the audit of
   2026-10-16**, N141, built the same day; the night run had added the file to the system's roots,
-  the lead's decision for the owner to confirm). **Built 2026-10-15 (night run):**
+  the lead's decision, open to revision). **Built 2026-10-15 (night run):**
   `engine.ChatPlainHTTPRemote` and `ChatPlainHTTPWarning`; Preferences › Agent shows the warning
   under the base URL while it is typed and marks such a connection "plain http" in the list; the
   connection test's HTTP layer passes with the warning (`ChatTestStep.Warning`: the warning icon
@@ -1411,7 +1415,7 @@ priority does not carry over as is. Consequences:
   (pending-install, failed, at its revision) with Show release and Dismiss, no Uninstall; a failed
   install's error and `helm.pendingOperations`'s description point to the Helm Releases view, never
   to running the install again; rollback, upgrade and uninstall entries are unchanged. Settled at
-  the build, the lead's decisions for the owner to confirm: (1) the journal still records an
+  the build, the lead's decisions, open to revision: (1) the journal still records an
   install (the options: record it as before, or record nothing once nothing is offered; recording
   keeps a second Cogpit process from starting an action on the release while the install runs,
   H-22, and is what tells the user after a crash that an install was left, while recording nothing
@@ -1591,14 +1595,14 @@ like the others once the owner looks at them.
   tests passed 20 runs under `-race` with no race reported on macOS (the shell tests alone also at
   `-cpu 1,2`, 10 runs each) and on Linux (`golang:1.27.2` container, the whole module); against the
   code before the patches the new test reports all seven.
-- **The lead's decision for the owner to confirm (night run 2026-10-15):** the new race patches
+- **The lead's decision, open to revision (night run 2026-10-15):** the new race patches
   are upstream candidates not offered yet, to be offered with the two input patches at the end
   (A86). The options: (a) with the input patches at the end (chosen: A86 puts the app first and
   groups the later patches, and the owner looks at a series once before anything is published);
   (b) now, as commits added to [#158](https://github.com/fyne-io/terminal/pull/158), the open
   races pull request (changes a series the owner already approved, without his look); (c) kept as
   Cogpit's own (`RunLocalShell` is upstream's code, Cogpit gains nothing from carrying them alone).
-- **The lead's decision for the owner to confirm (night run 2026-10-15):** the fork's tests run
+- **The lead's decision, open to revision (night run 2026-10-15):** the fork's tests run
   under the race detector in the Linux job only, as before. The options: (a) the Linux job Race
   Tests (other packages) only (chosen: it meets A116, and adds no time to the macOS job); (b) also
   `make test-fork` in the macOS job (`make test-darwin`), which would cover the fork's macOS-only
@@ -1625,7 +1629,7 @@ its counts with the numbers ROADMAP and the progress pages report. The 121 holds
 counted the two paid keyboard shortcuts, whose table had no Plan column
 ([rules](../parity/README.md#make-parity)).
 
-**Built (2026-10-16, night run; the lead's choices for the owner to confirm):** the generated
+**Built (2026-10-16, night run; the lead's choices, open to revision):** the generated
 [`parity-checklist.md`](../parity/parity-checklist.md) from [`hack/parity`](../../hack/parity/checklist.go):
 every row of the four checklists with its status (the first word) and its section, linked, and the
 counts. A plain `go run ./hack/parity` writes it when it differs; `make parity` passes `-check`, under
@@ -1635,7 +1639,7 @@ never committed (the page would not be on GitHub to read).
 
 **Built (2026-10-16, night run; the lead's choices, those on how the tests report, where the
 limits live, P8 and a run by hand rather than in CI confirmed by the owner in the audit of 2026-10-16,
-the table's other rows for the owner to confirm):** the scorecard,
+the table's other rows, open to revision):** the scorecard,
 [`scorecard.md`](../parity/scorecard.md), from `make scorecard` ([`hack/scorecard`](../../hack/scorecard/main.go)):
 the budget tests and benchmarks of [testing › Performance budgets](testing.md#performance-budgets-proposed-not-measured)
 run without the race detector; per budget its proposed target, every measured value with its limit,
@@ -1675,7 +1679,7 @@ releases do not, and Linux and Windows get Cogpit with their desktop app (M11). 
 built with the app's version and architecture by `make app`, signed inside-out with the app,
 covered by the disk image's notarization and replaced with the app by Sparkle's updates
 ([releasing](releasing.md#the-release-pipeline), [updates](../security/updates.md)). Built by
-agent CLIBUNDLE on 2026-10-14 with these decisions, each for the owner to confirm:
+agent CLIBUNDLE on 2026-10-14 with these decisions, each, open to revision:
 
 - **Where in the bundle: `Contents/MacOS/cogpit-cli`** (agent CLIBUNDLE). Apple's "Placing
   Content in a Bundle" lists "help app, helper tool" under `Contents/MacOS` and `Contents/Helpers`.
@@ -1909,8 +1913,7 @@ of Solarized's eight accents, in each variant's legible shade (`identityColors` 
   colour picker. Built 2026-10-15: Cluster settings › General shows a ninth swatch for a picked
   colour and a palette button after the eight (the "…" menu's "Any Colour…" too), which opens
   Fyne's colour picker; the setting stores `#rrggbb` (`engine.IsCustomIconColor`), so agents set
-  it through `cluster.settings.set` as they set the eight. A night decision for the owner to
-  confirm: a picked colour keeps its hue and saturation, and the window moves its lightness (up in
+  it through `cluster.settings.set` as they set the eight. A night decision, open to revision: a picked colour keeps its hue and saturation, and the window moves its lightness (up in
   the dark theme, down in the light one) just far enough to read at 3:1 on every surface an
   identity is drawn on, as the eight are held to (`legibleShade` in
   [`identitycolor.go`](../../internal/ui/fyneui/identitycolor.go), `TestCustomIdentityColorContrast`).
@@ -2188,7 +2191,7 @@ was read in Fyne 2.8.1's source and replayed with Fyne's test driver.
   [light](../../internal/ui/fyneui/testdata/list_copy_over_end_light.png)), the Events tooltip
   ([`tooltip_dark.png`](../../internal/ui/fyneui/testdata/tooltip_dark.png)). The drawer's lines and
   links keep shortening their text before the icon (`iconRoom`, above): A69 names the lists, A71
-  only the values with buttons (the lead's reading, for the owner to confirm).
+  only the values with buttons (the lead's reading, open to revision).
 - **Decided (A71):** in the drawer, a value with action buttons (a container port's Forward…)
   keeps its buttons right after the value, as before 2026-10-13, and the copy icon appears over the
   value's end on hover, as A69 in the lists. **Built 2026-10-15** ([`drawer.go`](../../internal/ui/fyneui/drawer.go)
@@ -2238,7 +2241,7 @@ connection uses); the fingerprint binds it, and the dialog shows it in the warni
 kubeconfig's own `proxy-url` beside it as "not used" (`TestPluginApprovalBindsTheClusterProxy`,
 `TestFingerprintBindsCogpitsProxy`, `TestApprovalDialogShowsCogpitsProxy`). Changing the proxy in
 Cluster Settings sends `EventContexts`, so the lists show the context as changed at once. **The lead's
-night decisions for the owner to confirm:**
+night decisions, open to revision:**
 
 - *What is bound:* ★ the proxy as it is shown, its password as `•••` (`RedactProxyURL`): another
   scheme, user, host or port asks again, a new password alone does not, and `exec-approvals.json`
@@ -2313,7 +2316,7 @@ offers to unlink the whole folder, its confirmation naming every context that le
 folder from Cogpit?", says the cluster comes from a synced folder and can only leave with it, names
 the folder's path, what stays on disk, and every context of the folder's files, and its button
 reads "Remove Folder" ([architecture §6](architecture.md#6-cluster-connections-internalcluster)).
-The lead's night decision for the owner to confirm: the removal is bound to the contexts the dialog
+The lead's night decision, open to revision: the removal is bound to the contexts the dialog
 named (`cluster.remove`'s `contexts`), and a folder whose contexts changed while the dialog was open
 is refused with the reason, so that nothing leaves Cogpit the user was not shown. Weighed against
 it: unlinking whatever the folder holds at the click (simpler, but a file synced in during the
@@ -2482,8 +2485,7 @@ build, not the owner's decisions:
   `spec.origin` and its Repository cell "lab (http)", "charts.edge (insecure TLS)", the mark in the
   warning colour; the Install tab's and the Upgrade tab's `origin` with a pill and a line of
   warning; `helm.chart.preview`'s `origin` and `warning`; the confirmation of an agent's install or
-  upgrade (`ConfirmRequest.Warning`). Agents read each of them. The lead's decisions for the owner
-  to confirm:
+  upgrade (`ConfirmRequest.Warning`). Agents read each of them. The lead's decisions, open to revision:
   - **Where the window's own install and upgrade are confirmed.** The window's install has no
     engine confirmation (a mutating command of the user's own window); its confirmation is the
     preview dialog (A37), which shows the warning above what the install creates. The window's
@@ -2515,7 +2517,7 @@ build, not the owner's decisions:
   `HelmChartName`, `SplitHelmChartName`; [`helm/repofile.go`](../../internal/helm/repofile.go)):
   a repository's name may hold dots (1 to 63 letters, digits, `.`, `-` or `_`, the first a letter
   or a digit; another name is still listed as not used, helm refusing only a `/`). The id's form,
-  the lead's decision for the owner to confirm:
+  the lead's decision, open to revision:
 
   | Option | For | Against |
   |---|---|---|
@@ -2549,8 +2551,7 @@ Helm beyond the repositories, answered in the same round and kept here:
   The question's row said the other's revisions are hidden and missed that note. **Built
   2026-10-14:** the note in the owner's wording, "ConfigMaps; also stored in the Secrets driver
   (older)" (the release object's new `hiddenOlder` says the other was deployed before the one
-  shown; `TestDeriveBothDriversNamesTheOlder`). Cogpit's wording, the lead's decision for the
-  owner to confirm: when both were deployed at the same moment (the tie that goes to Secrets,
+  shown; `TestDeriveBothDriversNamesTheOlder`). Cogpit's wording, the lead's decision, open to revision: when both were deployed at the same moment (the tie that goes to Secrets,
   Helm's default) the note says "(deployed at the same time; the Secrets' one is shown, Helm's
   default)" instead of "(older)", which would not be true; the count of the other's revisions is
   no longer in the note (the owner's wording has none) and stays in the object
@@ -2691,7 +2692,7 @@ agent's `object_get`, its key matching and its chain in order); renders
   (tls.key)", status warning.
 - **New requirement (R1):** besides the key check and the chain, show whether the chain leads to a
   public CA or an internal (private) one, so that the kind of certificate is clear at a glance.
-  Built 2026-10-14 night as **the lead's design, for the owner to confirm**
+  Built 2026-10-14 night as **the lead's design, open to revision**
   ([`model/certanchor.go`](../../internal/model/certanchor.go); `TestCertAnchor`,
   `TestSecretChainAnchor`): three answers in the Checks section's "Chain Leads To" and for agents
   (`anchor`: kind and root) — "public" chains to a root of Mozilla's NSS program (the bundle of
@@ -2986,7 +2987,7 @@ Flux's own CLI does three things to an object every day: `flux reconcile`, `flux
   `ui_state`; a toast says how it ended. A crash ends the job and leaves at most sources asked to
   reconcile whose objects were not asked yet: harmless, the source's controller fetches it again
   and the object's controller reconciles at its interval or when the artifact changes, as if nobody
-  had asked; so it keeps no journal (D-11). **The lead's decisions for the owner to confirm (night
+  had asked; so it keeps no journal (D-11). **The lead's decisions, open to revision (night
   run, 2026-10-15):** (1) **what the job waits for:** options (a) the source alone, then the object
   annotated and the job done, (b) the source, then the object too, as the flux CLI waits for both;
   chosen (b), so that the tab ends with the object's own verdict. (2) **the timeout:** options (a)
@@ -3031,7 +3032,7 @@ Flux's own CLI does three things to an object every day: `flux reconcile`, `flux
   `spec.serviceAccountName` is read for Kustomizations and Helm releases (the kinds that
   impersonate with it), every other kind names its controller; a controller's enforced default
   service account (`--default-service-account`) is a flag Cogpit does not read, and the sentence
-  says so (the lead's night decision for the owner to confirm).
+  says so (the lead's night decision, open to revision).
 - **Decided with D-33 as a whole (owner, 2026-10-14; the night build's option (b)): where they
   apply.** Options
   (a) every Flux kind, (b) the kinds whose controller reconciles on request, Suspend and Resume
@@ -3230,8 +3231,7 @@ Refresh needs no such guard: it sets an annotation the controller removes, bound
 deny window it is refused, or greyed with the reason; Argo CD's RBAC is not emulated. Built
 2026-10-14 ([`kinds/argocd_syncwindow.go`](../../internal/model/kinds/argocd_syncwindow.go),
 [`commands/argosyncwindow.go`](../../internal/engine/commands/argosyncwindow.go);
-`TestArgoSyncBlocked`, `TestArgoSyncRespectsSyncWindows`). **The lead's night decisions for the
-owner to confirm:** Cogpit's sync is a manual sync and follows Argo CD's check of one (an open deny
+`TestArgoSyncBlocked`, `TestArgoSyncRespectsSyncWindows`). **The lead's night decisions, open to revision:** Cogpit's sync is a manual sync and follows Argo CD's check of one (an open deny
 window blocks unless every open deny window allows manual syncs; an open allow window lets it
 through; allow windows that match but none open block unless every one of them allows manual
 syncs; matching by name, destination namespace and cluster by Argo CD's glob, with `andOperator`;
@@ -3247,7 +3247,7 @@ run by the controller (Sync and Sync with prune on a selection to Synced and Hea
 naming `cogpit`; Refresh normal, hard and on a selection reconciled, the annotation removed), and
 an operation written inside a deny window waits in the controller as "Sync operation blocked by sync
 window" (phase Running), so Cogpit's check before the write is what keeps a user from a sync that
-never runs. Found and fixed the same night (the lead's decisions for the owner to confirm), against
+never runs. Found and fixed the same night (the lead's decisions, open to revision), against
 Argo CD 3.5.5's source (`SyncWindows.CanSync`, `Server.Sync`, the controller's
 `newSyncOperationResult`, read 2026-10-16): (1) the manual-sync exceptions need every open deny
 window, and every closed allow window, to allow manual syncs, where Cogpit took any one; (2) a
@@ -3348,7 +3348,7 @@ What it leaves as it was, for the owner to know:
 - **Confirmed (owner, 2026-10-14 evening, A47):** the cluster Overview's Pods history counts the
   whole cluster for a namespace-limited user too (no namespace matcher,
   [`promclusterpods.go`](../../internal/metrics/promclusterpods.go)), as built.
-  **The lead's decision (night run 2026-10-16/17), for the owner to confirm:** G12's work list
+  **The lead's decision (night run 2026-10-16/17), open to revision:** G12's work list
   (since 2026-10-15) asked for that history by the plan's namespaces only (the Pods view's: the
   accessible namespaces, the namespace filter's, else the context's own, less those whose rules deny
   pods, `nsPlan`), against A47. Options: (a) build it: kube-state-metrics' counts with
@@ -3588,8 +3588,7 @@ item 8), built 2026-10-16:** the tabs come back only while Preferences › App �
 session" is on, and then the clusters connected at quit connect again, the one shown then first
 ([`restore.go`](../../internal/engine/restore.go)); **off, the owner's default, Cogpit starts
 without tabs and without connections.** The tables' column layout, the navigator's collapsed
-groups, the navigator hidden and the chat column come back either way (the lead's decision for the
-owner to confirm, D-69 stage 3: they are the window's arrangement, not the session).
+groups, the navigator hidden and the chat column come back either way (the lead's decision, open to revision, D-69 stage 3: they are the window's arrangement, not the session).
 `workspace.json` keeps `connected` and `shown` beside the tabs whatever the preference says, so
 that turning it on restores the session of the last quit; its format version stays 1, a file of
 v0.17.0 loads (no connections), and v0.17.0 ignores the two fields. The sections below describe
@@ -3660,8 +3659,7 @@ tables' hidden columns and column order ([ui-parity › Layout](../parity/ui-par
 - **Decided (owner, 2026-10-15, F7), built 2026-10-15:** the layout survives a restart:
   `workspace.json`'s `navigatorHidden` and `chat`, whether the navigator is hidden and the chat
   column shown, restored into `UIState.NavigatorHidden` and `UIState.Chat`. Not the dock's state:
-  its tabs are not restored (above), and a dock without tabs is closed (the lead's decision for the
-  owner to confirm, [D-54](#d-54-the-layout-toggles-and-the-update-button);
+  its tabs are not restored (above), and a dock without tabs is closed (the lead's decision, open to revision, [D-54](#d-54-the-layout-toggles-and-the-update-button);
   `TestWorkspaceKeepsTheLayout`).
 
 Cogpit's defaults, not the owner's decisions: the delays; the bounds of a file read back (200 tabs,
@@ -3774,7 +3772,7 @@ What the build chose, Cogpit's defaults (not the owner's decision):
   each chart does are in [architecture §9](architecture.md#9-metrics-internalmetrics) ("the nodes'
   history from node-exporter").
 
-What the build chose for A43 and F1, **the lead's decisions for the owner to confirm** (night run,
+What the build chose for A43 and F1, **the lead's decisions, open to revision** (night run,
 2026-10-14; nobody could be asked):
 
 - **Matched as the disks are:** the node label, else the instance as the node's name or one of its
@@ -3944,8 +3942,7 @@ the values of the cached Secrets, from about 8 characters (against false matches
 [`cache/peek.go`](../../internal/cache/peek.go)): one filter in `Dispatch` for every result of an
 agent's command; a matcher over 8-byte windows (a bit filter and an index, one pass over the text
 whatever the number of values) built from the Secrets the cache holds, again only when they changed;
-the measurement and its numbers are in H-82. The build's choices, **the lead's decisions for the
-owner to confirm**:
+the measurement and its numbers are in H-82. The build's choices, **the lead's decisions, open to revision**:
 
 - **The base64 form is replaced too** (options: (a) the decoded value only; (b) the decoded value
   and the value as stored, base64, plus the forms a log prints a value in: JSON-escaped, a PEM
@@ -4085,8 +4082,7 @@ the default "A link may switch the connected cluster without asking" below. **Th
 decision, confirmed (owner, 2026-10-15):** a link asks before every connect it would start, also while
 no cluster is connected (options: only when another cluster is connected), so that a page opening
 links in a loop raises questions rather than connections (H-89's cost of a connect). The round
-answered the switch only; the rest of the record stayed the lead's decision for the owner to
-confirm until 2026-10-15.
+answered the switch only; the rest of the record stayed the lead's decision, open to revision until 2026-10-15.
 
 **Confirmed (owner, 2026-10-15 afternoon), as a whole:** (a) navigation only, as built, with the
 build's defaults: a login waiting for approval stops the link (no approval dialog from a link); the
@@ -4235,8 +4231,7 @@ has MCP switched off.
 **Built 2026-10-14** ([`mcp/switch.go`](../../internal/mcp/switch.go),
 [`cogpit-cli/mcp.go`](../../cmd/cogpit-cli/mcp.go), [`fyneui/mcp.go`](../../internal/ui/fyneui/mcp.go),
 [`cogpit/mcpcontrol.go`](../../cmd/cogpit/mcpcontrol.go); `TestSwitchFile`, `TestServeSwitchedOff`,
-`TestMCPSwitchedOffRefuses`, `TestMCPSwitchStore`). **The lead's night decisions for the owner to
-confirm** on what the decision left to the build:
+`TestMCPSwitchedOffRefuses`, `TestMCPSwitchStore`). **The lead's night decisions, open to revision** on what the decision left to the build:
 
 - *Where the choice is kept:* ★ a file `mcp-switch` ("on" or "off") beside the token file in
   Cogpit's configuration directory, owner-only and atomic like the token, written by the window's
@@ -4264,7 +4259,7 @@ D-2's copied registration command is offered only while the external server runs
 
 **Decided (owner, 2026-10-14 evening, A25,
 [H-35](../security/trust-boundaries.md#h-35-kubectls-signature-check-rests-on-an-embedded-trusted-root-and-rekor-v1s-search));
-built 2026-10-15 (night run), with the lead's decisions below for the owner to confirm.**
+built 2026-10-15 (night run), with the lead's decisions below, open to revision.**
 "kubectl's signature checked with sigstore-go including the Rekor transparency-log proof (instead of
 the standard library); record as a D-entry." [D-3](#d-3-helm-and-kubectl-binaries) decides where a
 terminal's kubectl comes from; this record decides how a downloaded one is verified.
@@ -4361,7 +4356,7 @@ compatible with Cogpit's Apache-2.0. govulncheck v1.9.0 on `./...`: no vulnerabi
 Cogpit calls; one module-level advisory, GO-2026-5932 (`golang.org/x/crypto/openpgp`, no fix), in
 `golang.org/x/crypto` v0.58.0, which `go.mod` required at that version before.
 
-**The lead's decisions in the night run, for the owner to confirm.**
+**The lead's decisions in the night run, open to revision.**
 
 1. **Where the entry comes from.** `dl.k8s.io` has no bundle (verified). Options: (a) search by the
    entry's content, `POST /api/v1/log/entries/retrieve`, one request that names exactly this
@@ -4435,7 +4430,7 @@ row and the collapsed source groups (A63); `UIState.PaletteText` the palette's t
 shows an agent's value unless a report of its own is still on its way, so the user's typing is
 never overwritten by an older echo; an agent's value never takes the keyboard focus.
 
-**What the build settled (the lead's night decisions, 2026-10-14, for the owner to confirm; on
+**What the build settled (the lead's night decisions, 2026-10-14, open to revision; on
 2026-10-15 evening the owner confirmed the palette's ↵ below, and the fields, the row's form and the
 bounds were not asked, being technical, so they stand as built):**
 
@@ -4477,7 +4472,7 @@ The navigator's other answers of the same round, details of the window
 
 - **Decided (A52), built 2026-10-15:** the scope dropdown lists the hotbar's clusters and the
   connected one only, then All Clusters… (⌘P, the picker) for every other context; capping it
-  (#86) is moot. **Which bank** (the lead's night decision for the owner to confirm): options (a)
+  (#86) is moot. **Which bank** (the lead's night decision, open to revision): options (a)
   the shown bank's tiles in their order; (b) every bank's; (c) every bank's under its name; chosen
   (a), because the dropdown then lists what the hotbar beside it shows, and every other cluster is
   one ⌘P away. A tile whose context no kubeconfig source offers any more is left out
@@ -4882,7 +4877,7 @@ Tests: `TestTokenKeptAcrossStarts`, `TestTokenFileNotKept`, `TestPortKeptAcrossS
 [the warning dark](../../internal/ui/fyneui/testdata/mcp_regenerate_dark.png),
 [light](../../internal/ui/fyneui/testdata/mcp_regenerate_light.png).
 
-**The lead's decisions for the owner to confirm** (★ the choice):
+**The lead's decisions, open to revision** (★ the choice):
 
 - *Switching off and on:* ★ keeps the token and the port, so a client registered once connects
   again by itself. Options: a new token at every switch on (the switch as a panic button, but the
@@ -4962,7 +4957,7 @@ before Agent Chat (⌘I), checked while their part is open. Tests: `TestSyncDock
 `TestUpdateNoticeTellsTheListeners`, `TestSparkleReportsAScheduledUpdate`; renders
 `internal/ui/fyneui/testdata/layout_*.png`.
 
-**The lead's decisions for the owner to confirm** (★ built):
+**The lead's decisions, open to revision** (★ built):
 
 - *The dock's toggle while the dock has no tabs:* ★ disabled, its tooltip "Dock: no tabs to show",
   `ui.toggleDock` refused with "the dock has no tabs: open a terminal (⌘⇧T), a pod's logs or a
@@ -5207,7 +5202,7 @@ removed); GUI `TestConfigMapDrawerAddsAndRemovesKeys`, `TestConfigMapDrawerRemov
 [light](../../internal/ui/fyneui/testdata/configmap_keys_drawer_light.png), [review dark](../../internal/ui/fyneui/testdata/configmap_keys_review_dark.png),
 [light](../../internal/ui/fyneui/testdata/configmap_keys_review_light.png).
 
-| The lead's decision for the owner to confirm (2026-10-16, keys too) | Options | Choice | Reason |
+| The lead's decision, open to revision (2026-10-16, keys too) | Options | Choice | Reason |
 |---|---|---|---|
 | How added and removed keys reach the engine | (a) `add` and `remove` beside `data` in the existing commands, one write; (b) `data` alone, a new key in it adding one and `null` removing one; (c) commands of their own | (a) | One update, one new resourceVersion, one review and one confirmation for everything the drawer holds; a key is added only where it is named in `add`, so a typo in `data` still never adds one (the reason values only was safe); (b) makes a typo an addition; (c) splits one Save into writes that meet each other's versions |
 | The danger of a removal | (a) a save that removes a key destructive (escalated), one that adds keys or changes values mutating; (b) every save mutating; (c) every save destructive | (a) | A removed key loses its value and changes what a workload reads (an environment variable from it, a file of a mounted volume), as scaling to zero is destructive among Scale's invocations; an added key changes nothing a workload reads until something refers to it. The verbs stay `update configmaps` (`update secrets`): a removal is an update of the object |
@@ -5220,7 +5215,7 @@ removed); GUI `TestConfigMapDrawerAddsAndRemovesKeys`, `TestConfigMapDrawerRemov
 | A removed key's value | (a) hidden, "Removed: Save removes this key and its value." in its place; (b) the editor kept, read-only | (a) | The key's line says what Save does; Undo brings the editor back with what it held |
 | Kept and drafted keys | (a) `add` and `remove` kept and drafted with the values, a draft's listing naming the keys and `keysRemoved`; (b) values only kept | (a) | The owner's "no typing lost unasked" (D-55's (10)) holds for a key typed too |
 
-### The lead's decisions for the owner to confirm
+### The lead's decisions, open to revision
 
 | Question | Options | Choice | Reason |
 |---|---|---|---|
@@ -5363,7 +5358,7 @@ again with a random test); the wheel did nothing in man and vim (the arrow keys 
 for their mode); and the window frozen while resized with the mouse, which is Fyne's (see Open). The
 second round passed.
 
-The lead's decisions for the owner to confirm:
+The lead's decisions, open to revision:
 
 - A carriage return on a row that holds only blanks takes back the wrap into it, so that zsh's
   PROMPT_SP padding is no part of the line before; a program that pads a wrapped line with blanks
@@ -5564,7 +5559,7 @@ changed (the page without it, built 2026-10-16 night, below); the renders were n
 
 **What it does not cover:** a context whose kubeconfig skips the certificate check is marked in the
 section by a warning icon on its row and a line in the row's tooltip (the icon added 2026-10-16 by
-the lead, for the owner to confirm), where the picker showed a pill and a line
+the lead, open to revision), where the picker showed a pill and a line
 ([trust boundaries](../security/trust-boundaries.md)); the approval before its first connect and the
 status bar's "TLS not checked" while connected are unchanged. Not verified: the section, ⌘P and
 Escape in a real window (Fyne's test driver only).
@@ -5639,7 +5634,7 @@ of non-text contrast there (the olive it replaces read 1.9:1). **Decided (owner,
 light Running green one step darker everywhere, #177f4a for dots and the containers' squares alike:
 3.1:1 on the selected row, 4.1:1 on the navigator, 3.5:1 on the header's background (computed).
 
-**The lead's decisions of F13, for the owner to confirm:**
+**The lead's decisions of F13, open to revision:**
 
 | Question | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -5660,7 +5655,7 @@ plugin at every 401 (client-go's behaviour, a pile of browser tabs) or never by 
 plugins should renew); for S7 one rule for every stream (no: by their kind); for S8 resuming the
 operation after the reconnect (no: the cluster may have changed; D-11's road).
 
-**The lead's defaults (2026-10-15, built, the lead's decisions for the owner to confirm):** (a) a
+**The lead's defaults (2026-10-15, built, the lead's decisions, open to revision):** (a) a
 request that is not a stream ends after 30 s; a write in flight when the connection drops ends with
 "outcome unknown: … the view shows the object's state once reconnected"; watches, logs, exec,
 attach and port forwards are not bounded. (b) Agents see it in `ui_state`'s `connection.state`
@@ -5784,8 +5779,7 @@ interrupted", "Delete — login expired: log in again first", and for a cluster 
 connected whatever the engine answers for it, as the selection's row menu shows it; with the
 connection back it says "Delete the selected objects…" again, and a tooltip on screen follows
 (`tipButton.setTip`). The engine's reason for `object.deleteMany` while interrupted is checked
-in `TestConnectionCommands`. The build's choices, for the owner to
-confirm: the engine is asked once per context and state, not per click or row change; a shown
+in `TestConnectionCommands`. The build's choices, open to revision: the engine is asked once per context and state, not per click or row change; a shown
 cluster whose login lapsed greys Delete too, "Delete — login lapsed: show the cluster to renew it"
 (D-69 item 4: the engine refuses its writes until the renewal), the bar following the connected
 clusters' list for it; Delete stays active for every other reason it may be refused (permissions,
@@ -5881,7 +5875,7 @@ through a real dry run and save, an added key that appeared meanwhile shown as t
 [light](../../internal/ui/fyneui/testdata/secret_keys_drawer_light.png), [review dark](../../internal/ui/fyneui/testdata/secret_keys_review_dark.png),
 [light](../../internal/ui/fyneui/testdata/secret_keys_review_light.png).
 
-| The lead's decision for the owner to confirm (2026-10-16, keys too) | Options | Choice | Reason |
+| The lead's decision, open to revision (2026-10-16, keys too) | Options | Choice | Reason |
 |---|---|---|---|
 | Who adds and removes a Secret's keys from the drawer | (a) the window only, as its values (`add` and `remove` on the GUI-only commands); (b) agents through the registry | (a) | The owner's "the window's only" for a Secret's values: an added key carries a value, and a removal is a loss an agent must not cause unseen |
 | Removing a key whose value was never shown | (a) allowed, the review naming key and size; (b) only after Show | (a) | Removing needs no value; Show would put a value on the screen for no reason |
@@ -5897,8 +5891,7 @@ click copies the editor's whole value as typed so far through the path ⌘C and 
 (`secData.copied`, `shell.copyText(…, secret=true)`: concealed for clipboard managers, cleared after
 60 seconds if the clipboard still holds it), never the plain clipboard, and the toast says "Copied.
 The clipboard is cleared in 60 seconds." (a copy's toast, outside the notification history). A
-masked value has no icon; a Config Map's editors have none. The build's choices, for the owner to
-confirm: the icon is always shown with its editor (not only under the pointer, as the drawer's
+masked value has no icon; a Config Map's editors have none. The build's choices, open to revision: the icon is always shown with its editor (not only under the pointer, as the drawer's
 values have it: an editor takes the pointer for its text), its tooltip "Copy the whole value"; an
 empty value copies nothing ("The value is empty: nothing was copied."), so that the click does not
 empty the clipboard. ([`secretdata.go`](../../internal/ui/fyneui/secretdata.go) `copyIcon`,
@@ -6045,8 +6038,7 @@ exactly the 17 the job did not attempt; the rest deleted by a second Delete).
 ### The lead's decisions
 
 **Confirmed (owner, audit of 2026-10-16)** as built: which commands, small selections, who may cancel, a step
-under way, what `job.cancel` returns, the audit log and the bound of 500. Not asked in the audit,
-for the owner to confirm: the tab after Cancel, steps not attempted, the toast at the end, the
+under way, what `job.cancel` returns, the audit log and the bound of 500. Not asked in the audit, open to revision: the tab after Cancel, steps not attempted, the toast at the end, the
 tab's list on a long job and the wording.
 
 | Question | Options | Choice | Reason |
@@ -6370,7 +6362,7 @@ Tests: `TestConnectTraceRecordsTheSteps`, `TestConnectTraceNamesTheClientCertifi
 [success](../../internal/ui/fyneui/testdata/connection_updates_success_dark.png) and
 [failure](../../internal/ui/fyneui/testdata/connection_updates_failure_dark.png) (window).
 
-**The lead's decisions for the owner to confirm** (2026-10-16):
+**The lead's decisions, open to revision** (2026-10-16):
 
 | Question | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -6506,7 +6498,7 @@ is stage 2):
   in the cache. The tests that assumed "a connect replaces the connection" now disconnect first or
   expect the cluster to stay.
 
-**The lead's decisions of stage 1, for the owner to confirm:**
+**The lead's decisions of stage 1, open to revision:**
 
 | Decision | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -6610,7 +6602,7 @@ several clusters connected for hours.
   [after](../../internal/ui/fyneui/testdata/dock_cluster_after_light.png)), the Diagnostics with two
   clusters ([dark](../../internal/ui/fyneui/testdata/diagnostics_clusters_dark.png)).
 
-**The lead's decisions of stage 2, for the owner to confirm:**
+**The lead's decisions of stage 2, open to revision:**
 
 | Decision | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -6705,7 +6697,7 @@ stage 2's):
   `preferences_restore_session_{dark,light}.png` and `cluster_settings_login_{dark,light}.png`. The
   workspace tests that assumed the tabs come back by default turn the preference on.
 
-**The lead's decisions of stage 3, for the owner to confirm:**
+**The lead's decisions of stage 3, open to revision:**
 
 | Decision | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -6766,7 +6758,7 @@ with its environment emptied and the keychain locked (third-party code on the sa
 identity, which a left-behind process could use once the keychain is unlocked for the disk image).
 **Chosen: (a)**, the lead's recommendation ([releasing › the disk image's window](releasing.md#the-disk-images-window)).
 
-The lead's decisions of the build, for the owner to confirm:
+The lead's decisions of the build, open to revision:
 
 | Decision | Chosen | Why |
 |---|---|---|
@@ -6796,7 +6788,7 @@ a build tag that only the release pipeline sets. A release then contains neither
 `demo`; development builds, `make run-demo`, the tests and the README's pictures (`make showcase`)
 keep the demo. Releases up to v0.16.0 carry it.
 
-**Built 2026-10-16.** The choices of the build, for the owner to confirm:
+**Built 2026-10-16.** The choices of the build, open to revision:
 
 | Question | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -6865,7 +6857,7 @@ context's) and as its subtitle the kubeconfig file, "Synthetic demo cluster" or 
 | The window | [`fyneui/clusteruser.go`](../../internal/ui/fyneui/clusteruser.go) (the root row's subtitle, the groups' box, its tooltips), [`fyneui/clustername.go`](../../internal/ui/fyneui/clustername.go) (the bars' name with the full name as the tooltip) |
 | Tests | `TestShortContextName`, `TestClusterNameIsTheShortName`, `TestConnectLearnsTheUser`, `TestUserFallsBackToTheKubeconfig`, `TestLoginRenewsTheUser`, `TestSyncUserFollowsTheContext`, `TestLastUsersFileUnreadable`, `TestPaletteNamesTilesByTheShortName`, `TestHotbarTilesCarryTheDisplayName` (engine); `TestReviewUser*` (cluster, against the fake API server's `FakeIdentity`: v1, v1beta1 only, 404, 403, 500); `TestRootRow*`, `TestShortClusterNameEverywhere` and the renders `navigator_user*` (window); `TestKindWhoAmI` (kind: a ServiceAccount without permissions of its own, its username and its three groups confirmed, one review) |
 
-**The lead's decisions, for the owner to confirm:**
+**The lead's decisions, open to revision:**
 
 | Question | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -6884,13 +6876,12 @@ context's) and as its subtitle the kubeconfig file, "Synthetic demo cluster" or 
 | What keeps the full id | | the engine's connect log and toasts ("Connecting to <id>", "Reconnected to <id>"), Remove from Cogpit's list of the contexts that leave with a file, the navigator items' "<item> - <context>" tooltips | Logs and a confirmation name exactly what they mean; the hotbar's own toasts use the short name |
 | Where the root row shows a cluster that is not connected | | while it connects (the navigator shows the section after a failed connect or a disconnect, D-57); its dot says the state, the subtitle the last known user | |
 
-**Open:** the owner's confirmation of the lead's decisions; Lens's root row is not captured for a
+**Open:** Lens's root row is not captured for a
 user, so the row is Cogpit's own ([UI parity](../parity/ui-parity.md)).
 
 ## D-71: Thanos and VictoriaMetrics, read as Prometheus
 
-**The lead's decisions (night run 2026-10-16/17), built the same night, for the owner to
-confirm.** Lens's Metrics provider list names VictoriaMetrics and VictoriaMetrics single besides
+**The lead's decisions (night run 2026-10-16/17), built the same night, open to revision.** Lens's Metrics provider list names VictoriaMetrics and VictoriaMetrics single besides
 the Prometheus installations (captured); Cogpit found Prometheus by its Services' names only, so a
 cluster whose metrics live in Thanos or VictoriaMetrics had them only through the address the user
 typed, and the window called them "Prometheus". Both speak the Prometheus HTTP API, so the provider
@@ -6994,7 +6985,7 @@ a real Mac in this run):
   accessing them (`TestBookmarkHarness`, `TestBookmarkRoundTrip`). Whether a kept bookmark keeps
   the prompt away after a restart of Cogpit or of the Mac is open (walk steps 4 and 5).
 
-**The lead's decisions (night run 2026-10-16/17), for the owner to confirm:**
+**The lead's decisions (night run 2026-10-16/17), open to revision:**
 
 | Question | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -7038,7 +7029,7 @@ build):**
    proposed; an existing file asks before it is replaced; `ls -l` shows a new file as `-rw-------`.
 10. After each panel closes, typing goes to Cogpit's window again (the search field, an editor).
 
-**Open:** the owner's confirmation of the lead's decisions; whether the bookmarks keep macOS quiet
+**Open:** whether the bookmarks keep macOS quiet
 after a restart (walk steps 4 and 5); the native dialogs of Windows and Linux (M11).
 
 ## D-73: A login that waits: Cancel Connecting and a bound
@@ -7113,7 +7104,7 @@ run included, so a browser login that took longer than 15 s failed the connect a
   [light](../../internal/ui/fyneui/testdata/connecting_login_wait_light.png) (window). All with the
   race detector.
 
-**The lead's decisions (night run 2026-10-16/17), for the owner to confirm:**
+**The lead's decisions (night run 2026-10-16/17), open to revision:**
 
 | Question | Options weighed | Chosen | Why |
 |---|---|---|---|
@@ -7135,10 +7126,34 @@ process lookup on Windows (it compiles); a plugin whose child keeps its output o
 walk steps for the owner are in the night run's report.
 
 
+## D-74: How the lead's decisions are reviewed
+
+**Decided (owner, 2026-10-17): option (a).** The question, asked once after the night run of
+2026-10-16/17: how the details the lead decides are reviewed from now on. The owner had said the
+evening before: "Ich kann nicht so viel kleine Details beantworten. Manches muss auch die Zeit und
+Feedback anderer abwarten." About 125 table rows and as many sentences then said "for the owner to
+confirm" (D-55, D-58 to D-70, the night decisions of 2026-10-13 to 2026-10-16), and two audit
+rounds of about 100 details each had run on 2026-10-16.
+
+| Option | What it means | Cost |
+|---|---|---|
+| **(a) The lead decides details, open to revision (chosen)** | Each detail is recorded where it lives with the question, the options, the choice and why, as the lead's decision; no confirmation queue. The owner gets decisions of product direction, scope, security posture and anything irreversible or outward-facing, one question at a time; what the window shows he judges in walks ("stört mich" changes it, the rest stands); the rest waits for use and others' feedback (G16). | A detail he would have chosen otherwise stays until a walk or a user finds it; details are cheap to change. |
+| (b) As before: every detail "for the owner to confirm", audits on request | The queue grows by 50 to 100 a day of night runs. | His time, which he said he does not have for this. |
+| (c) A short list: "to confirm" only for details with a high cost of reversal or a visible effect, at most about five a week | The lead picks the list. | A little of his time every week. |
+| (d) Walks only, nothing listed | Invisible details are never reviewed unless something goes wrong. | Security-relevant defaults lose their review path. |
+
+**Built 2026-10-17:** every "for the owner to confirm" outside the change logs reads "open to
+revision" (the change logs and the pages' "Change:" lines keep what was written then); the rule in
+this page's introduction, in [conventions › Decisions](conventions.md#decisions) and in AGENTS.md's
+rules. "Undocumented" is not a state a decision may have (the owner, the same message: "Bitte
+dokumentiere undokumentiertes"): a choice that only a report, a chat or a commit message names is
+written into the page where it lives.
+
 ## Revision history
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | D-74 added (the owner, 2026-10-17, option (a)): how the lead's decisions are reviewed; the introduction states the rule; "for the owner to confirm" outside the change log reads "open to revision" |
 | 2026-10-16 | minor | D-73 added (the owner's finding of 2026-10-16 night, a login nobody finished could not be cancelled): Disconnect, the window's Cancel Connecting, ends a connect under way and the credential plugin it waits for; every plugin run bounded by 5 minutes; `connection.waitingForLogin`; the connect's timeout no longer counts the login; built with the lead's decisions for the owner to confirm; H-118 opened; its index row |
 | 2026-10-16 | minor | D-72 added (the owner's order of 2026-10-16 night) and built: every file chooser on the system's panels on macOS (Sync Files and Folders one open panel for files and folders, several at once; the icon, the folders, the CA file; the three saves), Fyne's dialogs and Cogpit's own Sync browser where there is no panel; security-scoped bookmarks of the kubeconfig sources, folders and CA files picked, resolved at start; the Info.plist's usage descriptions; what Fyne's dialog read (Desktop, Documents, Downloads); the research on TCC and bookmarks with its sources; fifteen decisions of the lead for the owner to confirm, ten walk steps; H-116 opened; its index row |
 | 2026-10-16 | minor | D-39 (night run 2026-10-16/17): the namespace-limited user's Pods history by the plan's namespaces not built, A47 standing; the lead's decision and the question (a, b, c) for the owner |

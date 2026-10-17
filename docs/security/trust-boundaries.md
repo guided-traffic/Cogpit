@@ -399,7 +399,7 @@ credential goes to (`ContextInfo.Insecure`, from the kubeconfig); since the pick
 and the navigator section's row a warning icon before its connection dot, with the line in its
 tooltip (`navContextRow.insecure`, `navContextRow.tipText`, `TestNavigatorSectionTooltipLines`;
 the icon added 2026-10-16 so that a context the welcome page does not list is marked before its
-connect without the pointer on it; the lead's decision for the owner to confirm); the connect log gets a WARN line once the connection
+connect without the pointer on it; the lead's decision, open to revision); the connect log gets a WARN line once the connection
 stands, from the connection's own configuration (`Conn.Insecure`; [`engine/tlswarning.go`](../../internal/engine/tlswarning.go),
 `TestInsecureContextIsMarkedAndLogged`). Agents see `insecure: true` in `cluster.contexts`, and
 `cogpit-cli contexts` says `not checked` in its table's CERTIFICATE column (2026-10-13,
@@ -422,7 +422,7 @@ built from, before any request leaves (`checkExecPolicy`; `TestConnectAsksThePol
 navigator's section, the hotbar, the welcome page; the context picker until D-57) shows the dialog "Connect without checking the certificate?" with
 the server and how it is reached, and the user's yes is kept across restarts; a context of a file a
 sync folder picked up is asked like any other ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)).
-**The lead's night decisions for the owner to confirm** (★ chosen):
+**The lead's night decisions, open to revision** (★ chosen):
 
 - *What the answer binds:* ★ the plugin approval's fingerprint: the file, context, user entry's name,
   server URL, CA, the flag, TLS server name, the kubeconfig's `proxy-url` and Cogpit's own proxy
@@ -628,7 +628,7 @@ What remains, per case:
 - **A network without access to `rekor.sigstore.dev`**, a mirror inside a closed network for
   example, can no longer download through Cogpit (before 2026-10-15 the check was offline); the
   user puts a kubectl on `PATH` or sets Preferences › Path to kubectl instead. Not a weakness of the
-  check, a cost of it, recorded with D-50's decisions for the owner to confirm.
+  check, a cost of it, recorded with D-50's decisions, open to revision.
 
 ### H-36: A shell's profile can put another kubectl first
 

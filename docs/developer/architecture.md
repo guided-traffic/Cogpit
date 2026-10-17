@@ -72,8 +72,7 @@ Source as a background job, an application's logs in one tab, a free cluster col
 Cogpit on a synced folder's context, a click that keeps the checked rows, the copy icons over a
 value's end, hotbar tiles reordered by drag (R2), the terminal fork's races patched, and the
 README's pictures in both themes; each is
-"built 2026-10-15" (or "-14") where a section describes it, with the lead's night decisions for
-the owner to confirm (on 2026-10-15 the owner confirmed D-47 as a whole, D-10's repaired key file
+"built 2026-10-15" (or "-14") where a section describes it, with the lead's night decisions, open to revision (on 2026-10-15 the owner confirmed D-47 as a whole, D-10's repaired key file
 and D-51's ↵ on an agent's palette text; the others stay open where their sections say so). Not built: a tile dragged out to another window (R3, designed in [D-52](decisions.md#d-52-several-windows), postponed by
 the owner until the rest is done), and the release tags' ruleset (A10, a GitHub setting the owner sets with the
 lead).
@@ -100,7 +99,7 @@ CI runs on every push ([releasing › CI](releasing.md#ci)); since 2026-10-16 it
 | [`cmd/cogpit-cli`](../../cmd/cogpit-cli/) | Built 2026-10-13 (milestone 0.1, G2): a headless engine (no confirmer, no journals, no hotbar) over the same kubeconfig sources and credential plugin approvals as the app (`internal/app`), commands dispatched with origin CLI; `contexts` (`cluster.contexts`: table, JSON or YAML; context names and other untrusted text escaped for the terminal), `get <kind> [name]` (`cluster.connect`, then `kinds.list` and `resources.list` for a list or `object.get` for one object: the cache's first list awaited, the kind's columns as the view shows them, `resources_list`'s result or the manifest as JSON or YAML; a key that is not built in waits for the custom resource definitions' first list, `Backend.CustomKindsSettled`), `mcp` (the stdio bridge of [§7](#7-mcp-and-the-built-in-agent): forwarded to the running app, else a headless engine of its own), `version`, `--help` per command, exit codes 0 (done), 1 (failed), 2 (usage) | Without a configuration directory it refuses to connect, where the app merges the kubeconfig files as kubectl does and so runs their plugins unasked (Cogpit's default, not the owner's decision); `get` connects with `cluster.connect`, which opens the Pods view as in the app, so a `get` of another kind lists the pods once too (inferred cost, not measured); `-o json` of a list prints rows, not manifests (kubectl prints manifests; confirmed by the owner 2026-10-14 evening, A88) |
 | [`internal/app`](../../internal/app/) (L4, new) | Built 2026-10-13: the wiring both binaries share: `UserDirs`, `Dirs.KubeconfigSources`, `Dirs.OpenAuditLog`, `Dirs.AuditLogPath` (2026-10-13: the Audit Log reads it back); `cmd/cogpit` calls it from `openKubeconfigSources` and `openAuditLog` | A package the plan did not list |
 | [`internal/update`](../../internal/update/) (L4) | Built 2026-10-14 (D-4, [§11](#11-updates-internalupdate)): Sparkle 2 loaded at run time from the running app's bundle through cgo (darwin and cgo only, else "not macOS"), the controller made and started on the main dispatch queue, Cogpit's preference handed to `automaticallyChecksForUpdates`; wired by `cmd/cogpit` into the engine (`Session.SetUpdater`) | Proven 2026-10-16 by a person: Pages serves the signed feed with 0.16.0 and 0.15.0, and the owner's copy updated from 0.15.0 to 0.16.0 through it (the launch check's Update button, Sparkle's install); no test covers an update end to end |
-| [`internal/agent`](../../internal/agent/) (L4) | Built 2026-10-14 late evening, the engine side (M12 (a), [§7](#7-mcp-and-the-built-in-agent)): `engine.ChatAgent` over an OpenAI-compatible endpoint on plain `net/http`, the connections (`llm-connections.json`, keys in `llm-keys.json`, owner-only, on every platform: no keychain since 2026-10-15), the connection test by layer, the turn loop with 20 core commands and two meta-tools, or every command for a connection set to send all tools (2026-10-15), dispatched with origin `builtInAgent`, the limits and Stop, the conversations kept scrubbed (`chat-conversations.json`); installed by `cmd/cogpit` (`chat.go`) | The chat column (⌘I, [`fyneui/chat.go`](../../internal/ui/fyneui/chat.go)) and Preferences › Agent were built in the window apart, 2026-10-14 night (M12 (b)); `Invocation.ReadsLikeUser` is set for a private connection and honoured by the engine since 2026-10-14 night (M12 (c), [§7](#7-mcp-and-the-built-in-agent)); the client is plain `net/http`, not the `openai-go` module D-10 named as the candidate (the lead's choice, for the owner to confirm); its traffic takes the environment's proxy, not Preferences › Proxy (§8) |
+| [`internal/agent`](../../internal/agent/) (L4) | Built 2026-10-14 late evening, the engine side (M12 (a), [§7](#7-mcp-and-the-built-in-agent)): `engine.ChatAgent` over an OpenAI-compatible endpoint on plain `net/http`, the connections (`llm-connections.json`, keys in `llm-keys.json`, owner-only, on every platform: no keychain since 2026-10-15), the connection test by layer, the turn loop with 20 core commands and two meta-tools, or every command for a connection set to send all tools (2026-10-15), dispatched with origin `builtInAgent`, the limits and Stop, the conversations kept scrubbed (`chat-conversations.json`); installed by `cmd/cogpit` (`chat.go`) | The chat column (⌘I, [`fyneui/chat.go`](../../internal/ui/fyneui/chat.go)) and Preferences › Agent were built in the window apart, 2026-10-14 night (M12 (b)); `Invocation.ReadsLikeUser` is set for a private connection and honoured by the engine since 2026-10-14 night (M12 (c), [§7](#7-mcp-and-the-built-in-agent)); the client is plain `net/http`, not the `openai-go` module D-10 named as the candidate (the lead's choice, open to revision); its traffic takes the environment's proxy, not Preferences › Proxy (§8) |
 | [`internal/buildinfo`](../../internal/buildinfo/) (L0, new) | Built 2026-10-14 (the owner's F2): the one version both binaries, the About dialog, the MCP server and the stdio bridge report, set by the release build's linker, else `dev` and the commit Go recorded ([releasing](releasing.md#the-version-a-build-reports)) | A package the plan did not list |
 | [`internal/testkit`](../../internal/testkit/) and its [`enginekit`](../../internal/testkit/enginekit/), [`fakellm`](../../internal/testkit/fakellm/), [`sigstoretest`](../../internal/testkit/sigstoretest/) and [`integration`](../../internal/testkit/integration/) | Built: the in-memory source, the fake API server over HTTPS (RBAC, label selectors, metadata, a service proxy), object builders, `WaitFor` and `Settled`; a local kubectl release host (2026-10-13); the real engine for the window's tests (2026-10-13); a fake OpenAI-compatible endpoint (2026-10-14); a sigstore instance of the tests' own (2026-10-15); the cross-package and kind tests ([testing](testing.md)); since 2026-10-16 a TCP proxy that goes silent (`FreezableProxy`), the fake API server's container logs (`AddLog`) and a token it can stop accepting (`SetToken`); since 2026-10-16 a real control plane, envtest's etcd and kube-apiserver ([`testkit/envtest`](../../internal/testkit/envtest/envtest.go), Unix only, [D-64](decisions.md#d-64-envtest-a-real-api-server-in-ci-without-docker)), whose API server a test can stop | Imported by tests only (depguard's `no-testkit-in-product`); envtest's tests carry the tag `envtest` and run in `make test-envtest` |
 
@@ -727,8 +726,7 @@ has a checkbox column first (table column 0; the view's columns follow from `fir
 mode and `noDrawer`, the header's checkbox with `all`; it keeps the selection as a set for its cells
 and asks the registry's `SelectionActions` for the menu of a selected row and the header's
 selection bar. A row is highlighted when it is checked or is the drawer's object, and its checkbox
-shows only whether it is checked (`rowSelected`, `rowChecked`; the lead's choice for the owner to
-confirm: the drawer's row in the same highlight as a checked one, its checkbox empty). The table
+shows only whether it is checked (`rowSelected`, `rowChecked`; the lead's choice, open to revision: the drawer's row in the same highlight as a checked one, its checkbox empty). The table
 scrolls to the drawer's object when the drawer moves (an agent's `ui.navigate`, a view whose
 snapshot comes later), no longer to the first checked row when the selection changes, which
 scrolled a far-down ⌘-click back to the top (`TestPlainClickKeepsTheCheckedRows`).
@@ -1000,7 +998,7 @@ badge as the navigator's root does, muted while that cluster is not connected; a
 colour (cluster identity) is to replace it in both places.
 
 **The tabs and the tables' layout survive a restart** (built 2026-10-13, night build, G5, G13,
-[D-41](decisions.md#d-41-what-survives-a-restart), night decisions for the owner to confirm;
+[D-41](decisions.md#d-41-what-survives-a-restart), night decisions, open to revision;
 [`engine/persist.go`](../../internal/engine/persist.go),
 [`engine/persist_restore.go`](../../internal/engine/persist_restore.go)). `Options.Workspace`
 (`engine.NewWorkspace(<user config dir>/Cogpit)`, wired in `cmd/cogpit`; none in `cogpit-cli` and
@@ -1566,7 +1564,7 @@ while the drafts banner and the node shell sweep take an interruption's end as n
   before; the narrowing follows in the running streams, the GUI's view narrowing the lines it
   holds by the three-part prefix. Older lines and a jump to a time ask each container in its
   pod's namespace. Checked on kind (`TestKindApplicationLogs`: two labelled Deployments merged,
-  narrowed to one). **The lead's decisions for the owner to confirm (night run, 2026-10-15):**
+  narrowed to one). **The lead's decisions, open to revision (night run, 2026-10-15):**
   (1) **which application:** the decision's rows (ui-parity, resource-parity) name the
   Applications view's, whose Logs opened a tab per workload (at most 8); options (a) that one
   alone, (b) that one and the GitOps objects that name their workloads with the same mechanism;
@@ -1719,7 +1717,7 @@ while the drafts banner and the node shell sweep take an interruption's end as n
   (a State column, "Loading…" while the claims list) and a node's Devices show the claim that holds
   each device, linked (a Claim column once the claims are listed), through the indexes
   `kinds.ClaimsByName` and `kinds.ClaimsByDevice` in the profiles' `DetailNeeds`, which only an open
-  drawer reads, as the workloads' Pods tables do. The lead's reading for the owner to confirm: the
+  drawer reads, as the workloads' Pods tables do. The lead's reading, open to revision: the
   drawer reads the claims as their plan says (all namespaces for a user who may), not the pod's
   namespace alone.
 - **Related objects for agents** (built 2026-10-13, G17, [`relatedrefs.go`](../../internal/engine/relatedrefs.go)):
@@ -2244,7 +2242,7 @@ once; `TestOnRefusedHearsEveryRefusal`). A cluster-admin is never refused, so no
 `Session.Object` does, the events in that namespace too, and a namespaced object's related objects
 (a Service's endpoint slices, a claim's pods) there; the kind and the events settle side by side,
 each following a refusal in all namespaces (`detailReads`, `settleReads`).
-**Night decision (the lead's, 2026-10-13, for the owner to confirm):** options (a) the object's
+**Night decision (the lead's, 2026-10-13, open to revision):** options (a) the object's
 events through a scope with a field selector (`involvedObject.uid`): a watch per object read, and a
 kind of cache scope Cogpit does not have (`cache.Scope` selects by label only); (b) the events of
 the object's namespace, the informer that the Events view and the drawers of that namespace share;
@@ -2307,7 +2305,7 @@ a user whose one RoleBinding is in the context's namespace, without the definiti
 dashboards' counts of a user who may list them, with the same reads per kind (one refused read in
 all namespaces and its list, then team-a's) and one refused read of the definitions; engine tests
 `TestCuratedKindsFromDiscovery`, `TestCuratedKindsWhenDiscoveryFails`,
-`TestCuratedKindsNotDiscoveredWithTheDefinitions`. The lead's decisions for the owner to confirm
+`TestCuratedKindsNotDiscoveredWithTheDefinitions`. The lead's decisions, open to revision
 (night run): **which kinds** — options (a) Flux's and Argo CD's alone, as the owner named them,
 (b) every curated profile; chosen (b), the Vertical Pod Autoscalers too, because the line the owner
 drew runs between curated and generic profiles, and a curated profile shows a discovered kind as
@@ -3311,7 +3309,7 @@ since D-29, 2026-10-13; G11; [`helm/repofile.go`](../../internal/helm/repofile.g
   a dot is used since 2026-10-14 ([D-29](decisions.md#d-29-helm-chart-repositories-from-helms-repositoriesyaml),
   A36, the owner's decision of 2026-10-14 evening): the chart id doubles it (below).
 - **The chart id** (`kinds.HelmChartName`, `kinds.SplitHelmChartName`, built 2026-10-14, A36; the
-  form the lead's decision for the owner to confirm): `<repository>.<chart>` with every dot of the
+  form the lead's decision, open to revision): `<repository>.<chart>` with every dot of the
   repository's name doubled, `bitnami.nginx`, `charts..example.nginx` for the repository
   `charts.example`. A chart's name starts with a letter or a digit, so the first dot that is not
   one of a doubled pair separates the two, whatever dots either name holds
@@ -3506,8 +3504,7 @@ Charts view; the drawer is not captured).
   `TestHelmChartReadmeBounds`, `TestHelmChartReadmeCredentials`, `TestChartDrawerReadmeStates`.
 
 **The charts' icons (built 2026-10-14, night build HELM2;
-[D-46](decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), a night decision for the
-owner to confirm; [`helm/icon.go`](../../internal/helm/icon.go),
+[D-46](decisions.md#d-46-chart-icons-from-the-hosts-that-serve-them), a night decision, open to revision; [`helm/icon.go`](../../internal/helm/icon.go),
 [`engine/helmicons.go`](../../internal/engine/helmicons.go),
 [`fyneui/helmcharticons.go`](../../internal/ui/fyneui/helmcharticons.go)).** The Charts view's first
 column (`model.ColumnIcon`: no title, no sort, no copy icon; its cells carry the URL in
@@ -3901,8 +3898,7 @@ the transparent ones too: Fyne's raster takes its image type from the first pixe
 `color.Transparent` (an `Alpha16`) made an alpha-only image that drew the fill white (found in the
 render, fixed before it landed). Tests: `TestChartFillsUnderTheSeries` (one fill per run, none for
 a point alone, under the lines, the colour and alpha), `TestLineAt`; renders of the drawer's and the
-Overview's charts in testdata. *The lead's decisions* (night run 2026-10-16/17, for the owner to
-confirm in a real window; they change what he sees): options (a) every series filled at a fifth of
+Overview's charts in testdata. *The lead's decisions* (night run 2026-10-16/17, open to revision in a real window; they change what he sees): options (a) every series filled at a fifth of
 its colour, (b) only the first series (the network's Receive, not Transmit), (c) a gradient as
 Chart.js draws by default; chosen (a): the two network series overlap readably at a fifth each
 (checked in the renders), (b) would make Transmit look unlike Receive, and (c) has no Fyne
@@ -4316,7 +4312,7 @@ The Prometheus… button under the drawer's and the Overview's status line opens
 `TestPrometheusButtonOpensTheSettings`, `TestRenderPrometheusSettings` (PNGs in testdata).
 **Not tried in a real window** (the owner's walk).
 
-*The lead's decisions* (night run 2026-10-16/17, for the owner to confirm; both change what he
+*The lead's decisions* (night run 2026-10-16/17, open to revision; both change what he
 sees in the window):
 
 - **How "detect by name" is chosen on the page.** Options: (a) the dialog's "Auto detect
@@ -4389,8 +4385,7 @@ against the nodes' `allocatable.pods` and `capacity.pods`, a point per poll or p
 the count changes, kept while the page is open (the longest range, at most a day of points). Since
 2026-10-14 its history from before the page opened comes from kube-state-metrics through Prometheus
 ([`promclusterpods.go`](../../internal/metrics/promclusterpods.go),
-[`engine/clusteroverview_pods.go`](../../internal/engine/clusteroverview_pods.go); a night decision
-for the owner to confirm, [G12](../parity/gaps.md#g12-metrics-and-cluster-overview)): the page's
+[`engine/clusteroverview_pods.go`](../../internal/engine/clusteroverview_pods.go); a night decision, open to revision, [G12](../parity/gaps.md#g12-metrics-and-cluster-overview)): the page's
 subscription wants `metrics.WantPods`, so the cluster scope's history query (once when the page
 opens and when its range changes, never incrementally) adds `count(max by (namespace, pod)
 (kube_pod_info{node!=""}) unless on (namespace, pod) (max by (namespace, pod)
@@ -4513,8 +4508,7 @@ source is node-exporter's root filesystem through the cluster's Prometheus.
 | The drawer | `ObjectMetrics.Disk`, `DiskNote` | a node's disk, or why there is none; the window writes "Disk (/): 172.0 GiB of 200.0 GiB used (86%)" under the node's chart in the bars' colour at the thresholds, or the reason muted ([`metricsdisk.go`](../../internal/ui/fyneui/metricsdisk.go)) |
 
 **Built 2026-10-14 (G12): history that outlives a closed drawer** ([`metrics/retain.go`](../../internal/metrics/retain.go),
-[`fyneui/chartgap.go`](../../internal/ui/fyneui/chartgap.go); a night decision for the owner to
-confirm, [G12](../parity/gaps.md#g12-metrics-and-cluster-overview)). `Subscription.Release` of an
+[`fyneui/chartgap.go`](../../internal/ui/fyneui/chartgap.go); a night decision, open to revision, [G12](../parity/gaps.md#g12-metrics-and-cluster-overview)). `Subscription.Release` of an
 object scope's last subscription hands its chart to `retainLocked`, which keeps its CPU and memory
 series by target (copied, each cut to `RetainAge` back from its own newest point; network and
 filesystem dropped, coverage forgotten), and `Subscribe` starts the scope's chart with
@@ -4562,8 +4556,7 @@ overlay (inferred).
 **Built 2026-10-14 night (G12, F1, A43, A115): the nodes' history from node-exporter**
 ([`promql.go`](../../internal/metrics/promql.go), [`promrange.go`](../../internal/metrics/promrange.go),
 [`promcluster.go`](../../internal/metrics/promcluster.go), [`hub.go`](../../internal/metrics/hub.go)
-`SetNodeAddresses`; [D-43](decisions.md#d-43-where-the-nodes-disk-comes-from), the lead's choices
-for the owner to confirm listed there).
+`SetNodeAddresses`; [D-43](decisions.md#d-43-where-the-nodes-disk-comes-from), the lead's choices, open to revision listed there).
 
 *Why the owner saw no past (F1, "no past data" in a real window).* **Verified in the code** as it
 stood: a node's drawer and the cluster Overview asked Prometheus for CPU and memory from cAdvisor's
@@ -4686,7 +4679,7 @@ queries, more with the network or the filesystem shown, once); while the network
 shows, and while Prometheus gives the live values, the incremental queries follow the finest set's
 step, so the hour's chart beside the week's polls at 30 s instead of ten minutes.
 
-*The lead's decisions for the owner to confirm* (night run, 2026-10-14):
+*The lead's decisions, open to revision* (night run, 2026-10-14):
 
 - **When ranges are far apart.** Options: (a) a range that would get fewer than 120 points at the
   common step, (b) fewer than 60, (c) any two different ranges. Chosen (b): 1 h beside 12 h keeps
@@ -4713,8 +4706,7 @@ engine and a fake Prometheus: queries at 30 s and 605 s).
 **Built 2026-10-16 night (G12): a node's network and filesystem from node-exporter**
 ([`promql.go`](../../internal/metrics/promql.go) `nodeInterfaces`, `nodeBlockDevices`,
 `exporterRate`, `exporterFSUsage`; [`promrange.go`](../../internal/metrics/promrange.go) `nodePlan`;
-the choices in [D-43](decisions.md#d-43-where-the-nodes-disk-comes-from), the lead's for the owner
-to confirm). On kube-prometheus-stack a node's Network and Filesystem charts were empty: they read
+the choices in [D-43](decisions.md#d-43-where-the-nodes-disk-comes-from), the lead's, open to revision). On kube-prometheus-stack a node's Network and Filesystem charts were empty: they read
 the root cgroup its kubelet ServiceMonitor drops. Each of their queries is now node-exporter's `or`
 the root cgroup's, matched by the node label or the instance as CPU and memory are (`M` above):
 
@@ -5013,7 +5005,7 @@ Renovate updates of 2026-10-15 (Fyne v2.8.2, Helm v4.3.1); no LLM module.
 | Metrics API | `k8s.io/metrics` | v0.37.1 | |
 | Helm | `helm.sh/helm/v4` | v4.3.1 | in-process ([D-3](decisions.md#d-3-helm-and-kubectl-binaries)); in `go.mod` since 2026-10-11, built against k8s.io v0.37.0 and resolved to v0.37.1 with the rest (it also brings `k8s.io/apiserver`, `apiextensions-apiserver` v0.37.1, `controller-runtime` v0.25.2 since 2026-10-12, and `oras-go` as indirect dependencies) |
 | MCP | `github.com/modelcontextprotocol/go-sdk` | v1.8.0 | MCP specification 2026-07-28 |
-| LLM client | none: plain `net/http` | – | the subset of OpenAI's Chat Completions API the built-in agent uses ([`agent/client.go`](../../internal/agent/client.go), 2026-10-14); `github.com/openai/openai-go/v3` v3.76.0 was the candidate, not taken (the lead's choice, for the owner to confirm, [D-10](decisions.md#d-10-built-in-agent)) |
+| LLM client | none: plain `net/http` | – | the subset of OpenAI's Chat Completions API the built-in agent uses ([`agent/client.go`](../../internal/agent/client.go), 2026-10-14); `github.com/openai/openai-go/v3` v3.76.0 was the candidate, not taken (the lead's choice, open to revision, [D-10](decisions.md#d-10-built-in-agent)) |
 | Updates (macOS) | Sparkle | 2.10.0 | embedded framework, EdDSA-signed appcast ([D-4](decisions.md#d-4-packaging-and-updates)) |
 | kubectl's signature (sigstore) | `github.com/sigstore/sigstore-go` | v1.3.0 | since 2026-10-15 ([D-50](decisions.md#d-50-kubectls-signature-check)): the signature, its certificate and its Rekor entry checked against an embedded trusted root; with `github.com/sigstore/protobuf-specs` v0.5.2 (v0.5.1 until 2026-10-15), and 43 more modules linked into both binaries (rekor, rekor-tiles, certificate-transparency-go, go-tuf, in-toto, go-openapi, gRPC among them; `cogpit` +10.0 MiB, `cogpit-cli` +8.5 MiB) |
 | Updates (Windows, Linux) | `github.com/creativeprojects/go-selfupdate` | v1.6.0 | candidate for M11 |
@@ -5028,8 +5020,7 @@ D-4 for Windows and Linux, decided with M11: see [`decisions.md`](decisions.md).
 the owner's requirement of 2026-10-14 evening, were designed on 2026-10-15 and postponed by the
 owner until the rest is done, the model (a) as the direction, the rest for a later interview
 ([D-52](decisions.md#d-52-several-windows)). D-47's deep links were confirmed by the owner on
-2026-10-15 ([D-47](decisions.md#d-47-deep-links-cogpit)). The lead's decisions for the owner to
-confirm that sections above name stay open until the owner answers them; those of the night run of
+2026-10-15 ([D-47](decisions.md#d-47-deep-links-cogpit)). The lead's decisions, open to revision that sections above name stay open until the owner answers them; those of the night run of
 2026-10-15/16 he answered in his audit of 2026-10-16, and the sections say which he confirmed and which he
 changed.
 

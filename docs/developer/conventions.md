@@ -91,7 +91,7 @@ The documented exceptions are GUI-only on purpose, so that no agent can reach th
 bar's link to the owner's page and its MCP switch ([D-23](decisions.md#d-23-a-link-to-the-owner-in-the-status-bar)),
 copying values out of the drawer ([D-25](decisions.md#d-25-copying-values)), and the MCP details
 with Regenerate token ([D-53](decisions.md#d-53-the-mcp-details-and-a-token-kept-until-the-user-regenerates-it):
-the owner's F6, window-only as the lead's default for the owner to confirm). A new exception needs
+the owner's F6, window-only as the lead's default, open to revision). A new exception needs
 a decision of the owner.
 
 ## Tests
@@ -128,6 +128,18 @@ malformed-input tests or fuzz targets.
   on such a line (2026-10-12).
 - Verify every visual change with an offscreen render (Fyne's `test` package) or a screenshot, in
   dark and light themes, and attach before/after images to the pull request.
+
+## Decisions
+
+The owner decides product direction, scope, security posture and anything irreversible or
+outward-facing, one question at a time, each with its options weighed and a recommendation. The
+lead (and an agent working for the lead) decides the details below that and records each one in
+the page where it lives: the question, the options weighed, the choice and why, marked as the
+lead's decision and open to revision ([D-74](decisions.md#d-74-how-the-leads-decisions-are-reviewed),
+the owner, 2026-10-17). No confirmation queue: a detail stands as built until a walk in a real
+window, use or someone's feedback changes it. A choice that only a report, a chat or a commit
+message names is not documented yet: write it where it lives in the same change. A decision that
+changes what the owner sees goes into the walk script of the next walk.
 
 ## The docs show the current state
 

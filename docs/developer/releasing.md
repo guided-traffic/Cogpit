@@ -501,7 +501,7 @@ a job of its own whose environment holds the update key and needs the owner's ap
 
 ### When signing or notarization fails
 
-**Decided (lead, 2026-10-14, for the owner to confirm):** with the secrets present, a failed
+**Decided (lead, 2026-10-14, open to revision):** with the secrets present, a failed
 signature, notarization or check fails the job "Sign and submit (macOS)" or "Notarize and staple
 (macOS)" visibly; nothing falls
 back to an unsigned download under a release that should be signed. Some of the secrets but not
