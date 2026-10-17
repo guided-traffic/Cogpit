@@ -253,6 +253,16 @@ func noAlertmanager(b *Backend) string {
 	return ""
 }
 
+// noteNoAlertmanager tells the book, before a backend is published, that it cannot have an
+// Alertmanager (the demo cluster, a connection without clients): the UI state that shows the new
+// connection then hides the pill at once, and the follower finds nothing new to tell, so no second
+// UI state follows on a goroutine of its own.
+func (s *Session) noteNoAlertmanager(b *Backend) {
+	if why := noAlertmanager(b); why != "" {
+		s.alerts.setNone(b.Context, why)
+	}
+}
+
 // followAlertmanager is the integration's follower (integrations.go): it runs the cluster's poller
 // while the integration is on, active while the cluster is shown and connected, and stops it when
 // the integration goes off. It runs with the state's lock held: nothing here waits for the poller.

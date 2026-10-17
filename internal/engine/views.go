@@ -386,6 +386,7 @@ func (s *Session) connect(ctx context.Context, name string) error {
 		steps.step(LogWarn, cluster.StepTLS, line, 0) // insecure-skip-tls-verify (tlswarning.go)
 	}
 	b.watch = newConnWatch(s, b, seq) // nil for the demo cluster (connwatch.go, D-58)
+	s.noteNoAlertmanager(b)           // the pill hidden with the connection's first UI state (alerts.go)
 	logConnectedSteps(steps, b)
 	st.logs.finish(attempt, OutcomeOK, LogInfo, "Connected to "+name)
 	st.addLocked(&pooled{b: b, gen: seq})

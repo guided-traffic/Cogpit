@@ -140,6 +140,7 @@ func (s *Session) ConnectBackground(ctx context.Context, name string) error {
 		steps.step(LogWarn, cluster.StepTLS, line, 0)
 	}
 	b.watch = newConnWatch(s, b, gen)
+	s.noteNoAlertmanager(b) // alerts.go
 	logConnectedSteps(steps, b)
 	st.logs.finish(attempt, OutcomeOK, LogInfo, "Connected to "+name+" in the background")
 	e := &pooled{b: b, gen: gen}
