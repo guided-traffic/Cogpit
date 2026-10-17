@@ -152,6 +152,14 @@ func alertEngine(t *testing.T) *engine.Session {
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
 	}
+	// The cluster's integrations chosen (all on): the question about a new cluster's integrations
+	// (D-76) does not cover the board.
+	if _, err := s.ChangeClusterSettings("staging", func(cs *engine.ClusterSettings) error {
+		cs.SetIntegrations(0, engine.IntAll, 0)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.Connect(context.Background(), "staging"); err != nil {
 		t.Fatal(err)
 	}
@@ -235,13 +243,13 @@ func renderAlertBoard(t *testing.T, mode ThemeMode) {
 	savePNG(t, w, "alert_board_"+string(mode)+".png")
 }
 
-// openAlertmanagerSettings shows the cluster's Settings › Metrics and waits for the Alertmanager's
+// openAlertmanagerSettings shows the cluster's Settings › Integrations and waits for the Alertmanager's
 // fields to show the engine's setting.
 func openAlertmanagerSettings(t *testing.T, s *engine.Session, sh *shell, q *mainQueue) *amFields {
 	t.Helper()
 	ctx := s.UIState().Context
 	if _, err := s.Dispatch(context.Background(), engine.Invocation{ID: "cluster.settings.open",
-		Params: []byte(`{"context":"` + ctx + `","section":"metrics"}`), Origin: engine.OriginGUI}); err != nil {
+		Params: []byte(`{"context":"` + ctx + `","section":"integrations"}`), Origin: engine.OriginGUI}); err != nil {
 		t.Fatal(err)
 	}
 	var f *amFields
@@ -249,11 +257,19 @@ func openAlertmanagerSettings(t *testing.T, s *engine.Session, sh *shell, q *mai
 		f, _ = sh.settings.controls[amFieldsControl].(*amFields)
 		return f != nil && f.enabled && f.line.text == "Auto detect: in use monitoring/kube-prometheus-alertmanager:http-web."
 	})
+	q.until(t, "the integrations' status lines", func() bool {
+		for _, r := range sh.settings.integrationRows {
+			if r.status.text == "" {
+				return false
+			}
+		}
+		return len(sh.settings.integrationRows) > 0
+	})
 	return f
 }
 
-// The Alertmanager's address on Cluster Settings (D-77; on the Metrics section until the
-// Integrations section's row takes it): the setting in use read from the engine, an address typed
+// The Alertmanager's address on Cluster Settings (D-77; under Alertmanager's row on the
+// Integrations section): the setting in use read from the engine, an address typed
 // set with cluster.setAlertmanager after the typing pause and kept by the engine, emptied: found by
 // name again.
 func TestAlertmanagerAddressFields(t *testing.T) {
@@ -275,7 +291,7 @@ func TestAlertmanagerAddressFields(t *testing.T) {
 	q.until(t, "found by name again", func() bool { set, _ := s.AlertmanagerSetting(""); return set.Auto })
 }
 
-// Renders of the Metrics section with the Alertmanager's address, dark and light, for review.
+// Renders of the Integrations section with the Alertmanager's address, dark and light, for review.
 func TestRenderAlertmanagerFieldsDark(t *testing.T) { renderAlertmanagerFields(t, ThemeDark) }
 
 func TestRenderAlertmanagerFieldsLight(t *testing.T) { renderAlertmanagerFields(t, ThemeLight) }

@@ -307,7 +307,7 @@ func (p *settingsPage) clusterMetricsSection() fyne.CanvasObject {
 	}
 	// The Alertmanager's address (D-77) until the Integrations section's row takes it
 	// (clustersettings_alertmanager.go).
-	return container.NewVBox(source, prom, alertmanagerAddress(p, p.shown.Context), hide)
+	return container.NewVBox(source, prom, hide)
 }
 
 // metricsChanged follows a change of the metrics' providers: the Prometheus setting, or the one in

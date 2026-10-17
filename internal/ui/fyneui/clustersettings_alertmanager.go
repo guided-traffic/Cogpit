@@ -21,9 +21,11 @@ import (
 // when they are built and after every change of the cluster's alerts (EventAlerts,
 // alertmanagerChanged), so an agent's change shows too.
 //
-// alertmanagerAddress has the shape of the Integrations section's hook for an integration's own
-// controls under its row (D-76's integrationRowExtras, clustersettings_integrations.go): until that
-// section is merged the fields stand on the Metrics section after Prometheus's (clustersettings.go).
+// The fields stand under Alertmanager's row on Cluster Settings › Integrations, through that
+// section's hook for an integration's own controls (D-76's integrationRowExtras,
+// clustersettings_integrations.go).
+
+func init() { integrationRowExtras[engine.IntegrationAlertmanager] = alertmanagerAddress }
 
 // The settings' names on the page (their controls and refusal lines).
 const (

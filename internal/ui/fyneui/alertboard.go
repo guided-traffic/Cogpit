@@ -35,7 +35,7 @@ const maxCardAlerts = 50
 
 // alertSettingsSection is where Cluster Settings shows the Alertmanager's address
 // (clustersettings_alertmanager.go).
-const alertSettingsSection = engine.SectionMetrics
+const alertSettingsSection = engine.SectionIntegrations
 
 // alertBoard is the board's body.
 type alertBoard struct {

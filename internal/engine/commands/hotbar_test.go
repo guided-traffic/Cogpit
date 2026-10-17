@@ -74,10 +74,12 @@ func TestHotbarCommands(t *testing.T) {
 	if conn.Context != "other" || conn.State != engine.Connected || h.s.UIState().Context != "other" {
 		t.Fatalf("hotbar.openCluster: %+v, UI context %q", conn, h.s.UIState().Context)
 	}
-	rev := h.s.UIState().Revision
+	// The same backend afterwards: no reconnect. (Not the UI state's revision: the integrations of a
+	// new connection, the Alertmanager's first answer among them, change it on their own.)
+	before := h.s.BackendOf("other")
 	h.must(t, gui, "hotbar.openCluster", map[string]any{"slot": 1}, &conn)
-	if conn.State != engine.Connected || h.s.UIState().Revision != rev {
-		t.Errorf("opening the connected cluster again reconnected: %+v, revision %d → %d", conn, rev, h.s.UIState().Revision)
+	if after := h.s.BackendOf("other"); conn.State != engine.Connected || before == nil || after != before {
+		t.Errorf("opening the connected cluster again reconnected: %+v, backend %p → %p", conn, before, after)
 	}
 	if r := disabledReason(t, h.run(t, gui, "hotbar.openCluster", map[string]any{"slot": 5}, nil)); r != "bank 1 has no cluster in slot 5 (it has 2)" {
 		t.Errorf("an empty slot: %q", r)

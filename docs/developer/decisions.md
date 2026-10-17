@@ -7505,9 +7505,9 @@ D-76: switched off for a cluster, nothing of it is asked or shown.
 - **The address** ([`engine/alerts_settings.go`](../../internal/engine/alerts_settings.go),
   [`fyneui/clustersettings_alertmanager.go`](../../internal/ui/fyneui/clustersettings_alertmanager.go)):
   "Alertmanager service address" (namespace/service:port, empty for detection by name), "Use
-  HTTPS" and "Alertmanager path prefix", on Cluster Settings › Metrics after Prometheus's until the
-  Integrations section's row (D-76) takes them; kept in `metrics.json` beside the Prometheus
-  address.
+  HTTPS" and "Alertmanager path prefix", under Alertmanager's row on Cluster Settings › Integrations
+  (D-76's hook for an integration's own controls; on the Metrics section for the hours before the
+  two were merged); kept in `metrics.json` beside the Prometheus address.
 - **Commands** ([`commands/alerts.go`](../../internal/engine/commands/alerts.go)): `alerts.list`,
   `alerts.board`, `alerts.refresh` (reads), `alerts.open`, `alerts.fold` (UI), `cluster.alertmanager`
   (read) and `cluster.setAlertmanager` (UI, an agent's always waits for the user); each an MCP tool.
