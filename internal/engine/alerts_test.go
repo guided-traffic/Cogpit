@@ -67,6 +67,9 @@ func newAlertStack(t *testing.T, contexts ...string) *alertStack {
 		Alerts: alerting.Options{Interval: 40 * time.Millisecond, RetryMax: 200 * time.Millisecond},
 	})
 	t.Cleanup(s.Close)
+	for _, c := range contexts {
+		decideIntegrations(t, s, c) // Alertmanager read (D-82)
+	}
 	return &alertStack{srv: srv, am: am, s: s, dir: dir}
 }
 

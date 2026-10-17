@@ -55,6 +55,7 @@ func TestNetworkOnlyDrawerAsksNoLiveUsage(t *testing.T) {
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
 	}
+	decideIntegrations(t, s, "fake") // its metrics read (D-82)
 	if err := s.Connect(ctx, "fake"); err != nil {
 		t.Fatal(err)
 	}

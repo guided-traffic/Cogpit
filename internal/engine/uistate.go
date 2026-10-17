@@ -132,11 +132,21 @@ type UIState struct {
 	// IntegrationsQuestion is the context whose integrations the window asks the user to choose
 	// (D-76, integrationsask.go): the shown cluster while it is connected and the user made no choice
 	// for it (ClusterSettings.IntegrationsOff unset), unless it is the demo cluster or the question
-	// was put off this run; empty otherwise. Until it is answered the default for new clusters
-	// applies; nothing waits for it. cluster.integrations.answer answers it,
-	// cluster.integrations.later puts it off, cluster.settings.get lists each integration's status.
-	// The engine derives it after every change.
+	// was put off this run; empty otherwise. Until it is answered nothing of the cluster's
+	// integrations is read but what the question ticks (D-82); nothing waits for it.
+	// cluster.integrations.step moves it, .lookFor ticks, .answer answers it, .later puts it off;
+	// cluster.settings.get lists each integration's status. The engine derives it after every change.
 	IntegrationsQuestion string `json:"integrationsQuestion,omitempty"`
+	// IntegrationsStep is the page the question shows (D-82, integrationsconsent.go): preChoice,
+	// checkAll, choose or dontUse; empty while there is no question.
+	IntegrationsStep IntegrationsStep `json:"integrationsStep,omitempty"`
+	// IntegrationsLookFor are the integrations the question ticks, looked for and read while it asks.
+	IntegrationsLookFor IntegrationSet `json:"integrationsLookFor,omitempty"`
+	// IntegrationsAskFirst is set in a session that asks before it looks (one that keeps cluster
+	// settings, the window's): a cluster without a choice of integrations reads none but what its
+	// question ticks (D-82, integrations.go). Unset in one that does not ask (the CLI's), where the
+	// default for new clusters applies.
+	IntegrationsAskFirst bool `json:"integrationsAskFirst,omitempty"`
 	// Notifications sums up the notification log, the toasts the user was shown (notifications.go):
 	// how many, how many unread, the most severe unread level; notifications.list reads them.
 	Notifications NotificationSummary `json:"notifications,omitzero"`

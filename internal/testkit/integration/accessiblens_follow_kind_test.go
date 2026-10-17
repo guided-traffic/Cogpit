@@ -104,6 +104,7 @@ func TestKindNamespaceLimitedUser(t *testing.T) {
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
 	}
+	decideIntegrations(t, s, sa) // its metrics read (D-82)
 	if err := s.Connect(ctx, sa); err != nil {
 		t.Fatal(err)
 	}

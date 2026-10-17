@@ -39,7 +39,7 @@ type clusterSettingsSetParams struct {
 	// RenewLoginInBackground: agents and the CLI may only turn it off (engine/connwatch_lapse.go, D-69 item 4).
 	RenewLoginInBackground *bool `json:"renewLoginInBackground,omitempty" jsonschema:"whether the cluster's login is renewed while the cluster is connected but not shown, its credential plugin running (a browser login included) when the login expires (default true). Off: the plugin does not run then, and an expired login lapses (connections' loginLapsed) until the cluster is shown or logged in again. Agents and the CLI may only turn it off"`
 	// Integrations (D-76; engine/integrations.go): agents may switch them on and off.
-	Integrations map[string]bool `json:"integrations,omitempty" jsonschema:"integrations switched on (true) or off (false) for this cluster, by name: metrics-server, prometheus, alertmanager, trivy, kyverno, as {alertmanager: false}; those left out stay as they apply now, and the result is the cluster's own choice (the window's question about it ends). Off: Cogpit sends the cluster nothing for it and shows nothing of it; on: Cogpit reads what the cluster runs, with the user's identity, and never writes to it. Applied to the connected cluster at once. Not together with metricsSource for metrics-server or prometheus"`
+	Integrations map[string]bool `json:"integrations,omitempty" jsonschema:"integrations switched on (true) or off (false) for this cluster, by name: metrics-server, prometheus, alertmanager, trivy, kyverno, as {alertmanager: false}; those left out stay as they apply now (for a cluster without a choice of its own: off, but for what the window's question about it ticks), and the result is the cluster's own choice (the window's question about it ends). Off: Cogpit sends the cluster nothing for it and shows nothing of it; on: Cogpit reads what the cluster runs, with the user's identity, and never writes to it. Applied to the connected cluster at once. Not together with metricsSource for metrics-server or prometheus"`
 }
 
 type clusterIconParams struct {
@@ -179,16 +179,21 @@ func registerClusterSettings(g *registrar) {
 					return nil, err
 				}
 			}
-			defaultsOff := s.IntegrationDefaultsOff() // what applies to a cluster without a choice of its own
+			// What applies to a cluster without a choice of its own: nothing read but what its question
+			// ticks in the window's session (D-82), the default for new clusters in one that does not ask.
+			var baseOff engine.IntegrationSet
+			if id, err := settingsContext(s, p.Context); err == nil {
+				baseOff = s.IntegrationsOffNow(id)
+			}
 			return changeSettings(s, p.Context, func(cs *engine.ClusterSettings) error {
 				if p.HiddenMetrics != nil {
 					cs.HiddenMetrics = hidden
 				}
 				if p.MetricsSource != nil {
-					cs.SetMetricsSource(defaultsOff, source) // the two metrics integrations (D-76)
+					cs.SetMetricsSource(baseOff, source) // the two metrics integrations (D-76)
 				}
 				if p.Integrations != nil {
-					cs.SetIntegrations(defaultsOff, intOn, intOff) // the cluster's own choice from now on (D-76)
+					cs.SetIntegrations(baseOff, intOn, intOff) // the cluster's own choice from now on (D-76)
 				}
 				if p.AccessibleNamespaces != nil {
 					cs.AccessibleNamespaces = slices.Clone(p.AccessibleNamespaces) // the engine trims, sorts and checks them

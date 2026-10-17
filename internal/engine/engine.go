@@ -236,6 +236,8 @@ func New(opts Options) *Session {
 			Sort:           SortSpec{Column: "name"},
 			NavigatorScope: NavScopeLocal, // no cluster yet: the navigator lists them (navscope.go)
 			TimeFormat:     opts.TimeLayout.OrDefault(),
+			// Asks before it looks at a cluster's integrations (integrationsconsent.go, D-82).
+			IntegrationsAskFirst: opts.ClusterSettings != nil,
 		},
 	}
 	s.ui.syncWelcome() // not connected: the welcome page (welcome.go)

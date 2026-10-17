@@ -81,6 +81,7 @@ func TestKindAlertmanager(t *testing.T) {
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
 	}
+	decideIntegrations(t, s, contextName) // Alertmanager read (D-82)
 	if err := s.Connect(ctx, contextName); err != nil {
 		t.Fatal(err)
 	}

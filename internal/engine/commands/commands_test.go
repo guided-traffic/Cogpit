@@ -146,6 +146,9 @@ var wantCommands = map[string]engine.Danger{
 	"cluster.settings.open": engine.DangerUI,
 	// The question of a new cluster's integrations (D-76): Cogpit's own settings (TestIntegrationsQuestionLifecycle).
 	"cluster.integrations.answer": engine.DangerUI, "cluster.integrations.later": engine.DangerUI,
+	// Its pre-choice, ticks and Ask again (D-82): what Cogpit looks for (TestIntegrationsConsentCommands).
+	"cluster.integrations.step": engine.DangerUI, "cluster.integrations.lookFor": engine.DangerUI,
+	"cluster.integrations.ask": engine.DangerUI,
 	// The tab bar (G5): which views the window shows (TestTabCommands).
 	"ui.tab.open": engine.DangerUI, "ui.tab.pin": engine.DangerUI, "ui.tab.close": engine.DangerUI,
 	"ui.tab.select": engine.DangerUI, "ui.tab.next": engine.DangerUI, "ui.tab.previous": engine.DangerUI,

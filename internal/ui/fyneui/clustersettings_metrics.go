@@ -139,12 +139,20 @@ func (p *settingsPage) metricsSourceSetting() (fyne.CanvasObject, func()) {
 				sel.SetSelected(o.Label)
 			}
 		}
-		line.SetText(metricsSourceLine(p.clusterView(), name))
+		text := metricsSourceLine(p.clusterView(), name)
+		if u := p.sh.ui; name == string(metrics.SourceNone) && u.IntegrationsAskFirst && !u.IntegrationsDecided(ctx) {
+			text = metricsSourceUndecided // nothing is asked before the user chose (D-82)
+		}
+		line.SetText(text)
 	}
 	return p.setting(metricsSourceSetting, "Metrics source",
 		"Automatic: history from Prometheus, current values from the Metrics Server. The others turn one or both off.",
 		container.NewVBox(sel, line)), sync
 }
+
+// metricsSourceUndecided is the line under the setting while the user chose no integrations for the
+// cluster: nothing of them is asked until then (D-82), its metrics included.
+const metricsSourceUndecided = "Not chosen for this cluster yet: no metrics are asked until you choose (here, in Integrations, or in its question)."
 
 // metricsSourceLine names the source in use under the setting.
 func metricsSourceLine(v engine.ClusterSettingsView, name string) string {

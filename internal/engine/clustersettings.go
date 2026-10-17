@@ -92,8 +92,8 @@ type ClusterSettings struct {
 	// whose two metrics switches are the source since (integrations.go, metricssource.go).
 	MetricsSource string `json:"metricsSource,omitempty"`
 	// IntegrationsOff are the integrations the user switched off for this cluster (integrations.go,
-	// D-76); nil while the user made no choice for it: the default for new clusters
-	// (Preferences.IntegrationsOff) applies, and the window asks.
+	// D-76); nil while the user made no choice for it: the window asks, and reads nothing of them
+	// meanwhile but what its question ticks (D-82; the CLI's session: Preferences.IntegrationsOff).
 	IntegrationsOff *IntegrationSet `json:"integrationsOff,omitempty"`
 	// Proxy is the HTTP(S) or SOCKS5 proxy of this cluster's API traffic, as the user typed it
 	// (proxy.go), applied at the next connect in place of the kubeconfig's proxy-url; empty: the
@@ -518,7 +518,7 @@ type ClusterSettingsView struct {
 	HiddenMetrics []string `json:"hiddenMetrics"`
 	// Integrations are the cluster's integrations (D-76): each one's switch and, while the cluster is
 	// connected, what Cogpit found of it. IntegrationsDecided says whether the user chose them for
-	// this cluster; until then the default for new clusters applies.
+	// this cluster; until then nothing of them is read but what its question ticks (D-82).
 	Integrations        []IntegrationStatus `json:"integrations"`
 	IntegrationsDecided bool                `json:"integrationsDecided"`
 	// MetricsSource is which providers the metrics come from: "auto" (both), "prometheus",

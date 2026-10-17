@@ -102,6 +102,7 @@ func drawerPodsSession(t *testing.T) (*Session, *podTableProvider, model.ObjectR
 		SnapshotInterval: 5 * time.Millisecond,
 	})
 	t.Cleanup(s.Close)
+	decideIntegrations(t, s, "test") // its metrics read (D-82)
 	connectTest(t, s)
 	ref := model.ObjectRef{Context: "test", Kind: "nodes", Name: "node-1"}
 	// The Events view: a view that polls no metrics of its own (the Pods list would poll the

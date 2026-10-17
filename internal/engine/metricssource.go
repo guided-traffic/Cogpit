@@ -84,10 +84,10 @@ func (u *UIState) MetricsSourceOf(context string) string {
 }
 
 // SetMetricsSource sets the two metrics integrations of a context's settings as a Metrics source
-// does ("" Automatic: both on), starting from what applies now (its choice, else defaultsOff).
-func (c *ClusterSettings) SetMetricsSource(defaultsOff IntegrationSet, source string) {
+// does ("" Automatic: both on), starting from what applies now (its choice, else baseOff).
+func (c *ClusterSettings) SetMetricsSource(baseOff IntegrationSet, source string) {
 	off := integrationsOffOfSource(source)
-	c.SetIntegrations(defaultsOff, IntMetrics&^off, off)
+	c.SetIntegrations(baseOff, IntMetrics&^off, off)
 }
 
 // followMetricsSource applies the connected cluster's source to its hub; a change is announced, so

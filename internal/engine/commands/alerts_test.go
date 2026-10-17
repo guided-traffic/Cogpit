@@ -38,6 +38,7 @@ func alertHarness(t *testing.T, confirm engine.Confirmer) *harness {
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
 	}
+	decideAll(t, s, "fake") // Alertmanager read (D-82)
 	if err := s.Connect(context.Background(), "fake"); err != nil {
 		t.Fatal(err)
 	}

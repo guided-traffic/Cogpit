@@ -10,39 +10,44 @@ import (
 
 // The question of a new cluster's integrations (D-76, the owner 2026-10-17: "Wenn man einen Cluster
 // neu hinzufügt für den noch keine Einstellung getroffen wurde, soll der Nutzer gefragt werden,
-// welche Integrationen er aktivieren möchte"). While the cluster the window shows is connected and
-// the user made no choice of integrations for it (ClusterSettings.IntegrationsOff unset), the UI
-// state carries the question (UIState.IntegrationsQuestion), so that agents see it in ui_state as
-// the window shows it: a dialog over the workspace with each integration's switch and what Cogpit
-// found of it, prefilled from the default for new clusters, the checkbox "Save as the default for
-// new clusters", and Apply and Later. Nothing waits for it: the connect and the views go on behind
-// it, and until it is answered the default applies (integrations.go). Answered
-// (cluster.integrations.answer), the choice is the cluster's; put off (cluster.integrations.later),
-// it is not asked again this run and asked again at the next start's connect, until answered.
+// welche Integrationen er aktivieren möchte"; since D-82 with a pre-choice before anything is looked
+// for, integrationsconsent.go). While the cluster the window shows is connected and the user made no
+// choice of integrations for it (ClusterSettings.IntegrationsOff unset), the UI state carries the
+// question (UIState.IntegrationsQuestion, its step and its ticks), so that agents see it in ui_state
+// as the window shows it: a dialog over the workspace that opens on the pre-choice, then each
+// integration's switch and what Cogpit found of it, the checkbox "Save as the default for new
+// clusters", and Apply and Later. Nothing waits for it: the connect and the views go on behind it,
+// and until it is answered nothing of the cluster's integrations is read but what the question
+// looks for (D-82). Answered (cluster.integrations.answer), the choice is the cluster's; put off
+// (cluster.integrations.later), it is not asked again this run and asked again at the next start's
+// connect, until answered, and nothing is read meanwhile.
 //
 // The demo cluster is never asked (its metrics are its own, it runs nothing to find), nor is a
-// session that keeps no cluster settings (nothing could keep the answer: the CLI's).
+// session that keeps no cluster settings (nothing could keep the answer: the CLI's); both keep the
+// default for new clusters.
 //
 // While the question or the cluster's Settings › Integrations shows a connected cluster, its metrics
-// providers that nothing looked for yet are detected once (metrics.Hub.DetectUnknown, bounded as
-// D-71 bounds detection), so that both say "found" right after the connect instead of "checking"
-// until a drawer opens. Nothing is polled for it.
+// providers that are on (for the question: ticked) and that nothing looked for yet are detected once
+// (metrics.Hub.DetectUnknown, bounded as D-71 bounds detection), so that both say "found" right
+// after the connect or the tick instead of "checking" until a drawer opens. Nothing is polled for it.
 
 // ErrNoIntegrationsQuestion disables cluster.integrations.later for a context the window does not
 // ask about.
 var ErrNoIntegrationsQuestion = errors.New("the window asks nothing about this cluster's integrations")
 
 // syncIntegrationsQuestion derives IntegrationsQuestion from the shown cluster, its connection and
-// its settings; asks is false in a session that keeps no cluster settings, later holds the contexts
-// put off this run. UpdateUI runs it after every change.
+// its settings, and keeps the question's step and ticks with it; asks is false in a session that
+// keeps no cluster settings, later holds the contexts put off this run. UpdateUI runs it after every
+// change.
 func (u *UIState) syncIntegrationsQuestion(asks bool, later map[string]bool) {
-	ctx := u.Context
+	u.IntegrationsAskFirst = asks // a session that asks reads nothing of an undecided cluster's integrations (D-82)
+	prev, ctx := u.IntegrationsQuestion, u.Context
 	if !asks || ctx == "" || !u.Connection.State.Live() || u.Connection.Demo || IsDemoContext(ctx) ||
 		u.IntegrationsDecided(ctx) || later[ctx] {
-		u.IntegrationsQuestion = ""
-		return
+		ctx = ""
 	}
 	u.IntegrationsQuestion = ctx
+	u.syncIntegrationsStep(prev) // integrationsconsent.go
 }
 
 // ParseIntegrationSwitches reads integration switches by name ({"alertmanager": false,
@@ -67,14 +72,16 @@ func ParseIntegrationSwitches(switches map[string]bool) (on, off IntegrationSet,
 }
 
 // AnswerIntegrations answers the question of a context's integrations (D-76): starting from what
-// applies now (its choice, else the default for new clusters), the integrations in on are switched
-// on and those in off off, and the result is the cluster's own choice; with saveAsDefault it is
-// also the default for new clusters (Preferences.IntegrationsOff). It changes only Cogpit's own
-// settings files; the connected cluster follows at once (the integrations' followers).
+// applies now (IntegrationsOffNow: its choice; else what its question ticks, nothing while it does
+// not ask, D-82; else, in a session that does not ask, the default for new clusters), the
+// integrations in on are switched on and those in off off, and the result is the cluster's own
+// choice; with saveAsDefault it is also the default for new clusters (Preferences.IntegrationsOff).
+// It changes only Cogpit's own settings files; the connected cluster follows at once (the
+// integrations' followers).
 func (s *Session) AnswerIntegrations(context string, on, off IntegrationSet, saveAsDefault bool) (ClusterSettings, error) {
-	defaults := s.IntegrationDefaultsOff()
+	base := s.IntegrationsOffNow(context)
 	cs, err := s.ChangeClusterSettings(context, func(cs *ClusterSettings) error {
-		cs.SetIntegrations(defaults, on, off)
+		cs.SetIntegrations(base, on, off)
 		return nil
 	})
 	if err != nil || !saveAsDefault {
@@ -91,8 +98,9 @@ func (s *Session) AnswerIntegrations(context string, on, off IntegrationSet, sav
 }
 
 // PutOffIntegrationsQuestion puts off the question of a context's integrations for this run
-// (Later): it is asked again at the next start's connect, until answered. Meanwhile the default for
-// new clusters applies, and the user can choose in the cluster's Settings › Integrations.
+// (Later): it is asked again at the next start's connect, until answered. Meanwhile nothing of its
+// integrations is read (D-82); the user can choose in the cluster's Settings › Integrations, or ask
+// again there (AskIntegrationsAgain).
 func (s *Session) PutOffIntegrationsQuestion(context string) error {
 	if s.UIState().IntegrationsQuestion != context || context == "" {
 		return ErrNoIntegrationsQuestion
@@ -108,18 +116,30 @@ func (s *Session) PutOffIntegrationsQuestion(context string) error {
 
 func init() { integrationFollowers = append(integrationFollowers, detectShownIntegrations) }
 
-// detectShownIntegrations runs the detection of a connected cluster's metrics providers that
-// nothing looked for yet, once, while the question or its Settings › Integrations shows it (a
-// follower: it starts the detection in the hub's background and returns at once). When it ended,
+// detectShownIntegrations runs the detection of a connected cluster's metrics providers that are on
+// and that nothing looked for yet, once, while the question or its Settings › Integrations shows it
+// (a follower: it starts the detection in the hub's background and returns at once). When it ended,
 // the window and agents hear of it (EventIntegrations, EventMetrics).
 func detectShownIntegrations(st *state, b *Backend, now UIState) {
 	if b == nil || b.Metrics == nil || now.connectionState(b.Context) != Connected || !integrationsShown(&now, b.Context) {
 		return
 	}
-	ctx, s := b.Context, st.s
+	detectUnknownWhileShown(st.s, b)
+}
+
+// detectUnknownWhileShown starts the hub's detection of the providers nothing looked for; when it
+// ended and the cluster is still shown so, it starts the next, for a provider ticked in the question
+// while the first ran (D-82). It ends when nothing is left to look for: a provider is looked for
+// once, one the timeout cut short not again before the retry TTL, and a closed hub (the backend
+// left or was replaced) starts none. done takes no lock but the UI state's.
+func detectUnknownWhileShown(s *Session, b *Backend) {
+	ctx := b.Context
 	b.Metrics.DetectUnknown(func() {
 		s.integrationsChanged(ctx)
 		s.emit(Event{Type: EventMetrics})
+		if u := s.UIState(); u.connectionState(ctx) == Connected && integrationsShown(&u, ctx) {
+			detectUnknownWhileShown(s, b)
+		}
 	})
 }
 

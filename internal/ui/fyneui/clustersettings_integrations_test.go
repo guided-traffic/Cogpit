@@ -3,6 +3,7 @@ package fyneui
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"slices"
 	"sync"
 	"testing"
@@ -28,7 +29,9 @@ var integrationsFixture = []engine.IntegrationStatus{
 
 // integrationsFake is a fake connected to kind-dev that answers the integration commands as the
 // engine does: cluster.settings.get with the fixture's statuses (a switch off says "off"), the
-// switches applied to the UI state, an answer and Later ending the question.
+// switches applied to the UI state, the question's steps and ticks (D-82), an answer and Later
+// ending the question, Ask again forgetting the choice. A session that asks before it looks: a
+// cluster without a choice reads nothing but what its question ticks.
 type integrationsFake struct {
 	*fakeEngine
 	mu       sync.Mutex
@@ -40,6 +43,7 @@ func newIntegrationsFake(t *testing.T) *integrationsFake {
 	f := connectedFake(t, 20)
 	f.ui.Context, f.ui.Connection = "kind-dev", engine.Connection{State: engine.Connected}
 	f.ui.Preferences = &engine.Preferences{}
+	f.ui.IntegrationsAskFirst = true
 	f.contexts = append(f.contexts, engine.ContextInfo{Name: "kind-dev"})
 	inf := &integrationsFake{fakeEngine: f, statuses: slices.Clone(integrationsFixture)}
 	f.handlers["cluster.settings.get"] = func(_ context.Context, inv engine.Invocation) (any, error) {
@@ -84,11 +88,75 @@ func newIntegrationsFake(t *testing.T) *integrationsFake {
 		return nil, nil
 	}
 	f.handlers["cluster.integrations.later"] = func(context.Context, engine.Invocation) (any, error) {
-		f.update(func(u *engine.UIState) { u.IntegrationsQuestion = "" })
+		f.update(endQuestion)
+		return nil, nil
+	}
+	f.handlers["cluster.integrations.step"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p struct {
+			Step string `json:"step"`
+		}
+		if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) {
+			u.IntegrationsStep, u.IntegrationsLookFor = engine.IntegrationsStep(p.Step), 0
+			if u.IntegrationsStep == engine.IntegrationsCheckAll {
+				u.IntegrationsLookFor = engine.IntAll &^ u.Preferences.IntegrationsOff
+			}
+		})
+		return nil, nil
+	}
+	f.handlers["cluster.integrations.lookFor"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p struct {
+			Integrations map[string]bool `json:"integrations"`
+		}
+		if err := json.Unmarshal(normalize(inv.Params), &p); err != nil {
+			return nil, err
+		}
+		on, off, err := engine.ParseIntegrationSwitches(p.Integrations)
+		if err != nil {
+			return nil, err
+		}
+		f.update(func(u *engine.UIState) { u.IntegrationsLookFor = (u.IntegrationsLookFor | on) &^ off })
+		return nil, nil
+	}
+	f.handlers["cluster.integrations.ask"] = func(_ context.Context, inv engine.Invocation) (any, error) {
+		var p clusterSettingsContext
+		_ = json.Unmarshal(normalize(inv.Params), &p)
+		f.update(func(u *engine.UIState) {
+			cs := u.ClusterSettings[p.Context]
+			cs.IntegrationsOff = nil
+			u.ClusterSettings = maps.Clone(u.ClusterSettings)
+			u.ClusterSettings[p.Context] = cs
+			if p.Context == u.Context {
+				u.IntegrationsQuestion, u.IntegrationsStep, u.IntegrationsLookFor = p.Context, engine.IntegrationsPreChoice, 0
+			}
+		})
 		return nil, nil
 	}
 	f.handlers["cluster.settings.open"] = func(context.Context, engine.Invocation) (any, error) { return nil, nil }
+	// Alertmanager's address fields under its row: found by name, no address set.
+	f.handlers["cluster.alertmanager"] = func(context.Context, engine.Invocation) (any, error) {
+		return engine.AlertmanagerSetting{Context: "kind-dev", Auto: true, Kept: true, State: engine.AlertsFound,
+			InUse: "monitoring/kube-prometheus-alertmanager:http-web"}, nil
+	}
 	return inf
+}
+
+// endQuestion drops the question, as the engine does once it is answered or put off.
+func endQuestion(u *engine.UIState) {
+	u.IntegrationsQuestion, u.IntegrationsStep, u.IntegrationsLookFor = "", "", 0
+}
+
+// offNow is what applies to a context now, as the engine's IntegrationsOffNow says.
+func offNow(u *engine.UIState, ctx string) engine.IntegrationSet {
+	var off engine.IntegrationSet
+	for _, in := range engine.Integrations {
+		if !u.IntegrationOn(ctx, in.Name) {
+			off |= in.Set
+		}
+	}
+	return off
 }
 
 // setIntegrations applies switches to a context's settings as the engine does, which ends the
@@ -96,15 +164,25 @@ func newIntegrationsFake(t *testing.T) *integrationsFake {
 func (inf *integrationsFake) setIntegrations(ctx string, switches map[string]bool) {
 	on, off, _ := engine.ParseIntegrationSwitches(switches)
 	inf.update(func(u *engine.UIState) {
+		base := offNow(u, ctx)
+		u.ClusterSettings = maps.Clone(u.ClusterSettings)
 		if u.ClusterSettings == nil {
 			u.ClusterSettings = map[string]engine.ClusterSettings{}
 		}
 		cs := u.ClusterSettings[ctx]
-		cs.SetIntegrations(u.Preferences.IntegrationsOff, on, off)
+		cs.SetIntegrations(base, on, off)
 		u.ClusterSettings[ctx] = cs
 		if u.IntegrationsQuestion == ctx {
-			u.IntegrationsQuestion = ""
+			endQuestion(u)
 		}
+	})
+}
+
+// decide makes kind-dev's choice every integration on, as answered.
+func (inf *integrationsFake) decide() {
+	inf.update(func(u *engine.UIState) {
+		none := engine.IntegrationSet(0)
+		u.ClusterSettings = map[string]engine.ClusterSettings{"kind-dev": {IntegrationsOff: &none}}
 	})
 }
 
@@ -120,10 +198,12 @@ func integrationRowOf(t *testing.T, rows []*integrationRow, name engine.Integrat
 	return nil
 }
 
-// openIntegrationsSection shows kind-dev's Settings › Integrations and waits for the statuses.
+// openIntegrationsSection shows kind-dev's Settings › Integrations, every integration on as the
+// user answered, and waits for the statuses.
 func openIntegrationsSection(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *integrationsFake) {
 	t.Helper()
 	inf := newIntegrationsFake(t)
+	inf.decide()
 	sh, w, q := newTestShell(t, inf.fakeEngine, Options{Theme: mode})
 	inf.update(func(u *engine.UIState) {
 		u.Settings = &engine.SettingsPage{Page: engine.SettingsCluster, Context: "kind-dev", Section: engine.SectionIntegrations}
@@ -138,8 +218,8 @@ func openIntegrationsSection(t *testing.T, mode ThemeMode) (*shell, fyne.Window,
 // Cluster Settings › Integrations (D-76, I1): a row per integration, its switch, whether Cogpit
 // found it automatically (and where), needs a manual configuration, or it is not in the cluster, in
 // the status colours; Prometheus's link to where its address is set; a switch sets the cluster's
-// own choice at once, and the note about the default goes; a detection that settled reads the
-// statuses again.
+// own choice at once; a detection that settled reads the statuses again; Ask again (D-82, WF4)
+// forgets the choice: the note says nothing is looked for, every row off.
 func TestIntegrationsSection(t *testing.T) {
 	sh, _, q, inf := openIntegrationsSection(t, ThemeDark)
 	p := sh.settings
@@ -166,15 +246,18 @@ func TestIntegrationsSection(t *testing.T) {
 	if prom.link == nil || !prom.link.Visible() {
 		t.Fatal("no link to the Prometheus address on a manual Prometheus")
 	}
-	if note := p.controls["integrationsNote"]; !note.Visible() {
-		t.Error("the note about the default is hidden before a choice")
+	if note := p.controls["integrationsNote"]; note.Visible() {
+		t.Error("the note of an undecided cluster shows on a decided one")
+	}
+	if ask := p.controls["integrationsAsk"].(*widget.Button); !ask.Visible() || ask.Text != integrationsAskAgain {
+		t.Errorf("Ask again: %q, shown %v", ask.Text, ask.Visible())
 	}
 
-	// The user switches Alertmanager off: cluster.settings.set at once, the cluster decided.
+	// The user switches Alertmanager off: cluster.settings.set at once.
 	test.Tap(integrationRowOf(t, p.integrationRows, engine.IntegrationAlertmanager).check)
 	q.until(t, "Alertmanager off", func() bool {
 		r := integrationRowOf(t, p.integrationRows, engine.IntegrationAlertmanager)
-		return !r.check.Checked && r.state == engine.IntegrationOff && !p.controls["integrationsNote"].Visible()
+		return !r.check.Checked && r.state == engine.IntegrationOff
 	})
 	calls := inf.callsOf("cluster.settings.set")
 	if len(calls) != 1 || string(normalize(calls[0].Params)) != `{"context":"kind-dev","integrations":{"alertmanager":false}}` {
@@ -197,6 +280,23 @@ func TestIntegrationsSection(t *testing.T) {
 		r := integrationRowOf(t, p.integrationRows, engine.IntegrationPrometheus)
 		return r.status.text == "Found automatically: monitoring/prometheus-operated:9090" && !r.link.Visible()
 	})
+
+	// Ask again: cluster.integrations.ask; the choice forgotten, nothing on, the note, the question.
+	test.Tap(p.controls["integrationsAsk"].(*widget.Button))
+	q.until(t, "asked again", func() bool {
+		for _, r := range p.integrationRows {
+			if r.check.Checked {
+				return false
+			}
+		}
+		return p.controls["integrationsNote"].Visible() && sh.intq.d != nil
+	})
+	if calls := inf.callsOf("cluster.integrations.ask"); len(calls) != 1 || string(normalize(calls[0].Params)) != `{"context":"kind-dev"}` {
+		t.Errorf("ask: %d calls", len(calls))
+	}
+	if text := p.controls["integrationsNote"].(*textLine).text; text != integrationsUndecided {
+		t.Errorf("the note: %q", text)
+	}
 }
 
 // An integration's own file puts its controls under its row (Alertmanager's address fields).
@@ -242,103 +342,6 @@ func TestRenderIntegrationsSection(t *testing.T) {
 	}
 }
 
-// openIntegrationsQuestion shows the question about kind-dev, with Trivy off by default, and waits
-// for the statuses.
-func openIntegrationsQuestion(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *integrationsFake) {
-	t.Helper()
-	inf := newIntegrationsFake(t)
-	inf.ui.Preferences = &engine.Preferences{IntegrationsOff: engine.IntTrivy}
-	inf.mu.Lock()
-	inf.statuses[4] = engine.IntegrationStatus{Name: engine.IntegrationKyverno, State: engine.IntegrationChecking}
-	inf.mu.Unlock()
-	sh, w, q := newTestShell(t, inf.fakeEngine, Options{Theme: mode})
-	inf.update(func(u *engine.UIState) { u.IntegrationsQuestion = "kind-dev" })
-	q.until(t, "the question with the statuses", func() bool {
-		rows := sh.intq.rows
-		return sh.intq.d != nil && len(rows) == len(engine.Integrations) && rows[2].state == engine.IntegrationFound
-	})
-	return sh, w, q, inf
-}
-
-// The question of a new cluster's integrations (D-76, I2): the same rows, prefilled from the
-// default for new clusters, the statuses live; Apply answers with the switches and the checkbox,
-// and the dialog closes when the engine drops the question.
-func TestIntegrationsQuestionApply(t *testing.T) {
-	sh, _, q, inf := openIntegrationsQuestion(t, ThemeDark)
-	iq := sh.intq
-	for _, r := range iq.rows {
-		if want := r.name != engine.IntegrationTrivy; r.check.Checked != want {
-			t.Errorf("%s prefilled %v", r.name, r.check.Checked)
-		}
-	}
-	if kyv := integrationRowOf(t, iq.rows, engine.IntegrationKyverno); kyv.status.text != "Checking…" || kyv.status.color != colorStatusPending {
-		t.Errorf("Kyverno: %q", kyv.status.text)
-	}
-	if iq.save.Checked || iq.save.Text != integrationsAskSave {
-		t.Errorf("the checkbox: %q, %v", iq.save.Text, iq.save.Checked)
-	}
-	// Kyverno's detection settles while the dialog is open.
-	inf.mu.Lock()
-	inf.statuses[4] = engine.IntegrationStatus{Name: engine.IntegrationKyverno, State: engine.IntegrationFound, Where: "wgpolicyk8s.io/v1alpha2"}
-	inf.mu.Unlock()
-	inf.emit(engine.Event{Type: engine.EventIntegrations, View: "kind-dev"})
-	q.until(t, "Kyverno found", func() bool {
-		return integrationRowOf(t, iq.rows, engine.IntegrationKyverno).status.text == "Found automatically: wgpolicyk8s.io/v1alpha2"
-	})
-	if n := len(inf.callsOf("cluster.settings.set")); n != 0 {
-		t.Fatalf("%d settings changed before Apply", n)
-	}
-
-	trivy := integrationRowOf(t, iq.rows, engine.IntegrationTrivy)
-	if trivy.status.text != "Off: nothing is asked of the cluster" {
-		t.Errorf("Trivy, off by default: %q", trivy.status.text)
-	}
-	test.Tap(trivy.check)
-	if trivy.status.text != integrationsAskOff {
-		t.Errorf("Trivy switched on in the dialog: %q", trivy.status.text)
-	}
-	test.Tap(trivy.check)
-	test.Tap(integrationRowOf(t, iq.rows, engine.IntegrationAlertmanager).check)
-	test.Tap(iq.save)
-	test.Tap(iq.apply)
-	q.until(t, "the dialog closed", func() bool { return iq.d == nil && iq.ctx == "" })
-	calls := inf.callsOf("cluster.integrations.answer")
-	want := `{"context":"kind-dev","integrations":{"alertmanager":false,"kyverno":true,"metrics-server":true,"prometheus":true,"trivy":false},"saveAsDefault":true}`
-	if len(calls) != 1 || string(normalize(calls[0].Params)) != want {
-		t.Fatalf("answer: %d calls, %s", len(calls), calls[0].Params)
-	}
-	if len(inf.callsOf("cluster.integrations.later")) != 0 {
-		t.Error("closing after the answer put it off")
-	}
-}
-
-// Later puts it off; an agent's answer closes the open dialog without a Later.
-func TestIntegrationsQuestionLaterAndAgent(t *testing.T) {
-	sh, _, q, inf := openIntegrationsQuestion(t, ThemeLight)
-	test.Tap(sh.intq.later)
-	q.until(t, "put off", func() bool { return sh.intq.d == nil })
-	if n := len(inf.callsOf("cluster.integrations.later")); n != 1 {
-		t.Fatalf("%d Later calls", n)
-	}
-
-	inf.update(func(u *engine.UIState) { u.IntegrationsQuestion = "kind-dev" })
-	q.until(t, "asked again", func() bool { return sh.intq.d != nil })
-	inf.setIntegrations("kind-dev", map[string]bool{"trivy": true}) // an agent answered
-	q.until(t, "closed by the agent's answer", func() bool { return sh.intq.d == nil })
-	if n := len(inf.callsOf("cluster.integrations.later")); n != 1 {
-		t.Errorf("%d Later calls after an agent's answer", n)
-	}
-}
-
-func TestRenderIntegrationsQuestion(t *testing.T) {
-	for _, mode := range []ThemeMode{ThemeDark, ThemeLight} {
-		t.Run(string(mode), func(t *testing.T) {
-			_, w, _, _ := openIntegrationsQuestion(t, mode)
-			savePNG(t, w, "integrations_question_"+string(mode)+".png")
-		})
-	}
-}
-
 // Preferences › Kubernetes › Integrations of new clusters: the default, switched by the user and
 // shown as an agent sets it.
 func TestNewClusterIntegrationsPreference(t *testing.T) {
@@ -378,6 +381,9 @@ func TestIntegrationsSectionOnTheDemo(t *testing.T) {
 	})
 	if q := s.UIState().IntegrationsQuestion; q != "" || sh.intq.d != nil {
 		t.Errorf("the demo cluster asked: %q", q)
+	}
+	if sh.settings.controls["integrationsAskRow"].Visible() {
+		t.Error("Ask again on the demo cluster, which is never asked")
 	}
 	test.Tap(integrationRowOf(t, sh.settings.integrationRows, engine.IntegrationMetricsServer).check)
 	until("the Metrics Server off", func() bool {

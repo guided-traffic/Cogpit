@@ -76,6 +76,7 @@ func limitedMetricsSession(t *testing.T, rules map[string][]cluster.AccessRule, 
 		SnapshotInterval: 5 * time.Millisecond,
 	})
 	t.Cleanup(s.Close)
+	decideIntegrations(t, s, "test") // its metrics read (D-82)
 	if len(accessible) > 0 {
 		if _, err := s.ChangeClusterSettings("test", func(c *ClusterSettings) error { c.AccessibleNamespaces = accessible; return nil }); err != nil {
 			t.Fatal(err)

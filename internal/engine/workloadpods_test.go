@@ -89,6 +89,7 @@ func workloadPodsSession(t *testing.T) (*Session, *testkit.MemorySource, *podTab
 		SnapshotInterval: 5 * time.Millisecond,
 	})
 	t.Cleanup(s.Close)
+	decideIntegrations(t, s, "test") // its metrics read (D-82)
 	connectTest(t, s)
 	openView(s, testEvents.Key)
 	return s, src, prov

@@ -26,8 +26,11 @@ const (
 	integrationsSetting = "integrations"
 	integrationsLabel   = "Integrations"
 	integrationsHelp    = "Tools this cluster runs that Cogpit reads to show more. Off: Cogpit asks the cluster nothing for it and shows nothing of it."
-	// integrationsUndecided is the note while the user made no choice for the cluster.
-	integrationsUndecided = "Not chosen for this cluster yet: the default for new clusters applies (Preferences › Kubernetes)."
+	// integrationsUndecided is the note while the user made no choice for the cluster (D-82).
+	integrationsUndecided = "Not chosen for this cluster yet: nothing is looked for until you tick one here or answer its question."
+	// integrationsAskAgain is the button that asks the question again, and the line beside it (D-82, WF4).
+	integrationsAskAgain     = "Ask again"
+	integrationsAskAgainHint = "Shows the question again from its first choice; nothing is read until you answer it."
 )
 
 func init() { clusterSectionLabels[engine.SectionIntegrations] = integrationsLabel }
@@ -139,9 +142,21 @@ func (p *settingsPage) clusterIntegrationsSection() fyne.CanvasObject {
 	note := newTextLine(integrationsUndecided, colorStatusPending, theme.SizeNameCaptionText, fyne.TextStyle{})
 	note.truncate = true
 	p.controls["integrationsNote"] = note
+	// Ask again (D-82, the owner's WF4): the question from its pre-choice, the cluster's choice
+	// forgotten; not on the demo cluster, which is never asked.
+	ask := widget.NewButton(integrationsAskAgain, func() {
+		p.sh.dispatch("cluster.integrations.ask", map[string]any{contextParam: ctx}, nil)
+	})
+	askHint := newTextLine(integrationsAskAgainHint, colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	askHint.truncate = true
+	askRow := container.NewBorder(nil, nil, ask, nil, container.NewVBox(layout.NewSpacer(), askHint, layout.NewSpacer()))
+	p.controls["integrationsAsk"], p.controls["integrationsAskRow"] = ask, askRow
+	if engine.IsDemoContext(ctx) || (p.sh.ui.Context == ctx && p.sh.ui.Connection.Demo) {
+		askRow.Hide()
+	}
 	rows := make([]*integrationRow, 0, len(engine.Integrations))
-	objs := make([]fyne.CanvasObject, 0, 3+len(engine.Integrations))
-	objs = append(objs, help, note, newSpace(theme.SizeNamePadding))
+	objs := make([]fyne.CanvasObject, 0, 4+len(engine.Integrations))
+	objs = append(objs, help, note, askRow, newSpace(theme.SizeNamePadding))
 	for _, in := range engine.Integrations {
 		name := in.Name
 		r := newIntegrationRow(in, func(on bool) {

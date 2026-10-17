@@ -139,8 +139,10 @@ type Preferences struct {
 	// only turn it off (ErrRestoreSessionGUIOnly).
 	RestoreSession bool `json:"restoreSession,omitempty"`
 	// IntegrationsOff are the integrations off by default for new clusters (integrations.go, D-76):
-	// what applies to a cluster until the user chooses its own, and what the window's question
-	// offers first. None, the default: every integration is on (the owner, 2026-10-17).
+	// what the window's question looks for at once when the user checks the integrations (Check
+	// all, D-82), and what applies to a cluster without a choice in a session that does not ask
+	// (the CLI's) and on the demo cluster. None, the default: every integration is on (the owner,
+	// 2026-10-17).
 	IntegrationsOff IntegrationSet `json:"integrationsOff,omitempty"`
 }
 

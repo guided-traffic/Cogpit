@@ -8,17 +8,19 @@ import (
 	"github.com/guided-traffic/cogpit/internal/engine"
 )
 
-// Preferences › Kubernetes › Integrations of new clusters (D-76; engine/integrations.go): the
-// default for every cluster the user made no choice of integrations for, which the question at its
-// first connect offers first and the question's "Save as the default for new clusters" sets. Every
-// integration is on by default (the owner, 2026-10-17). Cogpit's own: Lens has no integrations;
-// its place beside the other cluster-wide defaults of the Kubernetes section is the lead's
-// decision (2026-10-17).
+// Preferences › Kubernetes › Integrations of new clusters (D-76, D-82; engine/integrations.go): what
+// the question at a new cluster's first connect looks for at once when the user checks the
+// integrations ("Check all integrations", "Check the default integrations" while it switches some
+// off), and what the question's "Save as the default for new clusters" sets. Nothing is looked for
+// before the user answers the question's pre-choice (D-82), so the default no longer applies to an
+// undecided cluster by itself. Every integration is on by default (the owner, 2026-10-17). Cogpit's
+// own: Lens has no integrations; its place beside the other cluster-wide defaults of the Kubernetes
+// section is the lead's decision (2026-10-17).
 
 const (
 	integrationDefaultsSetting = "integrationDefaults"
 	integrationDefaultsTitle   = "Integrations of new clusters"
-	integrationDefaultsHelp    = "Used by every cluster you have not chosen for; asked at its first connect. A cluster's own choice is in its Settings › Integrations."
+	integrationDefaultsHelp    = "What a new cluster's question looks for when you check its integrations; nothing is looked for before you answer. A cluster's own choice is in its Settings › Integrations."
 )
 
 // newClusterIntegrationsSetting returns the row and the function that shows the preference in it.

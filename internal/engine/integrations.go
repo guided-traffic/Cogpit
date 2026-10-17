@@ -17,10 +17,12 @@ import (
 // where it runs.
 //
 // A context's choice is ClusterSettings.IntegrationsOff: the integrations switched off, nil while
-// the user has made none for it (the window then asks, D-76), and the default for new clusters
-// (Preferences.IntegrationsOff) applies meanwhile. Every integration is on by default (the owner,
-// 2026-10-17: "Unser Default ist alles an"), so an integration a later Cogpit adds is on for the
-// clusters decided before it. An integration switched off sends nothing to the cluster, and the
+// the user has made none for it (the window then asks, D-76). Meanwhile nothing of them is read but
+// what the question looks for (D-82, integrationsconsent.go); the default for new clusters
+// (Preferences.IntegrationsOff) is what the question's Check all looks for, and what applies in a
+// session that does not ask (the CLI's) and to the demo cluster. Every integration is on by default
+// (the owner, 2026-10-17: "Unser Default ist alles an"), so an integration a later Cogpit adds is on
+// for the clusters decided before it. An integration switched off sends nothing to the cluster, and the
 // window shows nothing of it: no column, no drawer section, no pill, nothing in ui_state (as hidden
 // metrics, hidemetrics.go).
 //
@@ -161,14 +163,22 @@ func sourceOfIntegrationsOff(off IntegrationSet) metrics.Source {
 	return metrics.SourceAuto
 }
 
-// integrationsOffOf is a context's integrations switched off: its own choice, else the default for
-// new clusters.
+// integrationsOffOf is a context's integrations switched off: its own choice; else, in a session
+// that asks before it looks (D-82, integrationsconsent.go), every one but those its question ticks
+// while it asks, all of them otherwise (put off with Later, connected in the background, not shown);
+// else (a session that does not ask, the demo cluster) the default for new clusters.
 func integrationsOffOf(u *UIState, context string) IntegrationSet {
 	if u == nil {
 		return 0
 	}
 	if off := u.ClusterSettings[context].IntegrationsOff; off != nil {
 		return *off & IntAll
+	}
+	if u.IntegrationsAskFirst && !u.demoCluster(context) {
+		if context != "" && u.IntegrationsQuestion == context {
+			return IntAll &^ u.IntegrationsLookFor
+		}
+		return IntAll
 	}
 	if u.Preferences != nil {
 		return u.Preferences.IntegrationsOff & IntAll
@@ -183,15 +193,16 @@ func (u *UIState) IntegrationOn(context string, i Integration) bool {
 }
 
 // IntegrationsDecided reports whether the user made a choice of integrations for a context; until
-// then the default for new clusters applies, and the window asks (D-76).
+// then the window asks (D-76) and nothing of them is read but what the question looks for (D-82).
 func (u *UIState) IntegrationsDecided(context string) bool {
 	return u != nil && u.ClusterSettings[context].IntegrationsOff != nil
 }
 
 // SetIntegrations switches integrations on and off in a context's settings, starting from what
-// applies now (its choice, else defaultsOff): the change is the user's choice from then on.
-func (c *ClusterSettings) SetIntegrations(defaultsOff, on, off IntegrationSet) {
-	cur := defaultsOff & IntAll
+// applies now (its choice, else baseOff: Session.IntegrationsOffNow): the change is the user's
+// choice from then on.
+func (c *ClusterSettings) SetIntegrations(baseOff, on, off IntegrationSet) {
+	cur := baseOff & IntAll
 	if c.IntegrationsOff != nil {
 		cur = *c.IntegrationsOff & IntAll
 	}
@@ -200,7 +211,8 @@ func (c *ClusterSettings) SetIntegrations(defaultsOff, on, off IntegrationSet) {
 }
 
 // IntegrationDefaultsOff returns the integrations off by default for new clusters (Preferences'
-// IntegrationsOff): none in a session that keeps no preferences.
+// IntegrationsOff; the question's Check all looks for the others, D-82): none in a session that
+// keeps no preferences.
 func (s *Session) IntegrationDefaultsOff() IntegrationSet {
 	p, err := s.Preferences()
 	if err != nil {

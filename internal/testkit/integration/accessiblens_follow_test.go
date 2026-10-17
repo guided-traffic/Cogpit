@@ -73,6 +73,7 @@ func connectLimited(ctx context.Context, t *testing.T, access *testkit.FakeAcces
 			t.Fatal(err)
 		}
 	}
+	decideIntegrations(t, s, "fake") // its metrics read (D-82)
 	if err := s.Connect(ctx, "fake"); err != nil {
 		t.Fatal(err)
 	}
@@ -217,6 +218,7 @@ func TestPrometheusDetectionFollowsARefusal(t *testing.T) {
 	if err := commands.RegisterAll(s.Registry()); err != nil {
 		t.Fatal(err)
 	}
+	decideIntegrations(t, s, "fake") // Prometheus looked for (D-82)
 	start := time.Now()
 	if err := s.Connect(ctx, "fake"); err != nil {
 		t.Fatal(err)

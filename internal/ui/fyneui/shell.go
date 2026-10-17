@@ -544,8 +544,8 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	if first || settingsShowChanged(st, old) {
 		sh.settings.stateChanged()
 	}
-	if first || st.IntegrationsQuestion != old.IntegrationsQuestion {
-		sh.intq.stateChanged() // the question of a new cluster's integrations (integrationsask.go, D-76)
+	if first || integrationsQuestionChanged(st, old) {
+		sh.intq.stateChanged() // the question of a new cluster's integrations (integrationsask.go, D-76, D-82)
 	}
 	if first || (st.Context == "") != (old.Context == "") || st.Connection != old.Connection || layoutMenuChanged(st, old) {
 		// Cluster Settings… is enabled while a cluster is chosen, Disconnect while one is connected or

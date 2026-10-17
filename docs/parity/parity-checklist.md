@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 120 | 117 | 9 | 108 | 3 |
 | Interface rows, paid plans | 12 | 8 | 0 | 8 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 67 | 65 | 54 | 11 | 2 |
+| Beyond Lens (not in feature breadth) | 69 | 67 | 56 | 11 | 2 |
 
 Not counted: 10 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -356,6 +356,8 @@ Not counted: 10 interface rows that are not a target, 5 platform rows that are p
 | Cluster Settings › Integrations: each integration of the cluster switched on or off, and at once whether Cogpit found it automatically (and… | partial | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | A cluster without integration settings asks at its first connect which integrations to enable, with the same found or manual status per int… | partial | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | Every integration on by default, the default for new clusters the user's to change (the owner, 2026-10-17, I3) | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
+| A short pre-choice before any integration is looked for, since the search runs with the user's privileges: "check all integrations" looks f… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
+| The question can be shown again after it was answered (the owner's WF4, 2026-10-17: "Gibt es eine Möglichkeit den Dialog nochmal angezeigt… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | A pod's drawer rates each of its images from Trivy Operator's reports, when one has a report: the worst severity found and how many of it,… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | Every pod in the Pods list shows the worst image rating of its containers; nothing while the integration is off (the owner, 2026-10-17, I6,… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | Kyverno: the objects that violate a policy show it, in their lists and their drawer: an Audit policy's fail, and an Enforce policy's on an… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |

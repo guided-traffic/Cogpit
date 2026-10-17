@@ -55,7 +55,7 @@ type preferencesSetParams struct {
 	// RestoreSession: agents and the CLI may only turn it off (engine/restore.go, D-69 item 8).
 	RestoreSession *bool `json:"restoreSession,omitempty" jsonschema:"whether Cogpit, at its next start, restores the tabs of the last run and connects again to the clusters connected when it quit, the one shown then first, their credential plugins running as on any connect (default false: it starts without tabs and connections). Agents and the CLI may only turn it off"`
 	// IntegrationDefaults: the integrations of clusters without a choice of their own (engine/integrations.go, D-76).
-	IntegrationDefaults map[string]bool `json:"integrationDefaults,omitempty" jsonschema:"the default for new clusters: integrations on (true) or off (false), by name (metrics-server, prometheus, alertmanager, trivy, kyverno), for every cluster the user made no choice for; those left out stay as they are (default: every one on). The window's question about a new cluster's integrations offers it first; preferences.integrationsOff reads back the ones off"`
+	IntegrationDefaults map[string]bool `json:"integrationDefaults,omitempty" jsonschema:"the default for new clusters: integrations on (true) or off (false), by name (metrics-server, prometheus, alertmanager, trivy, kyverno), what the window's question about a new cluster's integrations looks for when the user checks them (Check all), and what a session that does not ask (the CLI's) reads; the window reads nothing of a cluster without a choice before its question is answered. Those left out stay as they are (default: every one on); preferences.integrationsOff reads back the ones off"`
 }
 
 // shellChange reports whether the parameters change the local terminal's shell or arguments.

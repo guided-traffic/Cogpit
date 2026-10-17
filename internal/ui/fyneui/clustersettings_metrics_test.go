@@ -221,7 +221,8 @@ func TestRenderClusterSettingsMetricsLight(t *testing.T) {
 func renderClusterSettingsMetrics(t *testing.T, mode ThemeMode, name string) {
 	s, _ := settingsEngine(t)
 	mustDispatch(t, s, "cluster.settings.set", map[string]any{"context": "kind-dev", "name": "Dev cluster", "iconColor": "violet",
-		"hiddenMetrics": []string{"containers", "network", "filesystem"}})
+		"hiddenMetrics": []string{"containers", "network", "filesystem"},
+		"integrations":  map[string]bool{"metrics-server": true, "prometheus": true}}) // its metrics chosen (D-82)
 	sh, w, q := newEngineShell(t, s, Options{Theme: mode})
 	mustDispatch(t, s, "cluster.settings.open", map[string]any{"context": "kind-dev", "section": "metrics"})
 	q.until(t, "the Metrics section", func() bool {

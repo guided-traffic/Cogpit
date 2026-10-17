@@ -15,12 +15,13 @@ import (
 	"github.com/guided-traffic/cogpit/internal/metrics"
 )
 
-// TestKindIntegrationsQuestion checks the question of a new cluster's integrations (D-76) against
-// the kind cluster: its first connect asks (ui_state's integrationsQuestion), and while it asks,
-// the Metrics Server and the Prometheus `make kind-prometheus` installs are detected once without a
-// drawer or a list that shows metrics, so that the question says "found" with where; an answer
-// decides the cluster and ends the question. Cluster settings and preferences in a temporary
-// folder: the cluster is new to this Cogpit.
+// TestKindIntegrationsQuestion checks the question of a new cluster's integrations (D-76, D-82)
+// against the kind cluster: its first connect asks (ui_state's integrationsQuestion) on the
+// pre-choice, where nothing is looked for: every integration off, the metrics hub with no provider
+// on. Check all integrations looks for them: the Metrics Server and the Prometheus `make
+// kind-prometheus` installs are detected once without a drawer or a list that shows metrics, so
+// that the question says "found" with where; an answer decides the cluster and ends the question.
+// Cluster settings and preferences in a temporary folder: the cluster is new to this Cogpit.
 func TestKindIntegrationsQuestion(t *testing.T) {
 	kubeconfig, contextName := os.Getenv("COGPIT_KIND_KUBECONFIG"), os.Getenv("COGPIT_KIND_CONTEXT")
 	if kubeconfig == "" || contextName == "" {
@@ -47,8 +48,8 @@ func TestKindIntegrationsQuestion(t *testing.T) {
 	if err := s.Connect(ctx, contextName); err != nil {
 		t.Fatal(err)
 	}
-	if q := s.UIState().IntegrationsQuestion; q != contextName {
-		t.Fatalf("the first connect asks nothing: %q", q)
+	if u := s.UIState(); u.IntegrationsQuestion != contextName || u.IntegrationsStep != engine.IntegrationsPreChoice {
+		t.Fatalf("the first connect asks nothing: %q, %q", u.IntegrationsQuestion, u.IntegrationsStep)
 	}
 	statuses := func() map[engine.Integration]engine.IntegrationStatus {
 		out := map[engine.Integration]engine.IntegrationStatus{}
@@ -56,6 +57,19 @@ func TestKindIntegrationsQuestion(t *testing.T) {
 			out[st.Name] = st
 		}
 		return out
+	}
+	// The pre-choice: nothing on, no metrics provider looked for.
+	for name, st := range statuses() {
+		if st.On {
+			t.Errorf("%s on before the pre-choice was answered: %+v", name, st)
+		}
+	}
+	if b := s.BackendOf(contextName); b != nil && b.Metrics != nil && len(b.Metrics.Providers()) != 0 {
+		t.Errorf("metrics providers on before the pre-choice was answered: %+v", b.Metrics.Providers())
+	}
+	step := []byte(`{"step":"checkAll"}`)
+	if _, err := s.Dispatch(ctx, engine.Invocation{ID: "cluster.integrations.step", Params: step, Origin: engine.OriginGUI}); err != nil {
+		t.Fatal(err)
 	}
 	for {
 		st := statuses()
