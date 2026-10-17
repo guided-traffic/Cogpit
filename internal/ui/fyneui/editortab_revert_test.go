@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
@@ -88,6 +89,42 @@ func TestEditTabRevertsAndUndoes(t *testing.T) {
 	typeAt(et.pane, 0, 0, "# mine\n")
 	if et.undoBtn.Visible() {
 		t.Error("Undo Revert stays after typing")
+	}
+}
+
+// TestEditTabUndoShortcuts: ⌘Z undoes the typing in the editor and ⌘Y redoes it, the engine
+// following; after a Revert, whose text clears the editor's history, ⌘Z is Undo Revert, which
+// brings the text back with the version it was based on (D-84).
+func TestEditTabUndoShortcuts(t *testing.T) {
+	_, _, q, f, ed, et := editScene(t, ThemeDark)
+	handleRevert(ed)
+	v := et.pane.view
+	typeLineAfter(et.pane, 16, "sessionAffinity: ClientIP")
+	edited := v.Text()
+	v.TypedShortcut(&fyne.ShortcutUndo{})
+	if v.Text() != serviceYAML {
+		t.Fatalf("⌘Z left\n%s", v.Text())
+	}
+	v.TypedShortcut(&fyne.ShortcutRedo{})
+	if v.Text() != edited {
+		t.Fatal("⌘Y did not bring the line back")
+	}
+	q.until(t, "the redone text sent", func() bool {
+		calls := f.callsOf("editor.setText")
+		return len(calls) > 0 && decodeParams[editorTextParams](t, calls[len(calls)-1]).YAML == edited
+	})
+
+	test.Tap(et.revertBtn)
+	q.until(t, "the revert", func() bool { return v.Text() == serviceYAML && et.undoBtn.Visible() && !et.busy })
+	v.TypedShortcut(&fyne.ShortcutUndo{}) // nothing in the editor's history: Undo Revert
+	q.until(t, "the undo of the revert", func() bool { return v.Text() == edited && !et.busy })
+	if et.undoBtn.Visible() || !strings.Contains(et.status.text, "Your text is back") {
+		t.Errorf("after ⌘Z: undo visible %v, status %q", et.undoBtn.Visible(), et.status.text)
+	}
+	n := len(f.callsOf("editor.undoRevert"))
+	v.TypedShortcut(&fyne.ShortcutUndo{}) // nothing to undo and no Undo Revert offered: nothing
+	if v.Text() != edited || len(f.callsOf("editor.undoRevert")) != n {
+		t.Error("a second ⌘Z changed the text or asked the engine")
 	}
 }
 

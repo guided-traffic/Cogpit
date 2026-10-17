@@ -24,6 +24,14 @@ func (e *editorTab) newRevertButtons() {
 	e.undoBtn = widget.NewButtonWithIcon("Undo Revert", theme.ContentRedoIcon(), e.undoRevert)
 	e.undoBtn.Hide()
 	e.pane.onEdit = func() { e.showUndo(false) }
+	// ⌘Z after a Revert is Undo Revert: the revert set the text from outside, which clears the
+	// editor's own history, and Undo Revert brings the text back with the version it was based on,
+	// so that a change on the cluster meanwhile still comes back as a conflict (D-84).
+	e.pane.view.OnNothingToUndo = func() {
+		if e.undoBtn.Visible() {
+			e.undoRevert()
+		}
+	}
 }
 
 // showUndo shows or hides Undo Revert.

@@ -395,7 +395,12 @@ a Secret's values are edited in its drawer, as a Config Map's are, in the window
 - **Nowhere else.** No draft: edited values the drawer moves away from stay in the window's memory
   until Cogpit quits (`drawer.secretUnsaved`) and come back masked; no toast beyond
   "Secret <namespace>/<name> saved", no status line or review line with a value, no log line
-  (`TestSecretDrawerEditAndSave`, `TestSecretDrawerKeepsUnsavedInMemory`).
+  (`TestSecretDrawerEditAndSave`, `TestSecretDrawerKeepsUnsavedInMemory`). Since 2026-10-17 each
+  editor has an undo history (⌘Z, [D-84](../developer/decisions.md#d-84-undo-and-redo-in-the-yaml-editor)),
+  which holds every value typed, those deleted again too: in the editor widget's memory only, never
+  on disk, in a draft, in `ui_state` or a log, and dropped when the drawer moves to another object
+  or closes (`secData.close`); the kept values come back without it
+  (`TestSecretDrawerKeepsUnsavedInMemory`).
 - **Keys added and removed** (since 2026-10-16, the owner's audit decision,
   [D-59](../developer/decisions.md#d-59-a-secrets-values-edited-in-the-drawer)). An added key's
   value is typed into the same editor as a revealed one and takes the same ways: the GUI-only

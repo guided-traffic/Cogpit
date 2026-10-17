@@ -377,6 +377,9 @@ func TestSecretDrawerKeepsUnsavedInMemory(t *testing.T) {
 	if u := sh.drawer.secretUnsaved[sdRefOf(f).String()]; u == nil || u.values["DB_PASSWORD"] != secTyped || u.base != "48210" {
 		t.Fatalf("kept %+v", u)
 	}
+	if r.view.Undo() { // the values typed are kept; their undo history, which holds them too, is not (D-84)
+		t.Error("the editor's undo history outlived the drawer")
+	}
 	if !toastSays(sh, "kept in this window's memory until Cogpit quits, never on disk") {
 		t.Error("no toast says where the changes are kept")
 	}

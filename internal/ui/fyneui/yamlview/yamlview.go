@@ -1,8 +1,8 @@
 // Package yamlview is Cogpit's YAML viewer and editor: a widget that keeps its own lines and draws
 // only the lines in the viewport, with YAML highlighting from theme tokens, line numbers,
-// selection, copy and paste. Fyne's TextGrid stores every character as a cell and walks all rows
-// for its minimum size, so a 5 MB document must never be loaded into one grid
-// (docs/developer/spike-fyne.md, criterion S4).
+// selection, copy and paste, undo and redo (history.go). Fyne's TextGrid stores every character as
+// a cell and walks all rows for its minimum size, so a 5 MB document must never be loaded into one
+// grid (docs/developer/spike-fyne.md, criterion S4).
 //
 // The view draws each visible line as a few canvas.Text runs, one per highlighted token, placed on a
 // monospace column grid; a line costs a handful of canvas objects instead of two per character, and
@@ -13,6 +13,7 @@ package yamlview
 
 import (
 	"math"
+	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -37,6 +38,10 @@ type View struct {
 	// OnCopy, when set, gets the text a copy or a cut takes instead of the clipboard: an editor
 	// that holds a Secret's value hands it to the clipboard for Secret values (cleared later).
 	OnCopy func(string)
+	// OnNothingToUndo, when set, gets an undo shortcut (⌘Z, Ctrl+Z) that finds nothing to undo in
+	// the view's own history: an Edit tab hands it to its Undo Revert, whose text the history no
+	// longer reaches because a Revert sets the text from outside.
+	OnNothingToUndo func()
 
 	doc       document
 	readOnly  bool
@@ -60,6 +65,9 @@ type View struct {
 	drag      dragMode
 	// revealPending defers revealCaret until the widget has a size.
 	revealPending bool
+
+	// hist is the undo and redo history of the user's edits (history.go).
+	hist history
 
 	// cache holds the tokens of recently drawn lines, keyed by line index and checked against the
 	// line's text and start state, so an edit or a shift of line numbers never shows stale colours.
@@ -152,10 +160,11 @@ func (v *View) indentStep() int {
 	return v.tabSize
 }
 
-// SetText replaces the document, clears the selection and scrolls to the top. The view keeps text
-// and slices it into lines without copying; CRLF and CR line ends become LF.
+// SetText replaces the document, clears the selection and the undo history and scrolls to the top.
+// The view keeps text and slices it into lines without copying; CRLF and CR line ends become LF.
 func (v *View) SetText(text string) {
 	v.doc.setText(text)
+	v.hist.reset()
 	v.caret, v.anchor = pos{}, pos{}
 	v.goalCol = -1
 	v.scrollX, v.scrollY = 0, 0
@@ -165,13 +174,14 @@ func (v *View) SetText(text string) {
 
 // UpdateText replaces the document but keeps the scroll position, the caret and the selection,
 // clamped to the new text: for a document that changes while the user reads it, such as an object
-// in the detail drawer that the cache updates. Unchanged text costs one comparison. Like SetText it
-// does not call OnChanged.
+// in the detail drawer that the cache updates. Unchanged text costs one comparison and keeps the
+// undo history; a changed text clears it, as SetText does. Like SetText it does not call OnChanged.
 func (v *View) UpdateText(text string) {
 	if normaliseNewlines(text) == v.doc.joined() {
 		return
 	}
 	v.doc.setText(text)
+	v.hist.reset()
 	v.caret = v.doc.clamp(v.caret)
 	v.anchor = v.doc.clamp(v.anchor)
 	clear(v.cache)
@@ -281,10 +291,54 @@ func (v *View) SelectedText() string {
 
 // SelectAll selects the whole document.
 func (v *View) SelectAll() {
+	v.hist.seal()
 	v.anchor = pos{}
 	v.caret = v.doc.end()
 	v.goalCol = -1
 	v.Refresh()
+}
+
+// Undo takes the newest step of the history back and restores the caret and the selection it found;
+// false when there is nothing to undo or the view is read-only. OnChanged follows, as for any edit.
+func (v *View) Undo() bool {
+	if v.readOnly {
+		return false
+	}
+	s, ok := v.hist.undo()
+	if !ok {
+		return false
+	}
+	v.doc.remove(s.start, s.end)
+	v.doc.insert(s.start, s.old)
+	v.restoreCursor(s.before)
+	return true
+}
+
+// Redo does the step Undo took back again and restores the caret and the selection it left; false
+// when there is nothing to redo or the view is read-only.
+func (v *View) Redo() bool {
+	if v.readOnly {
+		return false
+	}
+	s, ok := v.hist.redo()
+	if !ok {
+		return false
+	}
+	v.doc.remove(s.start, endOf(s.start, s.old))
+	v.doc.insert(s.start, s.new)
+	v.restoreCursor(s.after)
+	return true
+}
+
+// ClearHistory forgets every edit Undo and Redo could reach, and the text they hold: a Secret's
+// editor in the drawer drops it when the drawer moves away.
+func (v *View) ClearHistory() { v.hist.reset() }
+
+// restoreCursor puts the caret and the selection back after an undo or a redo and finishes it as an
+// edit.
+func (v *View) restoreCursor(c cursor) {
+	v.caret, v.anchor = v.doc.clamp(c.caret), v.doc.clamp(c.anchor)
+	v.edited()
 }
 
 // CreateRenderer implements fyne.Widget.
@@ -303,6 +357,7 @@ func (v *View) FocusLost() {
 	v.focused = false
 	v.shiftDown = false
 	v.drag = dragNone
+	v.hist.seal()
 	v.Refresh()
 }
 
@@ -315,7 +370,7 @@ func (v *View) TypedRune(r rune) {
 	if v.readOnly || (r < 0x20 && r != '\t') || r == 0x7f || !utf8.ValidRune(r) {
 		return
 	}
-	v.replaceSelection(string(r))
+	v.replace(string(r), editTyping)
 }
 
 // TypedKey implements fyne.Focusable.
@@ -372,10 +427,18 @@ func (v *View) KeyUp(ev *fyne.KeyEvent) {
 	}
 }
 
-// TypedShortcut implements fyne.Shortcutable: copy, cut, paste, select all, and the navigation
-// shortcuts that arrive with modifiers (document start and end, line start and end, word moves).
+// TypedShortcut implements fyne.Shortcutable: copy, cut, paste, select all, undo (⌘Z, Ctrl+Z) and
+// redo (⌘Y, Ctrl+Y, and ⇧⌘Z or Ctrl+Shift+Z, which Fyne delivers as a custom shortcut), and the
+// navigation shortcuts that arrive with modifiers (document start and end, line start and end, word
+// moves).
 func (v *View) TypedShortcut(s fyne.Shortcut) {
 	switch sc := s.(type) {
+	case *fyne.ShortcutUndo:
+		if !v.Undo() && !v.readOnly && v.OnNothingToUndo != nil {
+			v.OnNothingToUndo()
+		}
+	case *fyne.ShortcutRedo:
+		v.Redo()
 	case *fyne.ShortcutCopy:
 		v.copySelection(clipboardOr(sc.Clipboard))
 	case *fyne.ShortcutCut:
@@ -427,6 +490,7 @@ func (v *View) DoubleTapped(ev *fyne.PointEvent) {
 		}
 		end += size
 	}
+	v.hist.seal()
 	v.anchor, v.caret = pos{p.line, start}, pos{p.line, end}
 	v.goalCol = -1
 	v.Refresh()
@@ -482,6 +546,7 @@ func (v *View) Dragged(ev *fyne.DragEvent) {
 			start := ev.Position.Subtract(ev.Dragged)
 			v.anchor = v.posAt(fyne.NewPos(start.X, start.Y))
 		}
+		v.hist.seal()
 		v.caret = v.posAt(ev.Position)
 		v.goalCol = -1
 		v.revealCaret()
@@ -527,8 +592,10 @@ func (v *View) Cursor() desktop.Cursor { return desktop.TextCursor }
 
 // --- caret movement ---
 
-// moveTo puts the caret at p; extend keeps the anchor, so the selection grows.
+// moveTo puts the caret at p; extend keeps the anchor, so the selection grows. A move ends a run of
+// typing in the undo history.
 func (v *View) moveTo(p pos, extend bool) {
+	v.hist.seal()
 	v.caret = v.doc.clamp(p)
 	if !extend {
 		v.anchor = v.caret
@@ -596,6 +663,15 @@ func (v *View) moveHome(extend bool) {
 	v.moveTo(pos{v.caret.line, target}, extend)
 }
 
+// primaryModifier is the modifier of the platform's editing shortcuts, as Fyne's driver maps them:
+// ⌘ on macOS, Ctrl elsewhere.
+var primaryModifier = func() fyne.KeyModifier {
+	if runtime.GOOS == "darwin" {
+		return fyne.KeyModifierSuper
+	}
+	return fyne.KeyModifierControl
+}()
+
 func (v *View) customShortcut(sc *desktop.CustomShortcut) {
 	extend := sc.Modifier&fyne.KeyModifierShift != 0
 	mod := sc.Modifier &^ fyne.KeyModifierShift
@@ -603,6 +679,8 @@ func (v *View) customShortcut(sc *desktop.CustomShortcut) {
 	ctrl := mod == fyne.KeyModifierControl
 	word := mod == fyne.KeyModifierAlt || ctrl
 	switch {
+	case sc.KeyName == fyne.KeyZ && extend && mod == primaryModifier: // ⇧⌘Z, Ctrl+Shift+Z: redo
+		v.Redo()
 	case (sc.KeyName == fyne.KeyHome && (ctrl || super)) || (sc.KeyName == fyne.KeyUp && super):
 		v.goalCol = -1
 		v.moveTo(pos{}, extend)
@@ -621,15 +699,17 @@ func (v *View) customShortcut(sc *desktop.CustomShortcut) {
 		v.goalCol = -1
 		v.moveTo(v.wordRight(v.caret), extend)
 	case sc.KeyName == fyne.KeyBackspace && word && !v.readOnly:
+		kind := editOther // a selection deleted
 		if v.anchor == v.caret {
-			v.anchor = v.wordLeft(v.caret)
+			v.anchor, kind = v.wordLeft(v.caret), editBackspace
 		}
-		v.replaceSelection("")
+		v.replace("", kind)
 	case sc.KeyName == fyne.KeyDelete && word && !v.readOnly:
+		kind := editOther
 		if v.anchor == v.caret {
-			v.anchor = v.wordRight(v.caret)
+			v.anchor, kind = v.wordRight(v.caret), editDelete
 		}
-		v.replaceSelection("")
+		v.replace("", kind)
 	}
 }
 
@@ -697,18 +777,26 @@ func isWordRune(r rune) bool {
 
 // --- editing ---
 
-// replaceSelection replaces the selection (or inserts at the caret) with s.
-func (v *View) replaceSelection(s string) {
+// replaceSelection replaces the selection (or inserts at the caret) with s, a step of its own in the
+// undo history.
+func (v *View) replaceSelection(s string) { v.replace(s, editOther) }
+
+// replace replaces the selection (or inserts at the caret) with s and records the edit as kind:
+// typing and a deletion at the caret join the step before them (history.go).
+func (v *View) replace(s string, kind editKind) {
 	if v.readOnly {
 		return
 	}
-	a, b := order(v.anchor, v.caret)
+	a, b := order(v.doc.clamp(v.anchor), v.doc.clamp(v.caret))
 	if a == b && s == "" {
 		return
 	}
-	v.doc.remove(a, b)
+	s = normaliseNewlines(s)
+	before := cursor{v.caret, v.anchor}
+	old := v.doc.remove(a, b)
 	p := v.doc.insert(a, s)
 	v.caret, v.anchor = p, p
+	v.hist.record(step{start: a, old: old, new: s, before: before, after: cursor{p, p}, kind: kind})
 	v.edited()
 }
 
@@ -735,7 +823,7 @@ func (v *View) newline() {
 	if strings.HasSuffix(before, ":") || endsWithBlockHeader(before) {
 		indent += strings.Repeat(" ", v.indentStep())
 	}
-	v.replaceSelection("\n" + indent)
+	v.replace("\n"+indent, editTyping) // a new line starts a new run of typing
 }
 
 // endsWithBlockHeader reports whether s ends in a block scalar header such as "|", ">-" or "|+2".
@@ -751,7 +839,9 @@ func (v *View) backspace() {
 	if v.readOnly {
 		return
 	}
+	kind := editOther // a selection deleted: a step of its own
 	if v.anchor == v.caret {
+		kind = editBackspace
 		line := v.doc.lines[v.caret.line]
 		if v.caret.off > 0 && indentOf(line) >= v.caret.off {
 			// In the indentation: back to the previous indentation stop.
@@ -765,17 +855,18 @@ func (v *View) backspace() {
 			v.anchor = v.doc.prev(v.caret)
 		}
 	}
-	v.replaceSelection("")
+	v.replace("", kind)
 }
 
 func (v *View) deleteForward() {
 	if v.readOnly {
 		return
 	}
+	kind := editOther
 	if v.anchor == v.caret {
-		v.anchor = v.doc.next(v.caret)
+		v.anchor, kind = v.doc.next(v.caret), editDelete
 	}
-	v.replaceSelection("")
+	v.replace("", kind)
 }
 
 // tab indents the selected lines when the selection spans lines, and otherwise inserts spaces to
@@ -792,11 +883,12 @@ func (v *View) tab() {
 	a, _ := order(v.anchor, v.caret)
 	step := v.indentStep()
 	n := step - displayCol(v.doc.lines[a.line], a.off)%step
-	v.replaceSelection(strings.Repeat(" ", n))
+	v.replace(strings.Repeat(" ", n), editTyping)
 }
 
 // indentLines adds or removes one indentation step (indentStep) on every line the selection
-// touches, or on the caret's line. A selection ending at column 0 leaves that line alone.
+// touches, or on the caret's line. A selection ending at column 0 leaves that line alone. The change
+// is one step in the undo history: the lines as they were and as they are.
 func (v *View) indentLines(add bool) {
 	if v.readOnly {
 		return
@@ -806,18 +898,21 @@ func (v *View) indentLines(add bool) {
 	if b.line > a.line && b.off == 0 {
 		last--
 	}
+	first := pos{a.line, 0}
+	lines := func() string { return v.doc.slice(first, pos{last, len(v.doc.lines[last])}) }
+	old, before := lines(), cursor{v.caret, v.anchor}
 	changed := false
-	step := v.indentStep()
+	width := v.indentStep()
 	for i := a.line; i <= last; i++ {
 		var delta int
 		if add {
 			if v.doc.lines[i] == "" {
 				continue
 			}
-			v.doc.insert(pos{i, 0}, strings.Repeat(" ", step))
-			delta = step
+			v.doc.insert(pos{i, 0}, strings.Repeat(" ", width))
+			delta = width
 		} else {
-			n := min(step, indentOf(v.doc.lines[i]))
+			n := min(width, indentOf(v.doc.lines[i]))
 			if n == 0 {
 				continue
 			}
@@ -832,6 +927,7 @@ func (v *View) indentLines(add bool) {
 		}
 	}
 	if changed {
+		v.hist.record(step{start: first, old: old, new: lines(), before: before, after: cursor{v.caret, v.anchor}})
 		v.edited()
 	}
 }

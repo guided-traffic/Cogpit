@@ -621,12 +621,19 @@ func (sd *secData) copied(text string) {
 }
 
 // close keeps the edited values in the window's memory when the drawer moves to another object or
-// closes, and says so; a Secret's values never go to disk.
+// closes, and says so; a Secret's values never go to disk. The editors' undo histories, which hold
+// every value typed, go: the values come back without them (D-84).
 func (sd *secData) close() {
 	if sd.review != nil {
 		sd.review.hide()
 	}
 	sd.closed = true
+	for _, r := range sd.rows {
+		r.view.ClearHistory()
+	}
+	for _, r := range sd.addedRows {
+		r.view.ClearHistory()
+	}
 	if !sd.dirty() {
 		return
 	}
