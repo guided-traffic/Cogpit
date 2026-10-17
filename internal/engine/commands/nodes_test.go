@@ -130,6 +130,10 @@ func TestNodeCommandsConfirmationPerOrigin(t *testing.T) {
 		t.Error("drain ran without the user's confirmation")
 	}
 	waitJob(t, h, started.Job.ID)
+	// The job's ended line is written after the job's end shows: wait for it.
+	waitUntil(t, "the drain's ended line", func() bool {
+		return slices.ContainsFunc(audit.Lines(), func(l engine.AuditEntry) bool { return l.Command == "node.drain" && l.Phase == "ended" })
+	})
 
 	lines := audit.Lines()
 	var phases []string

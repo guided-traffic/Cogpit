@@ -171,8 +171,7 @@ func TestDeleteManyJobCancelled(t *testing.T) {
 	}
 
 	waitUntil(t, "the ended line", func() bool {
-		lines := audit.Lines()
-		return len(lines) > 0 && lines[len(lines)-1].Phase == "ended"
+		return slices.ContainsFunc(audit.Lines(), func(l engine.AuditEntry) bool { return l.Command == "object.deleteMany" && l.Phase == "ended" })
 	})
 	var phases []string
 	for _, l := range audit.Lines() {

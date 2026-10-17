@@ -64,8 +64,13 @@ func TestKindIntegrationsQuestion(t *testing.T) {
 			if ms.State != engine.IntegrationFound {
 				t.Errorf("Metrics Server: %+v", ms)
 			}
-			if prom.State != engine.IntegrationFound || !strings.HasPrefix(prom.Where, "monitoring/prometheus-server:") {
-				t.Errorf("Prometheus: %+v (make kind-prometheus installs monitoring/prometheus-server)", prom)
+			// make kind-prometheus installs monitoring/prometheus-server; without it (CI's cluster comes
+			// from make kind-up alone) none is found by name, and the user is asked for its address.
+			switch {
+			case prom.State == engine.IntegrationFound && !strings.HasPrefix(prom.Where, "monitoring/prometheus-server:"):
+				t.Errorf("Prometheus found elsewhere: %+v", prom)
+			case prom.State != engine.IntegrationFound && prom.State != engine.IntegrationManual:
+				t.Errorf("Prometheus: %+v, want found (with make kind-prometheus) or manual", prom)
 			}
 			t.Logf("Metrics Server %s %q; Prometheus %s %q", ms.State, ms.Where, prom.State, prom.Where)
 			break
