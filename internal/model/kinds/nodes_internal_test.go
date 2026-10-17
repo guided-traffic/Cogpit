@@ -45,6 +45,34 @@ func TestNodeWarningsAndConditions(t *testing.T) {
 		t.Errorf("pressure: row %q, warning %+v", s.token, s.warning())
 	}
 
+	// A condition whose type ends in Ready reads the other way (SystemdUnitsReady on a Gardener
+	// cluster of STACKIT, the owner's finding of 2026-10-17): True is healthy, no warning, green in
+	// the drawer's chips only; False or Unknown is the problem, named with its status.
+	systemd := func(status string) map[string]any {
+		return map[string]any{"status": map[string]any{"conditions": []any{
+			map[string]any{"type": "Ready", "status": "True"},
+			map[string]any{"type": "SystemdUnitsReady", "status": status},
+			map[string]any{"type": "KernelDeadlock", "status": "False"},
+		}}}
+	}
+	s = summariseNode(systemd("True"))
+	if c := s.conditionsCell(); c.Text != "Ready" || s.token != model.StatusOK || s.warning() != (model.Cell{}) {
+		t.Errorf("SystemdUnitsReady True: cell %q, row %q, warning %+v", c.Text, s.token, s.warning())
+	}
+	if got := s.detailParts(); len(got) != 2 || got[1] != (model.CellPart{Text: "SystemdUnitsReady", Status: model.StatusOK}) {
+		t.Errorf("SystemdUnitsReady True: drawer chips %+v", got)
+	}
+	for _, status := range []string{"False", "Unknown"} {
+		s = summariseNode(systemd(status))
+		want := "SystemdUnitsReady: " + status
+		if c := s.conditionsCell(); c.Text != "Ready "+want || s.token != model.StatusWarning || s.warning().Text != want {
+			t.Errorf("SystemdUnitsReady %s: cell %q, row %q, warning %+v", status, c.Text, s.token, s.warning())
+		}
+	}
+	if problem, ok := conditionProblem("KernelDeadlock", "True"); !ok || problem != "KernelDeadlock" {
+		t.Errorf("node-problem-detector's KernelDeadlock True: %q %v", problem, ok)
+	}
+
 	// The node controller's Unknown: the kubelet stopped reporting.
 	unknown := map[string]any{"status": map[string]any{"conditions": []any{
 		map[string]any{"type": "Ready", "status": "Unknown"},

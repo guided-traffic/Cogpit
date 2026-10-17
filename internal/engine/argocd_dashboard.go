@@ -340,7 +340,7 @@ func (w *argoDashWorker) build(p viewParams) (*ArgoCDDashboardModel, *TableSnaps
 
 // argoHealthOrder and argoSyncOrder are Argo CD's states in the order the Dashboard counts them.
 var (
-	argoHealthOrder = []string{kinds.ArgoHealthy, kinds.ArgoProgressing, kinds.ArgoDegraded, kinds.ArgoSuspended, kinds.ArgoMissing, "Unknown", ""}
+	argoHealthOrder = []string{kinds.ArgoHealthy, kinds.ArgoProgressing, kinds.ArgoDegraded, kinds.ArgoSuspended, kinds.ArgoMissing, condUnknown, ""}
 	argoSyncOrder   = []string{kinds.ArgoSynced, kinds.ArgoOutOfSync, "Unknown", ""}
 )
 

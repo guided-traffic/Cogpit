@@ -1,6 +1,7 @@
 package kinds
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -104,16 +105,16 @@ type nodeSummary struct {
 	base        string       // Ready, NotReady or Unknown, from the Ready condition
 	baseToken   model.Status // ok, error or unknown
 	readyStatus string       // the Ready condition's status; "" when the node reports none
-	problems    []string     // other conditions that are True, sorted: they name a problem
+	problems    []string     // other conditions that name a problem, sorted (conditionProblem)
+	healthy     []string     // other conditions whose type ends in Ready and that are True, sorted
 	cordoned    bool         // spec.unschedulable
 	token       model.Status // the row's status
 }
 
-// summariseNode reads the Ready condition, every other condition that is True (MemoryPressure,
-// DiskPressure, PIDPressure, NetworkUnavailable, and what node-problem-detector adds: all of them
-// name a problem when True), and whether the node is cordoned. The row's status is the Ready
-// state's; a Ready node with a problem condition is a warning. Cordoning is not a problem: Lens
-// shows a cordoned Ready node without a warning (capture, 2026-10-11).
+// summariseNode reads the Ready condition, every other condition that names a problem
+// (conditionProblem), and whether the node is cordoned. The row's status is the Ready state's; a
+// Ready node with a problem condition is a warning. Cordoning is not a problem: Lens shows a
+// cordoned Ready node without a warning (capture, 2026-10-11).
 func summariseNode(obj any) nodeSummary {
 	s := nodeSummary{base: textUnknown, baseToken: model.StatusUnknown}
 	for _, e := range model.NestedSlice(obj, "status", "conditions") {
@@ -127,17 +128,43 @@ func summariseNode(obj any) nodeSummary {
 			case condFalse:
 				s.base, s.baseToken = "NotReady", model.StatusError
 			}
-		case typ != "" && status == condTrue:
-			s.problems = appendUnique(s.problems, typ)
+		case typ != "":
+			if problem, ok := conditionProblem(typ, status); ok {
+				s.problems = appendUnique(s.problems, problem)
+			} else if positiveCondition(typ) && status == condTrue {
+				s.healthy = appendUnique(s.healthy, typ)
+			}
 		}
 	}
 	sort.Strings(s.problems)
+	sort.Strings(s.healthy)
 	s.cordoned, _ = model.NestedBool(obj, "spec", "unschedulable")
 	s.token = s.baseToken
 	if s.token == model.StatusOK && len(s.problems) > 0 {
 		s.token = model.StatusWarning
 	}
 	return s
+}
+
+// positiveCondition reports whether a node condition names a healthy state when True: its type ends
+// in "Ready", as Ready itself and SystemdUnitsReady (seen on a Gardener cluster of STACKIT, the
+// owner's finding of 2026-10-17) do. The others name a problem when True: the kubelet's
+// MemoryPressure, DiskPressure, PIDPressure, NetworkUnavailable, and what node-problem-detector adds
+// (KernelDeadlock, ReadonlyFilesystem, FrequentKubeletRestart, …). Cogpit's rule, inferred: the
+// API has no field that says which way a condition reads.
+func positiveCondition(typ string) bool { return strings.HasSuffix(typ, nodeReady) }
+
+// conditionProblem reports whether a condition other than Ready names a problem, and how the
+// Conditions read it: a positive condition that is False or Unknown as "<type>: <status>", any
+// other condition that is True by its type.
+func conditionProblem(typ, status string) (string, bool) {
+	if positiveCondition(typ) {
+		if status == condFalse || status == textUnknown {
+			return typ + ": " + status, true
+		}
+		return "", false
+	}
+	return typ, status == condTrue
 }
 
 // parts are the Conditions column's coloured parts: "SchedulingDisabled" first and uncoloured on
@@ -154,6 +181,18 @@ func (s nodeSummary) parts() []model.CellPart {
 		parts = append(parts, model.CellPart{Text: p, Status: model.StatusWarning})
 	}
 	return parts
+}
+
+// detailParts are the drawer's condition chips: the column's, with the positive conditions that are
+// True after Ready in its green, so that the drawer shows what was checked and is fine.
+func (s nodeSummary) detailParts() []model.CellPart {
+	parts := s.parts()
+	at := slices.IndexFunc(parts, func(p model.CellPart) bool { return p.Text == s.base }) + 1
+	healthy := make([]model.CellPart, 0, len(s.healthy))
+	for _, h := range s.healthy {
+		healthy = append(healthy, model.CellPart{Text: h, Status: model.StatusOK})
+	}
+	return slices.Insert(parts, at, healthy...)
 }
 
 // conditionsCell is the Conditions column's cell; its overall status is the Ready state's.
@@ -226,7 +265,7 @@ func nodeDetail(obj *unstructured.Unstructured) []model.DetailSection {
 		lines = append(lines, c.Type+": "+c.text())
 	}
 	if len(lines) > 0 {
-		parts := summariseNode(obj).parts()
+		parts := summariseNode(obj).detailParts()
 		chips := make([]model.Chip, 0, len(parts))
 		for _, p := range parts {
 			chips = append(chips, model.Chip{Text: p.Text, Status: p.Status})
