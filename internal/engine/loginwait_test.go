@@ -205,7 +205,9 @@ func TestDisconnectEndsAWaitingRenewal(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.Block(true)
-	if !testkit.WaitFor(within(t, 15*time.Second), func() bool { return p.Runs() == 2 && s.UIState().Connection.WaitingForLogin.Program != "" }) {
+	// At least one renewal, not exactly one: a slow connect (the race detector, a busy runner) may
+	// outlive the first token, and the renewal that blocks is then the third run.
+	if !testkit.WaitFor(within(t, 15*time.Second), func() bool { return p.Runs() >= 2 && s.UIState().Connection.WaitingForLogin.Program != "" }) {
 		t.Fatalf("the renewal never ran: %+v", s.UIState().Connection)
 	}
 	pid := p.LastPID()

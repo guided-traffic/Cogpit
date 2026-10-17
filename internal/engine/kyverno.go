@@ -642,7 +642,7 @@ func (x *violationIndex) all() []struct {
 var ErrKyvernoOff = errors.New("the Kyverno integration is switched off for this cluster (Cluster Settings › Integrations)")
 
 // ErrKyvernoNotShown says that a cluster's Kyverno reports are read only while it is the one shown.
-var ErrKyvernoNotShown = errors.New("Kyverno's policy reports are read only while the cluster is the one shown in Cogpit's window; show it first")
+var ErrKyvernoNotShown = errors.New("the Kyverno integration reads the policy reports only while the cluster is the one shown in Cogpit's window; show it first")
 
 // KyvernoReady says why a connected cluster's Kyverno violations cannot be read: the integration
 // is off, or the cluster serves no policy reports; nil when they can.
