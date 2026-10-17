@@ -51,7 +51,7 @@ cogpit/
 ├─ cmd/cogpit/                desktop app (Fyne, cgo)
 ├─ cmd/cogpit-cli/            headless CLI: contexts, get, the MCP stdio bridge (pure Go)
 ├─ internal/                  packages, layered L0–L4 (architecture.md §2–§3)
-├─ hack/kind/                 kind cluster configs, seed manifests (make kind-up; the drain cluster: make kind-drain-up), Prometheus and kube-prometheus-stack values (make kind-prometheus, make kind-kps)
+├─ hack/kind/                 kind cluster configs, seed manifests (make kind-up; the drain cluster: make kind-drain-up), Prometheus and kube-prometheus-stack values (make kind-prometheus, make kind-kps), Trivy Operator's values and test workloads (make kind-trivy)
 ├─ hack/icon/                 generator of the app icon (make icon; internal/ui/logo draws it)
 ├─ hack/showcase/             oxipng.sh: the pinned oxipng and its lossless run over docs/images (make showcase)
 ├─ hack/parity/               make parity: checks the parity checklists and counts what they report

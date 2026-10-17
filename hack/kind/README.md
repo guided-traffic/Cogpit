@@ -11,6 +11,7 @@ so Cogpit and kubectl never reach another cluster by accident.
 | [`seed/`](seed/) | the manifests `make kind-seed` applies, all in the namespace `cogpit-demo` |
 | [`prometheus-values.yaml`](prometheus-values.yaml) | the values `make kind-prometheus` installs the `prometheus` chart with; see [Prometheus](#prometheus) |
 | [`victoriametrics/`](victoriametrics/) | the manifests `make kind-vm` applies: VictoriaMetrics single-node and a small cluster in the namespace `cogpit-vm`; see [VictoriaMetrics](#victoriametrics) |
+| [`trivy-operator-values.yaml`](trivy-operator-values.yaml), [`trivy/`](trivy/) | the values `make kind-trivy` installs Trivy Operator with and the workloads it scans, in the namespaces `cogpit-trivy`, `cogpit-trivy-a` and `cogpit-trivy-b`; see [Trivy Operator](#trivy-operator) |
 | [`drain-cluster.yaml`](drain-cluster.yaml) | the second, multi-node cluster `cogpit-drain` (one control plane, two workers) for the tests that cordon and drain a node; see [The drain cluster](#the-drain-cluster) |
 
 ## Use
@@ -117,6 +118,36 @@ make kind-vm-down   # delete the namespace cogpit-vm
 
 If the images do not pull inside the kind node, pull them on the host and `kind load docker-image
 <image> --name cogpit`, as for Prometheus.
+
+## Trivy Operator
+
+`make kind-trivy` installs Trivy Operator for the image ratings' check (D-78,
+`TestKindTrivy`): the aquasecurity `trivy-operator` chart (version pinned in the Makefile, fetched
+with `--repo`), release `trivy` in the namespace `cogpit-trivy`, with
+[`trivy-operator-values.yaml`](trivy-operator-values.yaml): vulnerability reports only (no
+configuration audits, RBAC or infrastructure assessments, exposed secrets, SBOMs or compliance), of
+the namespaces `cogpit-trivy-a` and `cogpit-trivy-b` alone, one scan job at a time, the
+vulnerability database downloaded once by the chart's built-in Trivy server (a StatefulSet with a
+2 GiB volume), reports kept until their workload changes. Then it applies [`trivy/`](trivy/): a
+Deployment `mixed` of an init container (`busybox:1.37.0`) and two containers (`nginx:1.16.1`, an
+old Debian image with known vulnerabilities, and `busybox:1.37.0`), a StatefulSet `store`
+(`nginx:1.30.0-alpine`), a Job `once`, a suspended CronJob `nightly` (`alpine:3.12`) and a Job made
+from it named as the CronJob controller names its Jobs, and a bare Pod `bare` (`alpine:3.12`) in
+`cogpit-trivy-b`. The reports follow within a few minutes (2026-10-17: all seven after about three
+minutes).
+
+```sh
+make kind-trivy        # install the operator and the workloads
+make test-kind         # TestKindTrivy runs instead of skipping
+make kind-trivy-down   # delete the workloads' namespaces, uninstall the operator, delete its
+                       # aquasecurity.github.io definitions and the namespace cogpit-trivy
+```
+
+Trivy Operator's own table of the reports:
+
+```sh
+KUBECONFIG=.cache/kind/kubeconfig kubectl --context kind-cogpit get vulnerabilityreports -A -o wide
+```
 
 ## The synthetic cluster
 

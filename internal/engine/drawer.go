@@ -217,6 +217,7 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		m.Metrics = false // the cluster's settings hide every chart of the kind (hidemetrics.go)
 	}
 	s.drawerPods(b, ref, m)                  // the CPU and Memory of the pods a table lists, and their poll (drawerpods.go)
+	s.imageRatings(b, p, obj, m)             // a pod's image ratings from Trivy Operator's reports (trivy.go, D-78)
 	SortDrawerTables(m, s.drawerSorts())     // the sortable tables in the drawer's order (drawersort.go)
 	LimitDrawerTables(m, MaxDrawerTableRows) // the first rows of a long one, the rest counted (drawerlimit.go)
 	switch {

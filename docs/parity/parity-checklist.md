@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 120 | 117 | 9 | 108 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 56 | 54 | 46 | 8 | 2 |
+| Beyond Lens (not in feature breadth) | 58 | 55 | 47 | 8 | 3 |
 
 Not counted: 8 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -351,5 +351,7 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | Restore the last session at start, a preference that is off by default: on, the tabs of the last run come back and the clusters connected a… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | How long a context's client certificate is valid, where the user chooses a cluster: the time left or "expired" (just that, the owner, 2026-… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | Drag a hotbar tile out of the window and drop it to open that cluster in another Cogpit window (owner, 2026-10-14 evening) | missing | [Everyday use](beyond-lens.md#everyday-use) |
+| A pod's drawer rates each of its images from Trivy Operator's reports, when one has a report: the worst severity found and how many of it,… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
+| Every pod in the Pods list shows the worst image rating of its containers; nothing while the integration is off (the owner, 2026-10-17, I6,… | missing | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | cogpit-cli contexts lists the contexts Cogpit offers, from the app's kubeconfig sources and with its credential plugin approvals, as a tabl… | done | [Command line](beyond-lens.md#command-line) |
 | cogpit-cli get <kind> [name] reads objects from a headless engine's cache, as the views show them, read-only, Secret values never printed | partial | [Command line](beyond-lens.md#command-line) |

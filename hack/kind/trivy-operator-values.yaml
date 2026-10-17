@@ -1,0 +1,23 @@
+# Values for the trivy-operator chart that `make kind-trivy` installs into the kind cluster for the
+# image ratings' check (TestKindTrivy, D-78), and `make kind-trivy-down` removes again: Trivy
+# Operator in its own namespace cogpit-trivy, writing vulnerability reports only, of the workloads
+# in the namespaces cogpit-trivy-a and cogpit-trivy-b alone (hack/kind/trivy/), one scan job at a
+# time, the vulnerability database downloaded once by the chart's built-in Trivy server. The kind
+# cluster is shared: nothing else of the cluster is scanned, and no other kind of report is made.
+targetNamespaces: "cogpit-trivy-a,cogpit-trivy-b"
+operator:
+  scanJobsConcurrentLimit: 1
+  scanJobTimeout: 10m
+  vulnerabilityScannerEnabled: true
+  sbomGenerationEnabled: false
+  configAuditScannerEnabled: false
+  rbacAssessmentScannerEnabled: false
+  infraAssessmentScannerEnabled: false
+  clusterComplianceEnabled: false
+  exposedSecretScannerEnabled: false
+  metricsFindingsEnabled: false
+  # Reports stay until the workload changes: no scan of everything again a day later.
+  scannerReportTTL: ""
+  builtInTrivyServer: true
+trivy:
+  storageSize: "2Gi"

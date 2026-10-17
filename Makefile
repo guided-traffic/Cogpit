@@ -359,6 +359,32 @@ kind-vm: ## Install VictoriaMetrics (single-node and a cluster) into the kind cl
 kind-vm-down: ## Delete the kind cluster's VictoriaMetrics and its namespace
 	$(KUBECTL) delete namespace cogpit-vm --ignore-not-found
 
+# Trivy Operator for the image ratings' check (TestKindTrivy, D-78): the aquasecurity chart, release
+# trivy in the namespace cogpit-trivy, scanning only the namespaces cogpit-trivy-a and cogpit-trivy-b
+# with the workloads of hack/kind/trivy, one scan job at a time (hack/kind/trivy-operator-values.yaml).
+# The Job made from the suspended CronJob is named as the CronJob controller names its Jobs. The
+# chart's CRDs (aquasecurity.github.io) stay after an uninstall: kind-trivy-down deletes them.
+TRIVY_CHART_REPO    ?= https://aquasecurity.github.io/helm-charts/
+TRIVY_CHART_VERSION ?= 0.37.0
+
+.PHONY: kind-trivy kind-trivy-down
+
+kind-trivy: ## Install Trivy Operator and its test workloads into the kind cluster (namespaces cogpit-trivy*)
+	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
+	$(HELM_KIND) upgrade --install trivy trivy-operator --repo $(TRIVY_CHART_REPO) \
+		--version $(TRIVY_CHART_VERSION) --namespace cogpit-trivy --create-namespace \
+		--values hack/kind/trivy-operator-values.yaml --wait --timeout 10m
+	$(KUBECTL) apply -f hack/kind/trivy/
+	$(KUBECTL) -n cogpit-trivy-a create job nightly-29000000 --from=cronjob/nightly --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	@echo "Trivy Operator scans cogpit-trivy-a and cogpit-trivy-b one image at a time: the reports follow within minutes"
+
+kind-trivy-down: ## Uninstall Trivy Operator, its CRDs and the namespaces cogpit-trivy*
+	$(KUBECTL) delete namespace cogpit-trivy-a cogpit-trivy-b --ignore-not-found
+	$(HELM_KIND) uninstall trivy --namespace cogpit-trivy --ignore-not-found --wait
+	for crd in $$($(KUBECTL) get crd -o name | grep '\.aquasecurity\.github\.io$$'); do \
+		$(KUBECTL) delete --ignore-not-found $$crd; done
+	$(KUBECTL) delete namespace cogpit-trivy --ignore-not-found
+
 # The drain cluster: one control plane and two workers, for the tests that cordon and drain a
 # node, which must never run against the shared single-node cluster above.
 KIND_DRAIN_CLUSTER    ?= cogpit-drain

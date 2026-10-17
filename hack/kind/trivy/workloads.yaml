@@ -1,0 +1,106 @@
+# The workloads Trivy Operator scans for the image ratings' check (TestKindTrivy, D-78): `make
+# kind-trivy` applies them after the operator, `make kind-trivy-down` deletes their namespaces. Every
+# image tag is pinned. nginx:1.16.1 (Debian 10) and alpine:3.12 are old on purpose: their reports
+# hold known vulnerabilities; busybox has no package database Trivy reads, so its report is clean.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cogpit-trivy-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cogpit-trivy-b
+---
+# Two containers of different images and an init container: one report per container, the pod's
+# rating the worst of them.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mixed
+  namespace: cogpit-trivy-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: mixed}
+  template:
+    metadata:
+      labels: {app: mixed}
+    spec:
+      initContainers:
+        - name: init
+          image: busybox:1.37.0
+          command: ["true"]
+      containers:
+        - name: old
+          image: nginx:1.16.1
+        - name: new
+          image: busybox:1.37.0
+          command: ["sleep", "infinity"]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: store
+  namespace: cogpit-trivy-a
+spec:
+  replicas: 1
+  serviceName: store
+  selector:
+    matchLabels: {app: store}
+  template:
+    metadata:
+      labels: {app: store}
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.30.0-alpine
+---
+# A Job of its own: its report is the Job's.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: once
+  namespace: cogpit-trivy-a
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: task
+          image: busybox:1.37.0
+          command: ["true"]
+---
+# A suspended CronJob: its report is the CronJob's, and the Job `make kind-trivy` makes from it
+# (named as the CronJob controller names its Jobs) has its pod rated through it.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly
+  namespace: cogpit-trivy-a
+spec:
+  schedule: "0 3 * * *"
+  suspend: true
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: report
+              image: alpine:3.12
+              command: ["true"]
+---
+# A bare Pod: its report is the Pod's own.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bare
+  namespace: cogpit-trivy-b
+spec:
+  containers:
+    - name: shell
+      image: alpine:3.12
+      command: ["sleep", "infinity"]

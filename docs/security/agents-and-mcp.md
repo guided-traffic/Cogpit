@@ -152,6 +152,8 @@ night: a chart's README reaches agents framed as third-party text
 ([H-86](#h-86-a-charts-readme-reaches-agents)); the decision covers the README only, not other
 cluster data.
 
+Since 2026-10-17 a pod's drawer carries its images' ratings from Trivy Operator's reports while the Trivy integration is on ([D-78](../developer/decisions.md#d-78-trivy-operators-image-ratings)), and agents read them in `object_get`: image references, the counts per severity, when each was scanned and the report's name, no free text of the report. The reports themselves, each vulnerability's title and description as the scanner's databases wrote them, reached agents before as any custom resource does (`object_get` and `resources_list` on `vulnerabilityreports.aquasecurity.github.io`): H-11's case, written by whoever writes a vulnerability database's entries rather than by a user of the cluster, bounded as above. Nothing new is withheld or framed for it.
+
 ### H-86: A chart's README reaches agents
 
 Live since 2026-10-14 for every agent over MCP or the stdio bridge, and since the night run of
