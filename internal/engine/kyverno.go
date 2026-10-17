@@ -93,7 +93,10 @@ var kyvernoReportKinds = []string{kinds.PolicyReportsKey, kinds.ClusterPolicyRep
 // namespace plan changed), and stops them when it is switched off.
 func followKyverno(st *state, b *Backend, now UIState) {
 	cur, _ := overlayOf[*kyvernoSource](b)
-	if !now.IntegrationOn(b.Context, IntegrationKyverno) {
+	// Read only while the cluster is the one shown: its marks show only in its views, and a cluster
+	// connected in the background goes cold (D-69); shown again within the cache's warm period, the
+	// reports are there at once (the lead's decision, 2026-10-17, D-79).
+	if !now.IntegrationOn(b.Context, IntegrationKyverno) || now.Context != b.Context {
 		if cur != nil {
 			b.overlays.put(IntegrationKyverno, nil)
 			st.s.goSafe("kyverno off", func() { st.s.integrationsChanged(b.Context) })
@@ -638,14 +641,21 @@ func (x *violationIndex) all() []struct {
 // ErrKyvernoOff says that the Kyverno integration is switched off for a cluster.
 var ErrKyvernoOff = errors.New("the Kyverno integration is switched off for this cluster (Cluster Settings › Integrations)")
 
+// ErrKyvernoNotShown says that a cluster's Kyverno reports are read only while it is the one shown.
+var ErrKyvernoNotShown = errors.New("Kyverno's policy reports are read only while the cluster is the one shown in Cogpit's window; show it first")
+
 // KyvernoReady says why a connected cluster's Kyverno violations cannot be read: the integration
 // is off, or the cluster serves no policy reports; nil when they can.
 func (s *Session) KyvernoReady(b *Backend) error {
 	if b == nil {
 		return errors.New("no cluster connected")
 	}
-	if u := s.UIState(); !u.IntegrationOn(b.Context, IntegrationKyverno) {
+	u := s.UIState()
+	if !u.IntegrationOn(b.Context, IntegrationKyverno) {
 		return ErrKyvernoOff
+	}
+	if u.Context != b.Context {
+		return ErrKyvernoNotShown
 	}
 	if _, ok := overlayOf[*kyvernoSource](b); !ok {
 		_, _, detail := probeKyverno(s, b, true)

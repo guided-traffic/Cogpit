@@ -134,7 +134,9 @@ func TestNodeHistoryOnKubePrometheusStack(t *testing.T) {
 	var m *engine.ObjectMetrics
 	if !testkit.WaitFor(ctx, func() bool {
 		m, _ = s.ObjectMetrics(ref)
-		return m != nil && m.HistorySource == metrics.UsageNodeExporter && len(m.Targets) == 1 && len(m.Targets[0].Samples) >= 3
+		// The source line too: it follows the providers' states, which may settle after the samples.
+		return m != nil && m.HistorySource == metrics.UsageNodeExporter && len(m.Targets) == 1 && len(m.Targets[0].Samples) >= 3 &&
+			m.Source == "Prometheus (monitoring/kps-kube-prometheus-stack-prometheus) and Kubernetes Metrics Server"
 	}) {
 		t.Fatalf("the node's drawer never got node-exporter's history: %+v", m)
 	}

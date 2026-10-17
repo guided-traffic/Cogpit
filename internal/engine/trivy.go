@@ -96,7 +96,10 @@ func followTrivy(st *state, b *Backend, now UIState) {
 	}
 	cur, _ := overlayOf[*trivySource](b)
 	p, served := b.Profile(trivyReportsKind)
-	want := served && p.Namespaced && now.IntegrationOn(b.Context, IntegrationTrivy)
+	// Read only while the cluster is the one shown, as Kyverno's reports (kyverno.go): its ratings show
+	// only in its views, and a cluster connected in the background goes cold (D-69; the lead's
+	// decision, 2026-10-17, D-78).
+	want := served && p.Namespaced && now.IntegrationOn(b.Context, IntegrationTrivy) && now.Context == b.Context
 	key := ""
 	if want {
 		key = p.GVR().String() + "=" + b.namespacePlan(p).key()
