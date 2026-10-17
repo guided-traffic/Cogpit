@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -11,13 +12,12 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
-	"fyne.io/fyne/v2/widget"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/engine/commands"
 )
 
-// fakeHotbar gives a fake engine the hotbar.* commands. Changes run through the engine's own bank
+// fakeHotbar gives a fake engine the hotbar.* commands. Changes run through the engine's own
 // operations (engine.HotbarState) on f.ui.Hotbar, as Session.ChangeHotbar does; hotbar.list adds
 // what each tile shows, as Session.HotbarView does, with missing and exec set by the test.
 type fakeHotbar struct {
@@ -26,14 +26,14 @@ type fakeHotbar struct {
 	exec    map[string]string
 }
 
-func withHotbar(f *fakeEngine, current int, banks ...engine.HotbarBank) *fakeHotbar {
+// withHotbar gives the fake a hotbar of these contexts, top to bottom (one hotbar, D-83).
+func withHotbar(f *fakeEngine, contexts ...string) *fakeHotbar {
 	fh := &fakeHotbar{f: f, missing: map[string]bool{}, exec: map[string]string{}}
-	for i := range banks {
-		if banks[i].Clusters == nil {
-			banks[i].Clusters = []engine.HotbarTile{}
-		}
+	tiles := make([]engine.HotbarTile, 0, len(contexts))
+	for _, c := range contexts {
+		tiles = append(tiles, engine.HotbarTile{Context: c})
 	}
-	f.ui.Hotbar = &engine.HotbarState{Banks: banks, Current: current}
+	f.ui.Hotbar = &engine.HotbarState{Clusters: tiles}
 	change := func(op func(h *engine.HotbarState, inv engine.Invocation) error) func(context.Context, engine.Invocation) (any, error) {
 		return func(_ context.Context, inv engine.Invocation) (any, error) {
 			f.mu.Lock()
@@ -58,51 +58,21 @@ func withHotbar(f *fakeEngine, current int, banks ...engine.HotbarBank) *fakeHot
 		if p.Context == "" {
 			p.Context = f.UIState().Context
 		}
-		return h.AddCluster(p.Bank, p.Context)
+		return h.AddCluster(p.Context)
 	})
 	f.handlers["hotbar.removeCluster"] = change(func(h *engine.HotbarState, inv engine.Invocation) error {
 		var p hotbarClusterParams
 		if err := params(inv, &p); err != nil {
 			return err
 		}
-		return h.RemoveCluster(p.Bank, p.Context)
+		return h.RemoveCluster(p.Context)
 	})
 	f.handlers["hotbar.moveCluster"] = change(func(h *engine.HotbarState, inv engine.Invocation) error {
 		var p hotbarMoveParams
 		if err := params(inv, &p); err != nil {
 			return err
 		}
-		return h.MoveCluster(p.Bank, p.Context, p.Position)
-	})
-	f.handlers["hotbar.switchBank"] = change(func(h *engine.HotbarState, inv engine.Invocation) error {
-		var p hotbarSwitchParams
-		if err := params(inv, &p); err != nil {
-			return err
-		}
-		return h.SwitchBank(p.Bank)
-	})
-	f.handlers["hotbar.createBank"] = change(func(h *engine.HotbarState, inv engine.Invocation) error {
-		var p hotbarCreateParams
-		if err := params(inv, &p); err != nil {
-			return err
-		}
-		_, err := h.CreateBank(p.Name)
-		return err
-	})
-	f.handlers["hotbar.renameBank"] = change(func(h *engine.HotbarState, inv engine.Invocation) error {
-		var p hotbarRenameParams
-		if err := params(inv, &p); err != nil {
-			return err
-		}
-		return h.RenameBank(p.Bank, p.Name)
-	})
-	f.handlers["hotbar.removeBank"] = change(func(h *engine.HotbarState, inv engine.Invocation) error {
-		var p hotbarBankParams
-		if err := params(inv, &p); err != nil {
-			return err
-		}
-		_, err := h.RemoveBank(p.Bank)
-		return err
+		return h.MoveCluster(p.Context, p.Position)
 	})
 	f.handlers["hotbar.openCluster"] = func(_ context.Context, inv engine.Invocation) (any, error) {
 		var p hotbarSlotParams
@@ -110,7 +80,7 @@ func withHotbar(f *fakeEngine, current int, banks ...engine.HotbarBank) *fakeHot
 			return nil, err
 		}
 		f.mu.Lock()
-		t, err := f.ui.Hotbar.Tile(p.Bank, p.Slot)
+		t, err := f.ui.Hotbar.Tile(p.Slot)
 		f.mu.Unlock()
 		if err != nil {
 			return nil, err
@@ -127,40 +97,38 @@ func withHotbar(f *fakeEngine, current int, banks ...engine.HotbarBank) *fakeHot
 func (fh *fakeHotbar) view() engine.HotbarState {
 	u := fh.f.UIState()
 	v := u.Hotbar.Clone()
-	for i := range v.Banks {
-		for j := range v.Banks[i].Clusters {
-			t := &v.Banks[i].Clusters[j]
-			t.Label, t.Connection = engine.ContextLabel(t.Context), engine.Disconnected
-			if c, ok := u.ConnectionOf(t.Context); ok { // every connected cluster's state (D-69)
-				t.Connection = c.Connection.State
-			}
-			if t.Context == u.Context {
-				t.Connection = u.Connection.State
-			}
-			t.Missing, t.Exec = fh.missing[t.Context], fh.exec[t.Context]
+	for i := range v.Clusters {
+		t := &v.Clusters[i]
+		t.Label, t.Connection = engine.ContextLabel(t.Context), engine.Disconnected
+		if c, ok := u.ConnectionOf(t.Context); ok { // every connected cluster's state (D-69)
+			t.Connection = c.Connection.State
 		}
+		if t.Context == u.Context {
+			t.Connection = u.Connection.State
+		}
+		t.Missing, t.Exec = fh.missing[t.Context], fh.exec[t.Context]
 	}
 	return v
 }
 
+// setHotbar changes the fake's hotbar as an agent's command would: these contexts, top to bottom.
+func (fh *fakeHotbar) setHotbar(contexts ...string) {
+	tiles := make([]engine.HotbarTile, 0, len(contexts))
+	for _, c := range contexts {
+		tiles = append(tiles, engine.HotbarTile{Context: c})
+	}
+	fh.f.update(func(u *engine.UIState) { u.Hotbar = &engine.HotbarState{Clusters: tiles} })
+}
+
 func tilesOf(h *hotbar) []*hotbarTile { return findAll[*hotbarTile](h.tiles) }
 
-// hotbarScene is the shell connected to kind-cogpit with a hotbar of two banks: Default with five
-// clusters (kind-cogpit connected, legacy-onprem missing), Production with one.
+// hotbarScene is the shell connected to kind-cogpit with a hotbar of six clusters (kind-cogpit
+// connected, legacy-onprem missing).
 func hotbarScene(t *testing.T, mode ThemeMode) (*shell, fyne.Window, *mainQueue, *fakeEngine, *fakeHotbar) {
 	f := connectedFake(t, 10000)
 	f.ui.Context = "kind-cogpit"
 	f.ui.Connection = engine.Connection{State: engine.Connected}
-	tiles := func(ids ...string) []engine.HotbarTile {
-		out := make([]engine.HotbarTile, 0, len(ids))
-		for _, id := range ids {
-			out = append(out, engine.HotbarTile{Context: id})
-		}
-		return out
-	}
-	fh := withHotbar(f, 1,
-		engine.HotbarBank{Name: "Default", Clusters: tiles("kind-cogpit", "prod-eu-central", "staging-us-east", "legacy-onprem [.kube/old.yaml]", "dev-hfi", "demo")},
-		engine.HotbarBank{Name: "Production", Clusters: tiles("prod-eu-central")})
+	fh := withHotbar(f, "kind-cogpit", "prod-eu-central", "staging-us-east", "legacy-onprem [.kube/old.yaml]", "dev-hfi", "demo")
 	fh.missing["legacy-onprem [.kube/old.yaml]"] = true
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
 	q.until(t, "the hotbar", func() bool { return sh.hot.root.Visible() && len(tilesOf(sh.hot)) == 6 && len(sh.kinds) > 0 })
@@ -181,11 +149,11 @@ func TestHotbarHiddenWithoutAHotbar(t *testing.T) {
 	}
 }
 
-// The bar shows the shown bank: a tile per cluster with its initials and label, the connected one
-// active with a green dot, the missing one marked, the full id with state and key as tooltip, and
-// the switcher's number with the bank's name as its tooltip.
-func TestHotbarShowsTheShownBank(t *testing.T) {
-	sh, _, q, f, _ := hotbarScene(t, ThemeDark)
+// The bar shows the hotbar's tiles: a tile per cluster with its initials and label, the connected
+// one active with a green dot, the missing one marked, the full id with state and key as tooltip;
+// no bank switcher (D-83), the "+" under the last tile.
+func TestHotbarShowsItsTiles(t *testing.T) {
+	sh, _, q, f, fh := hotbarScene(t, ThemeDark)
 	tl := tilesOf(sh.hot)
 	if tl[0].tile.Label != "kind-cogpit" || !tl[0].active() || tl[1].active() || tl[0].slot != 1 {
 		t.Errorf("first tiles: %+v %+v", tl[0].tile, tl[1].tile)
@@ -200,26 +168,59 @@ func TestHotbarShowsTheShownBank(t *testing.T) {
 		t.Errorf("tooltip %q", got)
 	}
 	r := test.WidgetRenderer(tl[0]).(*hotbarTileRenderer)
-	if r.initials.Text != "KC" {
-		t.Errorf("initials %q", r.initials.Text)
+	if r.initials.Text != "KC" || !r.dot.Visible() || r.card.Visible() || r.still.Visible() {
+		t.Errorf("initials %q, dot %v, card %v", r.initials.Text, r.dot.Visible(), r.card.Visible())
 	}
-	if sh.hot.number.text != "1" || sh.hot.number.tip != "Bank 1 of 2: Default" || sh.hot.prev.disabled {
-		t.Errorf("switcher %q %q", sh.hot.number.text, sh.hot.number.tip)
+	if objs := sh.hot.tiles.Objects; objs[len(objs)-1] != sh.hot.add {
+		t.Error("the + is not under the last tile")
 	}
-	// The "+" pins the connected cluster; it is in the bank already.
-	if !sh.hot.add.disabled || sh.hot.add.tip != "kind-cogpit is in this bank already" {
+	if !sh.hot.add.disabled || sh.hot.add.tip != "kind-cogpit is on the hotbar already" {
 		t.Errorf("+: %v %q", sh.hot.add.disabled, sh.hot.add.tip)
 	}
-	// Another bank shown by an agent: the bar follows the UI state.
-	f.update(func(u *engine.UIState) { h := u.Hotbar.Clone(); h.Current = 2; u.Hotbar = &h })
-	q.until(t, "bank 2", func() bool { return len(tilesOf(sh.hot)) == 1 && sh.hot.number.text == "2" })
-	if sh.hot.add.disabled || sh.hot.add.tip != "Add kind-cogpit to bank 2 (Production)" {
-		t.Errorf("+ on bank 2: %v %q", sh.hot.add.disabled, sh.hot.add.tip)
+	// An agent unpins the connected cluster: the bar follows the UI state, and the "+" pins it.
+	fh.setHotbar("prod-eu-central", "staging-us-east")
+	q.until(t, "two tiles", func() bool { return len(tilesOf(sh.hot)) == 2 })
+	if sh.hot.add.disabled || sh.hot.add.tip != "Add kind-cogpit to the hotbar" {
+		t.Errorf("+ without kind-cogpit: %v %q", sh.hot.add.disabled, sh.hot.add.tip)
 	}
 	test.Tap(sh.hot.add)
-	q.until(t, "the cluster pinned", func() bool { return len(tilesOf(sh.hot)) == 2 })
-	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.addCluster")[0]); p.Bank != 2 || p.Context != "" {
+	q.until(t, "the cluster pinned", func() bool { return len(tilesOf(sh.hot)) == 3 && tilesOf(sh.hot)[2].tile.Context == "kind-cogpit" })
+	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.addCluster")[0]); p.Context != "" {
 		t.Errorf("hotbar.addCluster %+v", p)
+	}
+}
+
+// A new hotbar updates the tiles in place: a context keeps its widget (its tooltip stays), a moved
+// tile's widget moves, a removed one's goes and its tooltip with it.
+func TestHotbarUpdatesTilesInPlace(t *testing.T) {
+	sh, w, q, _, fh := hotbarScene(t, ThemeDark)
+	settle(w)
+	before := map[string]*hotbarTile{}
+	for _, tl := range tilesOf(sh.hot) {
+		before[tl.tile.Context] = tl
+	}
+	staging := before["staging-us-east"]
+	sh.tip.delay = time.Millisecond
+	sh.tip.hover(staging, staging.tipText(), middleOf(staging))
+	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() != "" })
+
+	fh.setHotbar("demo", "staging-us-east", "kind-cogpit", "prod-eu-central", "dev-hfi") // legacy-onprem removed, demo first
+	q.until(t, "the new order", func() bool {
+		return slices.Equal(contextsOf(sh.hot), []string{"demo", "staging-us-east", "kind-cogpit", "prod-eu-central", "dev-hfi"})
+	})
+	for i, tl := range tilesOf(sh.hot) {
+		if before[tl.tile.Context] != tl || tl.slot != i+1 {
+			t.Errorf("%s: a new widget or slot %d", tl.tile.Context, tl.slot)
+		}
+	}
+	if sh.tip.owner != staging || sh.tip.visibleText() == "" {
+		t.Error("the tooltip of a tile that stayed went")
+	}
+	sh.tip.hover(before["dev-hfi"], "x", middleOf(before["dev-hfi"]))
+	fh.setHotbar("demo", "staging-us-east")
+	q.until(t, "two tiles", func() bool { return len(tilesOf(sh.hot)) == 2 })
+	if sh.tip.owner != nil {
+		t.Errorf("the tooltip of a removed tile stays: %T", sh.tip.owner)
 	}
 }
 
@@ -238,8 +239,7 @@ func TestHotbarTileClickOpensTheCluster(t *testing.T) {
 	}
 	test.Tap(tilesOf(sh.hot)[1])
 	q.until(t, "the connection", func() bool { return sh.ui.Context == "prod-eu-central" && tilesOf(sh.hot)[1].active() })
-	p := decodeParams[hotbarSlotParams](t, f.callsOf("hotbar.openCluster")[0])
-	if p.Slot != 2 || p.Bank != 1 {
+	if p := decodeParams[hotbarSlotParams](t, f.callsOf("hotbar.openCluster")[0]); p.Slot != 2 {
 		t.Errorf("hotbar.openCluster %+v", p)
 	}
 	if tilesOf(sh.hot)[0].active() {
@@ -251,7 +251,7 @@ func TestHotbarTileClickOpensTheCluster(t *testing.T) {
 // nothing connects before the user allowed it.
 func TestHotbarTileAsksForTheLoginProgramFirst(t *testing.T) {
 	f := connectedFake(t, 10)
-	fh := withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: []engine.HotbarTile{{Context: "eks [eks.yaml]"}}})
+	fh := withHotbar(f, "eks [eks.yaml]")
 	fh.exec["eks [eks.yaml]"] = engine.ExecRequired
 	f.handlers["kubeconfig.pendingApprovals"] = func(context.Context, engine.Invocation) (any, error) {
 		return nil, errors.New("no plugin in this fake")
@@ -285,7 +285,7 @@ func TestHotbarTileMenu(t *testing.T) {
 	}
 	items[3].Action() // Move Down
 	q.until(t, "the move", func() bool { return tilesOf(sh.hot)[1].tile.Context == "kind-cogpit" })
-	if p := decodeParams[hotbarMoveParams](t, f.callsOf("hotbar.moveCluster")[0]); p.Context != "kind-cogpit" || p.Position != 2 || p.Bank != 1 {
+	if p := decodeParams[hotbarMoveParams](t, f.callsOf("hotbar.moveCluster")[0]); p.Context != "kind-cogpit" || p.Position != 2 {
 		t.Errorf("hotbar.moveCluster %+v", p)
 	}
 	last := tilesOf(sh.hot)[5]
@@ -295,97 +295,80 @@ func TestHotbarTileMenu(t *testing.T) {
 	}
 	sh.hot.menuModel.Items[5].Action() // Remove from Hotbar
 	q.until(t, "the removal", func() bool { return len(tilesOf(sh.hot)) == 5 })
-	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.removeCluster")[0]); p.Context != "demo" || p.Bank != 1 {
+	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.removeCluster")[0]); p.Context != "demo" {
 		t.Errorf("hotbar.removeCluster %+v", p)
 	}
 }
 
-// F1–F12 open a tile of the shown bank and ⇧F1–⇧F12 show a bank: from the window when nothing has
-// the focus, and from the table when it has; a key without a tile or bank does nothing.
+// F1–F12 open the first twelve tiles: from the window when nothing has the focus, and from the
+// table when it has; a key without a tile does nothing; a shifted F-key is not the hotbar's
+// (⇧F1–⇧F12 showed a bank until D-83).
 func TestHotbarFunctionKeys(t *testing.T) {
 	sh, w, q, f, _ := hotbarScene(t, ThemeDark)
 	w.Canvas().OnTypedKey()(&fyne.KeyEvent{Name: fyne.KeyF3})
 	q.until(t, "F3", func() bool { return sh.ui.Context == "staging-us-east" })
 	sh.view.table.TypedKey(&fyne.KeyEvent{Name: fyne.KeyF2})
 	q.until(t, "F2 from the table", func() bool { return sh.ui.Context == "prod-eu-central" })
-	if !sh.hot.key(fyne.KeyF12, false) || !sh.hot.key(fyne.KeyF9, true) {
-		t.Error("an F-key without a tile or bank was passed on")
+	if !sh.hot.key(fyne.KeyF12, false) {
+		t.Error("F12 without a tile was passed on")
 	}
-	if sh.hot.key(fyne.KeyA, false) {
-		t.Error("a letter taken by the hotbar")
+	if sh.hot.key(fyne.KeyF2, true) || sh.hot.key(fyne.KeyA, false) {
+		t.Error("⇧F2 or a letter taken by the hotbar")
 	}
-	sh.hot.key(fyne.KeyF2, true)
-	q.until(t, "⇧F2", func() bool { return sh.hot.number.text == "2" })
 	q.drain()
 	if n := len(f.callsOf("hotbar.openCluster")); n != 2 {
-		t.Errorf("%d opens, want 2 (F12 has no tile)", n)
-	}
-	if p := decodeParams[hotbarSwitchParams](t, f.callsOf("hotbar.switchBank")[0]); p.Bank != 2 || len(f.callsOf("hotbar.switchBank")) != 1 {
-		t.Errorf("hotbar.switchBank %+v (⇧F9 has no bank)", p)
+		t.Errorf("%d opens, want 2 (F12 has no tile, ⇧F2 is no hotbar key)", n)
 	}
 }
 
-// The switcher: the arrows step through the banks and wrap around; the number's menu lists them
-// and creates, renames and removes; removing a bank with clusters asks first.
-func TestHotbarBankSwitcher(t *testing.T) {
-	sh, w, q, f, _ := hotbarScene(t, ThemeDark)
-	test.Tap(sh.hot.prev) // from bank 1 to the last, 2
-	q.until(t, "bank 2", func() bool { return sh.hot.number.text == "2" })
-	test.Tap(sh.hot.next) // and around to 1
-	q.until(t, "bank 1", func() bool { return sh.hot.number.text == "1" })
-
-	test.Tap(sh.hot.number)
-	labels := []string{}
-	for _, it := range sh.hot.menuModel.Items {
-		labels = append(labels, it.Label)
+// The hotbar holds more than twelve tiles (D-83): F12 opens the twelfth, the thirteenth has no key
+// in its tooltip and opens with a click; the bar scrolls, and the "+" is reachable below the last.
+func TestHotbarPastTwelveScrolls(t *testing.T) {
+	f := connectedFake(t, 10)
+	var ids []string
+	for i := range 20 {
+		ids = append(ids, fmt.Sprintf("c%02d", i+1))
+		f.contexts = append(f.contexts, engine.ContextInfo{Name: ids[i]})
 	}
-	if strings.Join(labels, "|") != "1  Default|2  Production||New Bank…|Rename Bank…|Remove Bank…" || !sh.hot.menuModel.Items[0].Checked {
-		t.Fatalf("bank menu %q", labels)
+	withHotbar(f, ids...)
+	sh, w, q := newTestShell(t, f, Options{})
+	q.until(t, "twenty tiles", func() bool { return len(tilesOf(sh.hot)) == 20 && len(sh.kinds) > 0 })
+	settle(w)
+	tl := tilesOf(sh.hot)
+	if got := tl[11].tipText(); !strings.HasSuffix(got, " · F12") {
+		t.Errorf("the twelfth's tooltip %q", got)
 	}
-	sh.hot.menuModel.Items[3].Action() // New Bank…
-	entry := findAll[*widget.Entry](w.Canvas().Overlays().Top())
-	if len(entry) != 1 || entry[0].PlaceHolder != "Bank 3" {
-		t.Fatalf("the name dialog: %d entries", len(entry))
+	if got := tl[12].tipText(); strings.Contains(got, " · F") {
+		t.Errorf("the thirteenth's tooltip %q names a key", got)
 	}
-	test.Type(entry[0], "Staging")
-	test.Tap(findButton(w, "Create"))
-	q.until(t, "bank 3", func() bool { return sh.hot.number.text == "3" && sh.hot.number.tip == "Bank 3 of 3: Staging" })
-
-	sh.hot.renameBank()
-	entry = findAll[*widget.Entry](w.Canvas().Overlays().Top())
-	entry[0].SetText("QA")
-	test.Tap(findButton(w, "Rename"))
-	q.until(t, "the rename", func() bool { return sh.hot.number.tip == "Bank 3 of 3: QA" })
-
-	sh.hot.removeBank() // empty: no question
-	q.until(t, "bank 3 gone", func() bool { return len(sh.hot.view.Banks) == 2 })
-	sh.hot.switchBank(1)
-	q.until(t, "bank 1", func() bool { return sh.hot.number.text == "1" })
-	sh.hot.removeBank() // six clusters: asks
-	if findButton(w, "Remove") == nil {
-		t.Fatal("no confirmation for a bank with clusters")
+	s := sh.hot.scroll
+	if s.Content.MinSize().Height <= s.Size().Height {
+		t.Fatalf("twenty tiles fit: content %v, bar %v", s.Content.MinSize(), s.Size())
 	}
-	test.Tap(findButton(w, "Cancel"))
-	q.drain()
-	if n := len(f.callsOf("hotbar.removeBank")); n != 1 {
-		t.Fatalf("Cancel removed the bank: %d removals", n)
+	visible := func(o fyne.CanvasObject) bool {
+		top, at := absolutePos(s).Y, absolutePos(o).Y
+		return at >= top && at+o.Size().Height <= top+s.Size().Height
 	}
-	sh.hot.removeBank()
-	test.Tap(findButton(w, "Remove"))
-	q.until(t, "bank 1 gone", func() bool { return len(sh.hot.view.Banks) == 1 && sh.hot.view.Banks[0].Name == "Production" })
-	if !sh.hot.prev.disabled {
-		t.Error("the arrows stay enabled with one bank")
+	if visible(sh.hot.add) {
+		t.Error("the + shows before the bar scrolled")
 	}
-	if title, msg := removeBankText(1, engine.HotbarBank{Name: "Default", Clusters: make([]engine.HotbarTile, 6)}); title != "Remove bank 1?" ||
-		!strings.Contains(msg, `"Default" and its 6 tiles`) || !strings.Contains(msg, "stay as they are") {
-		t.Errorf("confirmation %q %q", title, msg)
+	s.ScrollToBottom()
+	if !visible(sh.hot.add) || !visible(tl[19]) {
+		t.Errorf("after scrolling down the + at %v, the bar %v at %v", absolutePos(sh.hot.add), s.Size(), absolutePos(s))
+	}
+	sh.hot.key(fyne.KeyF12, false)
+	q.until(t, "F12", func() bool { return sh.ui.Context == "c12" })
+	test.Tap(tl[16])
+	q.until(t, "the seventeenth", func() bool { return sh.ui.Context == "c17" })
+	if p := decodeParams[hotbarSlotParams](t, f.callsOf("hotbar.openCluster")[1]); p.Slot != 17 {
+		t.Errorf("hotbar.openCluster %+v", p)
 	}
 }
 
 // "Add to Hotbar" is in a context's menu: the navigator's section rows (right-click) and the
-// Cluster menu, as "Remove from Hotbar" when the shown bank holds the context.
+// Cluster menu, as "Remove from Hotbar" when the hotbar holds the context.
 func TestHotbarAddFromTheContextMenus(t *testing.T) {
-	sh, _, q, f, _ := hotbarScene(t, ThemeDark)
+	sh, _, q, f, fh := hotbarScene(t, ThemeDark)
 	cluster := sh.mainMenu().Items[0]
 	if cluster.Label != "Cluster" || cluster.Items[1].Label != "Remove from Hotbar" {
 		t.Errorf("Cluster menu: %q %q", cluster.Label, cluster.Items[1].Label)
@@ -393,29 +376,30 @@ func TestHotbarAddFromTheContextMenus(t *testing.T) {
 
 	n := sh.side.sec
 	q.until(t, "the section's rows", func() bool { return n.loaded && len(n.rows) == 5 })
-	n.rows["demo"].TappedSecondary(&fyne.PointEvent{AbsolutePosition: fyne.NewPos(400, 300)}) // in the bank already
+	n.rows["demo"].TappedSecondary(&fyne.PointEvent{AbsolutePosition: fyne.NewPos(400, 300)}) // on the hotbar already
 	if got := n.menuModel.Items[1].Label; got != "Remove from Hotbar" {
 		t.Errorf("demo's menu: %q", got)
 	}
-	f.update(func(u *engine.UIState) { h := u.Hotbar.Clone(); h.Current = 2; u.Hotbar = &h })
-	q.until(t, "bank 2", func() bool { return sh.hot.number.text == "2" })
+	fh.setHotbar("prod-eu-central") // an agent unpinned the others
+	q.until(t, "one tile", func() bool { return len(tilesOf(sh.hot)) == 1 })
 	n.rows["staging-us-east"].TappedSecondary(&fyne.PointEvent{AbsolutePosition: fyne.NewPos(400, 300)})
 	items := n.menuModel.Items
-	if items[0].Label != "Connect" || items[1].Label != "Add to Hotbar" {
+	if items[0].Label != "Connect" || items[1].Label != "Add to Hotbar" || items[1].Disabled {
 		t.Fatalf("staging's menu: %q %q", items[0].Label, items[1].Label)
 	}
 	items[1].Action()
 	q.until(t, "pinned", func() bool { return len(tilesOf(sh.hot)) == 2 })
-	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.addCluster")[0]); p.Context != "staging-us-east" || p.Bank != 2 {
+	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.addCluster")[0]); p.Context != "staging-us-east" {
 		t.Errorf("hotbar.addCluster %+v", p)
 	}
-	// The Cluster menu follows: kind-cogpit is not in bank 2.
+	// The Cluster menu follows: kind-cogpit is not on the hotbar any more.
 	if got := sh.mainMenu().Items[0].Items[1].Label; got != "Add to Hotbar" {
-		t.Errorf("Cluster menu on bank 2: %q", got)
+		t.Errorf("Cluster menu: %q", got)
 	}
 }
 
-// The parameters the bar sends are what the real registry accepts (it refuses unknown fields).
+// The parameters the bar sends are what the real registry accepts (it refuses unknown fields), and
+// the bank commands are gone (D-83).
 func TestHotbarParamsMatchTheRegistry(t *testing.T) {
 	s := engine.New(engine.Options{Hotbar: engine.NewHotbar(t.TempDir())})
 	defer s.Close()
@@ -424,14 +408,10 @@ func TestHotbarParamsMatchTheRegistry(t *testing.T) {
 	}
 	for id, params := range map[string]any{
 		"hotbar.list":          struct{}{},
-		"hotbar.addCluster":    hotbarClusterParams{Context: "a", Bank: 1},
-		"hotbar.removeCluster": hotbarClusterParams{Context: "a", Bank: 1},
-		"hotbar.moveCluster":   hotbarMoveParams{Context: "a", Position: 2, Bank: 1},
-		"hotbar.openCluster":   hotbarSlotParams{Slot: 1, Bank: 1},
-		"hotbar.switchBank":    hotbarSwitchParams{Bank: 1},
-		"hotbar.createBank":    hotbarCreateParams{Name: "x"},
-		"hotbar.renameBank":    hotbarRenameParams{Bank: 1, Name: "x"},
-		"hotbar.removeBank":    hotbarBankParams{Bank: 1},
+		"hotbar.addCluster":    hotbarClusterParams{Context: "a"},
+		"hotbar.removeCluster": hotbarClusterParams{Context: "a"},
+		"hotbar.moveCluster":   hotbarMoveParams{Context: "a", Position: 2},
+		"hotbar.openCluster":   hotbarSlotParams{Slot: 1},
 	} {
 		cmd, ok := s.Registry().Get(id)
 		if !ok {
@@ -444,6 +424,11 @@ func TestHotbarParamsMatchTheRegistry(t *testing.T) {
 			t.Errorf("%s %s: %v", id, raw, err)
 		}
 	}
+	for _, id := range []string{"hotbar.switchBank", "hotbar.createBank", "hotbar.renameBank", "hotbar.removeBank"} {
+		if _, ok := s.Registry().Get(id); ok {
+			t.Errorf("%s is still registered", id)
+		}
+	}
 }
 
 func TestRenderHotbarEmptyDark(t *testing.T) {
@@ -453,23 +438,25 @@ func TestRenderHotbarEmptyLight(t *testing.T) {
 	renderHotbarEmpty(t, ThemeLight, "hotbar_empty_light.png")
 }
 
-// renderHotbarEmpty: a first start's hotbar, one empty bank, the "+" to pin the connected cluster.
+// renderHotbarEmpty: a first start's hotbar, empty, the "+" to pin the connected cluster.
 func renderHotbarEmpty(t *testing.T, mode ThemeMode, name string) {
 	f := connectedFake(t, 10000)
-	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank})
+	withHotbar(f)
 	sh, w, q := newTestShell(t, f, Options{Theme: mode, MCPCommand: "claude mcp add cogpit -- cogpit-cli mcp"})
 	q.until(t, "the hotbar", func() bool { return sh.hot.root.Visible() && len(sh.kinds) > 0 && sh.diag.total > 0 })
 	savePNG(t, w, name)
 }
 
-func TestRenderHotbarBankDark(t *testing.T) { renderHotbarBank(t, ThemeDark, "hotbar_bank_dark.png") }
-func TestRenderHotbarBankLight(t *testing.T) {
-	renderHotbarBank(t, ThemeLight, "hotbar_bank_light.png")
+func TestRenderHotbarTilesDark(t *testing.T) {
+	renderHotbarTiles(t, ThemeDark, "hotbar_tiles_dark.png")
+}
+func TestRenderHotbarTilesLight(t *testing.T) {
+	renderHotbarTiles(t, ThemeLight, "hotbar_tiles_light.png")
 }
 
-// renderHotbarBank: six clusters in bank 1 of 2, kind-cogpit connected, legacy-onprem missing with
-// its tooltip shown.
-func renderHotbarBank(t *testing.T, mode ThemeMode, name string) {
+// renderHotbarTiles: six clusters, kind-cogpit connected, legacy-onprem missing with its tooltip
+// shown; no bank switcher at the bar's foot (D-83).
+func renderHotbarTiles(t *testing.T, mode ThemeMode, name string) {
 	sh, w, q, _, _ := hotbarScene(t, mode)
 	q.until(t, "diagnostics", func() bool { return sh.diag.total > 0 })
 	settle(w)
@@ -479,14 +466,4 @@ func renderHotbarBank(t *testing.T, mode ThemeMode, name string) {
 	sh.tip.hover(missing, missing.tipText(), pos)
 	q.until(t, "the tooltip", func() bool { return sh.tip.visibleText() != "" })
 	savePNG(t, w, name)
-}
-
-// TestRenderHotbarBankMenuDark: the switcher's menu, with the banks to switch to and the bank
-// commands.
-func TestRenderHotbarBankMenuDark(t *testing.T) {
-	sh, w, q, _, _ := hotbarScene(t, ThemeDark)
-	q.until(t, "diagnostics", func() bool { return sh.diag.total > 0 })
-	settle(w)
-	test.Tap(sh.hot.number)
-	savePNG(t, w, "hotbar_bank_menu_dark.png")
 }

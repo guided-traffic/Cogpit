@@ -31,11 +31,11 @@ import (
 // for the owner to confirm; D-51): on a text another origin typed last, ↵ runs a read or a UI entry
 // (a view to switch to, a search), and a change (a mutating or destructive entry) runs only once the
 // user picked it with the arrow keys or a click; the hint line says so. Typing makes the text the
-// user's. F1–F12 and ⇧F1–⇧F12 close the palette and open the hotbar's cluster or bank, as the
-// entries listing them do (A64).
+// user's. F1–F12 close the palette and open the hotbar's cluster, as the entries listing them do
+// (A64).
 //
 // Cogpit's reading, inferred (Lens's palette is captured only as "⌘⇧P opens it", "Switch to
-// <resource>" and the hotbar's bank commands): a command that cannot run now stays in the list,
+// <resource>" and the hotbar's bank commands, which Cogpit's one hotbar has none of, D-83): a command that cannot run now stays in the list,
 // greyed, with the reason after its label, as the menus show it; the list starts with the drawer
 // object's actions; the filter matches every term, fuzzy as a last resort; the overlay has the
 // size the context picker had (D-57 removed the picker).
@@ -316,11 +316,11 @@ func (p *cmdPalette) move(d int) {
 }
 
 // key handles the filter's keys that are the palette's: ↑↓, Page Up and Down (the user picking an
-// entry), ↵, Escape, and F1–F12 and ⇧F1–⇧F12 (the hotbar's, after the palette closed).
+// entry), ↵, Escape, and F1–F12 (the hotbar's, after the palette closed; a shifted one is not, D-83).
 func (p *cmdPalette) key(ev *fyne.KeyEvent) bool {
-	if functionKey(ev.Name) > 0 {
-		name, shift, sh := ev.Name, shiftHeld(), p.sh
-		p.dismissThen(func() { sh.hot.key(name, shift) })
+	if functionKey(ev.Name) > 0 && !shiftHeld() {
+		name, sh := ev.Name, p.sh
+		p.dismissThen(func() { sh.hot.key(name, false) })
 		return true
 	}
 	switch ev.Name {
@@ -413,8 +413,8 @@ func (sh *shell) runPaletteAction(e engine.PaletteEntry) {
 
 // paletteRunners run the commands whose parameters the window asks for in a dialog of its own,
 // or whose result it presents (engine/palette.go, rules 3 and 7), as the menus and buttons that
-// have them do: the navigator's section for a context (findcluster.go), the kubeconfig dialogs, a
-// bank's name, the search field, the namespace and column menus, the CSV download.
+// have them do: the navigator's section for a context (findcluster.go), the kubeconfig dialogs, the
+// search field, the namespace and column menus, the CSV download.
 // hotbar.openCluster goes through the hotbar, which asks for a login program's approval first.
 var paletteRunners = map[string]func(sh *shell, e engine.PaletteEntry){
 	connectCommand:          func(sh *shell, _ engine.PaletteEntry) { sh.findCluster() },
@@ -428,9 +428,6 @@ var paletteRunners = map[string]func(sh *shell, e engine.PaletteEntry){
 	"ui.setNamespace":       func(sh *shell, _ engine.PaletteEntry) { sh.view.openNamespaces() },
 	"ui.setGroups":          func(sh *shell, _ engine.PaletteEntry) { sh.view.openNamespaces() },
 	"ui.setColumns":         func(sh *shell, _ engine.PaletteEntry) { sh.view.openColumns() },
-	"hotbar.createBank":     func(sh *shell, _ engine.PaletteEntry) { sh.hot.createBank() },
-	"hotbar.renameBank":     func(sh *shell, _ engine.PaletteEntry) { sh.hot.renameBank() },
-	"hotbar.removeBank":     func(sh *shell, _ engine.PaletteEntry) { sh.hot.removeBank() },
 	"hotbar.openCluster": func(sh *shell, e engine.PaletteEntry) {
 		var p hotbarSlotParams
 		if err := json.Unmarshal(e.Params, &p); err == nil {

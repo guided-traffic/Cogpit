@@ -5,7 +5,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// F1–F12 and ⇧F1–⇧F12 open the hotbar's clusters and banks in the plain search fields too (the
+// F1–F12 open the hotbar's first twelve clusters in the plain search fields too (the
 // owner's A64, 2026-10-14 evening): the view's search, the navigator's, the logs tab's, the Argo CD
 // dashboard's activity filter, the editor's Find field, the command palette's filter and the
 // namespace filter's search (nsfilter.go, which closes its list first). A text
@@ -13,8 +13,9 @@ import (
 // editor keep their F-keys: a shell or a program in it may use them, and the editor is a text area,
 // not a search field. A field that is no search (a name, a path, a value in a dialog) keeps them too.
 
-// hotbarKey hands an F-key typed in a search field to the hotbar: true when it took it. Shift comes
-// from the desktop driver, as F-keys arrive without their modifiers.
+// hotbarKey hands an F-key typed in a search field to the hotbar: true when it took it; a shifted
+// one it does not take (D-83). Shift comes from the desktop driver, as F-keys arrive without their
+// modifiers.
 func hotbarKey(sh *shell, ev *fyne.KeyEvent) bool {
 	if functionKey(ev.Name) == 0 || sh.hot == nil {
 		return false

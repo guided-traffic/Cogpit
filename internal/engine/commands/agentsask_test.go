@@ -127,7 +127,7 @@ func TestAgentRoleBindingsAlwaysAsk(t *testing.T) {
 	// The registry and the MCP tools say which commands ask whatever the allowance.
 	for id, want := range map[string]bool{"object.create": true, "object.apply": true, "roleBinding.create": true,
 		"role.create": true, "clusterRole.create": true, "helm.chart.install": true, "helm.release.upgrade": true,
-		"cluster.setPrometheus": true, "hotbar.removeBank": true, "cluster.settings.set": true, "preferences.set": true,
+		"cluster.setPrometheus": true, "cluster.settings.set": true, "preferences.set": true,
 		"namespace.create": false, "node.cordon": false, "clusterRoleBinding.create": false} {
 		if c, ok := h.s.Registry().Get(id); !ok || c.AgentsAsk != want {
 			t.Errorf("%s: agentsAsk %v, want %v", id, ok && c.AgentsAsk, want)

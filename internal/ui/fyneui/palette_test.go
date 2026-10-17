@@ -43,10 +43,8 @@ var paletteProbes = map[string]func(t testing.TB, f *fakeEngine, cmd *engine.Com
 	"resource.createTab": probe[probeCreateTab], "ui.closeDrawer": probe[struct{}],
 	"cluster.connect": probe[probeContext], "ui.openView": probe[probeView], "ui.setFilter": probe[probeFilter],
 	"hotbar.addCluster": probe[hotbarClusterParams], "hotbar.removeCluster": probe[hotbarClusterParams],
-	"hotbar.openCluster": probe[hotbarSlotParams], "hotbar.switchBank": probe[hotbarSwitchParams],
-	"hotbar.createBank": probe[hotbarCreateParams], "hotbar.renameBank": probe[hotbarRenameParams],
-	"hotbar.removeBank": probe[hotbarBankParams],
-	"object.copyName":   probe[refParams], "pod.attach": probe[probeContainer], "pod.shell": probe[probeContainer],
+	"hotbar.openCluster": probe[hotbarSlotParams],
+	"object.copyName":    probe[refParams], "pod.attach": probe[probeContainer], "pod.shell": probe[probeContainer],
 	"pod.evict": probe[refParams], "pod.logs": probe[probeContainer], "object.edit": probe[refParams], "object.delete": probe[refParams],
 }
 
@@ -76,7 +74,7 @@ func realCommands(t testing.TB) *engine.Registry {
 	return r
 }
 
-// paletteFake is the demo with 10,000 pods, a hotbar of two banks and the first pod in the drawer,
+// paletteFake is the demo with 10,000 pods, a hotbar of three clusters and the first pod in the drawer,
 // its registry the probes of the real commands the palette lists; ui.palette.open and close change
 // the fake's UI state as the engine's do.
 func paletteFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
@@ -98,15 +96,7 @@ func paletteFake(t testing.TB) (*fakeEngine, model.ObjectRef) {
 	}
 	f.handlers[engine.PaletteOpenCommand], f.handlers[engine.PaletteCloseCommand] = open(true), open(false)
 	f.handlers["ui.setNavigatorScope"] = f.setNavScope // Connect to Cluster: the section (D-57)
-	tiles := func(ids ...string) []engine.HotbarTile {
-		out := make([]engine.HotbarTile, 0, len(ids))
-		for _, id := range ids {
-			out = append(out, engine.HotbarTile{Context: id})
-		}
-		return out
-	}
-	withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: tiles("demo", "kind-cogpit", "prod-eu-central")},
-		engine.HotbarBank{Name: "Production", Clusters: tiles("prod-eu-central")})
+	withHotbar(f, "demo", "kind-cogpit", "prod-eu-central")
 	pod := f.tables["pods"].Rows[0].Ref
 	f.ui.Selected, f.ui.Drawer = []model.ObjectRef{pod}, &pod
 	return f, pod
@@ -166,7 +156,7 @@ func shownLabels(p *cmdPalette) []string {
 
 // ⌘⇧P opens the palette through the engine (ui.palette.open: UI state, so agents see it) with its
 // filter focused; the list starts with the drawer object's actions and has Switch to, the hotbar's
-// clusters and banks, and the commands with their shortcuts; ⌘P is the Cluster menu's Connect to
+// clusters, and the commands with their shortcuts; ⌘P is the Cluster menu's Connect to
 // Cluster… (cluster.connect's label and shortcut, D-57).
 func TestCommandPaletteOpensWithTheShortcut(t *testing.T) {
 	sh, w, q, f, pod := paletteShell(t, ThemeDark)
@@ -184,8 +174,8 @@ func TestCommandPaletteOpensWithTheShortcut(t *testing.T) {
 	if sh.palette.shown[0].Category != pod.Name {
 		t.Errorf("an action's category %q, want the pod %q", sh.palette.shown[0].Category, pod.Name)
 	}
-	for _, label := range []string{"Switch to Deployments", "Switch to Nodes", "Open kind-cogpit", "Switch to Bank 2: Production",
-		"Create Bank", "New Terminal", "Search", "Connect to Cluster"} {
+	for _, label := range []string{"Switch to Deployments", "Switch to Nodes", "Open kind-cogpit", "Remove from Hotbar",
+		"New Terminal", "Search", "Connect to Cluster"} {
 		if !slices.Contains(got, label) {
 			t.Errorf("no %q in %q", label, got)
 		}

@@ -34,13 +34,13 @@ import (
 //  5. A kind's command without a ref (the create commands) is offered while the open view is of
 //     one of its kinds, as the view's "+" is.
 //  6. Parameters the palette fills itself: ui.openView gets an entry per view the navigator
-//     offers but the open one ("Switch to Pods"), hotbar.switchBank one per bank but the shown
-//     one, hotbar.openCluster one per tile of the shown bank, with its F-key.
+//     offers but the open one ("Switch to Pods"), hotbar.openCluster one per tile of the hotbar,
+//     with its F-key for the first twelve.
 //  7. Other parameters: a command with parameters is offered when the caller asks for them in a
-//     dialog of its own (PaletteInput.Runs: the navigator's section for cluster.connect, a bank's
-//     name, the create dialogs, the search field for ui.setFilter); else only when none is
-//     required, and it runs with the defaults its schema describes (hotbar.addCluster pins the
-//     connected cluster to the shown bank). One with a required parameter and no dialog is left
+//     dialog of its own (PaletteInput.Runs: the navigator's section for cluster.connect, the
+//     create dialogs, the search field for ui.setFilter); else only when none is required, and it
+//     runs with the defaults its schema describes (hotbar.addCluster pins the connected cluster).
+//     One with a required parameter and no dialog is left
 //     out (hotbar.moveCluster, object.apply, object.create, kubeconfig.remove without the
 //     sources dialog).
 //
@@ -54,17 +54,8 @@ const (
 	PaletteOpenCommand  = "ui.palette.open"
 	PaletteCloseCommand = "ui.palette.close"
 	openViewCommand     = "ui.openView"
-	switchBankCommand   = "hotbar.switchBank"
 	openClusterCommand  = "hotbar.openCluster"
 )
-
-// paletteLabels are the palette's labels where they differ from the registry's: the hotbar's bank
-// commands under the category Hotbar, as the parity notes have Lens's "hotbar: create bank".
-var paletteLabels = map[string]string{
-	"hotbar.createBank": "Create Bank",
-	"hotbar.renameBank": "Rename Bank",
-	"hotbar.removeBank": "Remove Bank",
-}
 
 // PaletteEntry is one row of the command palette: a command and the parameters it runs with.
 type PaletteEntry struct {
@@ -74,7 +65,7 @@ type PaletteEntry struct {
 	// Category places the row: the menu path's first part ("View", "Hotbar", "Cluster"), the
 	// navigator's group of a view ("Workloads"), or the name of the object an action acts on.
 	Category string `json:"category,omitempty"`
-	// Shortcut is the registry's shortcut, or a tile's or bank's F-key.
+	// Shortcut is the registry's shortcut, or a hotbar tile's F-key.
 	Shortcut string          `json:"shortcut,omitempty"`
 	Danger   Danger          `json:"danger"`
 	Params   json.RawMessage `json:"params"`
@@ -122,12 +113,12 @@ func PaletteObject(st UIState) (model.ObjectRef, bool) {
 
 // Palette returns the palette's entries for the input's state, by the rules above: the object's
 // actions first, then the open view's kind commands, the other commands by menu path, the
-// hotbar's tiles and banks, and the views to switch to. It evaluates every entry's Enabled, which
+// hotbar's tiles, and the views to switch to. It evaluates every entry's Enabled, which
 // reads the cache: call it off a UI thread. s may be nil when the commands' Enabled do not use it
 // (test registries).
 func (r *Registry) Palette(s *Session, in PaletteInput) []PaletteEntry {
 	runs := func(id string) bool { return in.Runs != nil && in.Runs(id) }
-	var objects, kinds, plain, tiles, banks, views []PaletteEntry
+	var objects, kinds, plain, tiles, views []PaletteEntry
 	if ref, ok := PaletteObject(in.State); ok {
 		objects = r.objectEntries(s, ref, in.Containers)
 	}
@@ -142,9 +133,6 @@ func (r *Registry) Palette(s *Session, in PaletteInput) []PaletteEntry {
 		switch c.ID { // rule 6
 		case openViewCommand:
 			views = append(views, r.viewEntries(s, c, in)...)
-			continue
-		case switchBankCommand:
-			banks = append(banks, bankEntries(s, c, in.State.Hotbar)...)
 			continue
 		case openClusterCommand:
 			tiles = append(tiles, tileEntries(s, c, in.State.Hotbar, in.State.ClusterSettings)...)
@@ -172,8 +160,8 @@ func (r *Registry) Palette(s *Session, in PaletteInput) []PaletteEntry {
 		b, _ := r.Get(plain[j].Command)
 		return a.MenuPath < b.MenuPath
 	})
-	out := make([]PaletteEntry, 0, len(objects)+len(kinds)+len(plain)+len(tiles)+len(banks)+len(views))
-	for _, part := range [][]PaletteEntry{objects, kinds, plain, tiles, banks, views} {
+	out := make([]PaletteEntry, 0, len(objects)+len(kinds)+len(plain)+len(tiles)+len(views))
+	for _, part := range [][]PaletteEntry{objects, kinds, plain, tiles, views} {
 		out = append(out, part...)
 	}
 	return out
@@ -227,54 +215,33 @@ func (r *Registry) viewEntries(s *Session, c *Command, in PaletteInput) []Palett
 	return out
 }
 
-// bankEntries are the hotbar's banks to switch to, but the shown one, with their keys ⇧F1–⇧F12.
-func bankEntries(s *Session, c *Command, h *HotbarState) []PaletteEntry {
+// tileEntries open the hotbar's clusters, the first twelve with their keys F1–F12.
+func tileEntries(s *Session, c *Command, h *HotbarState, settings map[string]ClusterSettings) []PaletteEntry {
 	if h == nil {
 		return nil
 	}
 	var out []PaletteEntry
-	for i, b := range h.Banks {
-		n := i + 1
-		if n == h.Current {
-			continue
-		}
-		e, ok := paletteEntry(s, c, map[string]any{"bank": n})
-		if !ok {
-			continue
-		}
-		e.Label, e.Shortcut = fmt.Sprintf("Switch to Bank %d: %s", n, b.Name), fKey("Shift+", n)
-		out = append(out, e)
-	}
-	return out
-}
-
-// tileEntries open the shown bank's clusters, with their keys F1–F12.
-func tileEntries(s *Session, c *Command, h *HotbarState, settings map[string]ClusterSettings) []PaletteEntry {
-	if h == nil || h.Current < 1 || h.Current > len(h.Banks) {
-		return nil
-	}
-	var out []PaletteEntry
-	for i, t := range h.Banks[h.Current-1].Clusters {
+	for i, t := range h.Clusters {
 		slot := i + 1
-		e, ok := paletteEntry(s, c, map[string]any{"slot": slot, "bank": h.Current})
+		e, ok := paletteEntry(s, c, map[string]any{"slot": slot})
 		if !ok {
 			continue
 		}
 		// The cluster by the name it shows everywhere (D-68); its full context name at the row's end,
 		// where the palette's search finds it too (the palette's rows have no tooltip).
-		e.Label, e.Shortcut = "Open "+ClusterName(t.Context, settings[t.Context]), fKey("", slot)
+		e.Label, e.Shortcut = "Open "+ClusterName(t.Context, settings[t.Context]), fKey(slot)
 		e.Category = ContextLabel(t.Context)
 		out = append(out, e)
 	}
 	return out
 }
 
-// fKey is the key Fn with a modifier prefix, for the first twelve.
-func fKey(mod string, n int) string {
-	if n < 1 || n > 12 {
+// fKey is the key Fn of a hotbar tile: F1 to F12 for the first twelve, none for the others.
+func fKey(n int) string {
+	if n < 1 || n > HotbarKeys {
 		return ""
 	}
-	return fmt.Sprintf("%sF%d", mod, n)
+	return fmt.Sprintf("F%d", n)
 }
 
 // paletteEntry is a command's entry with the given parameters (nil: none), its required
@@ -291,12 +258,8 @@ func paletteEntry(s *Session, c *Command, params map[string]any) (PaletteEntry, 
 	if !ok {
 		return PaletteEntry{}, false
 	}
-	label := c.Label
-	if l, ok := paletteLabels[c.ID]; ok {
-		label = l
-	}
 	category, _, _ := strings.Cut(c.MenuPath, "/")
-	return PaletteEntry{Command: c.ID, Label: label, Category: category, Shortcut: c.Shortcut, Danger: c.Danger,
+	return PaletteEntry{Command: c.ID, Label: c.Label, Category: category, Shortcut: c.Shortcut, Danger: c.Danger,
 		Params: raw, Reason: reason}, true
 }
 

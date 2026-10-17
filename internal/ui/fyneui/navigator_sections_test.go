@@ -382,7 +382,7 @@ func TestNavigatorSectionSearch(t *testing.T) {
 // connected one's has Disconnect and no Connect.
 func TestNavigatorSectionRowMenu(t *testing.T) {
 	f := sectionFake(t)
-	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank})
+	withHotbar(f)
 	f.handlers["cluster.connectLog"] = func(_ context.Context, inv engine.Invocation) (any, error) {
 		return map[string]any{"context": secProd, "lines": []map[string]any{
 			{"time": fixedNow, "level": "ERROR", "text": "cannot connect to https://api.prod-eu-central.example.com:6443: i/o timeout"},

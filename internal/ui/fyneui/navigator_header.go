@@ -155,7 +155,7 @@ func newNavSearchEntry(h *navHeader) *navSearchEntry {
 	return e
 }
 
-// TypedKey adds Escape and ↓ to the entry's keys; F1–F12 and ⇧F1–⇧F12 are the hotbar's (A64).
+// TypedKey adds Escape and ↓ to the entry's keys; F1–F12 are the hotbar's (A64).
 func (e *navSearchEntry) TypedKey(ev *fyne.KeyEvent) {
 	if hotbarKey(e.h.s.sh, ev) {
 		return

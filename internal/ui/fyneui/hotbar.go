@@ -9,9 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 
@@ -19,63 +17,52 @@ import (
 )
 
 // The hotbar (G13; engine/hotbar.go): a narrow bar at the window's left edge, left of the
-// navigator, with one tile per pinned cluster of the shown bank and the bank switcher "‹ 1 ›" at
-// the bottom, as captured from Lens (2026-10-11). A tile is the cluster's identity
-// (clusteridentity.go: its initials in its icon colour, the accent by default, or its uploaded
-// image), its name under it (the display name its Settings give it, else the context's) and a dot
-// with the cluster's mark (clustermarks.go, D-69: live, (re)connecting, cold, its login lapsed,
-// failed); its tooltip is the full context id and the state. The shown cluster's tile is raised;
-// a connected cluster's tile that is not shown has its dot only. A click opens the cluster
-// (hotbar.openCluster: a connected one is only shown, D-69); the
+// navigator, with one tile per pinned cluster, top to bottom, as captured from Lens (2026-10-11). A
+// tile is the cluster's identity (clusteridentity.go: its initials in its icon colour, the accent by
+// default, or its uploaded image), its name under it (the display name its Settings give it, else
+// the context's) and a dot with the cluster's mark (clustermarks.go, D-69: live, (re)connecting,
+// cold, its login lapsed, failed); its tooltip is the full context id, the state and its F-key.
+// The shown cluster's tile is raised; a connected cluster's tile that is not shown has its dot
+// only. A click opens the cluster (hotbar.openCluster: a connected one is only shown, D-69); the
 // tile's menu (right-click) connects, moves it up or down and removes it; a tile dragged within the
-// bar moves to the gap it is dropped into (R2, hotbardrag.go); the switcher's arrows and its number
-// (a menu of the banks) switch, create, rename and remove banks. F1–F12 open a tile of the shown
-// bank, ⇧F1–⇧F12 show a bank. Inferred, Cogpit's own: the "+" below the tiles that pins the
-// connected cluster, the menus' items, the confirmation before removing a bank that holds clusters,
-// and that the arrows wrap around. Move Up and Move Down stay beside the drag, for whoever does not
-// drag.
+// bar is carried under the pointer while the others make room, and lands where it is dropped
+// (hotbardrag.go, D-83). F1–F12 open the first twelve tiles.
+//
+// One hotbar (the owner's decision of 2026-10-17, D-83): Lens's banks and their switcher ("‹ 1 ›"
+// at the bar's foot, ⇧F1–⇧F12) are gone; the bar holds as many tiles as the user pins and scrolls
+// when they do not fit, the "+" below the last tile. Inferred, Cogpit's own: the "+" that pins the
+// connected cluster and the menus' items. Move Up and Move Down stay beside the drag, for whoever
+// does not drag.
 //
 // The bar shows what hotbar.list returns, read again whenever UIState.Hotbar, the connection or
 // the contexts change; every change goes through the hotbar.* commands (UI state is engine state).
-// Without a hotbar in the engine (UIState.Hotbar nil) the bar is hidden.
+// A new list updates the tiles in place, the same widget per context, so that a tooltip or a drag
+// survives it. Without a hotbar in the engine (UIState.Hotbar nil) the bar is hidden.
 type hotbar struct {
 	sh *shell
 
 	view *engine.HotbarState // the last hotbar.list; nil while there is none
 	seq  int                 // the latest hotbar.list request; older answers are dropped
 
-	tiles  *fyne.Container   // the shown bank's tiles and the "+"
-	scroll *container.Scroll // the tiles' area: a tile dropped outside it does not move
+	tiles  *fyne.Container   // the tiles and the "+", laid out by tileStack (hotbardrag.go)
+	scroll *container.Scroll // the tiles' area: it scrolls when they do not fit
 	drag   *tileDrag         // a tile being dragged to another place (hotbardrag.go)
 	add    *hotbarButton
-	prev   *hotbarButton
-	number *hotbarButton
-	next   *hotbarButton
 	root   *fyne.Container
 
-	menuModel *fyne.Menu // the open tile or bank menu, for tests
+	menuModel *fyne.Menu // the open tile menu, for tests
 	menuFor   string     // what the Cluster menu's hotbar item last offered, to rebuild it when that changes
 }
 
 func newHotbar(sh *shell) *hotbar {
 	h := &hotbar{sh: sh}
-	h.tiles = container.NewVBox()
 	h.add = newHotbarButton(h, "+", theme.SizeNameHeadingText, h.addConnected)
 	h.add.square = true
-	h.prev = newHotbarButton(h, "‹", theme.SizeNameSubHeadingText, func() { h.step(-1) })
-	h.next = newHotbarButton(h, "›", theme.SizeNameSubHeadingText, func() { h.step(1) })
-	h.number = newHotbarButton(h, "1", theme.SizeNameText, nil)
-	h.number.bold = true
-	h.number.onTap = func() { h.bankMenu(h.number.menuPos()) } // above the switcher (showMenu)
-	h.number.onSecondary = h.bankMenu
-	h.prev.tip, h.next.tip = "Previous bank", "Next bank"
-	switcher := container.NewVBox(newDivider(false),
-		container.NewCenter(container.New(layout.NewCustomPaddedHBoxLayout(0), h.prev, h.number, h.next)))
 	h.drag = newTileDrag(h)
-	h.scroll = container.NewVScroll(inset("", theme.SizeNamePadding, container.NewStack(h.tiles, h.drag.layer)))
-	content := container.NewBorder(nil, inset("", theme.SizeNamePadding, switcher), nil, nil, h.scroll)
+	h.tiles = box(&tileStack{h: h})
+	h.scroll = container.NewVScroll(inset("", theme.SizeNamePadding, h.tiles))
 	h.root = sized(sizeHotbarWidth, "", newSurface(theme.ColorNameHeaderBackground),
-		container.NewBorder(nil, nil, nil, newDivider(true), content))
+		container.NewBorder(nil, nil, nil, newDivider(true), h.scroll))
 	h.root.Hide()
 	return h
 }
@@ -113,102 +100,82 @@ func (h *hotbar) request() {
 		var out struct {
 			Hotbar engine.HotbarState `json:"hotbar"`
 		}
-		if err != nil || decode(res, &out) != nil || len(out.Hotbar.Banks) == 0 {
+		if err != nil || decode(res, &out) != nil {
 			return // the bar keeps what it shows; the next change reads it again
 		}
 		h.setView(&out.Hotbar)
 	})
 }
 
-// bank returns the shown bank; false while there is none.
-func (h *hotbar) bank() (engine.HotbarBank, bool) {
-	if h.view == nil || h.view.Current < 1 || h.view.Current > len(h.view.Banks) {
-		return engine.HotbarBank{}, false
-	}
-	return h.view.Banks[h.view.Current-1], true
-}
-
-// setView shows a hotbar, or hides the bar for nil.
+// setView shows a hotbar, or hides the bar for nil. The tiles are updated in place: a context's
+// widget stays the same while it is on the bar (its tooltip and a drag of it survive), a new one
+// gets a widget, a removed one's goes.
 func (h *hotbar) setView(v *engine.HotbarState) {
 	h.view = v
-	b, ok := h.bank()
-	if !ok {
+	if v == nil {
+		h.drag.cancel()
 		h.root.Hide()
 		h.syncMenu()
 		return
 	}
-	if _, ok := h.sh.tip.owner.(*hotbarTile); ok {
-		h.sh.tip.hide() // its tile is replaced, and would never say the pointer left
+	had := map[string]*hotbarTile{}
+	for _, t := range h.tileWidgets() {
+		had[t.tile.Context] = t
 	}
-	objs := make([]fyne.CanvasObject, 0, len(b.Clusters)+1)
-	for i, t := range b.Clusters {
-		objs = append(objs, newHotbarTile(h, t, i+1))
+	objs := make([]fyne.CanvasObject, 0, len(v.Clusters)+1)
+	for i, t := range v.Clusters {
+		w := had[t.Context]
+		if w == nil {
+			w = newHotbarTile(h, t, i+1)
+		} else {
+			delete(had, t.Context)
+			w.tile, w.slot = t, i+1
+		}
+		objs = append(objs, w)
 	}
-	if len(b.Clusters) < engine.HotbarBankSize {
-		objs = append(objs, h.add)
+	if owner, ok := h.sh.tip.owner.(*hotbarTile); ok && had[owner.tile.Context] == owner {
+		h.sh.tip.hide() // its tile left the bar, and would never say the pointer left
 	}
-	h.tiles.Objects = objs
-	h.tiles.Refresh()
+	h.tiles.Objects = append(objs, h.add)
 	h.drag.follow()
-	h.updateAdd(b)
-	h.number.setText(strconv.Itoa(h.view.Current))
-	h.number.tip = fmt.Sprintf("Bank %d of %d: %s", h.view.Current, len(h.view.Banks), b.Name)
-	many := len(h.view.Banks) > 1
-	h.prev.setDisabled(!many)
-	h.next.setDisabled(!many)
+	h.tiles.Refresh()
+	h.updateAdd()
 	h.root.Show()
 	h.root.Refresh()
 	h.syncMenu()
 }
 
 // updateAdd says what the "+" would pin, or why it cannot.
-func (h *hotbar) updateAdd(b engine.HotbarBank) {
+func (h *hotbar) updateAdd() {
 	ui := h.sh.ui
 	switch {
 	case ui.Context == "":
-		h.add.tip, h.add.disabled = "Connect a cluster to pin it to this bank", true
-	case b.Position(ui.Context) > 0:
-		h.add.tip, h.add.disabled = engine.ContextLabel(ui.Context)+" is in this bank already", true
+		h.add.tip, h.add.disabled = "Connect a cluster to pin it to the hotbar", true
+	case h.view.Position(ui.Context) > 0:
+		h.add.tip, h.add.disabled = engine.ContextLabel(ui.Context)+" is on the hotbar already", true
 	default:
-		h.add.tip, h.add.disabled = "Add "+engine.ContextLabel(ui.Context)+" to bank "+strconv.Itoa(h.view.Current)+" ("+b.Name+")", false
+		h.add.tip, h.add.disabled = "Add "+engine.ContextLabel(ui.Context)+" to the hotbar", false
 	}
 	h.add.Refresh()
 }
 
-// addConnected pins the connected cluster to the shown bank.
+// addConnected pins the connected cluster.
 func (h *hotbar) addConnected() {
 	if h.view == nil || h.add.disabled {
 		return
 	}
-	h.sh.dispatch("hotbar.addCluster", hotbarClusterParams{Bank: h.view.Current}, nil)
+	h.sh.dispatch("hotbar.addCluster", hotbarClusterParams{}, nil)
 }
 
-// step shows the previous or next bank, wrapping around (inferred).
-func (h *hotbar) step(d int) {
-	if h.view == nil || len(h.view.Banks) < 2 {
-		return
-	}
-	n := len(h.view.Banks)
-	h.switchBank((h.view.Current-1+d+n)%n + 1)
-}
-
-func (h *hotbar) switchBank(n int) {
-	if h.view == nil || n < 1 || n > len(h.view.Banks) || n == h.view.Current {
-		return
-	}
-	h.sh.dispatch("hotbar.switchBank", hotbarSwitchParams{Bank: n}, nil)
-}
-
-// open opens the tile in a slot of the shown bank: a missing context is explained, a credential
-// plugin waiting for the user's approval is shown first (as the navigator's section does), the
-// shown cluster's tile does nothing, and a connected cluster's tile only shows it (D-69: nothing is
-// asked again, nothing connects).
+// open opens the tile in a slot (from 1): a missing context is explained, a credential plugin
+// waiting for the user's approval is shown first (as the navigator's section does), the shown
+// cluster's tile does nothing, and a connected cluster's tile only shows it (D-69: nothing is asked
+// again, nothing connects).
 func (h *hotbar) open(slot int) {
-	b, ok := h.bank()
-	if !ok || slot < 1 || slot > len(b.Clusters) {
+	if h.view == nil || slot < 1 || slot > len(h.view.Clusters) {
 		return
 	}
-	t := b.Clusters[slot-1]
+	t := h.view.Clusters[slot-1]
 	if t.Missing {
 		h.sh.toast("warning", t.Context+" is no longer offered by any kubeconfig source. Remove its tile, or sync its kubeconfig again.")
 		return
@@ -217,9 +184,8 @@ func (h *hotbar) open(slot int) {
 		return
 	}
 	name := h.sh.identity(t.Context).name // the one short name (D-68)
-	bank := h.view.Current
 	run := func() {
-		h.sh.dispatch("hotbar.openCluster", hotbarSlotParams{Slot: slot, Bank: bank}, func(res any, err error) {
+		h.sh.dispatch("hotbar.openCluster", hotbarSlotParams{Slot: slot}, func(res any, err error) {
 			if err != nil {
 				h.sh.showError(err)
 				return
@@ -248,18 +214,15 @@ func (h *hotbar) open(slot int) {
 	run()
 }
 
-// key handles F1–F12 (open a tile of the shown bank) and ⇧F1–⇧F12 (show a bank). It reports
-// whether the key was one of them; a key without a tile or bank does nothing.
+// key handles F1–F12: open the first twelve tiles. It reports whether the key was the hotbar's; a
+// key without a tile does nothing. A shifted F-key is not the hotbar's (⇧F1–⇧F12 showed a bank
+// until D-83) and goes on as any other key.
 func (h *hotbar) key(name fyne.KeyName, shift bool) bool {
 	n := functionKey(name)
-	if n == 0 {
+	if n == 0 || shift {
 		return false
 	}
-	if shift {
-		h.switchBank(n)
-	} else {
-		h.open(n)
-	}
+	h.open(n)
 	return true
 }
 
@@ -285,7 +248,7 @@ func shiftHeld() bool {
 }
 
 // showMenu pops a menu up at pos (window coordinates); one that would reach into the status bar
-// opens upwards from pos instead, as the switcher's menu at the bar's bottom does.
+// opens upwards from pos instead, as a tile's menu near the bar's foot does.
 func (h *hotbar) showMenu(m *fyne.Menu, pos fyne.Position) {
 	h.sh.tip.hide()
 	h.menuModel = m
@@ -300,24 +263,23 @@ func (h *hotbar) showMenu(m *fyne.Menu, pos fyne.Position) {
 // tileMenu is a tile's menu: Connect, Settings, Move Up, Move Down, Remove from Hotbar (Cogpit's,
 // inferred).
 func (h *hotbar) tileMenu(slot int, pos fyne.Position) {
-	b, ok := h.bank()
-	if !ok || slot < 1 || slot > len(b.Clusters) {
+	if h.view == nil || slot < 1 || slot > len(h.view.Clusters) {
 		return
 	}
-	t, bank := b.Clusters[slot-1], h.view.Current
+	t, n := h.view.Clusters[slot-1], len(h.view.Clusters)
 	connect := fyne.NewMenuItem(connectItemLabel(h.sh.ui, t.Context), func() { h.open(slot) })
 	connect.Disabled = t.Missing || (t.Context == h.sh.ui.Context && t.Connection.Live())
 	move := func(to int) func() {
 		return func() {
-			h.sh.dispatch("hotbar.moveCluster", hotbarMoveParams{Context: t.Context, Position: to, Bank: bank}, nil)
+			h.sh.dispatch("hotbar.moveCluster", hotbarMoveParams{Context: t.Context, Position: to}, nil)
 		}
 	}
 	up := fyne.NewMenuItem("Move Up", move(slot-1))
 	up.Disabled = slot == 1
 	down := fyne.NewMenuItem("Move Down", move(slot+1))
-	down.Disabled = slot == len(b.Clusters)
+	down.Disabled = slot == n
 	remove := fyne.NewMenuItem("Remove from Hotbar", func() {
-		h.sh.dispatch("hotbar.removeCluster", hotbarClusterParams{Context: t.Context, Bank: bank}, nil)
+		h.sh.dispatch("hotbar.removeCluster", hotbarClusterParams{Context: t.Context}, nil)
 	})
 	items := []*fyne.MenuItem{connect}
 	if settings := h.sh.settingsItem(t.Context); settings != nil { // the cluster's Settings page
@@ -328,111 +290,21 @@ func (h *hotbar) tileMenu(slot int, pos fyne.Position) {
 	h.showMenu(fyne.NewMenu("", items...), pos)
 }
 
-// bankMenu is the switcher's menu: the banks to switch to, then New, Rename and Remove Bank.
-func (h *hotbar) bankMenu(pos fyne.Position) {
-	if h.view == nil {
-		return
-	}
-	var items []*fyne.MenuItem
-	for i, b := range h.view.Banks {
-		n := i + 1
-		item := fyne.NewMenuItem(fmt.Sprintf("%d  %s", n, b.Name), func() { h.switchBank(n) })
-		item.Checked = n == h.view.Current
-		items = append(items, item)
-	}
-	create := fyne.NewMenuItem("New Bank…", h.createBank)
-	create.Disabled = len(h.view.Banks) >= engine.HotbarMaxBanks
-	rename := fyne.NewMenuItem("Rename Bank…", h.renameBank)
-	remove := fyne.NewMenuItem("Remove Bank…", h.removeBank)
-	remove.Disabled = len(h.view.Banks) < 2
-	items = append(items, fyne.NewMenuItemSeparator(), create, rename, remove)
-	h.showMenu(fyne.NewMenu("", items...), pos)
-}
-
-// nameDialog asks for a bank's name.
-func (h *hotbar) nameDialog(title, confirm, name, placeholder string, done func(string)) {
-	entry := widget.NewEntry()
-	entry.SetText(name)
-	entry.SetPlaceHolder(placeholder)
-	d := dialog.NewForm(title, confirm, "Cancel", []*widget.FormItem{widget.NewFormItem("Name", entry)}, func(ok bool) {
-		if ok {
-			done(entry.Text)
-		}
-	}, h.sh.win)
-	d.Resize(fyne.NewSize(h.sh.app.Settings().Theme().Size(sizeDialogWidth), 0))
-	d.Show()
-	h.sh.win.Canvas().Focus(entry)
-}
-
-func (h *hotbar) createBank() {
-	if h.view == nil {
-		return
-	}
-	h.nameDialog("New Bank", "Create", "", fmt.Sprintf("Bank %d", len(h.view.Banks)+1), func(name string) {
-		h.sh.dispatch("hotbar.createBank", hotbarCreateParams{Name: name}, nil)
-	})
-}
-
-func (h *hotbar) renameBank() {
-	b, ok := h.bank()
-	if !ok {
-		return
-	}
-	bank := h.view.Current
-	h.nameDialog(fmt.Sprintf("Rename Bank %d", bank), "Rename", b.Name, b.Name, func(name string) {
-		h.sh.dispatch("hotbar.renameBank", hotbarRenameParams{Bank: bank, Name: name}, nil)
-	})
-}
-
-// removeBank removes the shown bank; one that holds clusters asks first (Cogpit's, inferred).
-func (h *hotbar) removeBank() {
-	b, ok := h.bank()
-	if !ok || len(h.view.Banks) < 2 {
-		return
-	}
-	bank := h.view.Current
-	run := func() { h.sh.dispatch("hotbar.removeBank", hotbarBankParams{Bank: bank}, nil) }
-	if len(b.Clusters) == 0 {
-		run()
-		return
-	}
-	title, msg := removeBankText(bank, b)
-	text := widget.NewLabel(msg)
-	text.Wrapping = fyne.TextWrapWord
-	d := dialog.NewCustomConfirm(title, "Remove", "Cancel", text, func(ok bool) {
-		if ok {
-			run()
-		}
-	}, h.sh.win)
-	d.Resize(fyne.NewSize(h.sh.app.Settings().Theme().Size(sizeConfirmWidth), 0))
-	d.Show()
-}
-
-// removeBankText is the confirmation of removing a bank that holds clusters: what goes and what
-// stays.
-func removeBankText(n int, b engine.HotbarBank) (title, msg string) {
-	return fmt.Sprintf("Remove bank %d?", n), fmt.Sprintf("The bank %q and its %d %s leave the hotbar. The clusters, "+
-		"their kubeconfigs and an open connection stay as they are.", b.Name, len(b.Clusters), nounFor(len(b.Clusters), "tile", "tiles"))
-}
-
-// contextItem is the hotbar's item in a context's menu (the navigator's and the welcome page's rows, the Cluster menu):
-// "Add to Hotbar", or "Remove from Hotbar" when the shown bank holds it; nil without a hotbar.
+// contextItem is the hotbar's item in a context's menu (the navigator's and the welcome page's rows,
+// the Cluster menu): "Add to Hotbar", or "Remove from Hotbar" when the hotbar holds it; nil without
+// a hotbar.
 func (h *hotbar) contextItem(id string) *fyne.MenuItem {
-	b, ok := h.bank()
-	if !ok || id == "" {
+	if h.view == nil || id == "" {
 		return nil
 	}
-	bank := h.view.Current
-	if b.Position(id) > 0 {
+	if h.view.Position(id) > 0 {
 		return fyne.NewMenuItem("Remove from Hotbar", func() {
-			h.sh.dispatch("hotbar.removeCluster", hotbarClusterParams{Context: id, Bank: bank}, nil)
+			h.sh.dispatch("hotbar.removeCluster", hotbarClusterParams{Context: id}, nil)
 		})
 	}
-	item := fyne.NewMenuItem("Add to Hotbar", func() {
-		h.sh.dispatch("hotbar.addCluster", hotbarClusterParams{Context: id, Bank: bank}, nil)
+	return fyne.NewMenuItem("Add to Hotbar", func() {
+		h.sh.dispatch("hotbar.addCluster", hotbarClusterParams{Context: id}, nil)
 	})
-	item.Disabled = len(b.Clusters) >= engine.HotbarBankSize
-	return item
 }
 
 // syncMenu rebuilds the window's menu when the Cluster menu's hotbar item would change.
@@ -454,39 +326,29 @@ func sameHotbar(a, b *engine.HotbarState) bool { return reflect.DeepEqual(a, b) 
 type (
 	hotbarClusterParams struct {
 		Context string `json:"context,omitempty"`
-		Bank    int    `json:"bank,omitempty"`
 	}
 	hotbarMoveParams struct {
 		Context  string `json:"context"`
 		Position int    `json:"position"`
-		Bank     int    `json:"bank,omitempty"`
 	}
 	hotbarSlotParams struct {
 		Slot int `json:"slot"`
-		Bank int `json:"bank,omitempty"`
-	}
-	hotbarSwitchParams struct {
-		Bank int `json:"bank"`
-	}
-	hotbarBankParams struct {
-		Bank int `json:"bank,omitempty"`
-	}
-	hotbarCreateParams struct {
-		Name string `json:"name,omitempty"`
-	}
-	hotbarRenameParams struct {
-		Name string `json:"name"`
-		Bank int    `json:"bank,omitempty"`
 	}
 )
 
-// hotbarTile is one cluster on the hotbar.
+// hotbarTile is one cluster on the hotbar, or (ghost) the copy of one carried under the pointer
+// while it is dragged (hotbardrag.go): a ghost takes the pointer's hover, so nothing under it
+// lights up, and nothing else.
 type hotbarTile struct {
 	widget.BaseWidget
 	h       *hotbar
 	tile    engine.HotbarTile
 	slot    int
 	hovered bool
+
+	ghost bool    // the carried copy: drawn lifted on a card, no tap, no menu, no tooltip
+	scale float32 // the ghost's size against a tile's; 0 is 1
+	dy    float32 // drawn this far below its place while it slides there (tileStack)
 }
 
 var (
@@ -520,8 +382,8 @@ func (t *hotbarTile) mark() clusterMark {
 	return t.h.sh.mark(t.tile.Context, t.h.sh.connectProblem(t.tile.Context))
 }
 
-// tipText is the tooltip: the full context id, its state and its key, and the client
-// certificate's dates for a context that has one (D-75).
+// tipText is the tooltip: the full context id, its state and its key (F1–F12, the first twelve
+// tiles), and the client certificate's dates for a context that has one (D-75).
 func (t *hotbarTile) tipText() string {
 	m := t.mark()
 	state := m.state
@@ -531,7 +393,10 @@ func (t *hotbarTile) tipText() string {
 	if t.tile.Missing {
 		state = "No kubeconfig source offers this context any more"
 	}
-	tip := t.tile.Context + "\n" + state + " · F" + strconv.Itoa(t.slot)
+	tip := t.tile.Context + "\n" + state
+	if t.slot >= 1 && t.slot <= engine.HotbarKeys {
+		tip += " · F" + strconv.Itoa(t.slot)
+	}
 	if sh := t.h.sh; sh != nil && !t.tile.Missing {
 		if line := sh.certTip(sh.clientCert(t.tile.Context)); line != "" {
 			tip += "\n" + line
@@ -542,17 +407,24 @@ func (t *hotbarTile) tipText() string {
 
 // Tapped implements fyne.Tappable: open the cluster.
 func (t *hotbarTile) Tapped(*fyne.PointEvent) {
+	if t.ghost {
+		return
+	}
 	t.h.sh.tip.hideFor(t)
 	t.h.open(t.slot)
 }
 
 // TappedSecondary implements fyne.SecondaryTappable: the tile's menu.
-func (t *hotbarTile) TappedSecondary(ev *fyne.PointEvent) { t.h.tileMenu(t.slot, ev.AbsolutePosition) }
+func (t *hotbarTile) TappedSecondary(ev *fyne.PointEvent) {
+	if !t.ghost {
+		t.h.tileMenu(t.slot, ev.AbsolutePosition)
+	}
+}
 
-// MouseIn implements desktop.Hoverable. While a tile is dragged over the others they neither
-// light up nor show their tooltip: the line says where it drops.
+// MouseIn implements desktop.Hoverable. While a tile is dragged the others neither light up nor
+// show their tooltip: they make room for it.
 func (t *hotbarTile) MouseIn(ev *desktop.MouseEvent) {
-	if t.h.drag.active {
+	if t.ghost || t.h.drag.active {
 		return
 	}
 	t.hovered = true
@@ -561,41 +433,61 @@ func (t *hotbarTile) MouseIn(ev *desktop.MouseEvent) {
 }
 
 // MouseMoved implements desktop.Hoverable.
-func (t *hotbarTile) MouseMoved(ev *desktop.MouseEvent) { t.h.sh.tip.moved(t, ev.AbsolutePosition) }
+func (t *hotbarTile) MouseMoved(ev *desktop.MouseEvent) {
+	if !t.ghost {
+		t.h.sh.tip.moved(t, ev.AbsolutePosition)
+	}
+}
 
 // MouseOut implements desktop.Hoverable.
 func (t *hotbarTile) MouseOut() {
+	if t.ghost {
+		return
+	}
 	t.hovered = false
 	t.Refresh()
 	t.h.sh.tip.hideFor(t)
 }
 
+// zoom is the tile's scale: a ghost's lift, else 1.
+func (t *hotbarTile) zoom() float32 {
+	if t.scale <= 0 {
+		return 1
+	}
+	return t.scale
+}
+
 // CreateRenderer implements fyne.Widget.
 func (t *hotbarTile) CreateRenderer() fyne.WidgetRenderer {
 	r := &hotbarTileRenderer{t: t,
-		bg: canvas.NewRectangle(color.Transparent), initials: canvas.NewText("", color.Transparent),
-		ring: canvas.NewCircle(color.Transparent), dot: newConnDot(t.h.sh),
+		card: canvas.NewRectangle(color.Transparent),
+		bg:   canvas.NewRectangle(color.Transparent), initials: canvas.NewText("", color.Transparent),
+		ring: canvas.NewCircle(color.Transparent), dot: newConnDot(t.h.sh), still: canvas.NewCircle(color.Transparent),
 		label: canvas.NewText("", color.Transparent),
 		img:   &canvas.Image{FillMode: canvas.ImageFillContain, ScaleMode: canvas.ImageScaleSmooth}}
 	r.initials.TextStyle = fyne.TextStyle{Bold: true}
+	r.card.Hide()
+	r.still.Hide()
 	r.Refresh()
 	return r
 }
 
 type hotbarTileRenderer struct {
 	t        *hotbarTile
+	card     *canvas.Rectangle // a ghost's lifted card under the tile, with its shadow
 	bg       *canvas.Rectangle
 	initials *canvas.Text
 	ring     *canvas.Circle
-	dot      *connDot // a click on it opens the cluster's connection log, not the cluster (F13)
+	dot      *connDot       // a click on it opens the cluster's connection log, not the cluster (F13)
+	still    *canvas.Circle // a ghost's dot: drawn, no target
 	label    *canvas.Text
 	img      *canvas.Image   // the cluster's uploaded icon (clusteridentity.go), over the square
 	id       clusterIdentity // the cluster's name and icon, from its settings
 }
 
 func (r *hotbarTileRenderer) sizes() (side, pad, dot float32) {
-	th := r.t.Theme()
-	return th.Size(sizeHotbarTile), th.Size(theme.SizeNamePadding), th.Size(sizeDotDiameter)
+	th, z := r.t.Theme(), r.t.zoom()
+	return th.Size(sizeHotbarTile) * z, th.Size(theme.SizeNamePadding) * z, th.Size(sizeDotDiameter) * z
 }
 
 func (r *hotbarTileRenderer) MinSize() fyne.Size {
@@ -606,6 +498,8 @@ func (r *hotbarTileRenderer) MinSize() fyne.Size {
 
 func (r *hotbarTileRenderer) Layout(size fyne.Size) {
 	side, pad, d := r.sizes()
+	r.card.Move(fyne.NewPos(0, 0))
+	r.card.Resize(size)
 	x := (size.Width - side) / 2
 	r.bg.Move(fyne.NewPos(x, pad))
 	r.bg.Resize(fyne.NewSize(side, side))
@@ -614,11 +508,13 @@ func (r *hotbarTileRenderer) Layout(size fyne.Size) {
 	is := r.initials.MinSize()
 	r.initials.Move(fyne.NewPos(x+(side-is.Width)/2, pad+(side-is.Height)/2))
 	r.initials.Resize(is)
-	ring := d + 4
+	ring := d + 4*r.t.zoom()
 	r.ring.Move(fyne.NewPos(x+side-ring+2, pad+side-ring+2))
 	r.ring.Resize(fyne.NewSize(ring, ring))
 	r.dot.Move(fyne.NewPos(x+side-d, pad+side-d))
 	r.dot.Resize(fyne.NewSize(d, d))
+	r.still.Move(r.dot.Position())
+	r.still.Resize(r.dot.Size())
 	r.label.Text = ellipsize(r.id.name, size.Width-pad, r.label.TextSize, r.label.TextStyle)
 	ls := r.label.MinSize()
 	r.label.Move(fyne.NewPos((size.Width-ls.Width)/2, pad+side+pad/2))
@@ -638,10 +534,10 @@ func (r *hotbarTileRenderer) Refresh() {
 	}
 	r.initials.Text = r.id.initials
 	accent := themeColor(th, r.id.ink) // the cluster's icon colour, the accent by default
-	r.bg.CornerRadius = th.Size(theme.SizeNameInputRadius)
+	r.bg.CornerRadius = th.Size(theme.SizeNameInputRadius) * t.zoom()
 	r.bg.StrokeWidth = 0
-	r.initials.TextSize = th.Size(theme.SizeNameSubHeadingText)
-	r.label.TextSize = th.Size(theme.SizeNameCaptionText)
+	r.initials.TextSize = th.Size(theme.SizeNameSubHeadingText) * t.zoom()
+	r.label.TextSize = th.Size(theme.SizeNameCaptionText) * t.zoom()
 	r.label.Color = themeColor(th, colorMuted)
 	r.initials.Color = accent
 	switch {
@@ -662,67 +558,89 @@ func (r *hotbarTileRenderer) Refresh() {
 	case t.hovered:
 		r.bg.FillColor = withAlpha(accent, 0x66)
 	}
-	r.img.Translucency = 0
-	if t.lifted() {
-		r.lift(th, accent)
-	}
 	m := t.mark() // the cluster's mark, with its reason and times for the dot's tooltip (D-69)
 	if t.tile.Missing {
 		m.color, m.ring = colorStatusWarning, false
 	}
 	r.dot.setMark(t.tile.Context, m)
 	r.ring.FillColor = themeColor(th, theme.ColorNameHeaderBackground) // sets the dot off the tile
-	if r.id.image != nil && !t.tile.Missing {                          // the uploaded icon in place of the initials
+	r.img.Translucency = 0
+	if r.id.image != nil && !t.tile.Missing { // the uploaded icon in place of the initials
 		r.img.Resource = r.id.image
-		r.img.Show()
-		r.initials.Hide()
 	} else {
 		r.img.Resource = nil
-		r.img.Hide()
-		r.initials.Show()
 	}
+	r.show(th, accent, m)
 	r.Layout(t.Size())
 	for _, o := range r.Objects() {
 		o.Refresh()
 	}
 }
 
-// lift draws the tile being dragged out of its place (hotbardrag.go): an outline where it was, its
-// initials, icon and name faded.
-func (r *hotbarTileRenderer) lift(th fyne.Theme, accent color.Color) {
-	r.bg.FillColor = color.Transparent
-	r.bg.StrokeColor, r.bg.StrokeWidth = withAlpha(accent, 0x80), th.Size(theme.SizeNameInputBorder)
-	r.initials.Color = withAlpha(accent, 0x80)
-	r.label.Color = withAlpha(themeColor(th, colorMuted), 0x80)
-	r.img.Translucency = 0.6
+// show picks what the tile draws: the tile; the empty place of a tile being carried elsewhere
+// (hotbardrag.go), an outline only; or the carried ghost, the tile on a lifted card with a shadow
+// and its dot drawn still.
+func (r *hotbarTileRenderer) show(th fyne.Theme, accent color.Color, m clusterMark) {
+	t := r.t
+	place := t.carried()
+	image := r.img.Resource != nil
+	setVisible(r.img, image && !place)
+	setVisible(r.initials, !image && !place)
+	setVisible(r.label, !place)
+	setVisible(r.ring, !place)
+	setVisible(r.dot, !place && !t.ghost)
+	setVisible(r.still, t.ghost)
+	setVisible(r.card, t.ghost)
+	r.card.Shadow = canvas.Shadow{}
+	switch {
+	case place:
+		r.bg.FillColor = color.Transparent
+		r.bg.StrokeColor, r.bg.StrokeWidth = withAlpha(accent, 0x70), th.Size(theme.SizeNameInputBorder)
+	case t.ghost:
+		v := fyne.CurrentApp().Settings().ThemeVariant()
+		r.card.FillColor = themeColor(th, theme.ColorNameHeaderBackground)
+		r.card.CornerRadius = th.Size(theme.SizeNameInputRadius) * t.zoom()
+		r.card.StrokeColor, r.card.StrokeWidth = themeColor(th, theme.ColorNameInputBorder), 1
+		r.card.Shadow = canvas.Shadow{Color: th.Color(theme.ColorNameShadow, v), BlurRadius: 12,
+			Offset: fyne.NewPos(0, 4), Variant: canvas.DropShadow}
+		if !t.tile.Missing {
+			r.bg.FillColor = withAlpha(accent, 0x66) // picked up: the hover's tint
+		}
+		name := m.color
+		if name == "" {
+			name = connectionColor(m.conn)
+		}
+		c := themeColor(th, name)
+		if m.ring {
+			r.still.FillColor, r.still.StrokeColor, r.still.StrokeWidth = color.Transparent, c, ringStroke
+		} else {
+			r.still.FillColor, r.still.StrokeColor, r.still.StrokeWidth = c, color.Transparent, 0
+		}
+	}
 }
 
 func (r *hotbarTileRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.bg, r.img, r.initials, r.ring, r.dot, r.label}
+	return []fyne.CanvasObject{r.card, r.bg, r.img, r.initials, r.ring, r.dot, r.still, r.label}
 }
 
 func (r *hotbarTileRenderer) Destroy() {}
 
-// hotbarButton is a small text button of the hotbar with a tooltip: the "+" (drawn as an empty
-// tile), the switcher's arrows and its number.
+// hotbarButton is the hotbar's "+" with a tooltip, drawn as an empty tile.
 type hotbarButton struct {
 	widget.BaseWidget
-	h           *hotbar
-	text        string
-	size        fyne.ThemeSizeName
-	bold        bool
-	square      bool // drawn as an empty tile with an outline
-	tip         string
-	disabled    bool
-	hovered     bool
-	onTap       func()
-	onSecondary func(fyne.Position)
+	h        *hotbar
+	text     string
+	size     fyne.ThemeSizeName
+	square   bool // drawn as an empty tile with an outline
+	tip      string
+	disabled bool
+	hovered  bool
+	onTap    func()
 }
 
 var (
-	_ fyne.Tappable          = (*hotbarButton)(nil)
-	_ fyne.SecondaryTappable = (*hotbarButton)(nil)
-	_ desktop.Hoverable      = (*hotbarButton)(nil)
+	_ fyne.Tappable     = (*hotbarButton)(nil)
+	_ desktop.Hoverable = (*hotbarButton)(nil)
 )
 
 func newHotbarButton(h *hotbar, text string, size fyne.ThemeSizeName, tap func()) *hotbarButton {
@@ -731,38 +649,11 @@ func newHotbarButton(h *hotbar, text string, size fyne.ThemeSizeName, tap func()
 	return b
 }
 
-func (b *hotbarButton) setText(s string) {
-	if s != b.text {
-		b.text = s
-		b.Refresh()
-	}
-}
-
-func (b *hotbarButton) setDisabled(d bool) {
-	if d != b.disabled {
-		b.disabled = d
-		b.Refresh()
-	}
-}
-
-// menuPos is where a menu opened from the button starts: its top-left corner, in window
-// coordinates.
-func (b *hotbarButton) menuPos() fyne.Position {
-	return fyne.CurrentApp().Driver().AbsolutePositionForObject(b)
-}
-
 // Tapped implements fyne.Tappable.
 func (b *hotbarButton) Tapped(*fyne.PointEvent) {
 	b.h.sh.tip.hideFor(b)
 	if !b.disabled && b.onTap != nil {
 		b.onTap()
-	}
-}
-
-// TappedSecondary implements fyne.SecondaryTappable.
-func (b *hotbarButton) TappedSecondary(ev *fyne.PointEvent) {
-	if b.onSecondary != nil {
-		b.onSecondary(ev.AbsolutePosition)
 	}
 }
 
@@ -830,7 +721,6 @@ func (r *hotbarButtonRenderer) Refresh() {
 	th := b.Theme()
 	r.txt.Text = b.text
 	r.txt.TextSize = th.Size(b.size)
-	r.txt.TextStyle = fyne.TextStyle{Bold: b.bold}
 	fg := theme.ColorNameForeground
 	if b.disabled || b.square {
 		fg = colorMuted

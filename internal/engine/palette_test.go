@@ -20,7 +20,7 @@ func TestFilterPalette(t *testing.T) {
 		{Command: "ui.openView", Label: "Switch to Pods", Category: "Workloads"},
 		{Command: "ui.openView", Label: "Switch to Daemon Sets", Category: "Workloads", Reason: "no cluster connected"},
 		{Command: "ui.openView", Label: "Switch to Deployment Controllers", Category: "Custom"},
-		{Command: "hotbar.createBank", Label: "Create Bank", Category: "Hotbar"},
+		{Command: "hotbar.addCluster", Label: "Add to Hotbar", Category: "Hotbar"},
 		{Command: "terminal.open", Label: "New Terminal", Category: "View"},
 	}
 	for _, tt := range []struct {
@@ -32,7 +32,7 @@ func TestFilterPalette(t *testing.T) {
 		{"DEP", []string{"Switch to Deployments", "Switch to Deployment Controllers"}},
 		{"de", []string{"Delete", "Switch to Deployments", "Switch to Deployment Controllers", "Switch to Daemon Sets"}},
 		{"swdep", []string{"Switch to Deployments", "Switch to Deployment Controllers"}},
-		{"hotbar create", []string{"Create Bank"}},
+		{"hotbar add", []string{"Add to Hotbar"}},
 		{"web", []string{"Logs", "Delete"}},
 		{"term", []string{"New Terminal"}},
 		{"zzz", nil},
@@ -89,7 +89,7 @@ func TestPaletteRules(t *testing.T) {
 		Name string `json:"name"`
 	}
 	type optP struct {
-		Bank int `json:"bank,omitempty"`
+		Count int `json:"count,omitempty"`
 	}
 	nop := func(context.Context, *Session, refP) (any, error) { return nil, nil }
 	must := func(err error) {

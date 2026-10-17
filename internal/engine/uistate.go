@@ -74,8 +74,9 @@ type UIState struct {
 	Dock       []DockTab `json:"dock"`
 	ActiveDock string    `json:"activeDock,omitempty"`
 	dockMemo   map[string]dockMemo
-	// Hotbar is the hotbar's banks and the shown one (hotbar.go); nil in a session without one.
-	// Its tiles carry their contexts only; ui.state adds what each tile shows (Session.HotbarView).
+	// Hotbar is the hotbar: one list of tiles, top to bottom (hotbar.go, D-83); nil in a session
+	// without one. Its tiles carry their contexts only; ui.state adds what each tile shows
+	// (Session.HotbarView).
 	Hotbar *HotbarState `json:"hotbar,omitempty"`
 	// Overview is what the cluster Overview's charts show: their time range and node group
 	// (clusteroverview.go); zero: the defaults.

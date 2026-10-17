@@ -106,7 +106,7 @@ func TestRenderDockPerClusterLight(t *testing.T) {
 func renderDockPerCluster(t *testing.T, mode ThemeMode, before, after string) {
 	f := dockClustersFake(t)
 	f.ui.Hotbar = nil
-	withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: []engine.HotbarTile{{Context: cShown}, {Context: cCold}}})
+	withHotbar(f, cShown, cCold)
 	sh, w, q := newTestShell(t, f, Options{Theme: mode})
 	q.until(t, "the dock", func() bool {
 		return len(sh.dock.contents) == 2 && sh.dock.open() && len(tilesOf(sh.hot)) == 2 && sh.diag.total > 0

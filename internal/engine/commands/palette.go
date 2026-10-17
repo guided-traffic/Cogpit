@@ -23,7 +23,7 @@ func registerPalette(g *registrar) {
 		Danger: engine.DangerUI,
 		Description: "Opens the command palette in Cogpit's window, as ⌘⇧P (Ctrl+Shift+P) does. The user searches it for what " +
 			"the window's menus offer in the current state (the actions of the object in the detail drawer, Switch to a view, " +
-			"the hotbar's banks and clusters, ...) and picks one. ui_state reports palette: true while it is open, and " +
+			"the hotbar's clusters, ...) and picks one. ui_state reports palette: true while it is open, and " +
 			"paletteText what is typed. A command run from the palette asks for confirmation exactly as from a menu. Opened " +
 			"by an agent it does not take the keyboard focus. Returns the new UI state.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {

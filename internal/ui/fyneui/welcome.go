@@ -28,7 +28,7 @@ import (
 //   - Cogpit's logo, "Welcome to Cogpit" and a line saying what Cogpit is;
 //   - a line about the connection when there is one to tell: a connect that failed, a connection
 //     Cogpit closed, or the cluster that stays connected under the page;
-//   - the clusters to connect with one click: the hotbar's shown bank, then Recent, the clusters of
+//   - the clusters to connect with one click: the hotbar's, then Recent, the clusters of
 //     this session (the connected or last one, the tabs' ones; the heading "Recent" since the
 //     owner's A67, 2026-10-14 evening, was "This session"), then up to eight other clusters the
 //     kubeconfig sources offer (the kubeconfig's current one first), so that a failed connect
@@ -226,7 +226,7 @@ func (w *welcomePage) subscribe() {
 }
 
 // welcomeStateSig is what of a UI state the page's list depends on beyond the tab bar's changes:
-// the hotbar's banks, the tabs' clusters and the connected clusters' marks (D-69).
+// the hotbar's tiles, the tabs' clusters and the connected clusters' marks (D-69).
 func welcomeStateSig(st engine.UIState) string {
 	var b strings.Builder
 	for _, c := range st.Connections {
@@ -296,10 +296,9 @@ func (w *welcomePage) groups() []welcomeGroup {
 		}
 	}
 	var out []welcomeGroup
-	if h := st.Hotbar; h != nil && h.Current >= 1 && h.Current <= len(h.Banks) {
-		b := h.Banks[h.Current-1]
-		g := welcomeGroup{title: "Hotbar · " + b.Name}
-		for _, t := range b.Clusters {
+	if h := st.Hotbar; h != nil {
+		g := welcomeGroup{title: "Hotbar"}
+		for _, t := range h.Clusters {
 			take(&g, t.Context)
 		}
 		if len(g.contexts) > 0 {

@@ -106,7 +106,7 @@ func TestNavigatorRootMenu(t *testing.T) {
 	}
 
 	f := crdFake(t)
-	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank})
+	withHotbar(f)
 	sh, _, q := newTestShell(t, f, Options{})
 	q.until(t, "the hotbar", func() bool { return sh.hot.root.Visible() && len(sh.kinds) > 0 })
 	sh.side.rootRow.TappedSecondary(&fyne.PointEvent{})
@@ -116,7 +116,7 @@ func TestNavigatorRootMenu(t *testing.T) {
 	}
 	m.Items[0].Action()
 	q.until(t, "the cluster pinned", func() bool { return len(f.callsOf("hotbar.addCluster")) == 1 })
-	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.addCluster")[0]); p.Context != "kind-cogpit" || p.Bank != 1 {
+	if p := decodeParams[hotbarClusterParams](t, f.callsOf("hotbar.addCluster")[0]); p.Context != "kind-cogpit" {
 		t.Errorf("hotbar.addCluster %+v", p)
 	}
 }

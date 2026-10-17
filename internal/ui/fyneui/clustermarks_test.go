@@ -27,8 +27,8 @@ const (
 )
 
 // marksFake is kind-cogpit shown with four more clusters connected behind it (warm, cold, lapsed and
-// one whose reconnect the test starts) and one whose last connect failed, on the hotbar's bank and
-// in the navigator's section (scope: the section, else kind-cogpit's tree).
+// one whose reconnect the test starts) and one whose last connect failed, on the hotbar and in the
+// navigator's section (scope: the section, else kind-cogpit's tree).
 func marksFake(t *testing.T, section bool) (*fakeEngine, *fakeHotbar) {
 	t.Helper()
 	f := connectedFake(t, 200)
@@ -50,11 +50,7 @@ func marksFake(t *testing.T, section bool) (*fakeEngine, *fakeHotbar) {
 	if c, ok := realCommands(t).Get("cluster.disconnect"); ok {
 		probe[contextParams](t, f, c)
 	}
-	var tiles []engine.HotbarTile
-	for _, id := range []string{cShown, cBlink, cCold, cLapsed, cWarm, cFailed, "legacy-onprem [.kube/old.yaml]"} {
-		tiles = append(tiles, engine.HotbarTile{Context: id})
-	}
-	fh := withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: tiles})
+	fh := withHotbar(f, cShown, cBlink, cCold, cLapsed, cWarm, cFailed, "legacy-onprem [.kube/old.yaml]")
 	fh.missing["legacy-onprem [.kube/old.yaml]"] = true
 	return f, fh
 }

@@ -10,7 +10,7 @@ import (
 
 // F1–F12 open the hotbar's clusters from the plain search fields too (A64): the view's search, the
 // navigator's (⌘P's too) and the palette's filter (the palette closes first); other keys still
-// type. The scene's bank: demo, kind-cogpit (connected), prod-eu-central.
+// type. The scene's hotbar: demo, kind-cogpit (connected), prod-eu-central.
 func TestSearchFieldsHandFKeysToTheHotbar(t *testing.T) {
 	sh, w, q, f, _ := paletteShell(t, ThemeDark)
 	slots := func() []int {

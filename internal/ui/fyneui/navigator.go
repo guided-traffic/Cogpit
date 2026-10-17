@@ -78,7 +78,7 @@ type navTree struct {
 	focused bool   // the tree has the window's keyboard focus
 	keys    bool   // the keyboard moved last, not the pointer: the ring shows (A53)
 	pointer bool   // the focus about to come is a click's
-	shift   bool   // Shift is held (⇧F1–⇧F12 for the hotbar)
+	shift   bool   // Shift is held (a shifted F-key is not the hotbar's, D-83)
 }
 
 var (
@@ -291,7 +291,7 @@ func (t *navTree) left() {
 
 // TypedKey implements fyne.Focusable: the navigator's keyboard.
 func (t *navTree) TypedKey(ev *fyne.KeyEvent) {
-	if t.s.sh.hot.key(ev.Name, t.shift) { // F1–F12 and ⇧F1–⇧F12 belong to the hotbar
+	if t.s.sh.hot.key(ev.Name, t.shift) { // F1–F12 belong to the hotbar
 		return
 	}
 	t.keyed()

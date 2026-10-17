@@ -359,7 +359,7 @@ func TestClusterSettingsShortcutAndMenus(t *testing.T) {
 		c, _ := reg.Get(id)
 		probe[clusterSettingsOpenParams](t, f, c)
 	}
-	withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: []engine.HotbarTile{{Context: "demo"}}})
+	withHotbar(f, "demo")
 	var mu sync.Mutex // the handler runs on dispatch goroutines
 	opened := []clusterSettingsOpenParams{}
 	openedSoFar := func() []clusterSettingsOpenParams {

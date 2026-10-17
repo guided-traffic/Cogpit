@@ -90,7 +90,7 @@ func registerUI(g *registrar) {
 			"filter and selection, and its history), the dock tabs, how many rows the view shows of how many objects, for a pod's or node's drawer the time " +
 			"range and variant of each metrics chart (drawerCharts) and the metrics providers' status line " +
 			"(drawerMetricsProviders: Prometheus and the Metrics Server, answering or not, what each serves), " +
-			"the hotbar of pinned clusters as hotbar_list returns it (each tile's displayName is the name the window shows: the display name set, else the part of the context's name after its last @; commands take the context), and timeFormat, the Go layouts of a date and a time " +
+			"the hotbar of pinned clusters as hotbar_list returns it, one list of clusters top to bottom (each tile's displayName is the name the window shows: the display name set, else the part of the context's name after its last @; commands take the context), and timeFormat, the Go layouts of a date and a time " +
 			"of day that the drawn texts (view_rows, resources_list, object_get's sections) write absolute times in, in the " +
 			"Preferences' time zone; the window's layout (navigatorHidden, dockOpen, chat) and update, the newer release " +
 			"the updater holds for the user (available, version). Use it to learn which object the user means.",

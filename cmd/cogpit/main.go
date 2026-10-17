@@ -288,7 +288,7 @@ func openWorkspace(logger *slog.Logger) *engine.Workspace {
 	return engine.NewWorkspace(filepath.Join(dir, "Cogpit"))
 }
 
-// openHotbar keeps the hotbar's banks of pinned clusters in <user config dir>/Cogpit/hotbar.json,
+// openHotbar keeps the hotbar's pinned clusters in <user config dir>/Cogpit/hotbar.json (D-83: one list),
 // owner-only (G13). Without a configuration directory the hotbar lives in memory for the run.
 func openHotbar(logger *slog.Logger) *engine.Hotbar {
 	dir, err := os.UserConfigDir()

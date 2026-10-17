@@ -131,8 +131,7 @@ var wantCommands = map[string]engine.Danger{
 
 	// The hotbar (G13): Cogpit's own preferences, never a cluster (TestHotbarCommands).
 	"hotbar.list": engine.DangerRead, "hotbar.addCluster": engine.DangerUI, "hotbar.removeCluster": engine.DangerUI,
-	"hotbar.moveCluster": engine.DangerUI, "hotbar.openCluster": engine.DangerUI, "hotbar.switchBank": engine.DangerUI,
-	"hotbar.createBank": engine.DangerUI, "hotbar.renameBank": engine.DangerUI, "hotbar.removeBank": engine.DangerUI,
+	"hotbar.moveCluster": engine.DangerUI, "hotbar.openCluster": engine.DangerUI,
 
 	// The command palette (G13): its open state (TestPaletteOpenState).
 	"ui.palette.open": engine.DangerUI, "ui.palette.close": engine.DangerUI,

@@ -251,7 +251,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 			sh.conn.root, sh.drains.root, sh.helm.root, sh.helmHTTP.root, sh.drafts.root),
 		box(layout.NewCustomPaddedVBoxLayout(0), newDivider(false), sh.status.root), // the line directly on the bar
 		sh.hot.root, nil, sh.chatRow)
-	sh.root = container.NewStack(frame, sh.tip.layer, sh.toasts)
+	sh.root = container.NewStack(frame, sh.hot.drag.float, sh.tip.layer, sh.toasts) // a dragged hotbar tile over the window (hotbardrag.go)
 	return sh
 }
 
@@ -1028,7 +1028,7 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 // installShortcuts adds Lens's keyboard shortcuts that Cogpit supports, as the registry declares
 // them: ⌘F (ui.setFilter: the search) and ⌘⇧T (terminal.open), the window's own (windowKeys: a
 // focused widget that takes shortcuts keeps them; the View menu shows them, A55), Escape (close the
-// palette, the notifications or a settings page, else the drawer), "/" (the logs tab's search), and F1–F12 and ⇧F1–⇧F12 for
+// palette, the notifications or a settings page, else the drawer), "/" (the logs tab's search), and F1–F12 for
 // the hotbar while no text field has the focus (the table and the search fields pass them on, A64).
 // ⌘⇧P and ⌘P are the main menu's (mainMenu), which take them from any focus.
 func (sh *shell) installShortcuts() {
@@ -1040,7 +1040,7 @@ func (sh *shell) installShortcuts() {
 		}
 	}
 	c.SetOnTypedKey(func(ev *fyne.KeyEvent) {
-		if sh.hot.key(ev.Name, shiftHeld()) { // F1–F12, ⇧F1–⇧F12: the hotbar (Fyne has no shortcut for them)
+		if sh.hot.key(ev.Name, shiftHeld()) { // F1–F12: the hotbar (Fyne has no shortcut for them)
 			return
 		}
 		if ev.Name == fyne.KeyEscape {

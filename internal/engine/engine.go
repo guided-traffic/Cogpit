@@ -292,8 +292,8 @@ func (s *Session) SetAgentWrites(context string, allowed bool) {
 // mutating commands need it from agents unless the user allowed agent writes for the context, and
 // always when the command declares that agents ask for this invocation (agentsAsk: an agent's RBAC
 // write, H-27, A1); a UI command needs it from agents only when it declares so for the invocation
-// (agentsAsk: an agent's proxy, A20, or its removal of a bank with clusters, A65, owner 2026-10-14
-// evening), the allowance of agent writes not bearing on it; read commands never do.
+// (agentsAsk: an agent's proxy, A20, owner 2026-10-14 evening), the allowance of agent writes not
+// bearing on it; read commands never do.
 func NeedsConfirmation(d Danger, o Origin, agentWritesAllowed, agentsAsk bool) bool {
 	switch d {
 	case DangerDestructive:

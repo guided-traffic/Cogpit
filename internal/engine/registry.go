@@ -86,7 +86,7 @@ type Spec[P any] struct {
 	// AgentsAsk reports whether this invocation, when an agent asks for it, waits for the user's
 	// acceptance even in a context where the user allowed agent writes (D-2, H-14): an RBAC write
 	// (agentsask.go, H-27, A1), a Helm install or upgrade (A2); for a UI command, whether the agent's
-	// invocation waits for the user at all (a proxy, A20; a bank with clusters removed, A65). The
+	// invocation waits for the user at all (a proxy, A20). The
 	// GUI's own invocation is unaffected. Nil never; DangerMutating and DangerUI commands may set it
 	// (a destructive one always asks anyway).
 	AgentsAsk func(s *Session, p P) bool

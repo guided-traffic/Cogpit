@@ -134,7 +134,7 @@ func TestRootRowShowsTheLastKnownUser(t *testing.T) {
 // page's row; the navigator's search still finds the context by its full name.
 func TestShortClusterNameEverywhere(t *testing.T) {
 	f := userFake(t, confirmedUser, engine.Connected)
-	withHotbar(f, 1, engine.HotbarBank{Name: engine.DefaultHotbarBank, Clusters: []engine.HotbarTile{{Context: userCtx}}})
+	withHotbar(f, userCtx)
 	sh, _, q := userScene(t, f, ThemeDark)
 
 	if sh.top.context.text != "prod-eu" || sh.top.context.tip != "kubernetes-admin@prod-eu" || sh.top.file.text != "dev.yaml" {

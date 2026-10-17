@@ -103,7 +103,7 @@ func TestClusterListsShowTheClientCertificate(t *testing.T) {
 
 	t.Run("the navigator's section", func(t *testing.T) {
 		f := certFake(t, false)
-		withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: []engine.HotbarTile{{Context: certExpired}, {Context: certNone}}})
+		withHotbar(f, certExpired, certNone)
 		sh, _, q := newTestShell(t, f, Options{})
 		n := sh.side.sec
 		q.until(t, "the section's clusters and the tiles", func() bool {

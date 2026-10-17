@@ -118,7 +118,7 @@ type navSections struct {
 	focused bool   // the list has the window's keyboard focus
 	keys    bool   // the keyboard moved last, not the pointer: the ring shows (A53)
 	pointer bool   // the focus about to come is a click's
-	shift   bool   // Shift is held (⇧F1–⇧F12 for the hotbar)
+	shift   bool   // Shift is held (a shifted F-key is not the hotbar's, D-83)
 
 	menuModel *fyne.Menu // a row's open menu, for tests
 	subOnce   sync.Once
@@ -556,7 +556,7 @@ func (n *navSections) enter() {
 
 // TypedKey implements fyne.Focusable: the section's keyboard.
 func (n *navSections) TypedKey(ev *fyne.KeyEvent) {
-	if n.s.sh.hot.key(ev.Name, n.shift) { // F1–F12 and ⇧F1–⇧F12 belong to the hotbar
+	if n.s.sh.hot.key(ev.Name, n.shift) { // F1–F12 belong to the hotbar
 		return
 	}
 	n.keyed()

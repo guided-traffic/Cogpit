@@ -15,11 +15,11 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Resource views (free) | 64 | 64 | 1 | 63 | 0 |
 | Resource actions (free; exist = registered commands) | 42 | 42 | – | – | 0 |
 | Interface rows, free plan | 120 | 117 | 9 | 108 | 3 |
-| Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
+| Interface rows, paid plans | 12 | 8 | 0 | 8 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
 | Beyond Lens (not in feature breadth) | 67 | 65 | 54 | 11 | 2 |
 
-Not counted: 8 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
+Not counted: 10 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
 ## Resource views and actions
 
@@ -123,10 +123,10 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | Navigator keyboard: ↑↓ move, → opens, ← closes, Tab and ⇧Tab, ↵ preview tab, ⇧↵ fixed tab | partial | [Clusters](ui-parity.md#clusters) |
 | Cloud sections list clusters from AWS, Azure and Google accounts | missing | [Clusters](ui-parity.md#clusters) |
 | Hotbar of up to 12 clusters per bank | partial | [Hotbar](ui-parity.md#hotbar) |
-| Banks: create, rename, remove, switch from the command palette | partial | [Hotbar](ui-parity.md#hotbar) |
+| Banks: create, rename, remove, switch from the command palette | not a target | [Hotbar](ui-parity.md#hotbar) |
 | F1–F12 switch to a cluster in the bank, ⇧F1–⇧F12 switch bank | partial | [Hotbar](ui-parity.md#hotbar) |
 | Add a cluster from its menu ("Add to hotbar") | partial | [Hotbar](ui-parity.md#hotbar) |
-| Reorder tiles by dragging them within the bank (Lens: tiles are dragged to reorder, as the first row of this table notes; capture needed) | partial | [Hotbar](ui-parity.md#hotbar) |
+| Reorder tiles by dragging them within the hotbar (Lens: tiles are dragged to reorder, as the first row of this table notes; capture needed) | partial | [Hotbar](ui-parity.md#hotbar) |
 | The tree above | partial | [Cluster sidebar](ui-parity.md#cluster-sidebar) |
 | A group or item appears only when the cluster serves its kinds (Admission Policies, Gateway API, Device Resources) | partial | [Cluster sidebar](ui-parity.md#cluster-sidebar) |
 | Groups expand and collapse | partial | [Cluster sidebar](ui-parity.md#cluster-sidebar) |
@@ -184,7 +184,7 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | Port Forwarding view to open, edit, stop and delete forwards (resource parity) | partial | [Port forwarding](ui-parity.md#port-forwarding) |
 | ⌘⇧P opens it | partial | [Command palette](ui-parity.md#command-palette) |
 | "Switch to *resource*" from a cluster view | partial | [Command palette](ui-parity.md#command-palette) |
-| Hotbar bank commands (hotbar: create bank, rename, remove) | partial | [Command palette](ui-parity.md#command-palette) |
+| Hotbar bank commands (hotbar: create bank, rename, remove) | not a target | [Command palette](ui-parity.md#command-palette) |
 | Application menu with Preferences (items: capture needed) | partial | [Application menu](ui-parity.md#application-menu) |
 | Window: Minimize; on macOS Zoom, Bring All to Front and the list of windows; on Windows and Linux Close Window (2026.10.51501) | partial | [Application menu](ui-parity.md#application-menu) |
 | Help › Welcome, with "Open Onboarding Wizard..." | partial | [Application menu](ui-parity.md#application-menu) |

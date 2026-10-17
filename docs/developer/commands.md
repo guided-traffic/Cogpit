@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 213 commands</summary>
+<summary>All 209 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -114,15 +114,11 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `helm.repo.allowHTTPCredentials` | `helm_repo_allowHTTPCredentials` | ui (GUI only) | `repositories` | Records that the user lets Cogpit send the user name and password of the listed Helm repositories over plain http, unencrypted, as helm does: a repository of Helm's repositories file whose URL is http:// and that has credentials downloads nothing before (helm_repo_list's httpCredentials says required or changed, its error why) |
 | `helm.repo.list` | `helm_repo_list` | read |  | Lists the Helm chart repositories of Helm's own repositories.yaml (the helm CLI adds and removes them; Cogpit only reads the file, within 5 seconds of a change), in its order: name, URL without a user or password, whether credentials are present (never a credential), TLS facts (CA file, client certificate, insecure, plain http), how many charts the index lists, when it was downloaded, the last error or why Cogpit does not use an entry; with the file's path and status (ok, missing, error: the last good list kept) |
 | `helm.repo.update` | `helm_repo_update` | ui | `names`? | Downloads the index of every Helm repository of Helm's repositories.yaml (or of those named) again into Cogpit's own cache, one after the other, as helm repo update does, with the credentials Helm's file holds; nothing is written into Helm's file or folders |
-| `hotbar.addCluster` | `hotbar_addCluster` | ui | `bank`?, `context`? | Pins a cluster to the hotbar: a tile for the context at the end of a bank, which F1–F12 open by its place |
-| `hotbar.createBank` | `hotbar_createBank` | ui | `name`? | Adds an empty bank after the others and shows it; the hotbar holds at most 12 banks, the ones ⇧F1–⇧F12 reach |
-| `hotbar.list` | `hotbar_list` | read |  | Returns the hotbar, the bar of pinned clusters at the left edge of Cogpit's window: its banks (numbered from 1, as the switcher shows them) with their names and tiles, top to bottom, and the bank shown now (current) |
-| `hotbar.moveCluster` | `hotbar_moveCluster` | ui | `bank`?, `context`, `position` | Moves a tile to another place in its bank (from 1, the top), which changes the F-key that opens it; the tiles between move one place |
-| `hotbar.openCluster` | `hotbar_openCluster` | ui | `bank`?, `slot` | Opens the cluster of a hotbar tile, as clicking it or pressing its F-key does (F1 the top tile of the bank shown): shows its last used tab or its Pods view, exactly as cluster_connect does: a cluster connected already is only shown, from Cogpit's cache and without a request, another one is connected first, and the cluster shown before stays connected; the tile of the cluster shown changes nothing |
-| `hotbar.removeBank` | `hotbar_removeBank` | ui (agents always ask for some calls) | `bank`? | Removes a bank of the hotbar with its tiles; the banks after it move up one number, and the hotbar keeps at least one bank |
-| `hotbar.removeCluster` | `hotbar_removeCluster` | ui | `bank`?, `context`? | Unpins a cluster: removes the context's tile from a bank; the tiles below it move up one place |
-| `hotbar.renameBank` | `hotbar_renameBank` | ui | `bank`?, `name` | Renames a bank of the hotbar; the switcher shows the name as its tooltip |
-| `hotbar.switchBank` | `hotbar_switchBank` | ui | `bank` | Shows another bank of the hotbar, as the switcher's arrows or ⇧F1–⇧F12 do; F1–F12 then open that bank's clusters |
+| `hotbar.addCluster` | `hotbar_addCluster` | ui | `context`? | Pins a cluster to the hotbar: a tile for the context at its end |
+| `hotbar.list` | `hotbar_list` | read |  | Returns the hotbar, the bar of pinned clusters at the left edge of Cogpit's window: one list of tiles (clusters), top to bottom, numbered from 1 as F1 opens the first; F1–F12 open the first twelve, the others a click or hotbar_openCluster |
+| `hotbar.moveCluster` | `hotbar_moveCluster` | ui | `context`, `position` | Moves a tile to another place on the hotbar (from 1, the top), which changes the F-key that opens it; the tiles between move one place |
+| `hotbar.openCluster` | `hotbar_openCluster` | ui | `slot` | Opens the cluster of a hotbar tile, as clicking it or pressing its F-key does (F1 the top tile, F12 the twelfth; a tile further down has no key): shows its last used tab or its Pods view, exactly as cluster_connect does: a cluster connected already is only shown, from Cogpit's cache and without a request, another one is connected first, and the cluster shown before stays connected; the tile of the cluster shown changes nothing |
+| `hotbar.removeCluster` | `hotbar_removeCluster` | ui | `context`? | Unpins a cluster: removes the context's tile from the hotbar; the tiles below it move up one place |
 | `job.cancel` | `job_cancel` | ui | `id` | Cancels a background job, a dock tab of type job (an action on more than 10 selected objects, Reconcile with Source): no further step starts (a request already sent finishes; a wait ends), and the tab stays open with the job's outcome, which says that it was cancelled, what was done and what was not |
 | `kinds.list` | `kinds_list` | read | `all`?, `context`? | Lists the kinds a connected cluster serves (the shown one unless context names another), as Cogpit shows them: kind key (what other tools take as kind), title, Kubernetes kind, group, version, whether it is namespaced, its table columns, and the fields resources_find can search by |
 | `kubeconfig.addFile` | `kubeconfig_addFile` | ui (GUI only) | `path` | Adds a kubeconfig file the user picked as a source: its contexts become available as "<context> [<file name>]", read from that file alone, and follow its changes |

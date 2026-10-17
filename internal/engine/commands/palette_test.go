@@ -52,14 +52,11 @@ func labelsOf(entries []engine.PaletteEntry) []string {
 // The palette lists what the menus offer in the current state, by the registry's metadata
 // (engine/palette.go): the drawer object's actions first, no tool meant for agents, the reads only
 // where the window presents them, Switch to every view but the open one, the hotbar's clusters
-// and banks with their keys, and the commands that need parameters only where the window asks for
-// them.
+// with their keys, and the commands that need parameters only where the window asks for them.
 func TestPaletteListsWhatTheMenusOffer(t *testing.T) {
 	h := newHarness(t, seed(), engine.Options{Hotbar: engine.NewHotbar(t.TempDir())})
 	gui := engine.OriginGUI
 	h.must(t, gui, "hotbar.addCluster", map[string]any{}, nil)
-	h.must(t, gui, "hotbar.createBank", map[string]any{"name": "Prod"}, nil)
-	h.must(t, gui, "hotbar.switchBank", map[string]any{"bank": 1}, nil)
 	pod := model.ObjectRef{Kind: "pods", Namespace: "shop", Name: "web-0"}
 	if _, err := h.s.Objects(context.Background(), "pods", nil); err != nil { // warm: Enabled does not wait
 		t.Fatal(err)
@@ -86,7 +83,7 @@ func TestPaletteListsWhatTheMenusOffer(t *testing.T) {
 		"ui.palette.open", "ui.palette.close", // the palette's own
 		"hotbar.list", "workloads.overview", "table.exportCsv", "cluster.refreshAccess", "kubeconfig.sources", // reads nobody presents
 		"pod.portForward", "service.portForward", "ui.navigate", // an object without an Order
-		"hotbar.moveCluster", "object.apply", "object.create", "hotbar.renameBank", "cluster.connect", // parameters without a dialog
+		"hotbar.moveCluster", "object.apply", "object.create", "cluster.connect", // parameters without a dialog
 		"namespace.create", // the Namespaces view is not open
 	} {
 		if e, ok := entryOf(entries, id); ok {
@@ -110,17 +107,13 @@ func TestPaletteListsWhatTheMenusOffer(t *testing.T) {
 		t.Errorf("Switch to entries:\n%s\nwant\n%s", strings.Join(views, "\n"), strings.Join(wantViews, "\n"))
 	}
 
-	// The hotbar: the shown bank's cluster with its F-key, the other bank with its ⇧F-key, the bank
-	// commands under Hotbar; Add to Hotbar left out for a cluster pinned already (it does not apply).
+	// The hotbar: its cluster with its F-key, Remove from Hotbar under Hotbar; Add to Hotbar left
+	// out for a cluster pinned already (it does not apply). One hotbar, no banks (D-83).
 	open, _ := entryOf(entries, "hotbar.openCluster")
-	if open.Label != "Open test" || open.Shortcut != "F1" || string(open.Params) != `{"bank":1,"slot":1}` {
+	if open.Label != "Open test" || open.Shortcut != "F1" || string(open.Params) != `{"slot":1}` {
 		t.Errorf("hotbar tile entry %+v", open)
 	}
-	sw, _ := entryOf(entries, "hotbar.switchBank")
-	if sw.Label != "Switch to Bank 2: Prod" || sw.Shortcut != "Shift+F2" || string(sw.Params) != `{"bank":2}` {
-		t.Errorf("hotbar bank entry %+v", sw)
-	}
-	for id, label := range map[string]string{"hotbar.createBank": "Create Bank", "hotbar.removeBank": "Remove Bank", "hotbar.removeCluster": "Remove from Hotbar"} {
+	for id, label := range map[string]string{"hotbar.removeCluster": "Remove from Hotbar"} {
 		if e, ok := entryOf(entries, id); !ok || e.Label != label || e.Category != "Hotbar" || e.Reason != "" || string(e.Params) != "{}" {
 			t.Errorf("%s: %+v", id, e)
 		}
@@ -136,9 +129,9 @@ func TestPaletteListsWhatTheMenusOffer(t *testing.T) {
 
 	// Where the window asks for the parameters or presents the result, the command is offered and
 	// marked as the window's own.
-	runs := paletteRuns("cluster.connect", "hotbar.renameBank", "table.exportCsv", "namespace.create")
+	runs := paletteRuns("cluster.connect", "table.exportCsv", "namespace.create")
 	entries = paletteOf(h, runs)
-	for _, id := range []string{"cluster.connect", "hotbar.renameBank", "table.exportCsv"} {
+	for _, id := range []string{"cluster.connect", "table.exportCsv"} {
 		if e, ok := entryOf(entries, id); !ok || !e.Own || e.Reason != "" {
 			t.Errorf("%s with the window's dialog: %+v", id, e)
 		}

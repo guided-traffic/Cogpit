@@ -15,125 +15,80 @@ import (
 	"github.com/guided-traffic/cogpit/internal/testkit"
 )
 
-func tiles(b HotbarBank) string {
+func tiles(h HotbarState) string {
 	var out []string
-	for _, t := range b.Clusters {
+	for _, t := range h.Clusters {
 		out = append(out, t.Context)
 	}
 	return strings.Join(out, ",")
 }
 
-// The bank operations: twelve clusters per bank, a context once per bank, moves shift the tiles
-// between, banks numbered from 1 with 0 meaning the shown one, at least one and at most twelve.
+// The hotbar's operations: one list without a limit (D-83), a context once, moves shift the tiles
+// between, slots numbered from 1.
 func TestHotbarStateOperations(t *testing.T) {
 	h := defaultHotbar()
-	if len(h.Banks) != 1 || h.Banks[0].Name != DefaultHotbarBank || h.Current != 1 {
+	if h.Clusters == nil || len(h.Clusters) != 0 {
 		t.Fatalf("default hotbar %+v", h)
 	}
-	for i := range HotbarBankSize {
-		if err := h.AddCluster(0, fmt.Sprintf("c%d", i+1)); err != nil {
+	for i := range 30 { // more than F1–F12 reach, and more than a bank held
+		if err := h.AddCluster(fmt.Sprintf("c%d", i+1)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := h.CheckAdd(0, "c13"); err == nil || err.Error() != "bank full: 12 clusters" {
-		t.Errorf("a thirteenth cluster: %v", err)
+	if err := h.CheckAdd("c31"); err != nil {
+		t.Errorf("a thirty-first cluster: %v", err)
 	}
-	if err := h.CheckAdd(1, "c3"); !errors.Is(err, ErrNotApplicable) {
+	if err := h.CheckAdd("c3"); !errors.Is(err, ErrNotApplicable) || !strings.HasSuffix(err.Error(), "c3 is on the hotbar already") {
 		t.Errorf("a context twice: %v, want not applicable (menus offer Remove)", err)
 	}
-	if err := h.AddCluster(0, " "); err == nil {
+	if err := h.AddCluster(" "); err == nil {
 		t.Error("an empty context was added")
 	}
-	if err := h.MoveCluster(0, "c12", 1); err != nil {
+	if err := h.MoveCluster("c30", 1); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.MoveCluster(0, "c1", 3); err != nil {
+	if err := h.MoveCluster("c1", 3); err != nil {
 		t.Fatal(err)
 	}
-	if got := tiles(h.Banks[0]); got != "c12,c2,c1,c3,c4,c5,c6,c7,c8,c9,c10,c11" {
+	if got := tiles(h); !strings.HasPrefix(got, "c30,c2,c1,c3,c4,") || !strings.HasSuffix(got, ",c28,c29") {
 		t.Errorf("after the moves: %s", got)
 	}
-	if err := h.CheckMove(0, "c1", 13); err == nil {
-		t.Error("a move past the end")
+	if err := h.CheckMove("c1", 31); err == nil || err.Error() != "position 31 is outside the hotbar's 1 to 30" {
+		t.Errorf("a move past the end: %v", err)
 	}
-	if err := h.CheckMove(0, "nope", 1); !errors.Is(err, ErrNotApplicable) {
-		t.Errorf("moving a context not in the bank: %v", err)
+	if err := h.CheckMove("nope", 1); !errors.Is(err, ErrNotApplicable) {
+		t.Errorf("moving a context not on the hotbar: %v", err)
 	}
-	if err := h.RemoveCluster(0, "c2"); err != nil {
+	if err := h.RemoveCluster("c2"); err != nil {
 		t.Fatal(err)
 	}
-	if tile, err := h.Tile(0, 2); err != nil || tile.Context != "c1" {
+	if err := h.RemoveCluster("c2"); !errors.Is(err, ErrNotApplicable) || !strings.Contains(err.Error(), "c2 is not on the hotbar") {
+		t.Errorf("removing it again: %v", err)
+	}
+	if tile, err := h.Tile(2); err != nil || tile.Context != "c1" {
 		t.Errorf("slot 2 after a removal: %+v %v", tile, err)
 	}
-	if _, err := h.Tile(0, 12); err == nil || !strings.Contains(err.Error(), "no cluster in slot 12") {
+	if tile, err := h.Tile(29); err != nil || tile.Context != "c29" {
+		t.Errorf("slot 29, past F12: %+v %v", tile, err)
+	}
+	if _, err := h.Tile(30); err == nil || err.Error() != "the hotbar has no cluster in slot 30 (it has 29)" {
 		t.Errorf("an empty slot: %v", err)
 	}
-
-	if err := h.CheckRemoveBank(0); err == nil || err.Error() != "the hotbar keeps at least one bank" {
-		t.Errorf("removing the last bank: %v", err)
-	}
-	n, err := h.CreateBank("")
-	if err != nil || n != 2 || h.Current != 2 || h.Banks[1].Name != "Bank 2" {
-		t.Fatalf("CreateBank: %d %v %+v", n, err, h)
-	}
-	if _, err := h.CreateBank("two\nlines"); err == nil {
-		t.Error("a bank name with a newline")
-	}
-	if err := h.RenameBank(0, "  Production  "); err != nil || h.Banks[1].Name != "Production" {
-		t.Errorf("RenameBank: %v %q", err, h.Banks[1].Name)
-	}
-	if err := h.RenameBank(1, strings.Repeat("x", maxBankName+1)); err == nil {
-		t.Error("an overlong name")
-	}
-	if err := h.RenameBank(3, "x"); err == nil || err.Error() != "the hotbar has no bank 3 (it has 2 banks)" {
-		t.Errorf("renaming bank 3: %v", err)
-	}
-	if err := h.AddCluster(2, "c1"); err != nil { // another bank may hold the same context
-		t.Fatal(err)
-	}
-	for h.CheckCreateBank() == nil {
-		if _, err := h.CreateBank(""); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if len(h.Banks) != HotbarMaxBanks || !strings.Contains(h.CheckCreateBank().Error(), "⇧F1–⇧F12") {
-		t.Errorf("%d banks: %v", len(h.Banks), h.CheckCreateBank())
-	}
-	if err := h.SwitchBank(2); err != nil || h.Current != 2 {
-		t.Fatal(err)
-	}
-	if err := h.SwitchBank(0); err == nil {
-		t.Error("SwitchBank(0)")
-	}
-	// Removing a bank before the shown one keeps the shown one shown, under its new number.
-	if _, err := h.RemoveBank(1); err != nil || h.Current != 1 || h.Banks[0].Name != "Production" {
-		t.Errorf("removing bank 1 while 2 is shown: %v, current %d, %q", err, h.Current, h.Banks[0].Name)
-	}
-	// Removing the shown last bank shows the new last.
-	h.Current = len(h.Banks)
-	if _, err := h.RemoveBank(0); err != nil || h.Current != len(h.Banks) {
-		t.Errorf("removing the shown last bank: %v, current %d of %d", err, h.Current, len(h.Banks))
-	}
-	// Removing the shown bank in the middle shows the one that takes its number.
-	h.Current = 2
-	next := h.Banks[2].Name
-	removed, err := h.RemoveBank(0)
-	if err != nil || h.Current != 2 || h.Banks[1].Name != next || removed.Name == next {
-		t.Errorf("removing the shown middle bank: %v, current %d, %q", err, h.Current, h.Banks[1].Name)
+	if h.Position("c29") != 29 || h.Position("nope") != 0 {
+		t.Errorf("positions %d %d", h.Position("c29"), h.Position("nope"))
 	}
 }
 
-// A stored file is read as far as it makes sense: too many tiles, duplicates, empty contexts and
-// names, and a shown bank that does not exist are mended, never refused.
+// A stored file is read as far as it makes sense: duplicates, empty and invalid contexts are
+// dropped, never refused, and the tiles keep their order; there is no limit to their number.
 func TestHotbarNormalizesWhatItReads(t *testing.T) {
 	dir := t.TempDir()
 	var many []HotbarTile
 	for i := range 15 {
 		many = append(many, HotbarTile{Context: fmt.Sprintf("c%d", i)})
 	}
-	many = append(many[:3], append([]HotbarTile{{Context: "c0"}, {Context: ""}, {Context: "  "}}, many[3:]...)...)
-	doc := hotbarDoc{Version: 1, Current: 9, Banks: []HotbarBank{{Name: "", Clusters: many}, {Name: "Ops\x07", Clusters: nil}}}
-	data, _ := json.Marshal(doc)
+	many = append(many[:3], append([]HotbarTile{{Context: "c0"}, {Context: ""}, {Context: "  "}, {Context: strings.Repeat("x", maxHotbarContext+1)}}, many[3:]...)...)
+	data, _ := json.Marshal(map[string]any{"version": 2, "clusters": many})
 	if err := os.WriteFile(filepath.Join(dir, HotbarFile), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -143,14 +98,101 @@ func TestHotbarNormalizesWhatItReads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.Current != 1 || len(st.Banks) != 2 || st.Banks[0].Name != "Bank 1" || st.Banks[1].Name != "Bank 2" {
-		t.Errorf("banks %+v", st)
-	}
-	if got := tiles(st.Banks[0]); got != "c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11" {
+	if got := tiles(st); got != "c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14" {
 		t.Errorf("tiles %s", got)
 	}
-	if st.Banks[1].Clusters == nil {
-		t.Error("an empty bank's clusters are null in JSON")
+	if raw, _ := os.ReadFile(filepath.Join(dir, HotbarFile)); string(raw) != string(data) {
+		t.Error("reading a file of the current format wrote it")
+	}
+	empty := t.TempDir()
+	if err := os.WriteFile(filepath.Join(empty, HotbarFile), []byte(`{"version": 2, "clusters": null}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s2 := New(Options{Hotbar: NewHotbar(empty)})
+	defer s2.Close()
+	if st, _ := s2.HotbarState(); st.Clusters == nil {
+		t.Error("an empty hotbar's clusters are null in JSON")
+	}
+}
+
+// A file of the banks' time (format 1, or none) becomes one hotbar (D-83): the first bank's tiles in
+// order, then each further bank's appended in order, each context once where it first appears; no
+// tile is lost, a bank's thirteenth neither, whichever bank was shown. The new format is written at
+// once and the old file kept as hotbar.json.v1; the next start reads the new file as it is.
+func TestHotbarMergesBanks(t *testing.T) {
+	var thirteen []HotbarTile
+	for i := range 13 {
+		thirteen = append(thirteen, HotbarTile{Context: fmt.Sprintf("p%d [prod.yaml]", i+1)})
+	}
+	ctx := func(ids ...string) []map[string]string {
+		out := []map[string]string{}
+		for _, id := range ids {
+			out = append(out, map[string]string{"context": id})
+		}
+		return out
+	}
+	for name, c := range map[string]struct {
+		doc  any
+		want string
+	}{
+		"three banks, the second shown": {
+			doc: map[string]any{"version": 1, "current": 2, "banks": []any{
+				map[string]any{"name": "Default", "clusters": ctx("kind-dev", "demo")},
+				map[string]any{"name": "Prod", "clusters": ctx("prod-eu", "kind-dev", "prod-us")},
+				map[string]any{"name": "Empty", "clusters": ctx()},
+				map[string]any{"name": "Staging", "clusters": ctx("staging", "", "demo")},
+			}},
+			want: "kind-dev,demo,prod-eu,prod-us,staging",
+		},
+		"no version, a full bank and one over": {
+			doc: map[string]any{"current": 1, "banks": []any{
+				map[string]any{"name": "Default", "clusters": thirteen},
+				map[string]any{"name": "Two", "clusters": ctx("last")},
+			}},
+			want: tiles(HotbarState{Clusters: thirteen}) + ",last",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, HotbarFile)
+			old, _ := json.Marshal(c.doc)
+			if err := os.WriteFile(path, old, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			s := New(Options{Hotbar: NewHotbar(dir)})
+			got := s.UIState().Hotbar
+			if got == nil || tiles(*got) != c.want {
+				t.Fatalf("merged %+v, want %s", got, c.want)
+			}
+			s.Close()
+			if raw, err := os.ReadFile(filepath.Join(dir, HotbarBanksBackup)); err != nil || string(raw) != string(old) {
+				t.Errorf("the banks' file is not kept: %q %v", raw, err)
+			}
+			if runtime.GOOS != "windows" {
+				if fi, err := os.Stat(filepath.Join(dir, HotbarBanksBackup)); err != nil || fi.Mode().Perm() != 0o600 {
+					t.Errorf("hotbar.json.v1: %v %v", fi, err)
+				}
+			}
+			var doc struct {
+				Version  int          `json:"version"`
+				Clusters []HotbarTile `json:"clusters"`
+				Banks    any          `json:"banks"`
+				Current  any          `json:"current"`
+			}
+			raw, _ := os.ReadFile(path)
+			if err := json.Unmarshal(raw, &doc); err != nil || doc.Version != 2 || doc.Banks != nil || doc.Current != nil ||
+				tiles(HotbarState{Clusters: doc.Clusters}) != c.want {
+				t.Errorf("hotbar.json after the merge: %s %v", raw, err)
+			}
+			s2 := New(Options{Hotbar: NewHotbar(dir)})
+			defer s2.Close()
+			if got := s2.UIState().Hotbar; got == nil || tiles(*got) != c.want {
+				t.Errorf("the next start: %+v", got)
+			}
+			if after, _ := os.ReadFile(path); string(after) != string(raw) {
+				t.Error("the next start wrote the file again")
+			}
+		})
 	}
 }
 
@@ -162,15 +204,14 @@ func TestHotbarPersistsPrivately(t *testing.T) {
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Fatalf("the directory exists before the first change: %v", err)
 	}
-	if s.UIState().Hotbar == nil || len(s.UIState().Hotbar.Banks) != 1 {
-		t.Fatalf("a first start shows one empty bank: %+v", s.UIState().Hotbar)
+	if h := s.UIState().Hotbar; h == nil || h.Clusters == nil || len(h.Clusters) != 0 {
+		t.Fatalf("a first start shows an empty hotbar: %+v", h)
 	}
 	if _, err := s.ChangeHotbar(func(h *HotbarState) error {
-		if err := h.AddCluster(0, "kind-dev [.kube/config]"); err != nil {
+		if err := h.AddCluster("kind-dev [.kube/config]"); err != nil {
 			return err
 		}
-		_, err := h.CreateBank("Prod")
-		return err
+		return h.AddCluster("demo")
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -194,14 +235,14 @@ func TestHotbarPersistsPrivately(t *testing.T) {
 		t.Errorf("the directory holds %d entries, want hotbar.json alone", len(entries))
 	}
 	raw, _ := os.ReadFile(path)
-	if strings.Contains(string(raw), "connection") || strings.Contains(string(raw), "label") {
-		t.Errorf("derived fields stored: %s", raw)
+	if strings.Contains(string(raw), "connection") || strings.Contains(string(raw), "label") || strings.Contains(string(raw), "bank") ||
+		!strings.Contains(string(raw), `"version": 2`) {
+		t.Errorf("the file: %s", raw)
 	}
 
 	s2 := New(Options{Hotbar: NewHotbar(dir)})
 	defer s2.Close()
-	got := s2.UIState().Hotbar
-	if got == nil || got.Current != 2 || len(got.Banks) != 2 || tiles(got.Banks[0]) != "kind-dev [.kube/config]" || got.Banks[1].Name != "Prod" {
+	if got := s2.UIState().Hotbar; got == nil || tiles(*got) != "kind-dev [.kube/config],demo" {
 		t.Errorf("after a restart: %+v", got)
 	}
 }
@@ -209,7 +250,7 @@ func TestHotbarPersistsPrivately(t *testing.T) {
 // A file Cogpit cannot read does not stop the start: the hotbar starts empty, and the file is moved
 // aside at the first change instead of being overwritten.
 func TestHotbarUnreadableFileIsKeptAside(t *testing.T) {
-	for name, content := range map[string]string{"garbage": "{not json", "future": `{"version": 7, "banks": []}`} {
+	for name, content := range map[string]string{"garbage": "{not json", "future": `{"version": 7, "clusters": []}`} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			path := filepath.Join(dir, HotbarFile)
@@ -218,13 +259,13 @@ func TestHotbarUnreadableFileIsKeptAside(t *testing.T) {
 			}
 			s := New(Options{Hotbar: NewHotbar(dir)})
 			defer s.Close()
-			if h := s.UIState().Hotbar; h == nil || len(h.Banks) != 1 || len(h.Banks[0].Clusters) != 0 {
+			if h := s.UIState().Hotbar; h == nil || len(h.Clusters) != 0 {
 				t.Fatalf("hotbar %+v", h)
 			}
 			if raw, _ := os.ReadFile(path); string(raw) != content {
 				t.Fatal("the unreadable file was changed before any change of the hotbar")
 			}
-			if _, err := s.ChangeHotbar(func(h *HotbarState) error { return h.AddCluster(0, "a") }); err != nil {
+			if _, err := s.ChangeHotbar(func(h *HotbarState) error { return h.AddCluster("a") }); err != nil {
 				t.Fatal(err)
 			}
 			if raw, err := os.ReadFile(path + ".unreadable"); err != nil || string(raw) != content {
@@ -241,20 +282,20 @@ func TestHotbarFailedChangeChangesNothing(t *testing.T) {
 	s := New(Options{Hotbar: NewHotbar(dir)})
 	defer s.Close()
 	rev := s.UIState().Revision
-	if _, err := s.ChangeHotbar(func(h *HotbarState) error { _, err := h.RemoveBank(0); return err }); err == nil {
-		t.Fatal("removed the last bank")
+	if _, err := s.ChangeHotbar(func(h *HotbarState) error { return h.RemoveCluster("a") }); err == nil {
+		t.Fatal("removed a tile the hotbar does not hold")
 	}
 	// The file's place is a directory: the write fails.
 	if err := os.Mkdir(filepath.Join(dir, HotbarFile), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ChangeHotbar(func(h *HotbarState) error { return h.AddCluster(0, "a") }); err == nil {
+	if _, err := s.ChangeHotbar(func(h *HotbarState) error { return h.AddCluster("a") }); err == nil {
 		t.Fatal("a failed write reported no error")
 	}
-	if u := s.UIState(); u.Revision != rev || len(u.Hotbar.Banks[0].Clusters) != 0 {
+	if u := s.UIState(); u.Revision != rev || len(u.Hotbar.Clusters) != 0 {
 		t.Errorf("the UI state moved: revision %d → %d, %+v", rev, u.Revision, u.Hotbar)
 	}
-	if st, _ := s.HotbarState(); len(st.Banks[0].Clusters) != 0 {
+	if st, _ := s.HotbarState(); len(st.Clusters) != 0 {
 		t.Errorf("the state moved: %+v", st)
 	}
 }
@@ -268,7 +309,7 @@ func TestHotbarViewMarksConnectionAndMissing(t *testing.T) {
 	t.Cleanup(s.Close)
 	if _, err := s.ChangeHotbar(func(h *HotbarState) error {
 		for _, c := range []string{"test", "broken", "gone [old.yaml]"} {
-			if err := h.AddCluster(0, c); err != nil {
+			if err := h.AddCluster(c); err != nil {
 				return err
 			}
 		}
@@ -284,7 +325,7 @@ func TestHotbarViewMarksConnectionAndMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := map[string]HotbarTile{}
-	for _, tl := range v.Banks[0].Clusters {
+	for _, tl := range v.Clusters {
 		got[tl.Context] = tl
 	}
 	if tl := got["test"]; tl.Connection != Connected || tl.Missing || tl.Label != "test" {
@@ -297,12 +338,12 @@ func TestHotbarViewMarksConnectionAndMissing(t *testing.T) {
 		t.Errorf("the missing tile %+v", tl)
 	}
 	// The UI state carries the stored hotbar; its tiles name their contexts only.
-	if u := s.UIState(); u.Hotbar == nil || u.Hotbar.Banks[0].Clusters[0] != (HotbarTile{Context: "test"}) {
+	if u := s.UIState(); u.Hotbar == nil || u.Hotbar.Clusters[0] != (HotbarTile{Context: "test"}) {
 		t.Errorf("UIState.Hotbar %+v", u.Hotbar)
 	}
 	// Connecting changes no hotbar; a change of the hotbar keeps the connection and the view.
 	before := s.UIState()
-	if _, err := s.ChangeHotbar(func(h *HotbarState) error { return h.MoveCluster(0, "gone [old.yaml]", 1) }); err != nil {
+	if _, err := s.ChangeHotbar(func(h *HotbarState) error { return h.MoveCluster("gone [old.yaml]", 1) }); err != nil {
 		t.Fatal(err)
 	}
 	after := s.UIState()
@@ -315,14 +356,15 @@ func TestHotbarViewMarksConnectionAndMissing(t *testing.T) {
 func TestHotbarConcurrentChanges(t *testing.T) {
 	s := New(Options{Hotbar: NewHotbar(t.TempDir())})
 	defer s.Close()
-	done := make(chan error, HotbarBankSize)
-	for i := range HotbarBankSize {
+	const n = 20
+	done := make(chan error, n)
+	for i := range n {
 		go func() {
-			_, err := s.ChangeHotbar(func(h *HotbarState) error { return h.AddCluster(0, fmt.Sprintf("c%d", i)) })
+			_, err := s.ChangeHotbar(func(h *HotbarState) error { return h.AddCluster(fmt.Sprintf("c%d", i)) })
 			done <- err
 		}()
 	}
-	for range HotbarBankSize {
+	for range n {
 		select {
 		case err := <-done:
 			if err != nil {
@@ -333,8 +375,8 @@ func TestHotbarConcurrentChanges(t *testing.T) {
 		}
 	}
 	st, _ := s.HotbarState()
-	if u := s.UIState(); len(st.Banks[0].Clusters) != HotbarBankSize || tiles(u.Hotbar.Banks[0]) != tiles(st.Banks[0]) {
-		t.Errorf("stored %s, shown %s", tiles(st.Banks[0]), tiles(u.Hotbar.Banks[0]))
+	if u := s.UIState(); len(st.Clusters) != n || tiles(*u.Hotbar) != tiles(st) {
+		t.Errorf("stored %s, shown %s", tiles(st), tiles(*u.Hotbar))
 	}
 }
 

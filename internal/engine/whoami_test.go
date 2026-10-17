@@ -310,15 +310,14 @@ func TestPaletteNamesTilesByTheShortName(t *testing.T) {
 	r := NewRegistry()
 	type slotP struct {
 		Slot int `json:"slot"`
-		Bank int `json:"bank,omitempty"`
 	}
 	if err := Register(r, Spec[slotP]{ID: openClusterCommand, Label: "Open Cluster", MenuPath: "Hotbar/Open Cluster", Danger: DangerUI,
 		Run: func(context.Context, *Session, slotP) (any, error) { return nil, nil }}); err != nil {
 		t.Fatal(err)
 	}
 	st := UIState{
-		Hotbar: &HotbarState{Current: 1, Banks: []HotbarBank{{Name: DefaultHotbarBank, Clusters: []HotbarTile{
-			{Context: "kubernetes-admin@prod-eu [dev.yaml]"}, {Context: "admin@staging [s.yaml]"}, {Context: "kind-dev"}}}}},
+		Hotbar: &HotbarState{Clusters: []HotbarTile{
+			{Context: "kubernetes-admin@prod-eu [dev.yaml]"}, {Context: "admin@staging [s.yaml]"}, {Context: "kind-dev"}}},
 		ClusterSettings: map[string]ClusterSettings{"admin@staging [s.yaml]": {Name: "Staging"}},
 	}
 	var rows []string
@@ -344,7 +343,7 @@ func TestHotbarTilesCarryTheDisplayName(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := s.ChangeHotbar(func(st *HotbarState) error {
-		st.Banks[0].Clusters = append(st.Banks[0].Clusters,
+		st.Clusters = append(st.Clusters,
 			HotbarTile{Context: "kubernetes-admin@prod-eu [dev.yaml]"}, HotbarTile{Context: "kind-dev"}, HotbarTile{Context: "named@ctx"})
 		return nil
 	}); err != nil {
@@ -354,7 +353,7 @@ func TestHotbarTilesCarryTheDisplayName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tiles := v.Banks[0].Clusters
+	tiles := v.Clusters
 	if tiles[0].Label != "kubernetes-admin@prod-eu" || tiles[0].DisplayName != "prod-eu" || tiles[1].DisplayName != "kind-dev" ||
 		tiles[2].DisplayName != "Named" {
 		t.Errorf("tiles %+v", tiles)

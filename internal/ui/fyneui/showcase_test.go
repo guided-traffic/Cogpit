@@ -695,15 +695,7 @@ func TestShowcaseClusters(t *testing.T) {
 		f, _ := paletteFake(t)
 		f.contexts = showcaseContexts()
 		f.ui.Selected, f.ui.Drawer = nil, nil
-		tiles := func(ids ...string) []engine.HotbarTile {
-			out := make([]engine.HotbarTile, 0, len(ids))
-			for _, id := range ids {
-				out = append(out, engine.HotbarTile{Context: id})
-			}
-			return out
-		}
-		withHotbar(f, 1, engine.HotbarBank{Name: "Default", Clusters: tiles(showcaseContext, "prod-eu-central", "staging-us-east", "kind-local", "dev-us-west")},
-			engine.HotbarBank{Name: "Production", Clusters: tiles("prod-eu-central")})
+		withHotbar(f, showcaseContext, "prod-eu-central", "staging-us-east", "kind-local", "dev-us-west")
 		f.ui.ClusterSettings = map[string]engine.ClusterSettings{
 			"prod-eu-central": {IconColor: "red"}, "staging-us-east": {IconColor: "yellow"}, "kind-local": {IconColor: "violet"},
 			"dev-us-west": {IconColor: "green"},
