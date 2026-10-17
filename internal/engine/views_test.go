@@ -295,7 +295,16 @@ func TestUIChangedIgnoresOlderRevisions(t *testing.T) {
 	src := testkit.NewMemorySource()
 	s, _ := newTestSession(t, src, 10*time.Millisecond)
 	connectTest(t, s)
-	now := s.UIState()
+	// The newest revision applied first: a new connection's integrations change the UI state on
+	// their own (the Alertmanager's first answer among them), and a change that is only on its way is
+	// not stale yet.
+	var now UIState
+	waitCond(t, "the newest UI state applied", func() bool {
+		now = s.UIState()
+		s.state.mu.Lock()
+		defer s.state.mu.Unlock()
+		return s.state.appliedRev == now.Revision
+	})
 	old := now
 	old.Revision--
 	old.View = "services"
