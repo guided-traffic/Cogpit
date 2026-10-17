@@ -74,7 +74,20 @@ func metricsSourceOf(u *UIState, context string) metrics.Source {
 	if u == nil || context == "" {
 		return metrics.SourceAuto
 	}
-	return metrics.Source(u.ClusterSettings[context].MetricsSource)
+	return sourceOfIntegrationsOff(integrationsOffOf(u, context)) // the two metrics integrations (integrations.go)
+}
+
+// MetricsSourceOf names a context's Metrics source as the settings page shows it: "auto",
+// "prometheus", "metrics-server" or "none", made by its two metrics integrations.
+func (u *UIState) MetricsSourceOf(context string) string {
+	return MetricsSourceName(string(metricsSourceOf(u, context)))
+}
+
+// SetMetricsSource sets the two metrics integrations of a context's settings as a Metrics source
+// does ("" Automatic: both on), starting from what applies now (its choice, else defaultsOff).
+func (c *ClusterSettings) SetMetricsSource(defaultsOff IntegrationSet, source string) {
+	off := integrationsOffOfSource(source)
+	c.SetIntegrations(defaultsOff, IntMetrics&^off, off)
 }
 
 // followMetricsSource applies the connected cluster's source to its hub; a change is announced, so

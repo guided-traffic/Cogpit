@@ -94,7 +94,7 @@ func (st *state) uiChanged(_, now UIState) {
 
 func (st *state) reconcileLocked(now UIState) {
 	for _, e := range st.pool {
-		st.followMetricsSource(e.b, now) // each cluster's Metrics source, before anything polls (metricssource.go)
+		st.followIntegrations(e.b, now) // each cluster's integrations, the Metrics source first, before anything polls (integrations.go)
 	}
 	b := st.shown
 	if b != nil && now.Context != b.Context {

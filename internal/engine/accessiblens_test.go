@@ -102,6 +102,8 @@ func TestClusterSettingsEqualComparesEveryField(t *testing.T) {
 			f.SetInt(1)
 		case reflect.Bool:
 			f.SetBool(true)
+		case reflect.Pointer: // a choice made, even of the zero value (IntegrationsOff)
+			f.Set(reflect.New(f.Type().Elem()))
 		default:
 			t.Fatalf("field %s: a kind the test does not set (%s)", typ.Field(i).Name, f.Kind())
 		}

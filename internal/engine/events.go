@@ -47,6 +47,10 @@ const (
 	// EventHelmRepos: the Helm chart repositories changed (Helm's repositories file was read
 	// again, an index download started or ended); re-read them with helm.repo.list.
 	EventHelmRepos EventType = "helmRepos"
+	// EventIntegrations: what Cogpit knows of a cluster's integrations changed (a detection settled,
+	// one was switched on or off; integrations.go); Event.View holds the context. Re-read them with
+	// cluster.settings.get or Session.IntegrationStatuses.
+	EventIntegrations EventType = "integrations"
 )
 
 // Toast levels (Event.Level).

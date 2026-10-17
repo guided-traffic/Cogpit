@@ -133,7 +133,7 @@ func (p *settingsPage) metricsSourceSetting() (fyne.CanvasObject, func()) {
 	line.truncate = true
 	p.controls["metricsSourceLine"], p.controls["metricsSourceSelect"] = line, sel
 	sync := func() {
-		name := engine.MetricsSourceName(p.sh.ui.ClusterSettings[ctx].MetricsSource)
+		name := p.sh.ui.MetricsSourceOf(ctx)
 		for _, o := range engine.MetricsSources {
 			if o.Name == name && sel.Selected != o.Label {
 				sel.SetSelected(o.Label)

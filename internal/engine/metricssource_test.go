@@ -38,7 +38,8 @@ func TestMetricsSourceSetting(t *testing.T) {
 	defer s.Close()
 	st := &state{s: s}
 	b := &Backend{Context: "ctx", Metrics: hub}
-	st.followMetricsSource(b, UIState{ClusterSettings: map[string]ClusterSettings{"ctx": {MetricsSource: "none"}}})
+	off := IntMetrics
+	st.followMetricsSource(b, UIState{ClusterSettings: map[string]ClusterSettings{"ctx": {IntegrationsOff: &off}}})
 	if s := hub.State(metrics.Scope{Kind: metrics.KindPods}); s.Status != metrics.StatusNotServed {
 		t.Errorf("state with metrics off: %+v", s)
 	}

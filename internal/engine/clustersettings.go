@@ -81,9 +81,14 @@ type ClusterSettings struct {
 	// HiddenMetrics are the metrics the window does not show for this cluster, and does not ask
 	// the cluster for (hidemetrics.go); none: every metric shows.
 	HiddenMetrics MetricSet `json:"hiddenMetrics,omitempty"`
-	// MetricsSource is which providers the cluster's metrics come from (metricssource.go): ""
-	// (Automatic: both), "prometheus", "metrics-server" or "none".
+	// MetricsSource is the Metrics source kept before D-76 ("prometheus", "metrics-server" or
+	// "none"; "" Automatic), read from older files only: normalize moves it into IntegrationsOff,
+	// whose two metrics switches are the source since (integrations.go, metricssource.go).
 	MetricsSource string `json:"metricsSource,omitempty"`
+	// IntegrationsOff are the integrations the user switched off for this cluster (integrations.go,
+	// D-76); nil while the user made no choice for it: the default for new clusters
+	// (Preferences.IntegrationsOff) applies, and the window asks.
+	IntegrationsOff *IntegrationSet `json:"integrationsOff,omitempty"`
 	// Proxy is the HTTP(S) or SOCKS5 proxy of this cluster's API traffic, as the user typed it
 	// (proxy.go), applied at the next connect in place of the kubeconfig's proxy-url; empty: the
 	// kubeconfig's, else the environment's. It may carry a password: the UI state and every
@@ -125,6 +130,7 @@ func (c ClusterSettings) IsZero() bool { return c.Equal(ClusterSettings{}) }
 func (c ClusterSettings) Equal(o ClusterSettings) bool {
 	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.TerminalDir == o.TerminalDir &&
 		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy && c.MetricsSource == o.MetricsSource &&
+		equalIntegrations(c.IntegrationsOff, o.IntegrationsOff) &&
 		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces) && c.AgentWrites == o.AgentWrites &&
 		c.NodeShellImage == o.NodeShellImage && c.NodeShellPullSecret == o.NodeShellPullSecret && c.NodeShellMaxMinutes == o.NodeShellMaxMinutes &&
 		c.HoldBackgroundLogin == o.HoldBackgroundLogin
@@ -152,8 +158,11 @@ func (c ClusterSettings) Check() error {
 	if c.HiddenMetrics&^HideAll != 0 {
 		return errors.New("hidden metrics: a metric this Cogpit does not know")
 	}
-	if err := CheckMetricsSource(c.MetricsSource); err != nil { // metricssource.go
-		return err
+	if c.MetricsSource != "" { // read from older files only, and moved into IntegrationsOff (normalize)
+		return errors.New("the metrics source is kept as the metrics integrations since D-76")
+	}
+	if c.IntegrationsOff != nil && *c.IntegrationsOff&^IntAll != 0 {
+		return errors.New("integrations: one this Cogpit does not know")
 	}
 	if err := checkAccessibleNamespaces(c.AccessibleNamespaces); err != nil {
 		return err
@@ -189,8 +198,16 @@ func (c *ClusterSettings) normalize() {
 		c.TerminalNamespace = ""
 	}
 	c.HiddenMetrics &= HideAll
-	if CheckMetricsSource(c.MetricsSource) != nil {
+	if c.MetricsSource != "" { // the Metrics source kept before D-76 becomes the two metrics switches
+		if CheckMetricsSource(c.MetricsSource) == nil && c.IntegrationsOff == nil {
+			off := integrationsOffOfSource(c.MetricsSource)
+			c.IntegrationsOff = &off
+		}
 		c.MetricsSource = ""
+	}
+	if c.IntegrationsOff != nil {
+		off := *c.IntegrationsOff & IntAll
+		c.IntegrationsOff = &off
 	}
 	if c.Proxy = strings.TrimSpace(c.Proxy); CheckProxyURL(c.Proxy) != nil {
 		c.Proxy = ""
@@ -374,6 +391,10 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 		old := c.by[context]
 		cs := old
 		cs.AccessibleNamespaces = slices.Clone(old.AccessibleNamespaces) // fn may append to it
+		if old.IntegrationsOff != nil {
+			off := *old.IntegrationsOff // fn may change it
+			cs.IntegrationsOff = &off
+		}
 		if err := fn(&cs); err != nil {
 			return ClusterSettings{}, nil, err
 		}
@@ -425,6 +446,15 @@ func (s *Session) ChangeClusterSettings(context string, fn func(*ClusterSettings
 	return next, nil
 }
 
+// equalIntegrations reports whether two choices of integrations are the same; no choice equals
+// only no choice.
+func equalIntegrations(a, b *IntegrationSet) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
 func iconInUse(all map[string]ClusterSettings, icon string) bool {
 	for _, cs := range all {
 		if cs.Icon == icon {
@@ -471,8 +501,13 @@ type ClusterSettingsView struct {
 	// by name (cluster, nodes, pods, containers, cpu, memory, network, filesystem); empty: all
 	// metrics are visible.
 	HiddenMetrics []string `json:"hiddenMetrics"`
+	// Integrations are the cluster's integrations (D-76): each one's switch and, while the cluster is
+	// connected, what Cogpit found of it. IntegrationsDecided says whether the user chose them for
+	// this cluster; until then the default for new clusters applies.
+	Integrations        []IntegrationStatus `json:"integrations"`
+	IntegrationsDecided bool                `json:"integrationsDecided"`
 	// MetricsSource is which providers the metrics come from: "auto" (both), "prometheus",
-	// "metrics-server" or "none"; MetricsInUse names the providers that answer now, while the
+	// "metrics-server" or "none" (the two metrics integrations); MetricsInUse names the providers that answer now, while the
 	// cluster is connected ("Prometheus (monitoring/prometheus-server) and Kubernetes Metrics
 	// Server"), empty otherwise.
 	MetricsSource string `json:"metricsSource"`
@@ -541,7 +576,8 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 	}
 	u := s.UIState()
 	v.Connected = u.connectionState(context).Live() // shown or not (D-69)
-	v.MetricsSource = MetricsSourceName(cs.MetricsSource)
+	v.MetricsSource = MetricsSourceName(string(sourceOfIntegrationsOff(integrationsOffOf(&u, context))))
+	v.Integrations, v.IntegrationsDecided = s.IntegrationStatuses(context), u.IntegrationsDecided(context)
 	if b := s.BackendOf(context); v.Connected && b != nil && context != "" {
 		v.MetricsInUse = metricsInUse(b.Metrics)
 	}

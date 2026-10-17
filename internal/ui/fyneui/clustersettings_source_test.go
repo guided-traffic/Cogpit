@@ -30,7 +30,7 @@ func TestMetricsSourceFromTheSettings(t *testing.T) {
 	until("metrics off", func() bool {
 		cs, _ := s.ClusterSettingsOf(engine.DemoContext)
 		l := sh.settings.controls["metricsSourceLine"].(*textLine)
-		return cs.MetricsSource == "none" && l.text == "No metrics are asked of this cluster."
+		return cs.IntegrationsOff != nil && cs.IntegrationsOff.Has(engine.IntMetrics) && l.text == "No metrics are asked of this cluster."
 	})
 	mustDispatch(t, s, "settings.close", struct{}{})
 	until("the CPU column empty", func() bool { return sh.view.snap != nil && usageRow(sh.view.snap) < 0 })

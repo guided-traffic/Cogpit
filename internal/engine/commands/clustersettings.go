@@ -162,7 +162,7 @@ func registerClusterSettings(g *registrar) {
 					cs.HiddenMetrics = hidden
 				}
 				if p.MetricsSource != nil {
-					cs.MetricsSource = source
+					cs.SetMetricsSource(s.IntegrationDefaultsOff(), source) // the two metrics integrations (D-76)
 				}
 				if p.AccessibleNamespaces != nil {
 					cs.AccessibleNamespaces = slices.Clone(p.AccessibleNamespaces) // the engine trims, sorts and checks them

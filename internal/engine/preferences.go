@@ -138,6 +138,10 @@ type Preferences struct {
 	// the owner's default, it starts without tabs and without connections. Agents and the CLI may
 	// only turn it off (ErrRestoreSessionGUIOnly).
 	RestoreSession bool `json:"restoreSession,omitempty"`
+	// IntegrationsOff are the integrations off by default for new clusters (integrations.go, D-76):
+	// what applies to a cluster until the user chooses its own, and what the window's question
+	// offers first. None, the default: every integration is on (the owner, 2026-10-17).
+	IntegrationsOff IntegrationSet `json:"integrationsOff,omitempty"`
 }
 
 // DefaultPreferences are the preferences of a first start: the theme follows the computer's
