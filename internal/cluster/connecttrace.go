@@ -54,6 +54,7 @@ type ConnectStep struct {
 	Text   string        // what was done or found; never a credential
 	Took   time.Duration // how long the step took; zero when it is not timed
 	Failed bool          // the step failed: an error line
+	Warn   bool          // a fact that likely fails the connect: a warning line (an out-of-date client certificate, D-75)
 }
 
 // tracer reports Connect's steps; a nil tracer reports nothing.
@@ -99,7 +100,10 @@ func (t tracer) traceSetup(cfg *rest.Config, raw clientcmdapi.Config, kctx *clie
 		return
 	}
 	t.step(StepServer, "API server: "+logURL(cfg.Host))
-	t.step(StepLogin, describeLogin(cfg, policy, time.Now()))
+	now := time.Now()
+	if text := describeLogin(cfg, policy, now); text != "" {
+		t(ConnectStep{Name: StepLogin, Text: text, Warn: clientCertOutOfDate(cfg, now)})
+	}
 	t.step(StepTLS, describeTLS(cfg))
 	if !clusterProxy {
 		var kubeProxy string
@@ -171,6 +175,25 @@ func clientCertSummary(cfg *rest.Config, now time.Time) string {
 		return "(not a PEM certificate)"
 	}
 	return certFacts(cert, now)
+}
+
+// clientCertOutOfDate reports whether the kubeconfig's client certificate is expired or not valid
+// yet: the Login line then is a warning, since the API server will refuse it (D-75; the lead's
+// answer of 2026-10-17 to agent G's open question: the line names the dates already).
+func clientCertOutOfDate(cfg *rest.Config, now time.Time) bool {
+	if cfg.ExecProvider != nil || (len(cfg.CertData) == 0 && cfg.CertFile == "") {
+		return false
+	}
+	data := cfg.CertData
+	if len(data) == 0 {
+		read, err := readBounded(cfg.CertFile)
+		if err != nil {
+			return false
+		}
+		data = read
+	}
+	cert := firstCertificate(data)
+	return cert != nil && (now.After(cert.NotAfter) || now.Before(cert.NotBefore))
 }
 
 // firstCertificate is the first PEM CERTIFICATE block of data, parsed; nil when there is none.

@@ -36,8 +36,11 @@ func (r *connectSteps) cluster(st cluster.ConnectStep) {
 		return
 	}
 	level := LogInfo
-	if st.Failed {
+	switch {
+	case st.Failed:
 		level = LogError
+	case st.Warn:
+		level = LogWarn
 	}
 	r.logs.stepTo(r.attempt, level, st.Name, st.Text, st.Took)
 }

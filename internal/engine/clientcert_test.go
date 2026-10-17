@@ -123,3 +123,54 @@ func TestContextsCarryTheClientCertificate(t *testing.T) {
 		t.Errorf("connection %+v, discovery requests %d -> %d", u.Connection, before, srv.Requests()["discovery"])
 	}
 }
+
+// A connect of a context whose client certificate expired has its Login line, which names the dates,
+// as a warning in the connection log (D-75, the lead's answer to agent G's open question); a valid
+// certificate's line stays information. The connect itself is not held: the server's refusal ends it.
+func TestAnExpiredClientCertificateWarnsInTheLog(t *testing.T) {
+	srv := testkit.NewFakeAPIServer(testkit.FakeAPIOptions{Token: "only-this-token"}) // refuses the certificate: 401
+	defer srv.Close()
+	now := time.Now().UTC()
+	const day = 24 * time.Hour
+	certs := map[string]*testkit.TestCert{
+		"expired": testkit.NewCert(t, testkit.CertSpec{CommonName: "u", NotBefore: now.Add(-400 * day), NotAfter: now.Add(-3 * day)}),
+		"valid":   testkit.NewCert(t, testkit.CertSpec{CommonName: "u", NotBefore: now.Add(-day), NotAfter: now.Add(300 * day)}),
+	}
+	file := filepath.Join(t.TempDir(), "certs.yaml")
+	writeUserFile(t, file, certsKubeconfig(t, srv, certs))
+	cfg := filepath.Join(t.TempDir(), "Cogpit")
+	if _, _, err := NewKubeconfigSources(cfg).AddFile(file); err != nil {
+		t.Fatal(err)
+	}
+	s := New(Options{Connector: &ClusterConnector{Sources: NewKubeconfigSources(cfg)}})
+	t.Cleanup(s.Close)
+	list, err := s.Contexts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := map[string]string{}
+	for _, c := range list {
+		ids[c.KubeContext] = c.Name
+	}
+	note := func(name string) string {
+		for _, l := range s.ConnectLog(ids[name]) {
+			if strings.Contains(l.Text, "client certificate") {
+				return l.Level + " " + l.Text
+			}
+		}
+		return ""
+	}
+	if err := s.Connect(t.Context(), ids["expired"]); err == nil {
+		t.Fatal("the refused certificate connected")
+	}
+	if got := note("expired"); !strings.HasPrefix(got, "WARN Login: client certificate CN=u, valid until "+certs["expired"].Cert.NotAfter.UTC().Format(time.DateOnly)) ||
+		!strings.Contains(got, "(expired 3 days ago)") {
+		t.Errorf("the expired certificate's note: %q", got)
+	}
+	if err := s.Connect(t.Context(), ids["valid"]); err == nil {
+		t.Fatal("the refused certificate connected")
+	}
+	if got := note("valid"); !strings.HasPrefix(got, "INFO Login: client certificate CN=u") {
+		t.Errorf("a valid certificate's Login line: %q", got)
+	}
+}
