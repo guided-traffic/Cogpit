@@ -288,7 +288,7 @@ func (h *Hotbar) load() (note string, err error) {
 // (D-83). A failure leaves the old file as it is: the merged hotbar shows, and the first change
 // writes it. h.mu is held.
 func (h *Hotbar) migrate(path string, banks int) (string, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(filepath.Clean(path)) // Cogpit's own hotbar.json in its config directory
 	if err == nil {
 		err = writePrivateFile(filepath.Join(h.dir, HotbarBanksBackup), raw)
 	}
