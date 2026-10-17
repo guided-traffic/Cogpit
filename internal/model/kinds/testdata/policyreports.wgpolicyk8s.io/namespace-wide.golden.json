@@ -1,0 +1,157 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "policyreports.wgpolicyk8s.io",
+    "namespace": "shop",
+    "name": "polr-ns-shop"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "polr-ns-shop"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "kind",
+      "text": ""
+    },
+    {
+      "column": "object",
+      "text": ""
+    },
+    {
+      "column": "pass",
+      "text": "0"
+    },
+    {
+      "column": "fail",
+      "text": "0"
+    },
+    {
+      "column": "warn",
+      "text": "1",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "error",
+      "text": "1",
+      "num": 1,
+      "status": "error"
+    },
+    {
+      "column": "skip",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "10d",
+      "num": 1790848800
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "polr-ns-shop"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "object": [],
+    "policy": [
+      "shop/disallow-latest-tag",
+      "check-image-signature"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Summary",
+          "value": "1 warn, 1 error"
+        }
+      ]
+    },
+    {
+      "title": "Results",
+      "table": {
+        "columns": [
+          "Policy",
+          "Rule",
+          "Result",
+          "Message"
+        ],
+        "rows": [
+          [
+            "shop/disallow-latest-tag",
+            "validate-image-tag",
+            "warn",
+            "Using a mutable image tag e.g. 'latest' is not allowed."
+          ],
+          [
+            "check-image-signature",
+            "verify",
+            "error",
+            "failed to fetch the signature"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "shop/disallow-latest-tag",
+              "link": {
+                "kind": "policies.kyverno.io",
+                "namespace": "shop",
+                "name": "disallow-latest-tag"
+              }
+            },
+            {
+              "text": "validate-image-tag"
+            },
+            {
+              "text": "warn",
+              "status": "warning"
+            },
+            {
+              "text": "Using a mutable image tag e.g. 'latest' is not allowed."
+            }
+          ],
+          [
+            {
+              "text": "check-image-signature",
+              "link": {
+                "kind": "clusterpolicies.kyverno.io",
+                "name": "check-image-signature"
+              }
+            },
+            {
+              "text": "verify"
+            },
+            {
+              "text": "error",
+              "status": "error"
+            },
+            {
+              "text": "failed to fetch the signature"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

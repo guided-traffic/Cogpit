@@ -1,0 +1,68 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "policyreports.wgpolicyk8s.io",
+    "namespace": "default",
+    "name": "empty"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "empty"
+    },
+    {
+      "column": "namespace",
+      "text": "default",
+      "link": {
+        "kind": "namespaces",
+        "name": "default"
+      }
+    },
+    {
+      "column": "kind",
+      "text": ""
+    },
+    {
+      "column": "object",
+      "text": ""
+    },
+    {
+      "column": "pass",
+      "text": "0"
+    },
+    {
+      "column": "fail",
+      "text": "0"
+    },
+    {
+      "column": "warn",
+      "text": "0"
+    },
+    {
+      "column": "error",
+      "text": "0"
+    },
+    {
+      "column": "skip",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "1h",
+      "num": 1791716400
+    }
+  ],
+  "fields": {
+    "label": [],
+    "name": [
+      "empty"
+    ],
+    "namespace": [
+      "default"
+    ],
+    "object": [],
+    "policy": []
+  },
+  "detail": null
+}

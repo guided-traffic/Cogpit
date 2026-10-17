@@ -67,6 +67,7 @@ func registerTables(g *registrar) {
 				_, _, err := s.Kind(view) // says which kinds the cluster serves
 				return nil, err
 			}
+			prof = s.WithViewColumns(prof) // an integration's column too (D-79)
 			hidden, err := hiddenColumns(prof, p.Hidden)
 			if err != nil {
 				return nil, err
@@ -106,6 +107,7 @@ func registerTables(g *registrar) {
 				_, _, err := s.Kind(view)
 				return nil, err
 			}
+			prof = s.WithViewColumns(prof) // an integration's column too (D-79)
 			order, err := columnOrder(prof, p.Order)
 			if err != nil {
 				return nil, err

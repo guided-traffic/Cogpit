@@ -132,7 +132,7 @@ func (st *state) reconcileLocked(now UIState) {
 	} else if st.view != nil {
 		st.view.setParams(paramsOf(now))
 	}
-	if prof != nil && prof.ColumnIndex(now.Sort.Column) >= 0 {
+	if prof != nil && b.hasViewColumn(prof, now.Sort.Column) { // an integration's column too (overlay.go)
 		st.sorts[prof.Key] = now.Sort
 	}
 	st.reconcilePageLocked(b, now)
@@ -455,7 +455,7 @@ func (s *Session) ViewSort(view string) SortSpec {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	p := st.shown.viewProfile(view) // a kind's profile, or a page's table profile
-	if sp, ok := st.sorts[view]; ok && (p == nil || p.ColumnIndex(sp.Column) >= 0) {
+	if sp, ok := st.sorts[view]; ok && (p == nil || st.shown.hasViewColumn(p, sp.Column)) {
 		return sp
 	}
 	return defaultSort(p)

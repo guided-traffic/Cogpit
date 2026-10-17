@@ -1,0 +1,68 @@
+# Synthetic, shaped like Kyverno 1.17's reports seen on a real cluster (2026-10-17): one report per
+# object, named by its UID, its scope the object; an Audit fail found by a background scan, a
+# pass from an admission review, a skip; the summary counts them.
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  name: 6b1f7a52-1c1e-4d0b-9a55-0c2f8d1e0001
+  namespace: shop
+  uid: 0f7b2c1a-5e6d-4c3b-8a19-7d6e5f4a0002
+  resourceVersion: "4711"
+  creationTimestamp: "2026-10-11T10:00:00Z"
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+  ownerReferences:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: web
+      uid: 6b1f7a52-1c1e-4d0b-9a55-0c2f8d1e0001
+scope:
+  apiVersion: apps/v1
+  kind: Deployment
+  name: web
+  namespace: shop
+  uid: 6b1f7a52-1c1e-4d0b-9a55-0c2f8d1e0001
+summary:
+  error: 0
+  fail: 1
+  pass: 1
+  skip: 1
+  warn: 0
+results:
+  - category: Best Practices
+    message: "validation error: The label `team` is required. rule autogen-check-team failed at path /spec/template/metadata/labels/team/"
+    policy: require-team-label
+    properties:
+      process: background scan
+    result: fail
+    rule: autogen-check-team
+    scored: true
+    severity: medium
+    source: kyverno
+    timestamp:
+      nanos: 0
+      seconds: 1791720000
+  - category: Security
+    message: validation rule 'autogen-no-privileged' passed.
+    policy: disallow-privileged
+    properties:
+      process: admission review
+    result: pass
+    rule: autogen-no-privileged
+    scored: true
+    source: kyverno
+    timestamp:
+      nanos: 0
+      seconds: 1791719000
+  - category: Backup
+    message: preconditions not met
+    policy: inject-backup-sidecar
+    properties:
+      process: background scan
+    result: skip
+    rule: autogen-inject-backup-sidecar
+    scored: true
+    source: kyverno
+    timestamp:
+      nanos: 0
+      seconds: 1791719000

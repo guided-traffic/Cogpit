@@ -1,0 +1,44 @@
+# Synthetic: the shape of a Kyverno before 1.10 (and of other writers): one report for a namespace,
+# no scope, each result naming its objects in resources; a warn of an unscored policy, an error, a
+# namespaced Policy named "<namespace>/<name>".
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  name: polr-ns-shop
+  namespace: shop
+  creationTimestamp: "2026-10-01T10:00:00Z"
+summary:
+  error: 1
+  fail: 0
+  pass: 0
+  skip: 0
+  warn: 1
+results:
+  - policy: shop/disallow-latest-tag
+    rule: validate-image-tag
+    result: warn
+    scored: false
+    severity: low
+    message: "Using a mutable image tag e.g. 'latest' is not allowed."
+    source: kyverno
+    resources:
+      - apiVersion: v1
+        kind: Pod
+        name: web-0
+        namespace: shop
+        uid: 1c2d3e4f-0000-4000-8000-000000000010
+      - apiVersion: v1
+        kind: Pod
+        name: web-1
+        namespace: shop
+  - policy: check-image-signature
+    rule: verify
+    result: error
+    message: "failed to fetch the signature"
+    source: kyverno
+    resources:
+      - apiVersion: v1
+        kind: Pod
+        name: web-0
+        namespace: shop
+        uid: 1c2d3e4f-0000-4000-8000-000000000010

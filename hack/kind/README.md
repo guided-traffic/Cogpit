@@ -13,6 +13,7 @@ so Cogpit and kubectl never reach another cluster by accident.
 | [`victoriametrics/`](victoriametrics/) | the manifests `make kind-vm` applies: VictoriaMetrics single-node and a small cluster in the namespace `cogpit-vm`; see [VictoriaMetrics](#victoriametrics) |
 | [`trivy-operator-values.yaml`](trivy-operator-values.yaml), [`trivy/`](trivy/) | the values `make kind-trivy` installs Trivy Operator with and the workloads it scans, in the namespaces `cogpit-trivy`, `cogpit-trivy-a` and `cogpit-trivy-b`; see [Trivy Operator](#trivy-operator) |
 | [`alertmanager/`](alertmanager/) | the manifests `make kind-alertmanager` applies: one Alertmanager in the namespace `cogpit-alerts`; see [Alertmanager](#alertmanager) |
+| [`kyverno/`](kyverno/) | the values, policies and objects `make kind-kyverno` installs: Kyverno in `cogpit-kyverno`, its test policies and violating objects in `cogpit-kyverno-a`; see [Kyverno](#kyverno) |
 | [`drain-cluster.yaml`](drain-cluster.yaml) | the second, multi-node cluster `cogpit-drain` (one control plane, two workers) for the tests that cordon and drain a node; see [The drain cluster](#the-drain-cluster) |
 
 ## Use
@@ -163,6 +164,26 @@ cluster's admin; Cogpit itself only reads) and resolves them at its end.
 make kind-alertmanager        # apply the manifests and wait for the rollout
 make test-kind                # TestKindAlertmanager runs instead of skipping
 make kind-alertmanager-down   # delete the namespace cogpit-alerts
+```
+
+## Kyverno
+
+`make kind-kyverno` installs Kyverno for the Kyverno integration's check (D-79, `TestKindKyverno`):
+the admission and reports controllers of Kyverno's chart (3.9.1, Kyverno 1.19.1) in the namespace
+`cogpit-kyverno` ([`kyverno/values.yaml`](kyverno/values.yaml)), its webhooks limited to the
+namespaces labelled `cogpit-kyverno=true`, so the other kind tests never pass through it; then the
+objects made before the policies ([`kyverno/before.yaml`](kyverno/before.yaml): the namespace
+`cogpit-kyverno-a`, a ConfigMap without and one with an `owner` label, a Deployment and a Service),
+the policies ([`kyverno/policies.yaml`](kyverno/policies.yaml): two ClusterPolicies in Audit, one in
+Enforce with `failurePolicy: Ignore`, each matching only `cogpit-kyverno-*` namespaces, and a
+ValidatingPolicy in Audit for the labelled namespaces) and an object made after them
+([`kyverno/after.yaml`](kyverno/after.yaml)). The background scan runs every minute; the reports
+follow within a minute of the install. Cogpit itself installs nothing: this is a test setup.
+
+```sh
+make kind-kyverno        # install Kyverno, the policies and the objects
+make test-kind           # TestKindKyverno runs instead of skipping
+make kind-kyverno-down   # remove the policies, both namespaces, Kyverno, its CRDs and webhooks
 ```
 
 ## The synthetic cluster

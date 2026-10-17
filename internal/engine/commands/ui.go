@@ -186,6 +186,7 @@ func registerUI(g *registrar) {
 			if err != nil {
 				return nil, err
 			}
+			prof = s.WithViewColumns(prof) // an integration's column too (D-79)
 			if prof.ColumnIndex(p.Column) < 0 {
 				return nil, fmt.Errorf("the %s view has no column %q; columns: %s", view, p.Column, columnIDs(prof))
 			}

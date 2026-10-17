@@ -1,0 +1,35 @@
+# Synthetic, shaped like Kyverno 1.17's: a cluster-scoped object's report (a Namespace that
+# lacks a label an Enforce policy requires, found by a background scan: it existed before).
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+metadata:
+  name: 9a8b7c6d-1111-4222-8333-944455556666
+  uid: 2e3f4a5b-0000-4000-8000-000000000020
+  creationTimestamp: "2026-10-11T09:00:00Z"
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+scope:
+  apiVersion: v1
+  kind: Namespace
+  name: legacy
+  uid: 9a8b7c6d-1111-4222-8333-944455556666
+summary:
+  error: 0
+  fail: 1
+  pass: 0
+  skip: 0
+  warn: 0
+results:
+  - category: Multi-Tenancy
+    message: "validation error: Every namespace needs an owner label. rule check-owner failed at path /metadata/labels/owner/"
+    policy: require-namespace-owner
+    properties:
+      process: background scan
+    result: fail
+    rule: check-owner
+    scored: true
+    severity: high
+    source: kyverno
+    timestamp:
+      nanos: 500000000
+      seconds: 1791716400

@@ -532,6 +532,7 @@ func TestAccessRefresh(t *testing.T) {
 	rev.set(func(f *fakeReviewer) { f.rules["default"] = append(f.rules["default"], rule("delete", "", "pods")) })
 	s.UpdateUI(func(u *UIState) { u.Namespaces = []string{"apps"} })
 	waitCond(t, "the filter's namespace reviewed", func() bool { rules, _ := rev.calls(); return rules["apps"] == 1 })
+	waitAllowed(t, b.Access, "apps", listPods) // its answer kept, not only asked: refresh names the namespaces it holds
 
 	rec := record(s)
 	namespaces, ok := b.RefreshAccess()

@@ -1,0 +1,26 @@
+# An object made after the policies: the Audit policy lets it in and reports its fail from the
+# admission review.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: late
+  namespace: cogpit-kyverno-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: late
+  template:
+    metadata:
+      labels:
+        app: late
+    spec:
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 65534
+            capabilities:
+              drop: ["ALL"]

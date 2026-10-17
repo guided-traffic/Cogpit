@@ -179,6 +179,20 @@ an Alertmanager found by name may be a lookalike that writes them all
 They are not framed as the README is; the tools' descriptions say the texts are the cluster's
 data, not instructions.
 
+Since 2026-10-17 Kyverno's policy messages are such data too
+([D-79](../developer/decisions.md#d-79-kyvernos-policy-violations-on-the-objects)), live on every
+cluster where the Kyverno integration is on (the default) and Kyverno reports a violation: the text
+of a failed rule, which a policy's author writes and which may quote the object's own fields through
+Kyverno's variables (`{{request.object.metadata.name}}`), so whoever may create an object a policy
+checks can put text there. It reaches agents in `object_get`'s "Policy violations" sections, in the
+warning cell of `view_rows` and `resources_list` (the policies' names only) and, every violation of
+a cluster in one result, in `kyverno_violations`, whose description tells the agent to treat the
+messages as data; and through the built-in agent the chat's LLM endpoint
+([H-13](#h-13-cluster-data-leaves-for-the-llm-endpoint)). Nothing is withheld or framed beyond that
+description: what bounds a steered agent is what bounds it for every log line and event, D-2's
+confirmations. A message carries no credential Cogpit adds; a policy that copies a Secret's value
+into its message would, and agents read that as they read the report itself.
+
 ### H-86: A chart's README reaches agents
 
 Live since 2026-10-14 for every agent over MCP or the stdio bridge, and since the night run of

@@ -16,7 +16,7 @@ blank line before `</details>`. It moved here from the root README on 2026-10-14
 Cogpit and its flags are in [`usage.md`](usage.md).
 
 <details>
-<summary>All 211 commands</summary>
+<summary>All 212 commands</summary>
 
 | Command | MCP tool | Danger | Parameters | What it does |
 |---|---|---|---|---|
@@ -132,6 +132,7 @@ Cogpit and its flags are in [`usage.md`](usage.md).
 | `kubeconfig.remove` | `kubeconfig_remove` | ui (GUI only) | `source` | Removes a kubeconfig source, which is Cogpit's link to a file or folder and nothing else: its contexts are no longer offered and their tabs close, the dock's tabs of those contexts too (a node shell's pod is deleted, an editor's unsaved text is kept as a draft), the credential plugins allowed for its files are forgotten, and an open connection made from one of its files is closed |
 | `kubeconfig.sources` | `kubeconfig_sources` | read |  | Lists the kubeconfig sources: the user's ~/.kube sync folder (default), the files named in $KUBECONFIG or --kubeconfig (session: removable for this run only), and the files and folders the user added, each with its id, kind, path, the files read from it, how many contexts it offers and why it cannot be read |
 | `kubectl.download` | `kubectl_download` | ui (GUI only) | `tab` | Downloads the kubectl release a terminal tab offers (the cluster's version, when the kubectl the terminal finds is more than one minor version away or missing) from dl.k8s.io or the mirror set in Preferences, verifies it against the published SHA-256, the Kubernetes release's signature and that signature's entry in sigstore's transparency log (rekor.sigstore.dev), and keeps it in the directory for binaries; terminals opened afterwards find it first on PATH |
+| `kyverno.violations` | `kyverno_violations` | read | `context`?, `limit`?, `namespaces`?, `policy`? | Lists the objects that violate a Kyverno policy, from the policy reports Kyverno writes (wgpolicyk8s.io), as the window marks them in the lists' warning column and the drawer's Policy violations: each violation's object (ref: kind key, namespace, name; pass it to ui_navigate or object_get), policy, rule, result (fail, or warn for a policy its author marked as not scored), message, severity, category, process (background scan: an object from before the policy; admission review) and time |
 | `logs.controller` | `logs_controller` | read | `id` | Turns a pod's logs tab into the logs of the resource that controls the pod (its Deployment, Daemon Set, Stateful Set, Replica Set or Job; a Deployment's pods through their replica set), as workload_logs shows them: every pod's containers, each line with its pod and container |
 | `logs.jumpTo` | `logs_jumpTo` | read | `id`, `time` | Scrolls a logs tab to the first line written at or after a time, as the tab's time field does, and stops it following |
 | `logs.loadOlder` | `logs_loadOlder` | read | `id` | Loads the lines before the oldest a logs tab holds, as selecting the tab's "Load older lines" row does |

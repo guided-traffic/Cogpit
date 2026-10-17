@@ -1,0 +1,62 @@
+# Objects that exist before the policies (make kind-kyverno applies them first): the Enforce
+# policy finds the ConfigMap only in a background scan, as an object from before it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cogpit-kyverno-a
+  labels:
+    cogpit-kyverno: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: legacy-config
+  namespace: cogpit-kyverno-a
+data:
+  mode: old
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: owned-config
+  namespace: cogpit-kyverno-a
+  labels:
+    owner: platform
+data:
+  mode: new
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: cogpit-kyverno-a
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 65534
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: plain
+  namespace: cogpit-kyverno-a
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 80

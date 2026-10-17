@@ -229,18 +229,19 @@ func listResources(ctx context.Context, s *engine.Session, p listParams) (any, e
 		return nil, err
 	}
 	rows := make([]model.Row, 0, len(objs))
-	for _, r := range s.BuildRows(ctx, b, prof, objs) {
+	cols, built := s.BuildRowsShown(ctx, b, prof, objs) // an integration's cells too (D-79)
+	for _, r := range built {
 		if model.MatchesFilter(r, p.Filter) {
 			rows = append(rows, r)
 		}
 	}
 	rows = engine.FilterRowsByStates(prof, rows, engine.CleanStates(p.States))
-	engine.SortRows(rows, prof.Columns, engine.DefaultSort)
+	engine.SortRows(rows, cols, engine.DefaultSort)
 	res := ListResult{Kind: prof.Key, Total: len(rows), Rows: make([]ListRow, 0, min(limit, len(rows)))}
 	now, tf := s.Now(), s.TimeFormat() // times as the window writes them (D-31)
 	for _, r := range rows[:min(limit, len(rows))] {
-		cells := make(map[string]string, len(prof.Columns))
-		for i, c := range prof.Columns {
+		cells := make(map[string]string, len(cols))
+		for i, c := range cols {
 			if i < len(r.Cells) {
 				cells[c.Title] = tf.CellText(c, r.Cells[i], now)
 			}

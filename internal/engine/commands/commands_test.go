@@ -215,6 +215,8 @@ var wantCommands = map[string]engine.Danger{
 	"cluster.reconnect": engine.DangerUI, "cluster.login": engine.DangerUI, "dock.reconnect": engine.DangerMutating,
 	// A background job stopped, its tab kept (G4): UI state, as dock.close stops one (TestDeleteManyAsAJob).
 	"job.cancel": engine.DangerUI,
+	// The Kyverno integration's violations, from the cache (D-79) (TestKyvernoViolationsCommand).
+	"kyverno.violations": engine.DangerRead,
 }
 
 func TestRegistryComplete(t *testing.T) {

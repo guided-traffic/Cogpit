@@ -1,0 +1,114 @@
+# The kind check's policies, each matching only the namespaces cogpit-kyverno-* (and Kyverno's
+# webhooks see only those, values.yaml): two in Audit (a Deployment needs a team label, the
+# namespace an owner label: a cluster-scoped object's report) and one in Enforce with
+# failurePolicy Ignore (a ConfigMap needs an owner label; one made before it fails in a background
+# scan). Pods are left alone (no autogen rules).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cogpit-require-team-label
+  labels:
+    cogpit-kyverno: "true"
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+spec:
+  background: true
+  rules:
+    - name: check-team
+      match:
+        any:
+          - resources:
+              kinds: ["Deployment"]
+              namespaces: ["cogpit-kyverno-*"]
+      validate:
+        failureAction: Audit
+        message: "The label `team` is required."
+        pattern:
+          metadata:
+            labels:
+              team: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cogpit-require-namespace-owner
+  labels:
+    cogpit-kyverno: "true"
+  annotations:
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/severity: low
+spec:
+  background: true
+  rules:
+    - name: check-owner
+      match:
+        any:
+          - resources:
+              kinds: ["Namespace"]
+              names: ["cogpit-kyverno-*"]
+      validate:
+        failureAction: Audit
+        message: "Every namespace needs an owner label."
+        pattern:
+          metadata:
+            labels:
+              owner: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cogpit-require-configmap-owner
+  labels:
+    cogpit-kyverno: "true"
+  annotations:
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: high
+spec:
+  background: true
+  failurePolicy: Ignore
+  rules:
+    - name: check-owner
+      match:
+        any:
+          - resources:
+              kinds: ["ConfigMap"]
+              namespaces: ["cogpit-kyverno-*"]
+      exclude:
+        any:
+          - resources:
+              names: ["kube-root-ca.crt"]
+      validate:
+        failureAction: Enforce
+        message: "A ConfigMap needs an owner label."
+        pattern:
+          metadata:
+            labels:
+              owner: "?*"
+---
+# Kyverno's newer CEL policy (policies.kyverno.io/v1), in Audit: a Service needs a team label.
+# Its results carry another source than the ClusterPolicies' (the check reads both).
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: cogpit-service-team
+  labels:
+    cogpit-kyverno: "true"
+spec:
+  validationActions: [Audit]
+  evaluation:
+    background:
+      enabled: true
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        cogpit-kyverno: "true"
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [services]
+  validations:
+    - expression: "has(object.metadata.labels) && 'team' in object.metadata.labels"
+      message: "A Service needs a team label."

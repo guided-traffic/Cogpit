@@ -1,0 +1,23 @@
+# Kyverno for the Kyverno integration's kind check (D-79, make kind-kyverno, TestKindKyverno): the
+# admission and reports controllers, one replica each, in the namespace cogpit-kyverno. Kyverno's
+# webhooks see only the namespaces labelled cogpit-kyverno=true (the test's cogpit-kyverno-*), so
+# the other kind tests on the same cluster never pass through it. Cogpit itself installs nothing:
+# this is a test setup, removed with make kind-kyverno-down.
+admissionController:
+  replicas: 1
+backgroundController:
+  enabled: false
+cleanupController:
+  enabled: false
+reportsController:
+  replicas: 1
+features:
+  backgroundScan:
+    # The reports of objects that existed before a policy come from a background scan; one a
+    # minute keeps the test short (the default is an hour).
+    backgroundScanInterval: 1m
+config:
+  webhooks:
+    namespaceSelector:
+      matchLabels:
+        cogpit-kyverno: "true"

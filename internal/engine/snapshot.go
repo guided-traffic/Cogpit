@@ -51,7 +51,9 @@ func (s *Session) startViewWorker(b *Backend, p *model.KindProfile, rc *rowCache
 		wake:   make(chan struct{}, 1),
 		quit:   make(chan struct{}),
 	}
-	w.unsub = w.handle.Subscribe(func(cache.Event) { signal(w.wake) })
+	unsub := w.handle.Subscribe(func(cache.Event) { signal(w.wake) })
+	unsubOverlays := b.overlays.subscribe(func() { signal(w.wake) }) // the integrations' marks (overlay.go)
+	w.unsub = func() { unsub(); unsubOverlays() }
 	w.related = newRelatedSet(b, p.Needs, func() { signal(w.wake) })
 	w.followHidden(params.metrics) // the metrics feed, unless the cluster's settings hide both columns
 	signal(w.wake)
@@ -149,7 +151,9 @@ func (w *viewWorker) rebuild() {
 	errMsg := w.shownErr()
 	w.followRefusal(herr) // a cluster-wide watch refused: read namespace by namespace (accessiblens_plan.go)
 	rel, relGen := w.related.view()
-	snap := w.rows.buildWith(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen, usage)
+	ovs, ogen := w.backend.overlays.current() // the integrations' cells (overlay.go)
+	lay := layoutOverlays(w.profile, ovs, ogen)
+	snap := w.rows.buildWith(w.profile, w.backend.Context, KindList(w.handle, w.profile), p, rel, relGen, usage, lay)
 	snap.Synced = synced
 	snap.Error = errMsg
 	snap.Watched, snap.Denied = w.plan.watch, w.plan.denied
@@ -192,21 +196,48 @@ type rowEntry struct {
 	base    model.Row
 	patched bool   // row is base with metrics in it
 	ugen    uint64 // the feed's generation + 1 that row was patched at; 0 for never
+	rev     uint32 // counts the changes of row by the metrics: the overlaid row follows them
 	// states are the row's states (statusfilter.go), from the profile's row: metrics change none.
 	states []model.RowState
+	// ov is row with the integrations' cells (overlay.go) while ovOn; ogen is the overlays'
+	// generation + 1 and orev the rev it was made at (0: never).
+	ov   model.Row
+	ovOn bool
+	ogen uint64
+	orev uint32
+}
+
+// shown is the row as the view shows it: with the integrations' cells, else as built.
+func (e *rowEntry) shown() *model.Row {
+	if e.ovOn {
+		return &e.ov
+	}
+	return &e.row
+}
+
+// overlay makes the row's overlaid copy when the row or the overlays changed since the last.
+func (e *rowEntry) overlay(lay *overlayLayout, p *model.KindProfile, obj *unstructured.Unstructured) {
+	switch {
+	case lay == nil:
+		e.ov, e.ovOn, e.ogen = model.Row{}, false, 0
+	case e.ogen != lay.gen+1 || e.orev != e.rev:
+		e.ov, e.ovOn = lay.apply(p, e.row, obj)
+		e.ogen, e.orev = lay.gen+1, e.rev
+	}
 }
 
 // build turns the objects into a snapshot: rows from the cache (rebuilt when the resourceVersion
 // changed, and all of them when the related objects of a profile with Needs changed), filtered by
 // namespaces, search text and status filter, sorted. Total counts the objects before filtering.
 func (rc *rowCache) build(p *model.KindProfile, context string, objs []*unstructured.Unstructured, params viewParams, rel model.Related, relGen uint64) *TableSnapshot {
-	return rc.buildWith(p, context, objs, params, rel, relGen, nil)
+	return rc.buildWith(p, context, objs, params, rel, relGen, nil, nil)
 }
 
 // buildWith is build with the metrics of a profile that has Usage: rows of objects that have a
 // measurement show it in their CPU and Memory cells. The base rows stay as the profile built them,
-// so a new measurement patches the cells without building the rows again.
-func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unstructured.Unstructured, params viewParams, rel model.Related, relGen uint64, usage *usageFeed) *TableSnapshot {
+// so a new measurement patches the cells without building the rows again. lay, when set, adds the
+// integrations' cells and columns (overlay.go).
+func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unstructured.Unstructured, params viewParams, rel model.Related, relGen uint64, usage *usageFeed, lay *overlayLayout) *TableSnapshot {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 	if rc.rows == nil || rc.profile != p || rc.context != context || (len(p.Needs) > 0 && rc.relGen != relGen) {
@@ -274,20 +305,23 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 			} else {
 				e.row, e.patched = base, false
 			}
+			e.rev++
 		case !patching && e.patched: // the feed is gone: back to the profile's row
 			e.row, e.patched, e.ugen = e.base, false, 0
+			e.rev++
 		}
+		e.overlay(lay, p, obj) // the integrations' cells (overlay.go)
 		if nsSet != nil {
 			if _, ok := nsSet[e.row.Ref.Namespace]; !ok {
 				continue
 			}
 		}
 		if groupSet != nil {
-			if _, ok := groupSet[cellAt(&e.row, groupCol).Text]; !ok {
+			if _, ok := groupSet[cellAt(e.shown(), groupCol).Text]; !ok {
 				continue
 			}
 		}
-		if !match.All() && !match.Match(e.row) {
+		if !match.All() && !match.Match(*e.shown()) {
 			continue
 		}
 		if !states.keep(e.states) {
@@ -303,16 +337,17 @@ func (rc *rowCache) buildWith(p *model.KindProfile, context string, objs []*unst
 		}
 	}
 
-	sortEntries(kept, p.Columns, params.sort)
+	all := lay.columns(p) // the kind's columns, then those the integrations add (overlay.go)
+	sortEntries(kept, all, params.sort)
 	rows := make([]model.Row, len(kept))
 	for i, e := range kept {
-		rows[i] = e.row
+		rows[i] = *e.shown()
 	}
-	cols, metricsHidden := hideMetricColumns(p, ColumnsShown(p.Columns, params.hidden, params.hiddenSet), params.metrics)
+	cols, metricsHidden := hideMetricColumns(p, ColumnsShown(all, params.hidden, params.hiddenSet), params.metrics)
 	return &TableSnapshot{
 		View: p.Key, Context: context, Title: p.Title, Namespaced: p.Namespaced,
 		Columns: cols,
-		Order:   ColumnOrder(p.Columns, params.order),
+		Order:   lay.order(all, params.order),
 		Rows:    rows, Sort: params.sort,
 		Namespaces: slices.Clone(params.namespaces), Filter: params.filter,
 		FilterOptions: params.filterOpts, FilterError: filterErr,
@@ -338,7 +373,7 @@ func sortEntries(es []*rowEntry, cols []model.Column, spec SortSpec) {
 	}
 	typ := cols[ci].Type
 	slices.SortFunc(es, func(a, b *rowEntry) int {
-		return compareRows(&a.row, &b.row, ci, typ, spec.Desc)
+		return compareRows(a.shown(), b.shown(), ci, typ, spec.Desc)
 	})
 }
 

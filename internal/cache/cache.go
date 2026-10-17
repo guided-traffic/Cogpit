@@ -96,6 +96,9 @@ type Scope struct {
 	// MetadataOnly holds only apiVersion, kind and metadata of each object, as the API server's
 	// PartialObjectMetadata: no spec, status or data. See MetadataObject for the shape.
 	MetadataOnly bool `json:"metadataOnly,omitempty"`
+	// Trim names a trim (RegisterTrim, trim.go) that keeps only the parts of each object an
+	// integration reads; the scope is an informer of its own beside the kind's whole objects.
+	Trim string `json:"trim,omitempty"`
 }
 
 // String names the scope the way kubectl names resources: "pods", "deployments.apps",
@@ -107,6 +110,9 @@ func (s Scope) String() string {
 	}
 	if s.MetadataOnly {
 		name += " (metadata)"
+	}
+	if s.Trim != "" {
+		name += " (" + s.Trim + ")"
 	}
 	if s.LabelSelector != "" {
 		name += " with " + s.LabelSelector
@@ -659,6 +665,9 @@ func (r *runner) stripManagedFields(obj any) (out any, err error) {
 		unstructured.RemoveNestedField(u.Object, "metadata", "managedFields")
 		if r.scope.GVR.Group == "" && r.scope.GVR.Resource == "secrets" {
 			unstructured.RemoveNestedField(u.Object, "metadata", "annotations", LastAppliedAnnotation)
+		}
+		if trim := trimOf(r.scope.Trim); trim != nil { // a trimmed scope keeps what its reader needs (trim.go)
+			trim(u)
 		}
 	}
 	return obj, nil

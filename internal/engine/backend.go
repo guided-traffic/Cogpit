@@ -92,6 +92,8 @@ type Backend struct {
 	trivy trivyReads
 	// alerts polls the cluster's Alertmanager while the integration is on (alerts.go, D-77).
 	alerts alertSource
+	// overlays are the integrations' cells and drawer sections on its objects (overlay.go, D-79).
+	overlays overlays
 }
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.
@@ -134,6 +136,7 @@ func (b *Backend) close(log *slog.Logger) {
 	b.trivy.stop() // its handle on the reports (trivy.go)
 	// The Alertmanager's polls (alerts.go), before the connection closes.
 	b.alerts.stop()
+	b.overlays.close() // the integrations' reads (overlay.go)
 	b.apps.close() // before the cluster's cache: it releases its handles on the workloads
 	b.local.close()
 	if b.Metrics != nil {

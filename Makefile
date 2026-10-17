@@ -398,6 +398,39 @@ kind-alertmanager: ## Install an Alertmanager into the kind cluster (namespace c
 kind-alertmanager-down: ## Delete the kind cluster's Alertmanager and its namespace
 	$(KUBECTL) delete namespace cogpit-alerts --ignore-not-found
 
+# Kyverno for one check (TestKindKyverno, D-79): the admission and reports controllers in the
+# namespace cogpit-kyverno, their webhooks limited to the namespaces labelled cogpit-kyverno=true
+# (hack/kind/kyverno/values.yaml), three ClusterPolicies matching only cogpit-kyverno-* namespaces
+# (two Audit, one Enforce with failurePolicy Ignore) and a ValidatingPolicy in Audit matching only
+# the labelled namespaces, objects made before and after them in
+# cogpit-kyverno-a. A test setup: Cogpit installs nothing. kind-kyverno-down removes all of it,
+# Kyverno's CRDs and webhook configurations included.
+KYVERNO_CHART_REPO    ?= https://kyverno.github.io/kyverno/
+KYVERNO_CHART_VERSION ?= 3.9.1
+KYVERNO_CRD_GROUPS_RE := kyverno\.io|wgpolicyk8s\.io
+
+.PHONY: kind-kyverno kind-kyverno-down
+
+kind-kyverno: ## Install Kyverno, test policies and violating objects into the kind cluster (namespaces cogpit-kyverno, cogpit-kyverno-a)
+	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
+	$(HELM_KIND) upgrade --install kyverno kyverno --repo $(KYVERNO_CHART_REPO) \
+		--version $(KYVERNO_CHART_VERSION) --namespace cogpit-kyverno --create-namespace \
+		--values hack/kind/kyverno/values.yaml --wait --timeout 10m
+	$(KUBECTL) apply -f hack/kind/kyverno/before.yaml
+	$(KUBECTL) apply -f hack/kind/kyverno/policies.yaml
+	$(KUBECTL) wait --for=condition=Ready clusterpolicy -l cogpit-kyverno=true --timeout 2m
+	$(KUBECTL) apply -f hack/kind/kyverno/after.yaml
+
+kind-kyverno-down: ## Remove the kind cluster's Kyverno, its policies, CRDs, webhooks and namespaces
+	-$(KUBECTL) delete clusterpolicy,validatingpolicy -l cogpit-kyverno=true --ignore-not-found
+	$(KUBECTL) delete namespace cogpit-kyverno-a --ignore-not-found
+	$(HELM_KIND) uninstall kyverno --namespace cogpit-kyverno --ignore-not-found --wait
+	$(KUBECTL) delete validatingwebhookconfiguration,mutatingwebhookconfiguration -l webhook.kyverno.io/managed-by=kyverno --ignore-not-found
+	@# The chart's uninstall removes its CRDs; any it left (a release installed otherwise) go here.
+	crds=$$($(KUBECTL) get crd -o name | grep -E '\.($(KYVERNO_CRD_GROUPS_RE))$$'); \
+		if [ -n "$$crds" ]; then $(KUBECTL) delete --ignore-not-found $$crds; fi
+	$(KUBECTL) delete namespace cogpit-kyverno --ignore-not-found
+
 # The drain cluster: one control plane and two workers, for the tests that cordon and drain a
 # node, which must never run against the shared single-node cluster above.
 KIND_DRAIN_CLUSTER    ?= cogpit-drain

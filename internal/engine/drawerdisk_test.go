@@ -65,7 +65,7 @@ func TestNodesListDiskColumn(t *testing.T) {
 
 	objs := []*unstructured.Unstructured{nodeObject("n1", "10.0.0.1"), nodeObject("n2", "10.0.0.2"), nodeObject("n3", "10.0.0.3")}
 	rc := &rowCache{}
-	snap := rc.buildWith(p, "ctx", objs, viewParams{sort: SortSpec{Column: model.ColumnDisk, Desc: true}}, nil, 0, feed)
+	snap := rc.buildWith(p, "ctx", objs, viewParams{sort: SortSpec{Column: model.ColumnDisk, Desc: true}}, nil, 0, feed, nil)
 	disk := p.ColumnIndex(model.ColumnDisk)
 	got := map[string]model.Cell{}
 	for i := range snap.Rows {

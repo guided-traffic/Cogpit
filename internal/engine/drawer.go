@@ -83,6 +83,7 @@ func (s *Session) startDrawerWatch(b *Backend, p *model.KindProfile, ref model.O
 			}
 		}))
 	}
+	d.unsubs = append(d.unsubs, b.overlays.subscribe(func() { signal(d.wake) })) // the integrations' sections (overlay.go)
 	// Woken only by changes to the keys the drawer's model looked up (a node's pods, not every
 	// pod); Detail reads through this set while the drawer shows ref (drawerRelated). The drawer's
 	// own indexes (DetailNeeds: a workload's pods) live only as long as it does.
@@ -213,6 +214,10 @@ func (s *Session) detail(ctx context.Context, ref model.ObjectRef, wait bool) (*
 		s.log.Error("engine: kind profile detail panicked", "kind", p.Key, "panic", perr.Error())
 	}
 	m = s.helmChartDrawer(ctx, p, ref, obj, m, wait) // a chart's version and README (helmchartdrawer.go)
+	if wait {
+		b.overlays.waitSynced(ctx) // an agent's read sees the integrations' reads listed
+	}
+	m.Sections = append(m.Sections, b.overlays.sections(p, obj, s.TimeFormat())...) // the integrations' (overlay.go)
 	if m.Metrics && len(s.hiddenMetrics(b.Context).drawerVariants(p.Usage)) == 0 {
 		m.Metrics = false // the cluster's settings hide every chart of the kind (hidemetrics.go)
 	}

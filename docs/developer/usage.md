@@ -67,6 +67,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🧪 Your images' vulnerability ratings from the Trivy Operator your cluster runs (since 2026-10-17): a pod's drawer rates each of its images, "Critical · 39" in red down to "Clean" in green, with the counts per severity, the containers that run it, when it was scanned and a link to the report; an image without a report says "Not scanned", a pod none of whose images has one shows nothing. With the cluster's Trivy integration switched off (D-76's switch per cluster, on by default), nothing of it is read or shown. Cogpit installs no scanner. *(planned)* the worst rating of every pod in the Pods list.
 - 📈 CPU and memory from the cluster's metrics-server and its Prometheus: columns in the Pods and Nodes lists, charts with requests and limits in the pod and node drawers, and the cluster Overview: CPU, Memory and Pods of the master or worker nodes over a time range, with the Issues (pods, nodes and workloads in trouble, warning events) below. A node's history, its network and its filesystem come from node-exporter where it runs. Cogpit installs nothing into your cluster for this: it finds the Prometheus and the exporters the cluster runs (your own charts, kube-prometheus-stack, the `prometheus` chart under any release name, and since 2026-10-16 night Thanos's Querier and VictoriaMetrics, single-node or the cluster's vmselect, by their usual service names) and reads them; where it finds no provider, the charts say so. A cluster that runs a Prometheus and a Thanos or VictoriaMetrics reads the Prometheus; name the other in Cluster Settings › Metrics › Prometheus service address (vmselect with the path prefix `/select/<tenant>/prometheus`).
 - 🚨 The cluster's alerts from its Alertmanager (since 2026-10-17): a pill in the title bar, red from a critical alert, orange from a warning, yellow from an info alert, with the number of every active alert; a click opens the alert board, the alerts grouped by severity and alert name, each with its summary, since when it fires, its runbook and the object it is about one click away. Found by its service's name, or set in the cluster's Settings; read only.
+- 🛂 Kyverno's policy violations on your objects (since 2026-10-17): while the Kyverno integration is on for a cluster, every object a Kyverno policy report names with a failed rule, of an Audit policy or of an Enforce policy on an object from before it, shows the warning icon in its list ("Kyverno: 2 policy violations (require-team-label, …)") and a "Policy violations" group in its drawer; agents list them all with `kyverno_violations`. Cogpit reads the reports Kyverno writes and installs nothing ([Kyverno's policy violations](#kyvernos-policy-violations)).
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
 - 😴 Sleep and lost connections: when the Mac wakes, the network or a VPN changes, or the cluster stops answering, Cogpit notices within seconds, blinks the cluster's dot and shows a banner, keeps your views and tabs as they were, disables changes, and reconnects by itself; a login that expired asks you once ([below](#when-the-connection-breaks)).
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
@@ -729,6 +730,43 @@ installs none.
   it) and the object it is about (a click opens it). The search and the namespace filter work as
   in the lists. Nothing on the board changes Alertmanager: silences stay in Alertmanager's own UI.
 
+### Kyverno's policy violations
+
+While the Kyverno integration is on for a cluster (the default; Cluster Settings › Integrations)
+and the cluster serves Kyverno's policy reports (`wgpolicyk8s.io/v1alpha2` PolicyReports and
+ClusterPolicyReports, which Kyverno 1.10 and later writes for every object its policies check),
+Cogpit marks every object a report names with a violation
+([D-79](decisions.md#d-79-kyvernos-policy-violations-on-the-objects)):
+
+- **What counts:** a rule's result `fail`, whatever the policy's mode: an Audit policy's, and an
+  Enforce policy's on an object that existed before it (Kyverno finds those in its background
+  scans); and `warn`, a failed rule of a policy its author marked as not scored. An `error` (Kyverno
+  could not apply the rule), `pass` and `skip` mark nothing; the report's own drawer lists them.
+- **In the lists:** the warning icon in the warning column, its tooltip "Kyverno: 2 policy
+  violations (require-team-label, disallow-latest-tag)". Pods, Nodes, Cron Jobs and the other views
+  with a warning column of their own show it there, the reasons joined; every other view, custom
+  resources included, gets the warning column after Name while one of its objects violates a
+  policy. Sort by it to put the violations first, or search "Kyverno".
+- **In the drawer:** "Policy violations", a section per violation: the policy (a link to it while
+  the cluster serves its kind: a ClusterPolicy, a Policy, a ValidatingPolicy), the rule, the
+  result, the message, severity, category, how Kyverno found it (background scan, admission review)
+  and when.
+- **The reports themselves:** Custom Resources › wgpolicyk8s.io › Policy Reports and Cluster
+  Policy Reports, with Kyverno's columns (Kind, Object, Pass, Fail, Warn, Error, Skip) and every
+  result in the drawer.
+- **Agents:** `kyverno_violations {context?, namespaces?, policy?, limit?}` lists every violation
+  with its object's reference; `object_get` carries the drawer's sections. Policy messages are
+  text from the cluster: agents get them as data
+  ([agents and MCP › H-11](../security/agents-and-mcp.md#h-11-instructions-hidden-in-cluster-data)).
+- **Off:** nothing is read and nothing shows. A user who may list the reports only in some
+  namespaces gets them for the namespaces the cluster's settings or the namespace filter name.
+- **Not read:** Kyverno's `openreports.io` reports (a Kyverno set up to write them in place of
+  wgpolicyk8s.io marks nothing), other policy engines' reports.
+
+Cogpit reads with one watch per report kind and keeps only the violations of each report in
+memory. `make kind-kyverno` installs a Kyverno with test policies into the kind cluster to try it
+([hack/kind](../../hack/kind/README.md#kyverno)).
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,
@@ -836,6 +874,7 @@ Identifiers the documentation uses:
 | `make kind-prometheus`, `make kind-prometheus-down` | a real Prometheus in the kind cluster (`monitoring/prometheus-server`, the `prometheus` chart) for the drawer's charts ([hack/kind](../../hack/kind/README.md#prometheus)) |
 | `make kind-kps`, `make kind-kps-down` | a minimal kube-prometheus-stack in the kind cluster (namespace `cogpit-kps`) |
 | `make kind-alertmanager`, `make kind-alertmanager-down` | one Alertmanager in the kind cluster (namespace `cogpit-alerts`, its Service `cogpit-alertmanager`, port `http`) for `TestKindAlertmanager`, which posts its own alerts and resolves them ([hack/kind](../../hack/kind/README.md#alertmanager)) |
+| `make kind-kyverno`, `make kind-kyverno-down` | Kyverno (admission and reports controllers, chart 3.9.1) in the kind cluster's namespace `cogpit-kyverno`, its webhooks limited to namespaces labelled `cogpit-kyverno=true`, test policies (Audit and Enforce) and violating objects in `cogpit-kyverno-a`; the down target removes all of it, Kyverno's CRDs and webhook configurations included ([hack/kind](../../hack/kind/README.md#kyverno)) |
 | `make kind-vm`, `make kind-vm-down` | VictoriaMetrics single-node and a small cluster in the kind cluster (namespace `cogpit-vm`), fed from the kind Prometheus ([hack/kind](../../hack/kind/README.md#victoriametrics)) |
 | `make kind-trivy`, `make kind-trivy-down` | Trivy Operator in the kind cluster (namespace `cogpit-trivy`), scanning only the test workloads in `cogpit-trivy-a` and `cogpit-trivy-b`, for `TestKindTrivy` ([hack/kind](../../hack/kind/README.md#trivy-operator)) |
 | `make sigstore-root` | refresh the sigstore trusted root `internal/kubectl` embeds ([D-50](decisions.md#d-50-kubectls-signature-check)) |

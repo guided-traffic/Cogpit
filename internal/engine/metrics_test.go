@@ -88,7 +88,7 @@ func TestRowCachePatchesUsageAndFallsBack(t *testing.T) {
 		return model.Cell{}
 	}
 	params := viewParams{sort: SortSpec{Column: model.ColumnCPU, Desc: true}}
-	snap := rc.buildWith(p, "ctx", objs, params, nil, 0, feed)
+	snap := rc.buildWith(p, "ctx", objs, params, nil, 0, feed, nil)
 	if c := cpu(snap, "a"); c.Text != "0.040" || c.Num != 40 {
 		t.Errorf("a: cpu %+v, want its measurement", c)
 	}
@@ -100,7 +100,7 @@ func TestRowCachePatchesUsageAndFallsBack(t *testing.T) {
 	}
 	// Ascending: the empty cell still sorts last.
 	params.sort.Desc = false
-	if snap = rc.buildWith(p, "ctx", objs, params, nil, 0, feed); snap.Rows[0].Ref.Name != "a" || snap.Rows[1].Ref.Name != "b" {
+	if snap = rc.buildWith(p, "ctx", objs, params, nil, 0, feed, nil); snap.Rows[0].Ref.Name != "a" || snap.Rows[1].Ref.Name != "b" {
 		t.Errorf("ascending: %s, %s; pods without a measurement sort last in both directions", snap.Rows[0].Ref.Name, snap.Rows[1].Ref.Name)
 	}
 

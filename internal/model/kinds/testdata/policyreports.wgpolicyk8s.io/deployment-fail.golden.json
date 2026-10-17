@@ -1,0 +1,199 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "policyreports.wgpolicyk8s.io",
+    "namespace": "shop",
+    "name": "6b1f7a52-1c1e-4d0b-9a55-0c2f8d1e0001"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "6b1f7a52-1c1e-4d0b-9a55-0c2f8d1e0001"
+    },
+    {
+      "column": "namespace",
+      "text": "shop",
+      "link": {
+        "kind": "namespaces",
+        "name": "shop"
+      }
+    },
+    {
+      "column": "kind",
+      "text": "Deployment"
+    },
+    {
+      "column": "object",
+      "text": "web",
+      "link": {
+        "kind": "deployments",
+        "namespace": "shop",
+        "name": "web"
+      }
+    },
+    {
+      "column": "pass",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "fail",
+      "text": "1",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "warn",
+      "text": "0"
+    },
+    {
+      "column": "error",
+      "text": "0"
+    },
+    {
+      "column": "skip",
+      "text": "1",
+      "num": 1
+    },
+    {
+      "column": "age",
+      "text": "2h",
+      "num": 1791712800
+    }
+  ],
+  "fields": {
+    "label": [
+      "app.kubernetes.io/managed-by=kyverno"
+    ],
+    "name": [
+      "6b1f7a52-1c1e-4d0b-9a55-0c2f8d1e0001"
+    ],
+    "namespace": [
+      "shop"
+    ],
+    "object": [
+      "Deployment/web"
+    ],
+    "policy": [
+      "require-team-label",
+      "disallow-privileged",
+      "inject-backup-sidecar"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Object",
+          "value": "Deployment web",
+          "link": {
+            "kind": "deployments",
+            "namespace": "shop",
+            "name": "web"
+          }
+        },
+        {
+          "name": "Summary",
+          "value": "1 pass, 1 fail, 1 skip"
+        }
+      ]
+    },
+    {
+      "title": "Results",
+      "table": {
+        "columns": [
+          "Policy",
+          "Rule",
+          "Result",
+          "Message"
+        ],
+        "rows": [
+          [
+            "require-team-label",
+            "autogen-check-team",
+            "fail",
+            "validation error: The label `team` is required. rule autogen-check-team failed at path /spec/template/metadata/labels/team/"
+          ],
+          [
+            "disallow-privileged",
+            "autogen-no-privileged",
+            "pass",
+            "validation rule 'autogen-no-privileged' passed."
+          ],
+          [
+            "inject-backup-sidecar",
+            "autogen-inject-backup-sidecar",
+            "skip",
+            "preconditions not met"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "require-team-label",
+              "link": {
+                "kind": "clusterpolicies.kyverno.io",
+                "name": "require-team-label"
+              }
+            },
+            {
+              "text": "autogen-check-team"
+            },
+            {
+              "text": "fail",
+              "status": "warning"
+            },
+            {
+              "text": "validation error: The label `team` is required. rule autogen-check-team failed at path /spec/template/metadata/labels/team/"
+            }
+          ],
+          [
+            {
+              "text": "disallow-privileged",
+              "link": {
+                "kind": "clusterpolicies.kyverno.io",
+                "name": "disallow-privileged"
+              }
+            },
+            {
+              "text": "autogen-no-privileged"
+            },
+            {
+              "text": "pass",
+              "status": "ok"
+            },
+            {
+              "text": "validation rule 'autogen-no-privileged' passed."
+            }
+          ],
+          [
+            {
+              "text": "inject-backup-sidecar",
+              "link": {
+                "kind": "clusterpolicies.kyverno.io",
+                "name": "inject-backup-sidecar"
+              }
+            },
+            {
+              "text": "autogen-inject-backup-sidecar"
+            },
+            {
+              "text": "skip"
+            },
+            {
+              "text": "preconditions not met"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

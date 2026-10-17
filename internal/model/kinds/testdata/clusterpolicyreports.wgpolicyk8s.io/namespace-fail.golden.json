@@ -1,0 +1,135 @@
+{
+  "ref": {
+    "context": "test",
+    "kind": "clusterpolicyreports.wgpolicyk8s.io",
+    "name": "9a8b7c6d-1111-4222-8333-944455556666"
+  },
+  "status": "",
+  "cells": [
+    {
+      "column": "name",
+      "text": "9a8b7c6d-1111-4222-8333-944455556666"
+    },
+    {
+      "column": "kind",
+      "text": "Namespace"
+    },
+    {
+      "column": "object",
+      "text": "legacy",
+      "link": {
+        "kind": "namespaces",
+        "name": "legacy"
+      }
+    },
+    {
+      "column": "pass",
+      "text": "0"
+    },
+    {
+      "column": "fail",
+      "text": "1",
+      "num": 1,
+      "status": "warning"
+    },
+    {
+      "column": "warn",
+      "text": "0"
+    },
+    {
+      "column": "error",
+      "text": "0"
+    },
+    {
+      "column": "skip",
+      "text": "0"
+    },
+    {
+      "column": "age",
+      "text": "3h",
+      "num": 1791709200
+    }
+  ],
+  "fields": {
+    "label": [
+      "app.kubernetes.io/managed-by=kyverno"
+    ],
+    "name": [
+      "9a8b7c6d-1111-4222-8333-944455556666"
+    ],
+    "namespace": [
+      ""
+    ],
+    "object": [
+      "Namespace/legacy"
+    ],
+    "policy": [
+      "require-namespace-owner"
+    ]
+  },
+  "detail": [
+    {
+      "title": "Properties",
+      "items": [
+        {
+          "name": "Object",
+          "value": "Namespace legacy",
+          "link": {
+            "kind": "namespaces",
+            "name": "legacy"
+          }
+        },
+        {
+          "name": "Summary",
+          "value": "1 fail"
+        }
+      ]
+    },
+    {
+      "title": "Results",
+      "table": {
+        "columns": [
+          "Policy",
+          "Rule",
+          "Result",
+          "Message"
+        ],
+        "rows": [
+          [
+            "require-namespace-owner",
+            "check-owner",
+            "fail",
+            "validation error: Every namespace needs an owner label. rule check-owner failed at path /metadata/labels/owner/"
+          ]
+        ],
+        "types": [
+          "text",
+          "text",
+          "text",
+          "text"
+        ],
+        "cells": [
+          [
+            {
+              "text": "require-namespace-owner",
+              "link": {
+                "kind": "clusterpolicies.kyverno.io",
+                "name": "require-namespace-owner"
+              }
+            },
+            {
+              "text": "check-owner"
+            },
+            {
+              "text": "fail",
+              "status": "warning"
+            },
+            {
+              "text": "validation error: Every namespace needs an owner label. rule check-owner failed at path /metadata/labels/owner/"
+            }
+          ]
+        ]
+      }
+    }
+  ]
+}

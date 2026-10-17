@@ -87,6 +87,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerRestartMany(g)
 	registerConnection(g)
 	registerJobs(g)
+	registerKyverno(g) // the Kyverno integration's violations (D-79)
 	return g.err
 }
 
