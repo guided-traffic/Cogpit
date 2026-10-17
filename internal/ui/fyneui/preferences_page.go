@@ -64,6 +64,9 @@ type settingsPage struct {
 
 	agentsDialog *agentsDialog // the open question before agents' changes are allowed (clustersettings_agents.go)
 	agent        *agentPrefs   // Preferences › Agent while it is built (preferences_agent.go)
+
+	// integrationRows are the Integrations section's rows while it is built (clustersettings_integrations.go).
+	integrationRows []*integrationRow
 }
 
 func newSettingsPage(sh *shell) *settingsPage {
@@ -135,7 +138,7 @@ func (p *settingsPage) stateChanged() {
 func (p *settingsPage) build() {
 	clear(p.controls)
 	clear(p.errs)
-	p.sync, p.prom = nil, nil
+	p.sync, p.prom, p.integrationRows = nil, nil, nil
 	if p.agent != nil && p.agent.form != nil {
 		p.agent.form.close() // a connection test under way ends with its section
 	}

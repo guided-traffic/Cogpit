@@ -1,0 +1,95 @@
+//go:build kind
+
+package integration_test
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/guided-traffic/cogpit/internal/engine"
+	"github.com/guided-traffic/cogpit/internal/engine/commands"
+	"github.com/guided-traffic/cogpit/internal/metrics"
+)
+
+// TestKindIntegrationsQuestion checks the question of a new cluster's integrations (D-76) against
+// the kind cluster: its first connect asks (ui_state's integrationsQuestion), and while it asks,
+// the Metrics Server and the Prometheus `make kind-prometheus` installs are detected once without a
+// drawer or a list that shows metrics, so that the question says "found" with where; an answer
+// decides the cluster and ends the question. Cluster settings and preferences in a temporary
+// folder: the cluster is new to this Cogpit.
+func TestKindIntegrationsQuestion(t *testing.T) {
+	kubeconfig, contextName := os.Getenv("COGPIT_KIND_KUBECONFIG"), os.Getenv("COGPIT_KIND_CONTEXT")
+	if kubeconfig == "" || contextName == "" {
+		t.Skip("COGPIT_KIND_KUBECONFIG and COGPIT_KIND_CONTEXT are not set; run make test-kind")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	dir := filepath.Join(t.TempDir(), "Cogpit")
+	s := engine.New(engine.Options{Connector: &engine.ClusterConnector{KubeconfigPaths: []string{kubeconfig}},
+		ClusterSettings: engine.NewClusterSettingsStore(dir), Preferences: engine.NewPreferencesStore(dir)})
+	t.Cleanup(s.Close)
+	if err := commands.RegisterAll(s.Registry()); err != nil {
+		t.Fatal(err)
+	}
+	heard := make(chan struct{}, 8)
+	defer s.Subscribe(func(ev engine.Event) {
+		if ev.Type == engine.EventIntegrations && ev.View == contextName {
+			select {
+			case heard <- struct{}{}:
+			default:
+			}
+		}
+	})()
+	if err := s.Connect(ctx, contextName); err != nil {
+		t.Fatal(err)
+	}
+	if q := s.UIState().IntegrationsQuestion; q != contextName {
+		t.Fatalf("the first connect asks nothing: %q", q)
+	}
+	statuses := func() map[engine.Integration]engine.IntegrationStatus {
+		out := map[engine.Integration]engine.IntegrationStatus{}
+		for _, st := range s.IntegrationStatuses(contextName) {
+			out[st.Name] = st
+		}
+		return out
+	}
+	for {
+		st := statuses()
+		ms, prom := st[engine.IntegrationMetricsServer], st[engine.IntegrationPrometheus]
+		if ms.State != engine.IntegrationChecking && prom.State != engine.IntegrationChecking {
+			if ms.State != engine.IntegrationFound {
+				t.Errorf("Metrics Server: %+v", ms)
+			}
+			if prom.State != engine.IntegrationFound || !strings.HasPrefix(prom.Where, "monitoring/prometheus-server:") {
+				t.Errorf("Prometheus: %+v (make kind-prometheus installs monitoring/prometheus-server)", prom)
+			}
+			t.Logf("Metrics Server %s %q; Prometheus %s %q", ms.State, ms.Where, prom.State, prom.Where)
+			break
+		}
+		select {
+		case <-heard:
+		case <-ctx.Done():
+			t.Fatalf("still checking: %+v", st)
+		}
+	}
+	if b := s.BackendOf(contextName); b != nil && b.Metrics != nil {
+		for _, p := range b.Metrics.Providers() {
+			if len(p.Serves) > 0 && p.Status != metrics.StatusAvailable {
+				t.Errorf("provider %s serves %v while %s", p.Provider, p.Serves, p.Status)
+			}
+		}
+	}
+
+	raw := []byte(`{"integrations":{"alertmanager":false}}`)
+	if _, err := s.Dispatch(ctx, engine.Invocation{ID: "cluster.integrations.answer", Params: raw, Origin: engine.OriginGUI}); err != nil {
+		t.Fatal(err)
+	}
+	u := s.UIState()
+	if u.IntegrationsQuestion != "" || !u.IntegrationsDecided(contextName) || u.IntegrationOn(contextName, engine.IntegrationAlertmanager) {
+		t.Errorf("after the answer: question %q, decided %v", u.IntegrationsQuestion, u.IntegrationsDecided(contextName))
+	}
+}

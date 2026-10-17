@@ -29,6 +29,8 @@ import (
 // clustersettings_namespaces.go), Metrics (the metrics source, the Prometheus's fields of
 // cluster.setPrometheus, clustersettings_prometheus.go, and the hidden metrics,
 // clustersettings_metrics.go).
+// Integrations (Cogpit's own, D-76: each integration's switch and what Cogpit found of it,
+// clustersettings_integrations.go).
 // Node Shell (the node shells' image and pull secret, clustersettings_nodeshell.go, 2026-10-13).
 // Lens's Lens Metrics page, which installs a metrics stack into the cluster, has no counterpart:
 // Cogpit installs nothing for its own features and reads what the cluster runs (D-61, owner
@@ -118,6 +120,8 @@ func (p *settingsPage) clusterSection(section string) fyne.CanvasObject {
 		return p.clusterTerminalSection()
 	case engine.SectionNamespaces:
 		return p.clusterNamespacesSection() // clustersettings_namespaces.go
+	case engine.SectionIntegrations:
+		return p.clusterIntegrationsSection() // clustersettings_integrations.go
 	case engine.SectionMetrics:
 		return p.clusterMetricsSection()
 	case engine.SectionAgents:

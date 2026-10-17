@@ -109,6 +109,8 @@ type shell struct {
 
 	helmHTTP *helmHTTPBanner // Helm repositories waiting to send credentials over http, below the Helm banner (helmhttp.go, H-40)
 
+	intq *integrationsQuestion // the question of a new cluster's integrations (integrationsask.go, D-76)
+
 	hsplit    *fyne.Container // table | drawer, the drawer's width set by the user (panelwidths.go)
 	mainRow   *fyne.Container // sidebar | body, the sidebar's width set by the user
 	center    *fyne.Container // mainRow, or the open settings page in its place
@@ -197,6 +199,7 @@ func newShell(eng Engine, a fyne.App, w fyne.Window, opts Options, do func(func(
 	sh.kc = newKubeconfigUI(sh)
 	sh.palette = newCmdPalette(sh)
 	sh.settings = newSettingsPage(sh)
+	sh.intq = newIntegrationsQuestion(sh)
 	sh.confirmer = newGUIConfirmer(sh)
 	sh.conn = newConnBanner(sh)
 	sh.drains = newDrainBanner(sh)
@@ -385,8 +388,12 @@ func (sh *shell) onEvent(ev engine.Event) {
 				sh.metricsQueued.Store(false)
 				sh.drawer.metricsChanged()
 				sh.settings.metricsChanged() // the Prometheus setting may be new
+				sh.integrationsChanged("")   // and the metrics integrations' status (clustersettings_integrations.go)
 			})
 		}
+	case engine.EventIntegrations: // what Cogpit knows of a cluster's integrations (clustersettings_integrations.go, D-76)
+		ctx := ev.View
+		sh.do(func() { sh.integrationsChanged(ctx) })
 	case engine.EventDiagnostics:
 		sh.requestDiagnostics()
 	case engine.EventKinds:
@@ -526,6 +533,9 @@ func (sh *shell) applyUIState(st engine.UIState) {
 	}
 	if first || settingsShowChanged(st, old) {
 		sh.settings.stateChanged()
+	}
+	if first || st.IntegrationsQuestion != old.IntegrationsQuestion {
+		sh.intq.stateChanged() // the question of a new cluster's integrations (integrationsask.go, D-76)
 	}
 	if first || (st.Context == "") != (old.Context == "") || st.Connection != old.Connection || layoutMenuChanged(st, old) {
 		// Cluster Settings… is enabled while a cluster is chosen, Disconnect while one is connected or

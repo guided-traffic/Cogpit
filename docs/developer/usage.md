@@ -37,6 +37,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🗂️ Every cluster from your kubeconfig files and synced folders, side by side.
 - 🧭 Lens's navigator levels: All Clusters (Local Kubeconfigs) lists every cluster and the tabs of all of them, the one list to choose a cluster from, with a + to add kubeconfigs; › drills into one cluster's resources and its tabs, ‹ All Clusters goes back up.
 - ⏳ How long a cluster's client certificate is still valid, where you choose the cluster (since 2026-10-17): for a context that logs in with a certificate in its kubeconfig, the navigator's list says "cert expires in 23 days" under its name, in orange in its last 14 days (or the last fifth of a short-lived one's life), "expired" alone (the owner, 2026-10-17) in red once it ended; the welcome page and the tooltips say it too, the tooltips with the date. It never stops you from connecting. A certificate file in Documents, Downloads or on the Desktop shows after your first connect to it, so that listing your clusters never makes macOS ask for those folders.
+- 🔌 Integrations per cluster (since 2026-10-17): the Metrics Server and Prometheus today, Alertmanager, the Trivy Operator and Kyverno to come, each switched on or off in Cluster Settings › Integrations with whether Cogpit found it or it needs its address; a new cluster asks at its first connect, with a checkbox to keep the answer as the default; everything on by default.
 - 📌 A hotbar of pinned clusters at the window's edge, in banks of twelve: F1–F12 to switch cluster, ⇧F1–⇧F12 to switch bank.
 - 🔀 Several clusters connected at once (since 2026-10-16): switching to another cluster leaves the one you were on connected, its logs, shells, port forwards and running jobs going on; switching back within five minutes shows it at once without asking the cluster again, later its lists load anew. A cluster stays connected until you disconnect it or quit; agents may work on any connected cluster. Every dot of a cluster says how it is: filled while live, a ring while it rests in the background, blinking while it reconnects, red when it needs you; the dock shows the tabs of the cluster you look at ([Several clusters connected](#several-clusters-connected)). A cluster's Settings can keep its login program from running while you look at another cluster (its login then waits, renewed when you show it), and Preferences › App can bring the last session back at start: its tabs and its clusters, connected again.
 - 🪪 One short name per cluster wherever the window names it: the name you gave it in its Settings, else its context's name after the last "@" ("kubernetes-admin@prod-eu" shows as "prod-eu"); the full name in every tooltip, and the navigator's search finds it by either. The navigator's root says who you are logged in as there, as the API server confirms it at every connect (`kubectl auth whoami`'s question), your groups in the tooltip of the small box beside it; "(kubeconfig)" marks the kubeconfig's user name where the API server does not say, and while the cluster connects the last user it confirmed shows dimmed, with when it was last seen ([D-68](decisions.md#d-68-one-short-name-for-a-cluster-and-the-user-cogpit-is-logged-in-as)).
@@ -400,6 +401,44 @@ Security note: on lets a login program run while you work with another cluster, 
 Cogpit's window, can turn it on; agents and the CLI may only turn it off. Two contexts whose login
 program runs with the same command, arguments and environment share one login in client-go: it is
 held only while both are held.
+
+### Cluster Settings › Integrations, and the question at a new cluster's first connect
+
+Since 2026-10-17 ([D-76](decisions.md#d-76-integrations-per-cluster-and-the-question-at-a-new-clusters-first-connect), the owner's words). An integration is a tool
+the cluster runs that Cogpit finds and reads to show more: the Kubernetes Metrics Server and
+Prometheus (the metrics), Alertmanager (the alerts pill and the alert board), the Trivy Operator
+(the pods' image ratings) and Kyverno (policy violations on the objects); the last three arrive with
+their own changes (D-77 to D-79). Cogpit installs none of them. **Everything is on by default.**
+
+Cluster Settings › Integrations (between Namespaces and Metrics) has a row per integration: its
+switch, what Cogpit found ("Found automatically: monitoring/prometheus-server:http", "Needs manual
+configuration: none found by name" with a link to where Prometheus's address is set, "Not in this
+cluster", "No permission", "Not answering", "Checking…", "Off"), and what it adds. A switch applies to
+the connected cluster at once; off, Cogpit sends the cluster nothing for that integration and shows
+nothing of it. The Metrics section's "Metrics source" is the same two metrics switches.
+
+**What you see at a cluster's first connect:** a cluster you have not chosen integrations for asks,
+once it is connected and shown, in a dialog over the window "Integrations for <name>": the same rows,
+switched as the default for new clusters, their statuses filling in as Cogpit finds the tools (the
+cluster's views load behind the dialog), the checkbox "Save as the default for new clusters" (off
+until you tick it), Later and Apply. Apply keeps your switches as the cluster's choice, and with the
+checkbox as the default for every cluster you have not chosen for. Later asks no more this run and
+again at the next start; meanwhile the default applies. Clusters you used before this version ask
+once too; the demo cluster never asks. Preferences › Kubernetes › Integrations of new clusters shows
+and changes the default.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `cluster.settings.set`'s `integrations`, e.g. `{"alertmanager": false}` | every one on # default | switches integrations on (`true`) or off (`false`) for the cluster; the result is its own choice. Kept as `integrationsOff` (the names switched off) in `cluster-settings.json`; absent: no choice yet, the default applies and the window asks |
+| `preferences.set`'s `integrationDefaults`, e.g. `{"trivy": false}` | every one on # default | the default for clusters without a choice of their own; kept as `integrationsOff` in `preferences.json` |
+| `cluster.integrations.answer` `{context?, integrations?, saveAsDefault?}` | | the dialog's Apply; `cluster.integrations.later` `{context?}` its Later; `ui_state`'s `integrationsQuestion` names the cluster asked about |
+
+A `metricsSource` an older Cogpit kept in `cluster-settings.json` is moved into the two metrics
+switches once (`prometheus`: the Metrics Server off; `metrics-server`: Prometheus off; `none`: both
+off). Security note: agents switch integrations on and off as you do, which changes only what Cogpit
+reads with your identity from what the cluster runs, never a write; where an integration is read from
+when it is not found by name stays yours to set ([agents and MCP](../security/agents-and-mcp.md)).
+`cogpit-cli` does not apply these switches ([H-120](../security/agents-and-mcp.md#h-120-the-clis-headless-engine-does-not-apply-a-clusters-integration-switches)).
 
 ### Deep links (`cogpit://`)
 

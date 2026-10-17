@@ -68,6 +68,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerPreferences(g)
 	registerLoginItem(g)
 	registerClusterSettings(g)
+	registerIntegrations(g) // the question of a new cluster's integrations (D-76)
 	registerAllowance(g)
 	registerAudit(g)
 	registerDiagnostics(g)

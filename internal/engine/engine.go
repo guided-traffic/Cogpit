@@ -178,6 +178,9 @@ type Session struct {
 	confirmer   Confirmer
 	agentWrites map[string]bool  // contexts where the user allowed agent writes (D-2)
 	dockReader  DockOutputReader // the window's, for dock.read (dockoutput.go)
+	// integrationsLater are the contexts whose integrations question was put off this run
+	// (integrationsask.go, D-76); guarded by mu.
+	integrationsLater map[string]bool
 
 	subMu   sync.Mutex
 	subs    map[int]func(Event)
@@ -482,6 +485,8 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.ui.syncWelcome()              // the welcome page shows while the workspace has nothing else (welcome.go)
 	s.ui.syncNavScope(old)          // the navigator shows the connected cluster, or the section (navscope.go)
 	s.ui.syncNavigator(old)         // its search and keyboard follow the level and the view (navigator.go)
+	// The question of a new cluster's integrations (integrationsask.go, D-76).
+	s.ui.syncIntegrationsQuestion(s.opts.ClusterSettings != nil, s.integrationsLater)
 	// A chart drawer's version ends with the drawer (helmchartdrawer.go).
 	s.ui.syncDrawerChartVersion(old)
 	s.ui.SyncDock(old) // a new or activated tab opens the dock, none closes it (layout.go)

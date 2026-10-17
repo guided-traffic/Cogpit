@@ -154,7 +154,8 @@ func (o Options) withDefaults() Options {
 
 // Hub polls a cluster's providers for the scopes that are subscribed and keeps the latest results.
 //
-//   - Nothing is asked while nothing is subscribed: no poll, no detection.
+//   - Nothing is asked while nothing is subscribed: no poll, no detection; but for DetectUnknown,
+//     which detects once what nothing looked for yet (the cluster settings' Integrations, D-76).
 //   - A scope is polled by one goroutine however many consumers subscribed to it; its interval is
 //     the list or the object interval.
 //   - A result is cached for the TTL, longer while the scope is polled (twice its interval, so a
@@ -176,6 +177,10 @@ type Hub struct {
 	mu     sync.Mutex // guards the slots' fields below detMu and everything below
 	scopes map[Scope]*scopeState
 	closed bool
+	// detectingUnknown is set while DetectUnknown's detection runs, triedUnknown is when it last
+	// tried each provider (detectunknown.go).
+	detectingUnknown bool
+	triedUnknown     map[*slot]time.Time
 
 	// The charts kept after their drawer closed (retain.go): by scope, the least recently closed
 	// first in retainOrder, retainPoints their points in all.
@@ -251,7 +256,8 @@ func NewHub(det Detector, opts Options) *Hub {
 
 // NewHubFor returns a hub over a cluster's two providers: the Metrics Server for the current
 // values, Prometheus for history. Prometheus is looked for only when a drawer opens (its history)
-// or the Metrics Server fails or is missing.
+// or the Metrics Server fails or is missing, or once by DetectUnknown (the cluster's integrations
+// shown, D-76).
 func NewHubFor(src Sources, opts Options) *Hub {
 	var slots []*slot
 	if src.History != nil {

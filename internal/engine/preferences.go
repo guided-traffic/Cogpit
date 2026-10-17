@@ -561,6 +561,9 @@ const (
 	SectionNamespaces = "namespaces"
 	SectionAgents     = "agents"    // a cluster's agents: the allowance of their writes (allowance.go)
 	SectionNodeShell  = "nodeShell" // a cluster's node shell: its image and pull secret (nodeshell.go)
+	// SectionIntegrations is a cluster's Integrations: each integration's switch and what Cogpit
+	// found of it (integrations.go, D-76).
+	SectionIntegrations = "integrations"
 	// SectionAgent is Preferences › Agent: the built-in agent's LLM connections (chat.go, D-10). The
 	// window edits them through Session.Chat, not through commands: only the user sets them.
 	SectionAgent = "agent"
@@ -578,9 +581,11 @@ var PreferencesSections = []string{SectionApp, SectionProxy, SectionKubernetes, 
 // order (General, Proxy, Terminal, Namespaces, Metrics, ..., Node Shell) without Lens's Cost and
 // Lens Metrics (Cogpit installs nothing into a cluster for its own features: it reads the metrics
 // stack the cluster runs, D-61, owner 2026-10-16), then Cogpit's own Agents (allowance.go; its
-// place inferred: last, Lens has no such section).
-var ClusterSettingsSections = []string{SectionGeneral, SectionProxy, SectionTerminal, SectionNamespaces, SectionMetrics,
-	SectionNodeShell, SectionAgents}
+// place inferred: last, Lens has no such section). Cogpit's own Integrations (D-76) stands right
+// before Metrics: which tools Cogpit reads, then the details of the metrics ones (the lead's
+// decision, 2026-10-17).
+var ClusterSettingsSections = []string{SectionGeneral, SectionProxy, SectionTerminal, SectionNamespaces, SectionIntegrations,
+	SectionMetrics, SectionNodeShell, SectionAgents}
 
 // SettingsPage is the open settings page: Preferences, or one context's Cluster settings, and the
 // section shown.

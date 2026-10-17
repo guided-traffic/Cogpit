@@ -128,6 +128,14 @@ type UIState struct {
 	// Settings is the open settings page, Preferences (⌘,) or a context's Cluster settings (⌘⇧,);
 	// nil while none is open.
 	Settings *SettingsPage `json:"settings,omitempty"`
+	// IntegrationsQuestion is the context whose integrations the window asks the user to choose
+	// (D-76, integrationsask.go): the shown cluster while it is connected and the user made no choice
+	// for it (ClusterSettings.IntegrationsOff unset), unless it is the demo cluster or the question
+	// was put off this run; empty otherwise. Until it is answered the default for new clusters
+	// applies; nothing waits for it. cluster.integrations.answer answers it,
+	// cluster.integrations.later puts it off, cluster.settings.get lists each integration's status.
+	// The engine derives it after every change.
+	IntegrationsQuestion string `json:"integrationsQuestion,omitempty"`
 	// Notifications sums up the notification log, the toasts the user was shown (notifications.go):
 	// how many, how many unread, the most severe unread level; notifications.list reads them.
 	Notifications NotificationSummary `json:"notifications,omitzero"`

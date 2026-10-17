@@ -336,7 +336,7 @@ func probeMetricsProvider(id string) integrationProbe {
 				return state, p.Service, ""
 			case metrics.StatusNotServed:
 				if id == metrics.PrometheusID {
-					return IntegrationManual, "", "none found by name: set its service on the Metrics section"
+					return IntegrationManual, "", "none found by name"
 				}
 				return IntegrationMissing, "", "the cluster does not serve metrics.k8s.io"
 			case metrics.StatusForbidden:
@@ -345,6 +345,15 @@ func probeMetricsProvider(id string) integrationProbe {
 				return IntegrationUnavailable, p.Service, p.LastError
 			}
 			return IntegrationChecking, p.Service, ""
+		}
+		if id == metrics.PrometheusID && b.PrometheusDetector == nil {
+			// A hub over one source of its own (the demo cluster's): no Prometheus is looked for, so
+			// none is ever found (noPrometheusDetection's reasons).
+			why := "no Prometheus detection for this connection"
+			if b.Demo {
+				why = "the demo cluster's metrics are its own"
+			}
+			return IntegrationMissing, "", why
 		}
 		return IntegrationChecking, "", ""
 	}

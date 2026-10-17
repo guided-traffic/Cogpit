@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -15,6 +16,10 @@ import (
 // cluster or a kubeconfig, so they are UI commands that agents run freely (D-2), except the icon
 // upload, which reads a file on this computer and is the user's own action in the window
 // (engine.ErrIconGUIOnly). The Prometheus a cluster's metrics come from stays cluster.setPrometheus.
+// Its integrations (D-76) agents switch on and off as the user does: a switch only changes what
+// Cogpit reads with the user's identity, never a write (the lead's decision, 2026-10-17); where an
+// integration is read from when it is not found by name (cluster.setPrometheus) stays the user's
+// (A16).
 
 type clusterSettingsParams struct {
 	Context string `json:"context,omitempty" jsonschema:"context id as cluster_contexts lists it (a bare context name works when one file only defines it); empty or omitted: the connected context"`
@@ -28,10 +33,12 @@ type clusterSettingsSetParams struct {
 	TerminalNamespace    *string  `json:"terminalNamespace,omitempty" jsonschema:"kubectl's namespace in the cluster's local terminals; empty: the namespace filter's single namespace, else the context's own"`
 	Proxy                *string  `json:"proxy,omitempty" jsonschema:"the HTTP(S) or SOCKS5 proxy of this cluster's API traffic (http://<address>:<port>, https:// or socks5://, optionally with user:password@), applied at the next connect in place of the kubeconfig's proxy-url; empty: none. Agents and the CLI may only clear it (an empty string): setting one is the user's, in Cogpit's window"`
 	HiddenMetrics        []string `json:"hiddenMetrics,omitempty" jsonschema:"the metrics the window hides for this cluster, and does not ask the cluster for: places (cluster: the Overview's charts; nodes, pods: their lists' CPU and Memory columns and their drawers' charts; containers: a pod's containers' charts) and measures (cpu, memory, network, filesystem), or all; it replaces the list set before, and an empty list shows every metric again. metrics_get still answers"`
-	MetricsSource        *string  `json:"metricsSource,omitempty" jsonschema:"which providers the cluster's metrics come from, as Lens's Metrics source: auto (both: Prometheus's history and the Metrics Server's current values, the default), prometheus (Prometheus alone), metrics-server (the Metrics Server alone: no history, network, filesystem or disk) or none (no metrics: nothing is asked); applied to the connected cluster at once"`
+	MetricsSource        *string  `json:"metricsSource,omitempty" jsonschema:"which providers the cluster's metrics come from, as Lens's Metrics source: auto (both: Prometheus's history and the Metrics Server's current values, the default), prometheus (Prometheus alone), metrics-server (the Metrics Server alone: no history, network, filesystem or disk) or none (no metrics: nothing is asked); applied to the connected cluster at once. It sets the metrics-server and prometheus integrations"`
 	AccessibleNamespaces []string `json:"accessibleNamespaces,omitempty" jsonschema:"the namespaces the user may read in, for a user who may not list the cluster's namespaces (Lens: Accessible namespaces), at most 100 namespace names; it replaces the list set before, and an empty list removes them. It only narrows what Cogpit reads: the namespace filter offers them, and a kind the user may not list in all namespaces is watched in each of them instead"`
 	// RenewLoginInBackground: agents and the CLI may only turn it off (engine/connwatch_lapse.go, D-69 item 4).
 	RenewLoginInBackground *bool `json:"renewLoginInBackground,omitempty" jsonschema:"whether the cluster's login is renewed while the cluster is connected but not shown, its credential plugin running (a browser login included) when the login expires (default true). Off: the plugin does not run then, and an expired login lapses (connections' loginLapsed) until the cluster is shown or logged in again. Agents and the CLI may only turn it off"`
+	// Integrations (D-76; engine/integrations.go): agents may switch them on and off.
+	Integrations map[string]bool `json:"integrations,omitempty" jsonschema:"integrations switched on (true) or off (false) for this cluster, by name: metrics-server, prometheus, alertmanager, trivy, kyverno, as {alertmanager: false}; those left out stay as they apply now, and the result is the cluster's own choice (the window's question about it ends). Off: Cogpit sends the cluster nothing for it and shows nothing of it; on: Cogpit reads what the cluster runs, with the user's identity, and never writes to it. Applied to the connected cluster at once. Not together with metricsSource for metrics-server or prometheus"`
 }
 
 type clusterIconParams struct {
@@ -41,7 +48,7 @@ type clusterIconParams struct {
 
 type clusterSettingsOpenParams struct {
 	Context string `json:"context,omitempty" jsonschema:"context id as cluster_contexts lists it; empty or omitted: the connected context"`
-	Section string `json:"section,omitempty" jsonschema:"the section to show: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces), metrics (the Prometheus, hidden metrics), nodeShell (the node shells' image and pull secret) or agents (the allowance of agents' changes, which only the user sets); omitted: general"`
+	Section string `json:"section,omitempty" jsonschema:"the section to show: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces), integrations (each integration's switch and what Cogpit found of it), metrics (the Prometheus, hidden metrics), nodeShell (the node shells' image and pull secret) or agents (the allowance of agents' changes, which only the user sets); omitted: general"`
 }
 
 const clusterSettingsOnly = " Changes only Cogpit's own cluster settings (a file in Cogpit's configuration directory), never the cluster or its kubeconfig."
@@ -82,7 +89,12 @@ func registerClusterSettings(g *registrar) {
 			"name set, else the context's name), its icon colour or uploaded image's format, the kubeconfig file it comes " +
 			"from, its terminals' working directory and kubectl namespace (empty: $HOME and the filter's or the " +
 			"context's namespace), the metrics the window hides (hiddenMetrics; empty: all visible), the metrics source (metricsSource: " +
-			"auto, prometheus, metrics-server or none) and, while connected, the providers answering (metricsInUse), the accessible " +
+			"auto, prometheus, metrics-server or none) and, while connected, the providers answering (metricsInUse), the integrations " +
+			"(integrations: each one's name, label, whether it is on, its state — found, configured, manual (none found by name: " +
+			"its address is to be set, Prometheus's with cluster_setPrometheus), missing, forbidden, unavailable, checking, off or " +
+			"notConnected — where it was found or set, why not, and what " +
+			"it adds) and whether the user chose them for this cluster (integrationsDecided; false: the default for new " +
+			"clusters applies and the window asks, ui_state's integrationsQuestion), the accessible " +
 			"namespaces named for a user who may not list namespaces (accessibleNamespaces), the node shells' image, pull " +
 			"secret and maximum duration (nodeShellImage, empty: nodeShellDefaultImage; nodeShellPullSecret; " +
 			"nodeShellMaxDuration, empty: nodeShellDefaultMaxDuration), whether it is " +
@@ -108,7 +120,8 @@ func registerClusterSettings(g *registrar) {
 			"hotbar, the navigator and the welcome page; the terminal's working directory and namespace apply to the " +
 			"cluster's local terminals opened afterwards; hidden metrics leave the lists' columns, the drawers' charts " +
 			"and the Overview at once, and nothing is polled for them; the metrics source turns a provider or both off " +
-			"for the cluster at once; a proxy applies at the next connect; accessible " +
+			"for the cluster at once; integrations switch on or off for the cluster at once (an integration off is " +
+			"asked nothing and shows nothing) and become its own choice; a proxy applies at the next connect; accessible " +
 			"namespaces (a list that replaces the last) only narrow what Cogpit reads: the namespace filter offers them, " +
 			"and a kind the user may not list in all namespaces is watched in each of them, at once; renewLoginInBackground " +
 			"off holds the credential plugin while the cluster is not shown (its login then lapses instead of being renewed), " +
@@ -150,6 +163,13 @@ func registerClusterSettings(g *registrar) {
 					return nil, err
 				}
 			}
+			intOn, intOff, err := engine.ParseIntegrationSwitches(p.Integrations)
+			if err != nil {
+				return nil, err
+			}
+			if p.MetricsSource != nil && (intOn|intOff)&engine.IntMetrics != 0 {
+				return nil, errors.New("metricsSource and integrations both set the metrics providers: give one of them")
+			}
 			var hidden engine.MetricSet
 			if p.HiddenMetrics != nil {
 				var err error
@@ -157,12 +177,16 @@ func registerClusterSettings(g *registrar) {
 					return nil, err
 				}
 			}
+			defaultsOff := s.IntegrationDefaultsOff() // what applies to a cluster without a choice of its own
 			return changeSettings(s, p.Context, func(cs *engine.ClusterSettings) error {
 				if p.HiddenMetrics != nil {
 					cs.HiddenMetrics = hidden
 				}
 				if p.MetricsSource != nil {
-					cs.SetMetricsSource(s.IntegrationDefaultsOff(), source) // the two metrics integrations (D-76)
+					cs.SetMetricsSource(defaultsOff, source) // the two metrics integrations (D-76)
+				}
+				if p.Integrations != nil {
+					cs.SetIntegrations(defaultsOff, intOn, intOff) // the cluster's own choice from now on (D-76)
 				}
 				if p.AccessibleNamespaces != nil {
 					cs.AccessibleNamespaces = slices.Clone(p.AccessibleNamespaces) // the engine trims, sorts and checks them
@@ -249,7 +273,7 @@ func registerClusterSettings(g *registrar) {
 	add(g, engine.Spec[clusterSettingsOpenParams]{
 		ID: "cluster.settings.open", Label: "Cluster Settings", MenuPath: "Cluster/Settings", Shortcut: "Cmd+Shift+,", Danger: engine.DangerUI,
 		Description: "Opens a context's Settings page in Cogpit's window, as ⌘⇧, (Ctrl+Shift+,) does for the shown cluster, " +
-			"at a section: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces), metrics (the Prometheus, hidden metrics), nodeShell or agents. It takes the place of the cluster's views " +
+			"at a section: general (name, icon, kubeconfig), proxy, terminal, namespaces (the accessible namespaces), integrations, metrics (the Prometheus, hidden metrics), nodeShell or agents. It takes the place of the cluster's views " +
 			"until closed (settings_close, Escape); ui_state reports it as settings. Returns the new UI state.",
 		Enabled: func(s *engine.Session, p clusterSettingsOpenParams) error {
 			if _, err := settingsContext(s, p.Context); err != nil {
