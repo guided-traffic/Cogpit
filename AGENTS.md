@@ -8,7 +8,7 @@ The product name is always written **Cogpit** in user-facing text; machine names
 (module `github.com/guided-traffic/cogpit`, binaries `cogpit` and `cogpit-cli`). Read this file
 first, then `docs/`.
 
-**State on 2026-10-16:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
+**State on 2026-10-17:** implementation has started (owner's go-ahead, 2026-10-11). A local MVP
 runs on macOS, extended by thirteen further implementation runs (2026-10-11 to the night of
 2026-10-16/17, night runs and day runs): 46 built-in views and the custom resource views from the cache, the cluster Overview,
 the detail drawer (a Config Map's and a Secret's values and keys edited in it) and row menus, the
@@ -27,7 +27,11 @@ terminal with a verified kubectl download, pod shells,
 on OpenAI-compatible endpoints (local models first), CI on every push, releases
 with a signed, notarized disk image in the window the owner chose and Sparkle 2 updates through a
 signed feed, checked at every start (the first installed copy updated on 2026-10-16; v0.22.1 the
-newest, released 2026-10-17), and MCP control of all of it (M9 done: an external agent's triage and change
+newest, released 2026-10-17), **integrations per cluster** (2026-10-17, D-76 to D-79: the Metrics
+Server and Prometheus, Alertmanager with the title bar's alerts pill and an alert board, the Trivy
+Operator's image ratings of the pods, Kyverno's policy violations on the objects; each switched on or
+off in Cluster Settings › Integrations, a new cluster asks), a Reconnect that keeps the tabs and a
+Log in again that takes a renewed certificate from the kubeconfig file (D-81), and MCP control of all of it (M9 done: an external agent's triage and change
 workflows over MCP on kind); it doubled
 as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
 What is built and where it differs from the plan: [architecture › Current state](docs/developer/architecture.md#current-state-2026-10-16). The documentation method, and parts of
