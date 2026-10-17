@@ -142,10 +142,13 @@ test-race-ui: ## Race tests of internal/ui/fyneui, shard RACE_SHARD of RACE_SHAR
 		$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) -covermode=atomic \
 			-coverprofile=$(COVERAGE_DIR)/race-ui-$(RACE_SHARD).out -run "$$run" $(UI_PKG)
 
-test-race-rest: test-fork ## Race tests of every package but internal/ui/fyneui, and the terminal widget's, with coverage (.cache/coverage/race-rest.out)
+# internal/ui/logo is left out: it rasterises the logo in pure Go, on one goroutine, and took nine of
+# the job's fifteen minutes under the race detector (2026-10-17); the unit tests run it, coverage
+# included.
+test-race-rest: test-fork ## Race tests of every package but internal/ui/fyneui and internal/ui/logo, and the terminal widget's, with coverage (.cache/coverage/race-rest.out)
 	@mkdir -p $(COVERAGE_DIR)
 	$(TEST_ENV) $(GO) test -race -timeout $(RACE_TIMEOUT) -covermode=atomic -coverprofile=$(COVERAGE_DIR)/race-rest.out \
-		$$($(GO) list ./... | grep -v -x 'github.com/guided-traffic/cogpit/internal/ui/fyneui')
+		$$($(GO) list ./... | grep -v -x -e 'github.com/guided-traffic/cogpit/internal/ui/fyneui' -e 'github.com/guided-traffic/cogpit/internal/ui/logo')
 
 # What only macOS can test, for CI's macOS job: every test of a *_darwin_test.go file (the title
 # bar's AppKit harness, the updater's harness with make sparkle's framework, the locale's
