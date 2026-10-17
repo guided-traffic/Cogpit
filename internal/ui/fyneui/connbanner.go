@@ -16,21 +16,24 @@ import (
 
 // connBanner is the thin strip over the view while the connected cluster's connection is
 // interrupted or its login expired (D-58, S3): what is interrupted, since when, Cogpit's next
-// attempt, and Reconnect now (cluster.reconnect); for an expired login Log in again (cluster.login).
-// It reads only the UI state, so it says what an agent reads in ui_state. The window stays usable:
-// the views keep the cluster's state as of the interruption, and writes are disabled with the
-// reason in their menus and buttons. Lens's behaviour on a lost connection is not captured: this is
-// Cogpit's own.
+// attempt, and Reconnect (cluster.reconnect, a new connection from the kubeconfig file, D-81); for
+// an expired login of a context with a credential plugin Log in again (cluster.login), Reconnect
+// beside it; for one without, Reconnect alone, since nothing but the file can renew it (the owner's
+// F28 of 2026-10-17). It reads only the UI state, so it says what an agent reads in ui_state. The
+// window stays usable: the views keep the cluster's state as of the interruption, and writes are
+// disabled with the reason in their menus and buttons. Lens's behaviour on a lost connection is not
+// captured: this is Cogpit's own.
 type connBanner struct {
-	sh     *shell
-	root   *fyne.Container // hidden while the connection works
-	title  *textLine
-	detail *textLine
-	action *widget.Button
-	icon   *widget.Icon
-	tint   *bannerTint
-	ticker *time.Ticker // the countdown to the next attempt; nil while hidden
-	stop   chan struct{}
+	sh        *shell
+	root      *fyne.Container // hidden while the connection works
+	title     *textLine
+	detail    *textLine
+	action    *widget.Button
+	reconnect *widget.Button // Reconnect beside Log in again; hidden otherwise
+	icon      *widget.Icon
+	tint      *bannerTint
+	ticker    *time.Ticker // the countdown to the next attempt; nil while hidden
+	stop      chan struct{}
 }
 
 func newConnBanner(sh *shell) *connBanner {
@@ -39,12 +42,14 @@ func newConnBanner(sh *shell) *connBanner {
 	b.title.truncate = true
 	b.detail = newTextLine("", colorMuted, theme.SizeNameText, fyne.TextStyle{})
 	b.detail.truncate = true
-	b.action = widget.NewButtonWithIcon("Reconnect now", theme.ViewRefreshIcon(), b.act)
+	b.action = widget.NewButtonWithIcon(reconnectLabel, reconnectIcon(), b.act)
 	b.action.Importance = widget.HighImportance
+	b.reconnect = widget.NewButtonWithIcon(reconnectLabel, reconnectIcon(), func() { b.sh.reconnect(b.sh.ui.Context) })
+	b.reconnect.Hide()
 	b.icon = widget.NewIcon(themedIcon(theme.WarningIcon(), colorStatusWarning))
 	b.tint = newBannerTint(colorStatusWarning)
-	content := container.NewBorder(nil, nil, container.NewCenter(b.icon), container.NewCenter(b.action),
-		container.NewVBox(b.title, b.detail))
+	content := container.NewBorder(nil, nil, container.NewCenter(b.icon),
+		container.NewCenter(container.NewHBox(b.reconnect, b.action)), container.NewVBox(b.title, b.detail))
 	b.root = container.NewVBox(container.NewStack(b.tint, inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, content)), newDivider(false))
 	b.root.Hide()
 	return b
@@ -72,18 +77,30 @@ func (b *connBanner) fill(c engine.Connection) {
 	name, _ := splitContextID(b.sh.ui.Context)
 	tf := b.sh.timeFormat()
 	since := tf.FormatClock(c.Since)
+	b.reconnect.Hide()
 	if c.State == engine.LoginExpired {
 		b.title.SetText(fmt.Sprintf("The login to %s expired · since %s", name, since))
-		b.detail.SetText(loginDetail(c, since))
 		b.tint.color = colorStatusError
 		b.icon.SetResource(themedIcon(theme.ErrorIcon(), colorStatusError))
-		b.action.SetText("Log in again")
-		b.action.SetIcon(theme.LoginIcon())
-		if c.LoggingIn {
+		if c.CredentialPlugin {
+			b.detail.SetText(loginDetail(c, since))
+			b.action.SetText("Log in again")
+			b.action.SetIcon(theme.LoginIcon())
+			b.reconnect.Show() // the file may hold another login than the connection's (D-81)
+		} else {
+			b.detail.SetText(fileLoginDetail(c, since))
+			b.setReconnect()
+		}
+		switch {
+		case c.Reconnecting:
+			b.reconnecting()
+		case c.LoggingIn:
 			b.action.SetText("Logging in…")
 			b.action.Disable()
-		} else {
+			b.reconnect.Disable()
+		default:
 			b.action.Enable()
+			b.reconnect.Enable()
 		}
 		b.tint.Refresh()
 		return
@@ -92,14 +109,27 @@ func (b *connBanner) fill(c engine.Connection) {
 	b.detail.SetText(interruptedDetail(c, since, b.sh.now()))
 	b.tint.color = colorStatusWarning
 	b.icon.SetResource(themedIcon(theme.WarningIcon(), colorStatusWarning))
-	b.action.SetText("Reconnect now")
-	b.action.SetIcon(theme.ViewRefreshIcon())
-	if c.NextAttempt.IsZero() {
-		b.action.Disable() // an attempt runs now
+	b.setReconnect()
+	if c.Reconnecting {
+		b.reconnecting()
 	} else {
 		b.action.Enable()
 	}
 	b.tint.Refresh()
+}
+
+// setReconnect makes the banner's button Reconnect.
+func (b *connBanner) setReconnect() {
+	b.action.SetText(reconnectLabel)
+	b.action.SetIcon(reconnectIcon())
+}
+
+// reconnecting greys the buttons while a reconnect runs.
+func (b *connBanner) reconnecting() {
+	b.action.SetText(reconnectingText)
+	b.action.SetIcon(reconnectIcon())
+	b.action.Disable()
+	b.reconnect.Hide()
 }
 
 // interruptedDetail is the second line while interrupted: why, the next attempt, what the window
@@ -111,6 +141,17 @@ func interruptedDetail(c engine.Connection, since string, now time.Time) string 
 	}
 	parts := []string{"Cogpit reconnects by itself: " + next,
 		"the views show the cluster as of " + since, "changes are disabled until it is back"}
+	if r := strings.TrimSpace(c.Reason); r != "" {
+		parts = append([]string{upperFirst(r)}, parts...)
+	}
+	return strings.Join(parts, " · ")
+}
+
+// fileLoginDetail is the second line while the login of a context without a credential plugin is
+// expired: only the kubeconfig file can renew it (D-81).
+func fileLoginDetail(c engine.Connection, since string) string {
+	parts := []string{"Renew the login in the kubeconfig file: Cogpit reconnects by itself once it changes, and Reconnect reads it again now",
+		"the views show the cluster as of " + since, "changes are disabled"}
 	if r := strings.TrimSpace(c.Reason); r != "" {
 		parts = append([]string{upperFirst(r)}, parts...)
 	}
@@ -149,21 +190,23 @@ func upperFirst(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-// act is the button: Reconnect now, or Log in again.
+// act is the button: Reconnect, or Log in again.
 func (b *connBanner) act() {
-	switch b.sh.ui.Connection.State {
-	case engine.Interrupted:
-		b.sh.dispatch("cluster.reconnect", struct{}{}, nil)
-	case engine.LoginExpired:
+	c := b.sh.ui.Connection
+	switch {
+	case c.State == engine.Interrupted, c.State == engine.LoginExpired && !c.CredentialPlugin:
+		b.sh.reconnect(b.sh.ui.Context) // reconnect.go
+	case c.State == engine.LoginExpired:
 		name := b.sh.ui.Context
 		b.sh.dispatch("cluster.login", struct{}{}, func(_ any, err error) {
 			switch {
 			case errors.Is(err, engine.ErrNeedsNewConnect):
 				// The plugin changed: it is shown to the user first, then the context is connected
-				// anew (D-26; the section's approval, as a drill into it shows it, D-57).
+				// anew (D-26; the section's approval, as a drill into it shows it, D-57), its tabs
+				// kept (cluster.reconnect, D-81).
 				b.sh.kc.reviewPlugin(name, func(allowed bool) {
 					if allowed {
-						b.sh.dispatch("cluster.connect", map[string]any{contextParam: name}, nil)
+						b.sh.dispatch("cluster.reconnect", contextParams{Context: name}, nil)
 					}
 				})
 			case err != nil:

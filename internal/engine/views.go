@@ -45,6 +45,9 @@ type state struct {
 	background map[string]chan struct{}
 	bgCancel   map[string]context.CancelCauseFunc
 	bgGen      uint64 // the last background connect's number (backgroundGen)
+	// reconnects are the reconnects under way, by context id (reconnect.go, D-81): a disconnect
+	// ends one.
+	reconnects map[string]*reconnectRun
 
 	// The window's view state. shown is the backend the window shows, one of the pool's; nil while
 	// none is (connecting, failed, disconnected). The workers below read it only.
@@ -400,7 +403,7 @@ func (s *Session) connect(ctx context.Context, name string) error {
 			return // b was closed since it was published: its file went (disconnectBackend, connect_gone.go)
 		}
 		u.Context = b.Context
-		u.Connection = Connection{State: Connected, Demo: b.Demo, TLSUnchecked: tlsUnchecked(b)} // tlswarning.go
+		u.Connection = Connection{State: Connected, Demo: b.Demo, TLSUnchecked: tlsUnchecked(b), CredentialPlugin: b.CredentialPlugin} // tlswarning.go
 		// The connection's watch writes Connection from now on (connwatch.go).
 		u.connGen = seq
 		u.View = view

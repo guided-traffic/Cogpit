@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/guided-traffic/cogpit/internal/cache"
@@ -28,8 +29,8 @@ import (
 //     lists and watches and refuse every other request at once, and the connection's network
 //     connections are closed so that nothing waits on a dead one. Cogpit tries to reach the
 //     cluster at once on wake and on a network change, and after 1, 2, 4, 8, 16, then every 30
-//     seconds, without end; cluster.reconnect (Reconnect now) tries at once and starts the
-//     backoff again. A try asks without credentials (Reachable), so it never runs a credential
+//     seconds, without end; cluster.reconnect connects anew from the kubeconfig file at once
+//     (reconnect.go, D-81). A try asks without credentials (Reachable), so it never runs a credential
 //     plugin; once the server answers, one heartbeat checks the login and the connection is back:
 //     the held requests go out, the informers relist or watch on by themselves, and the cache,
 //     the tabs and the views stay.
@@ -78,6 +79,8 @@ type connWatch struct {
 	loggedReason  string                       // the reason the connection log has of the last failed try (connwatch_log.go)
 	held          bool                         // the engine holds the login: the cluster is not shown and its setting is off (loginhold.go)
 	renewing      bool                         // a renewal of a lapsed login runs (showing the cluster, Log in again): the plugin may run
+
+	quiet atomic.Bool // a reconnect replaces the connection: the reconnect's attempt is the one the log writes (reconnect.go)
 }
 
 // ConnWatchOptions tune the connection watch; zero fields are the owner's values.
@@ -155,7 +158,7 @@ const (
 	kickWake    connKick = iota + 1 // the computer woke
 	kickNetwork                     // the network changed
 	kickStream                      // a list, a watch or a stream broke
-	kickNow                         // Reconnect now
+	kickNow                         // try at once (TryNow)
 	kickLogin                       // Log in again
 	kickRenew                       // the hold ended (the cluster is shown, or its setting is on again): renew a lapsed login
 )
@@ -214,6 +217,23 @@ func (w *connWatch) stop() {
 	w.mu.Unlock()
 	for _, t := range sessions {
 		t.untrack() // the backend closes; the window closes its tabs' sessions itself
+	}
+}
+
+// logs is where the watch writes the connection log (D-66): the session's, nil while a reconnect
+// that replaces the connection runs (reconnect.go, D-81), whose attempt is the one that runs then;
+// the log's writers take nil as "write nothing".
+func (w *connWatch) logs() *connectLogs {
+	if w.quiet.Load() {
+		return nil
+	}
+	return &w.s.state.logs
+}
+
+// setQuiet stops or starts the watch's lines in the connection log (logs). Nil-safe.
+func (w *connWatch) setQuiet(on bool) {
+	if w != nil {
+		w.quiet.Store(on)
 	}
 }
 
@@ -299,7 +319,7 @@ func (w *connWatch) healthy(fails, rejects *int) bool {
 		return false
 	case checkOK:
 		if *rejects > 0 { // the login the plugin renewed works (connectlog.go)
-			w.s.state.logs.end(w.b.Context, AttemptLogin, OutcomeOK, LogInfo, "The renewed login works")
+			w.logs().end(w.b.Context, AttemptLogin, OutcomeOK, LogInfo, "The renewed login works")
 		}
 		*fails, *rejects = 0, 0
 		w.verdict()
@@ -312,7 +332,7 @@ func (w *connWatch) healthy(fails, rejects *int) bool {
 	case checkRejected:
 		*rejects++
 		if *rejects == 1 { // a login attempt: the guard handed this 401 to the plugin (connectlog.go)
-			w.s.state.logs.begin(w.b.Context, AttemptLogin, LogInfo,
+			w.logs().begin(w.b.Context, AttemptLogin, LogInfo,
 				"The API server rejected the login (401 Unauthorized); a credential plugin renews it once, and the next check tells")
 		}
 		if *rejects >= 2 { // the first 401 renewed the login once (the guard); this one did not help
@@ -333,7 +353,7 @@ func (w *connWatch) healthy(fails, rejects *int) bool {
 }
 
 // interrupted is one step while interrupted: the next attempt, at its time or at once on a wake, a
-// network change or Reconnect now.
+// network change or TryNow.
 func (w *connWatch) interrupted() bool {
 	w.mu.Lock()
 	d := w.delay
@@ -426,7 +446,7 @@ func (w *connWatch) login() {
 	defer w.setLoggingIn(false)
 	w.setRenewing(true) // a held login is let go for the user's own login (loginhold.go)
 	defer w.setRenewing(false)
-	w.s.state.logs.begin(w.b.Context, AttemptLogin, LogInfo, "Logging in again (Log in again): the credential plugin may run once, with its browser")
+	w.logs().begin(w.b.Context, AttemptLogin, LogInfo, "Logging in again (Log in again): the credential plugin may run once, with its browser")
 	w.p.ArmLogin()
 	w.mu.Lock()
 	ch := w.pending
@@ -448,7 +468,7 @@ func (w *connWatch) login() {
 	case checkDown:
 		w.interrupt(err)
 	case checkRejected:
-		w.expire("the API server still rejects the login ("+rejectedReason(err)+")", false)
+		w.expire(strings.Replace(rejectedReason(err), "rejects", "still rejects", 1), false) // "… still rejects the login (401 Unauthorized)"
 	case checkWaiting:
 		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
 	case checkLapsed:
@@ -645,9 +665,10 @@ func (w *connWatch) expire(reason string, needsApproval bool) {
 	w.p.SetHealth(cluster.HealthLoginExpired)
 	// The attempt that runs (a login, a reconnect) failed; without one, a login renewal by the
 	// plugin's own expiry did (connectlog.go).
-	w.s.state.logs.end(w.b.Context, AttemptLogin, OutcomeFailed, LogWarn, "Login expired: "+reason)
+	w.logs().end(w.b.Context, AttemptLogin, OutcomeFailed, LogWarn, "Login expired: "+reason)
 	w.s.log.Warn("engine: login expired", "context", w.b.Context, "reason", reason)
 	w.publish()
+	w.s.renewFromFile(w.b) // without a credential plugin, a login renewed in the kubeconfig file (reconnect.go, D-81)
 }
 
 // reconnect makes the connection Connected again: the held requests go out, the streams waiting
@@ -681,7 +702,7 @@ func (w *connWatch) reconnect() {
 	case kind == AttemptLogin:
 		text = fmt.Sprintf("Logged in again to %s; the connection was away %s", w.b.Context, away)
 	}
-	w.s.state.logs.end(w.b.Context, kind, OutcomeOK, LogInfo, text)
+	w.logs().end(w.b.Context, kind, OutcomeOK, LogInfo, text)
 	w.s.log.Info("engine: reconnected", "context", w.b.Context, "after", away)
 	w.publish()
 	if lapsed {
@@ -727,10 +748,14 @@ func (w *connWatch) connection(old Connection) Connection {
 	if st == stateLapsed {
 		st = Connected // not red: whether a renewal would work is not known (D-69 item 4)
 	}
+	wait := w.b.login.wait() // a run of its credential plugin under way (loginwait.go, D-73)
+	if wait.Program == "" && old.Reconnecting {
+		wait = old.WaitingForLogin // the reconnect's connect waits for it (reconnect.go, D-81)
+	}
 	return Connection{
-		State: st, Demo: old.Demo, TLSUnchecked: old.TLSUnchecked,
+		State: st, Demo: old.Demo, TLSUnchecked: old.TLSUnchecked, CredentialPlugin: old.CredentialPlugin, Reconnecting: old.Reconnecting,
 		Since: w.since, NextAttempt: w.next, Reason: w.reason, LoggingIn: w.loggingIn || w.renewing, NeedsApproval: w.needsApproval,
-		WaitingForLogin: w.b.login.wait(), // a run of its credential plugin under way (loginwait.go, D-73)
+		WaitingForLogin: wait,
 	}
 }
 
@@ -822,16 +847,11 @@ func (s *Session) writeBlocked(d Danger, contextID string) error {
 	return nil
 }
 
-// errNotInterrupted refuses cluster.reconnect on a connection that works.
-var errNotInterrupted = errors.New("the connection is not interrupted")
-
-// Reconnect tries to reach the shown cluster at once while its connection is interrupted and starts
-// the backoff again (cluster.reconnect, the banner's Reconnect now).
-func (s *Session) Reconnect() error { return s.ReconnectContext("") }
-
-// ReconnectContext is Reconnect for a connected context, "" the shown one (cluster.reconnect with a
-// context, D-69).
-func (s *Session) ReconnectContext(contextID string) error {
+// TryNow tries to reach a connected context's cluster ("" the shown one) at once while its
+// connection is interrupted and starts the backoff again, as a wake does for every connection; it
+// asks without credentials and runs no login program. cluster.reconnect connects anew instead
+// (reconnect.go, D-81).
+func (s *Session) TryNow(contextID string) error {
 	if s.BackendOf(contextID) == nil && contextID != "" {
 		return &NotConnectedError{Context: contextID}
 	}
@@ -842,6 +862,9 @@ func (s *Session) ReconnectContext(contextID string) error {
 	w.kick(kickNow)
 	return nil
 }
+
+// errNotInterrupted refuses TryNow on a connection that works.
+var errNotInterrupted = errors.New("the connection is not interrupted")
 
 // ErrNeedsNewConnect refuses cluster.login when the context's credential plugin changed since it
 // was allowed: only a new connect, which asks the user first, may run it (D-26).

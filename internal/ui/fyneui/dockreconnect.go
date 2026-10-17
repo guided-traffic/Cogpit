@@ -124,8 +124,12 @@ func (c *dockContent) updateReconnect(sh *shell) {
 	case engine.DockNodeShell:
 		what = "This node shell"
 	}
+	why := "the connection to the cluster was interrupted"
+	if c.tab.Reconnected {
+		why = "Cogpit connected the cluster anew (Reconnect)" // D-81
+	}
 	text := what + " ended at " + sh.timeFormat().FormatClock(c.tab.Interrupted) +
-		": the connection to the cluster was interrupted, and a process cannot be resumed. Reconnect opens a new session here"
+		": " + why + ", and a process cannot be resumed. Reconnect opens a new session here"
 	id := c.tab.ID
 	r.button.OnTapped = func() { sh.dispatch("dock.reconnect", dockParams{ID: id}, nil) }
 	if sh.ui.Connection.State == engine.Connected {

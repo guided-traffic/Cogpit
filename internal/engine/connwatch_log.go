@@ -17,7 +17,7 @@ import (
 // logInterrupted begins the reconnect attempt of an interruption with its cause.
 func (w *connWatch) logInterrupted(reason string, cause error) {
 	ctx := w.b.Context
-	logs := &w.s.state.logs
+	logs := w.logs()
 	a := logs.begin(ctx, AttemptReconnect, LogWarn, "Connection interrupted: "+reason+"; Cogpit is reconnecting")
 	for _, line := range cluster.ErrorPicture(cause) {
 		logs.stepTo(a, LogWarn, cluster.StepError, line, 0)
@@ -39,7 +39,7 @@ func (w *connWatch) logTry(reason string, next time.Duration) {
 	if same {
 		return
 	}
-	w.s.state.logs.add(w.b.Context, LogWarn, fmt.Sprintf("A try to reach the cluster failed: %s; the next in %s (tries "+
+	w.logs().add(w.b.Context, LogWarn, fmt.Sprintf("A try to reach the cluster failed: %s; the next in %s (tries "+
 		"with the same reason are not written again)", reason, next))
 }
 
@@ -48,6 +48,6 @@ func (w *connWatch) logTry(reason string, next time.Duration) {
 // may lead to writes its cause's (logInterrupted).
 func (w *connWatch) logPluginStderr(err error) {
 	if text := pluginStderrLines(err); text != "" {
-		w.s.state.logs.stepRunning(w.b.Context, LogWarn, cluster.StepPlugin, text)
+		w.logs().stepRunning(w.b.Context, LogWarn, cluster.StepPlugin, text)
 	}
 }

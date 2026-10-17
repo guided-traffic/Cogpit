@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 120 | 117 | 9 | 108 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 66 | 64 | 53 | 11 | 2 |
+| Beyond Lens (not in feature breadth) | 67 | 65 | 54 | 11 | 2 |
 
 Not counted: 8 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -332,7 +332,7 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | On start, nodes Cogpit cordoned for a drain it did not finish are shown with "continue drain" and "uncordon" | done | [Crash recovery](beyond-lens.md#crash-recovery) |
 | Unsaved editor content restored from its local draft | done | [Crash recovery](beyond-lens.md#crash-recovery) |
 | An interrupted connection noticed within seconds: on a wake, a network change, a watch that broke, and by a heartbeat every 15 s | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
-| "Reconnecting…" with an amber dot, a banner saying since when and the next attempt, Reconnect now; the window usable throughout (since 2026… | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
+| "Reconnecting…" with an amber dot, a banner saying since when and the next attempt, Reconnect (Reconnect now until 2026-10-17, D-81); the w… | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | The views keep the cache's state; every write disabled with the reason, for the window and agents | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | Reconnecting by itself, at once on a wake or a network change, then after 1 to 30 s without end | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | A login that expired renewed once by itself, then "Login expired" and Log in again, never a pile of plugin runs | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
@@ -340,6 +340,7 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | A drain or a Helm action stops at the interruption and is offered after the reconnect, as after a crash | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | A cluster that stays connected while another one is shown renews its login by default; its setting "Renew the login while the cluster is no… | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | The window does not hang after the Mac slept | partial | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
+| Reconnect: a connected cluster connected anew from its kubeconfig file as it is now, the tabs kept (logs open again, shells end with their… | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | Every connect, reconnect, login and disconnect documented step by step, the successful ones too, with times, durations and a failure's erro… | done | [Standby and lost connections](beyond-lens.md#standby-and-lost-connections) |
 | Every value in the detail drawer can be selected, and has a copy icon on hover; an entry of a value with several entries is copied in YAML… | partial | [Everyday use](beyond-lens.md#everyday-use) |
 | Names in the lists (Pods, Deployments and every other view) are copyable: a list's cells get the drawer's copy icon on hover, at least the… | done | [Everyday use](beyond-lens.md#everyday-use) |

@@ -188,7 +188,7 @@ func (c *ClusterConnector) Connect(ctx context.Context, name string) (*Backend, 
 	var once sync.Once
 	be := &Backend{
 		Context: ctxName, Namespace: conn.Namespace(), Cache: ch, Conn: conn, Profiles: profiles,
-		CustomResources: customResources, Access: access, SourceFile: sourceFile,
+		CustomResources: customResources, Access: access, SourceFile: sourceFile, CredentialPlugin: conn.CredentialPlugin(),
 		Close: func() {
 			once.Do(func() {
 				access.stop()

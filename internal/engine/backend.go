@@ -51,6 +51,12 @@ type Backend struct {
 	MetricsSettings *MetricsSettings
 	// Demo marks the synthetic demo cluster.
 	Demo bool
+	// CredentialPlugin is set when the context logs in through a credential plugin (the user
+	// entry's exec): Log in again runs it once on the connection. Without one, Log in again
+	// connects anew from the kubeconfig file, and a login the API server rejects reconnects by
+	// itself once the file holds another one (reconnect.go, D-81). The connector sets it from
+	// cluster.Conn.CredentialPlugin.
+	CredentialPlugin bool
 	// DemoStats reports the demo cluster's counters; nil for real clusters.
 	DemoStats func() any
 	// Close stops the cache and closes the connection.
@@ -92,6 +98,8 @@ type Backend struct {
 	alerts alertSource
 	// overlays are the integrations' cells and drawer sections on its objects (overlay.go, D-79).
 	overlays overlays
+	// renewal is the kubeconfig login it last reconnected by itself for (reconnect.go, D-81).
+	renewal fileRenewal
 }
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.

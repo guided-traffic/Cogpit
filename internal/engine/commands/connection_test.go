@@ -65,18 +65,15 @@ func waitConn(t *testing.T, s *engine.Session, want engine.ConnectionState) {
 	}
 }
 
-// TestConnectionCommands: cluster.reconnect runs while interrupted only; every write is refused
-// with "connection interrupted" for the window and agents at once; dock.reconnect opens a new
-// session in a shell tab the interruption ended once the connection is back, an agent's waits for
-// the user, a node shell's always; cluster.login is the window's.
+// TestConnectionCommands: every write is refused with "connection interrupted" for the window and
+// agents at once; dock.reconnect opens a new session in a shell tab the interruption ended once the
+// connection is back, an agent's waits for the user, a node shell's always; cluster.login is the
+// window's. cluster.reconnect has its own tests (reconnect_test.go, D-81).
 func TestConnectionCommands(t *testing.T) {
 	h, p := watchedHarness(t)
 	gui, agent := engine.OriginGUI, engine.OriginExternalAgent
 	pod := model.ObjectRef{Context: "test", Kind: "pods", Namespace: "shop", Name: "web-0"}
 	var de *engine.DisabledError
-	if err := h.run(t, gui, "cluster.reconnect", nil, nil); !errors.As(err, &de) {
-		t.Errorf("cluster.reconnect while connected: %v", err)
-	}
 	var shell commands.DockResult
 	h.must(t, gui, "pod.shell", map[string]any{"ref": pod}, &shell)
 	h.s.SetAgentWrites("test", true)
@@ -99,11 +96,6 @@ func TestConnectionCommands(t *testing.T) {
 	}
 	if err := h.run(t, agent, "resources.list", map[string]any{"kind": "pods"}, nil); err != nil {
 		t.Errorf("an agent's read while interrupted: %v", err)
-	}
-	var res commands.ConnectionResult
-	h.must(t, gui, "cluster.reconnect", nil, &res)
-	if res.Connection.State != engine.Interrupted || res.Connection.Since.IsZero() {
-		t.Errorf("cluster.reconnect: %+v", res)
 	}
 	// The interruption ended the shell's session (the window had it open): its tab says so.
 	h.s.UpdateUI(func(u *engine.UIState) {

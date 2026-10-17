@@ -160,6 +160,7 @@ func (st *state) removeLocked(contextID string) *Backend {
 		return nil
 	}
 	delete(st.pool, contextID)
+	st.cancelReconnectLocked(contextID) // a reconnect under way ends with it (reconnect.go)
 	e.stopCold()
 	if st.shown == e.b {
 		st.detachViewsLocked()

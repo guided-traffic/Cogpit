@@ -202,6 +202,7 @@ func (s *Session) WatchKubeconfigs(interval time.Duration) (stop func()) {
 				last = sig
 				s.CloseGoneSourceConnection()
 				s.closeTabsOfGoneFiles() // and the tabs of a context whose file went (persist_restore.go)
+				s.renewChangedLogins()   // a login renewed in a file whose old one the API server rejects (reconnect.go, D-81)
 				s.emit(Event{Type: EventContexts})
 			}
 		}

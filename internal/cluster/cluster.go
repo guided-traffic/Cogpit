@@ -275,6 +275,11 @@ type Conn struct {
 	closed atomic.Bool
 
 	who whoAmI // who the connection is logged in as (whoami.go, D-68)
+
+	// The login as the kubeconfig held it at the connect (loginfile.go, D-81): its fingerprint, and
+	// whether it runs a credential plugin.
+	login  string
+	plugin bool
 }
 
 // Connect builds a connection for opts.Context. It verifies the server is reachable with one
@@ -426,6 +431,8 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 		secrets:     knownLoginSecrets(raw, kctx),
 		trace:       trace,
 		hold:        hold,
+		login:       loginFingerprint(raw, kctx),
+		plugin:      cfg.ExecProvider != nil,
 	}
 	err = c.checkReachable(ctx, opts.ConnectTimeout)
 	c.trace = nil

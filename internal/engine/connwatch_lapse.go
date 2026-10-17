@@ -51,7 +51,7 @@ func (w *connWatch) lapse() {
 	held := w.held
 	w.mu.Unlock()
 	w.p.SetHealth(cluster.HealthLoginLapsed)
-	w.s.state.logs.add(w.b.Context, LogInfo, "The login lapsed while the cluster was not shown; Cogpit renews it when the cluster is shown (Cluster Settings › Renew the login while the cluster is not shown is off)")
+	w.logs().add(w.b.Context, LogInfo, "The login lapsed while the cluster was not shown; Cogpit renews it when the cluster is shown (Cluster Settings › Renew the login while the cluster is not shown is off)")
 	w.s.log.Info("engine: login lapsed", "context", w.b.Context)
 	w.publish()
 	if !held {
@@ -92,7 +92,7 @@ func (w *connWatch) renewLapsed() {
 	}
 	w.setRenewing(true)
 	defer w.setRenewing(false)
-	w.s.state.logs.begin(w.b.Context, AttemptLogin, LogInfo,
+	w.logs().begin(w.b.Context, AttemptLogin, LogInfo,
 		"Renewing the login that lapsed while the cluster was not shown: the credential plugin may run once")
 	w.p.ArmLogin()
 	res, err := w.check(w.o.LoginWait)
@@ -110,7 +110,7 @@ func (w *connWatch) renewLapsed() {
 	case checkWaiting:
 		w.expire(fmt.Sprintf(loginWaitReason, w.o.LoginWait), false)
 	case checkLapsed: // held again meanwhile: the cluster left before the renewal ran
-		w.s.state.logs.end(w.b.Context, AttemptLogin, OutcomeAbandoned, LogInfo, "The cluster is not shown any more; the login stays lapsed")
+		w.logs().end(w.b.Context, AttemptLogin, OutcomeAbandoned, LogInfo, "The cluster is not shown any more; the login stays lapsed")
 		w.publish()
 	case checkEnded: // Cogpit ended the plugin's run (D-73)
 		w.expire(endedReason(err), false)

@@ -24,6 +24,7 @@ func interrupt(f *fakeEngine, state engine.ConnectionState, now time.Time) {
 			u.Connection.NextAttempt = now.Add(8 * time.Second)
 		} else {
 			u.Connection.Reason = "the API server rejects the login (401 Unauthorized)"
+			u.Connection.CredentialPlugin = true // Log in again runs it (without one: reconnect_test.go)
 		}
 	})
 }
@@ -31,7 +32,7 @@ func interrupt(f *fakeEngine, state engine.ConnectionState, now time.Time) {
 // TestConnectionBannerFollowsTheState is S3 as the owner amended it (F13, 2026-10-16): interrupted,
 // the top bar's dot is the Running green (it blinks, conndot_test.go) and no word stands beside it
 // in either bar, the banner over the view says what is interrupted, since when and the next
-// attempt, and Reconnect now dispatches cluster.reconnect; an expired login turns the dot red and
+// attempt, and Reconnect dispatches cluster.reconnect (D-81); an expired login turns the dot red and
 // offers Log in again (cluster.login); connected again, the banner goes.
 func TestConnectionBannerFollowsTheState(t *testing.T) {
 	f := connectedFake(t, 20)

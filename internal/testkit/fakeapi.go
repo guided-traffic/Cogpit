@@ -1,6 +1,8 @@
 package testkit
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -55,6 +57,11 @@ type FakeAPIOptions struct {
 	// Identity is who the server says its user is, the answer to a SelfSubjectReview
 	// (fakewhoami.go); nil answers as DefaultFakeIdentity.
 	Identity *FakeIdentity
+	// ClientCert, when set, is the client certificate login the server accepts: every request
+	// must come over a connection that presented a certificate it accepts (the leaf); others get
+	// 401, as an API server answers a certificate that expired or that its client CA did not sign.
+	// SetClientCert changes it.
+	ClientCert func(*x509.Certificate) bool
 }
 
 // FakeAPIServer is a minimal Kubernetes API server over HTTPS (httptest, HTTP/2), for tests that
@@ -113,6 +120,9 @@ func NewFakeAPIServer(opts FakeAPIOptions) *FakeAPIServer {
 	// that is how client-go talks to a real API server (one connection, watches as streams).
 	s.srv = httptest.NewUnstartedServer(http.HandlerFunc(s.serveHTTP))
 	s.srv.EnableHTTP2 = true
+	if opts.ClientCert != nil { // the handshake asks for a certificate; serveHTTP decides
+		s.srv.TLS = &tls.Config{ClientAuth: tls.RequestClientCert, MinVersion: tls.VersionTLS12}
+	}
 	s.srv.StartTLS()
 	s.URL = s.srv.URL
 	return s
@@ -228,6 +238,27 @@ func (s *FakeAPIServer) token() string {
 	return s.opts.Token
 }
 
+// SetClientCert changes the client certificates the server accepts (a server started with
+// ClientCert only): a connection whose certificate it no longer accepts gets 401, as when the
+// certificate expired.
+func (s *FakeAPIServer) SetClientCert(accept func(*x509.Certificate) bool) {
+	s.mu.Lock()
+	s.opts.ClientCert = accept
+	s.mu.Unlock()
+}
+
+// clientCertRejected reports whether the server checks client certificates and r's connection
+// presented none it accepts.
+func (s *FakeAPIServer) clientCertRejected(r *http.Request) bool {
+	s.mu.Lock()
+	accept := s.opts.ClientCert
+	s.mu.Unlock()
+	if accept == nil {
+		return false
+	}
+	return r.TLS == nil || len(r.TLS.PeerCertificates) == 0 || !accept(r.TLS.PeerCertificates[0])
+}
+
 // Kubeconfig returns a kubeconfig document whose one context, contextName, points at the server
 // (trusting its certificate) with the server's token and the given default namespace (empty:
 // none).
@@ -263,6 +294,32 @@ contexts:
     cluster: fake
     user: fake%[4]s
 `, contextName, s.URL, user, ns, base64.StdEncoding.EncodeToString(s.CAData()))
+}
+
+// KubeconfigWithClientCert is Kubeconfig whose user logs in with a client certificate and its key,
+// both in the file (client-certificate-data, client-key-data), as a cloud's kubeconfig download
+// holds them: for tests of a certificate renewed in the file (D-81).
+func (s *FakeAPIServer) KubeconfigWithClientCert(contextName string, certPEM, keyPEM []byte) []byte {
+	return fmt.Appendf(nil, `apiVersion: v1
+kind: Config
+current-context: %[1]s
+clusters:
+- name: fake
+  cluster:
+    server: %[2]s
+    certificate-authority-data: %[3]s
+users:
+- name: fake
+  user:
+    client-certificate-data: %[4]s
+    client-key-data: %[5]s
+contexts:
+- name: %[1]s
+  context:
+    cluster: fake
+    user: fake
+`, contextName, s.URL, base64.StdEncoding.EncodeToString(s.CAData()),
+		base64.StdEncoding.EncodeToString(certPEM), base64.StdEncoding.EncodeToString(keyPEM))
 }
 
 // WriteKubeconfig writes Kubeconfig to a file in t.TempDir() and returns its path.
@@ -307,7 +364,7 @@ func (req fakeRequest) render(o *unstructured.Unstructured) map[string]any {
 }
 
 func (s *FakeAPIServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	if token := s.token(); token != "" && r.Header.Get("Authorization") != "Bearer "+token {
+	if token := s.token(); (token != "" && r.Header.Get("Authorization") != "Bearer "+token) || s.clientCertRejected(r) {
 		s.count("other", "")
 		writeStatus(w, http.StatusUnauthorized, "Unauthorized", "Unauthorized")
 		return

@@ -36,17 +36,18 @@ const chartNoData = "No data yet"
 type clusterPanel struct {
 	sh *shell
 
-	data     *engine.ClusterOverviewModel
-	master   *tipButton
-	worker   *tipButton
-	rangeSel *widget.Select
-	syncing  bool        // set while the select is set from engine state
-	caption  *sourceLine // the source line, its Prometheus's namespace and service links (metricssource.go)
-	note     *textLine
-	status   *providerStatusLine
-	cards    [3]*overviewChartCard
-	controls *fyne.Container // the node group and the range; hidden with every chart
-	root     fyne.CanvasObject
+	data      *engine.ClusterOverviewModel
+	master    *tipButton
+	worker    *tipButton
+	rangeSel  *widget.Select
+	syncing   bool        // set while the select is set from engine state
+	caption   *sourceLine // the source line, its Prometheus's namespace and service links (metricssource.go)
+	note      *textLine
+	status    *providerStatusLine
+	cards     [3]*overviewChartCard
+	controls  *fyne.Container // the node group and the range; hidden with every chart
+	reconnect *widget.Button  // Reconnect of the shown cluster (reconnect.go, D-81), at the right of the controls
+	root      fyne.CanvasObject
 
 	// Requests of the model are coalesced, as the Workloads Overview's are (overview.go).
 	requests atomic.Int32
@@ -69,9 +70,12 @@ func newClusterPanel(sh *shell) *clusterPanel {
 		p.cards[i] = newOverviewChartCard(title)
 	}
 	p.controls = container.NewHBox(p.master, p.worker, layout.NewSpacer(), p.rangeSel)
+	p.reconnect = widget.NewButtonWithIcon(reconnectLabel, reconnectIcon(), func() { sh.reconnect(sh.ui.Context) })
+	head := container.NewBorder(nil, nil, nil, container.NewHBox(newSpace(theme.SizeNamePadding), p.reconnect), p.controls)
 	charts := container.NewGridWithColumns(3, p.cards[0].root, p.cards[1].root, p.cards[2].root)
 	p.root = inset(theme.SizeNameInnerPadding, theme.SizeNamePadding,
-		container.NewVBox(p.controls, charts, p.caption, p.note, p.status.root))
+		container.NewVBox(head, charts, p.caption, p.note, p.status.root))
+	p.followReconnect()
 	p.showControls()
 	return p
 }
@@ -168,6 +172,24 @@ func (p *clusterPanel) show(m *engine.ClusterOverviewModel) {
 	} else {
 		p.controls.Show()
 	}
+}
+
+// followReconnect shows Reconnect while the shown cluster is connected (not the demo cluster),
+// greyed while it reconnects. Main goroutine.
+func (p *clusterPanel) followReconnect() {
+	ui := p.sh.ui
+	if _, ok := p.sh.eng.Registry().Get("cluster.reconnect"); !ok || !reconnectable(ui, ui.Context) {
+		p.reconnect.Hide()
+		return
+	}
+	p.reconnect.Show()
+	if reconnecting(ui, ui.Context) {
+		p.reconnect.SetText(reconnectingText)
+		p.reconnect.Disable()
+		return
+	}
+	p.reconnect.SetText(reconnectLabel)
+	p.reconnect.Enable()
 }
 
 func (p *clusterPanel) setCaption(text string, color fyne.ThemeColorName) {

@@ -679,6 +679,7 @@ type navIconButton struct {
 	tip     string
 	onTap   func()
 	hovered bool
+	muted   bool // drawn in the muted colour, its tap ignored (a Reconnect that runs, reconnect.go)
 }
 
 var (
@@ -695,7 +696,7 @@ func newNavIconButton(sh *shell, icon fyne.Resource, tip string, tap func()) *na
 // Tapped implements fyne.Tappable.
 func (b *navIconButton) Tapped(*fyne.PointEvent) {
 	b.sh.tip.hideFor(b)
-	if b.onTap != nil {
+	if b.onTap != nil && !b.muted {
 		b.onTap()
 	}
 }
@@ -747,10 +748,14 @@ func (r *navIconButtonRenderer) Refresh() {
 	th := r.b.Theme()
 	r.bg.CornerRadius = th.Size(theme.SizeNameSelectionRadius)
 	r.bg.FillColor = color.Transparent
-	if r.b.hovered {
+	if r.b.hovered && !r.b.muted {
 		r.bg.FillColor = themeColor(th, theme.ColorNameHover)
 	}
-	r.img.set(th, r.b.icon, theme.ColorNameForeground)
+	fg := theme.ColorNameForeground
+	if r.b.muted {
+		fg = colorMuted
+	}
+	r.img.set(th, r.b.icon, fg)
 	r.Layout(r.b.Size())
 	r.bg.Refresh()
 }

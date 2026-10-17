@@ -172,7 +172,7 @@ type Connection struct {
 	// (connwatch.go, D-58). The views show the cache's state as of then.
 	Since time.Time `json:"since,omitzero"`
 	// NextAttempt is when Cogpit next tries to reach the cluster while Interrupted; zero while an
-	// attempt runs and in the other states. cluster.reconnect tries at once.
+	// attempt runs and in the other states. cluster.reconnect connects anew at once (D-81).
 	NextAttempt time.Time `json:"nextAttempt,omitzero"`
 	// Reason says, in a sentence without credentials, why the connection is Interrupted or the
 	// login LoginExpired ("no answer from the API server within 5s").
@@ -188,6 +188,14 @@ type Connection struct {
 	// a browser; Cogpit ends it at its Until, and cluster.disconnect ends it (and a connect under
 	// way) at once. While Connecting, Reason says it in a sentence.
 	WaitingForLogin LoginWait `json:"waitingForLogin,omitzero"`
+	// CredentialPlugin is set for a connection whose context logs in through a credential plugin
+	// (exec): Log in again runs it once. Without it, Log in again connects anew from the kubeconfig
+	// file (cluster.reconnect), the only way to use a certificate or token renewed there (D-81).
+	CredentialPlugin bool `json:"credentialPlugin,omitempty"`
+	// Reconnecting is set while cluster.reconnect (or Log in again, or Cogpit by itself after the
+	// kubeconfig file's login changed) builds a new connection from the kubeconfig file; the
+	// connection it replaces goes on until the new one stands (D-81).
+	Reconnecting bool `json:"reconnecting,omitempty"`
 }
 
 // LoginWait is a credential plugin's run that a connection waits for (Connection.WaitingForLogin).
@@ -276,8 +284,12 @@ type DockTab struct {
 	// was interrupted (D-58); zero otherwise. The tab says so and offers Reconnect (dock.reconnect),
 	// which clears it.
 	Interrupted time.Time `json:"interrupted,omitzero"`
-	// Session counts the sessions dock.reconnect opened in the tab after the first: the window
-	// opens a new session in the tab when it changes.
+	// Reconnected is set with Interrupted when the session ended because Cogpit connected the
+	// cluster anew (cluster.reconnect, D-81) rather than lost the connection.
+	Reconnected bool `json:"reconnected,omitempty"`
+	// Session counts the sessions opened in the tab after the first: dock.reconnect's in a shell,
+	// attach or node shell tab, and in a logs tab each reconnect of its cluster (D-81), whose stream
+	// opens again on the new connection. The window opens a new session or stream when it changes.
 	Session int `json:"session,omitempty"`
 }
 

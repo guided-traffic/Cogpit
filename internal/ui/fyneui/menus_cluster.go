@@ -125,10 +125,14 @@ func connectingInBackground(ui engine.UIState, contextID string) bool {
 	return ok && contextID != ui.Context && c.Connection.State == engine.Connecting
 }
 
-// clusterItems are a cluster's Disconnect (while it is the shown one connected, or another connected
-// one, D-69), or Cancel Connecting while it connects (D-73), and Remove from Cogpit, for its menus.
+// clusterItems are a cluster's Reconnect and Disconnect (while it is the shown one connected, or
+// another connected one, D-69, D-81), or Cancel Connecting while it connects (D-73), and Remove from
+// Cogpit, for its menus.
 func (sh *shell) clusterItems(contextID string) []*fyne.MenuItem {
 	var items []*fyne.MenuItem
+	if item := sh.reconnectItem(contextID); item != nil { // reconnect.go
+		items = append(items, item)
+	}
 	st := sh.ui.Connection.State
 	c, ok := sh.eng.Registry().Get("cluster.disconnect")
 	switch {
@@ -153,10 +157,18 @@ func (sh *shell) clusterItems(contextID string) []*fyne.MenuItem {
 	return items
 }
 
-// clusterMenuItems are the window's Cluster menu's Disconnect, greyed while no cluster is
-// connected, and Remove from Cogpit for the window's cluster.
+// clusterMenuItems are the window's Cluster menu's Reconnect and Disconnect, greyed while no cluster
+// is connected, and Remove from Cogpit for the window's cluster.
 func (sh *shell) clusterMenuItems() []*fyne.MenuItem {
 	var items []*fyne.MenuItem
+	if _, ok := sh.eng.Registry().Get("cluster.reconnect"); ok {
+		item := sh.reconnectItem(sh.ui.Context) // reconnect.go
+		if item == nil {
+			item = fyne.NewMenuItem(reconnectLabel, nil)
+			item.Disabled = true
+		}
+		items = append(items, item)
+	}
 	if c, ok := sh.eng.Registry().Get("cluster.disconnect"); ok {
 		item := fyne.NewMenuItem(c.Label, sh.disconnect)
 		st := sh.ui.Connection.State

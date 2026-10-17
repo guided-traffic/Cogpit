@@ -772,21 +772,23 @@ func (r *navSectionRootRow) CreateRenderer() fyne.WidgetRenderer {
 // navContextRow is one cluster of the section: its badge, display name, connection dot and ›,
 // and a warning icon before the dot for a context whose kubeconfig does not check the server's
 // certificate (the picker's pill until D-57; the tooltip says why). Under the name, for a context
-// whose user logs in with a client certificate, how long it is valid (D-75, clientcert.go).
+// whose user logs in with a client certificate, how long it is valid (D-75, clientcert.go). A
+// connected cluster has a ↻ before its dot: Reconnect (reconnect.go, D-81), dimmed while it runs.
 type navContextRow struct {
 	widget.BaseWidget
-	n        *navSections
-	id       string
-	info     engine.ContextInfo
-	badge    *clusterBadge
-	title    *textLine
-	cert     *textLine // the client certificate's time left or "expired" (D-75); hidden without one
-	insecure *widget.Icon
-	dot      *connDot
-	next     *navIconButton
-	body     fyne.CanvasObject
-	bg, ring *canvas.Rectangle
-	hovered  bool
+	n         *navSections
+	id        string
+	info      engine.ContextInfo
+	badge     *clusterBadge
+	title     *textLine
+	cert      *textLine // the client certificate's time left or "expired" (D-75); hidden without one
+	insecure  *widget.Icon
+	reconnect *navIconButton // Reconnect, for a connected cluster; hidden otherwise
+	dot       *connDot
+	next      *navIconButton
+	body      fyne.CanvasObject
+	bg, ring  *canvas.Rectangle
+	hovered   bool
 }
 
 var (
@@ -804,11 +806,13 @@ func newNavContextRow(n *navSections, id string) *navContextRow {
 	r.cert.truncate = true
 	r.cert.Hide()
 	r.next = newNavIconButton(n.s.sh, iconChevronRight, "", func() { n.tapped(id) })
+	r.reconnect = newNavIconButton(n.s.sh, reconnectIcon(), reconnectTip, func() { n.s.sh.reconnect(id) })
+	r.reconnect.Hide()
 	r.insecure = widget.NewIcon(themedIcon(theme.WarningIcon(), colorStatusWarning))
 	r.insecure.Hide()
 	r.body = inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil,
 		container.NewHBox(container.NewCenter(r.badge), newSpace(theme.SizeNamePadding)),
-		container.NewHBox(container.NewCenter(r.insecure), container.NewCenter(r.dot), container.NewCenter(r.next)),
+		container.NewHBox(container.NewCenter(r.insecure), container.NewCenter(r.reconnect), container.NewCenter(r.dot), container.NewCenter(r.next)),
 		container.NewVBox(layout.NewSpacer(), r.title, r.cert, layout.NewSpacer())))
 	r.ExtendBaseWidget(r)
 	return r
@@ -844,6 +848,7 @@ func (r *navContextRow) set(c engine.ContextInfo) {
 		r.title.Refresh()
 	}
 	r.dot.setMark(c.Name, n.dotMark(c))
+	r.setReconnect()
 	r.setCert()
 	if c.Insecure != r.insecure.Visible() {
 		if c.Insecure {
@@ -854,6 +859,22 @@ func (r *navContextRow) set(c engine.ContextInfo) {
 	}
 	r.next.tip = "Show " + title
 	r.Refresh()
+}
+
+// setReconnect shows the ↻ for a connected cluster, muted and without its tap while it reconnects.
+func (r *navContextRow) setReconnect() {
+	ui := r.n.s.sh.ui
+	if _, ok := r.n.s.sh.eng.Registry().Get("cluster.reconnect"); !ok || !reconnectable(ui, r.id) {
+		r.reconnect.Hide()
+		return
+	}
+	r.reconnect.Show()
+	r.reconnect.muted = reconnecting(ui, r.id)
+	r.reconnect.tip = reconnectTip
+	if r.reconnect.muted {
+		r.reconnect.tip = reconnectingText
+	}
+	r.reconnect.Refresh()
 }
 
 // connectLogItem is the row menu's item that opens the log of the last connect (connectlog.go).

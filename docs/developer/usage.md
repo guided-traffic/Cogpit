@@ -607,7 +607,8 @@ interrupted cluster in the background disables the changes to it only, and its s
   stands beside it; its tooltip says **Reconnecting…**, since when, why and the next attempt, and a
   click on it opens the cluster's connection updates. Under macOS's Reduce motion it stays a steady,
   paler green. A banner over the view says which cluster, since when, why, and when Cogpit tries
-  next; **Reconnect now** tries at once (since 2026-10-16, the owner's F13: dots, never words).
+  next; **Reconnect** connects anew at once ([below](#reconnect-a-new-connection-from-the-kubeconfig-file);
+  since 2026-10-16, the owner's F13: dots, never words).
 - The views, the tabs, the drawer and the dock stay as they were, showing the cluster as of the
   interruption. Everything that would change the cluster is disabled, its menus saying
   "connection interrupted" and the selection bar's greyed Delete "Delete — connection interrupted"
@@ -630,11 +631,45 @@ interrupted cluster in the background disables the changes to it only, and its s
 When the cluster rejects your login (it expired while the Mac slept) Cogpit lets the context's
 login program renew it once by itself; if that does not help, or the program waits for you (a
 browser login), the dot turns red at once (its tooltip: **Login expired**), and the banner's **Log in again**
-runs the login program, browser included, keeping your views. Cogpit never runs it again on its own
-meanwhile. A login program that changed since you allowed it is shown to you first, as at a connect.
+runs the login program, browser included, keeping your views; **Reconnect** beside it connects anew
+from the kubeconfig file. Cogpit never runs the program again on its own meanwhile. A login program
+that changed since you allowed it is shown to you first, as at a connect, and the context then
+reconnects with its tabs kept. A context without a login program (a client certificate or a token
+in the kubeconfig) can only be renewed in its kubeconfig file: the banner says so and offers
+**Reconnect**, and once the file holds another login Cogpit reconnects by itself
+([below](#reconnect-a-new-connection-from-the-kubeconfig-file)).
 After a reconnect and after Log in again Cogpit asks the API server once more who you are, so the
 navigator's root names the user the renewed login belongs to (D-68). A login program that waits is
 ended after 5 minutes ([below](#a-login-that-waits-cancel-connecting-and-the-5-minute-bound)).
+
+### Reconnect: a new connection from the kubeconfig file
+
+Since 2026-10-17 ([D-81](decisions.md#d-81-reconnect-and-what-log-in-again-does), the owner's F28 and
+F29). A connection keeps the login it read from the kubeconfig when it connected: a client
+certificate you renewed in the file reaches it only through a new connection. **Reconnect** makes
+one, from the kubeconfig file as it is now, without closing the cluster's tabs:
+
+- Where: the ↻ on a connected cluster's row in the list of all clusters (the navigator's All
+  Clusters), the **Reconnect** button above the cluster Overview's charts, the Cluster menu and every
+  menu of a cluster beside Disconnect (its row, the navigator's root, its hotbar tile, its row on the
+  welcome page), the connection banner, the Connection Updates dialog and the command palette.
+- What happens: Cogpit connects anew as at a connect: the file read again, an expired token of a
+  login program renewed by the program (one you allowed; a changed one is shown to you first). The
+  old connection goes on until the new one stands: the cluster's dots blink meanwhile and its items
+  say **Reconnecting…**. Then the tabs, the view, the filter, the selection and the drawer stay and
+  the views read the new connection (a moment of loading); a log tab opens its stream again; a shell,
+  attach or node shell ends, its tab saying so with **Reconnect** for a new session; a local
+  terminal runs on; port forwards listen on the same local ports again. A reconnect that fails leaves
+  the cluster as it was and says why (a notification and the connection updates).
+- Not while a job (a drain) or a Helm action runs on the cluster: it would stop it; Reconnect says so.
+- **Log in again** reconnects too when the context has no login program, or when its login in the
+  kubeconfig file changed since the connect.
+- A login the cluster rejects, of a context without a login program, reconnects by itself once its
+  kubeconfig file holds another one (Cogpit looks at the file every 2 seconds): renew the certificate
+  in the file and the cluster comes back. A connection that still works is left alone when its file
+  changes; its new login is used when the old one ends.
+- Agents may reconnect a cluster too (`cluster_reconnect`), except one whose login expired while its
+  context logs in through a login program: that is Log in again, yours, in the window.
 
 ### A login that waits: Cancel Connecting and the 5-minute bound
 

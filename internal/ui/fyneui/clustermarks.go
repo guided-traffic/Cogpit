@@ -47,11 +47,12 @@ type clusterMark struct {
 
 // The tooltip's states of the marks that connectionText does not name.
 const (
-	markWarm       = "Connected, in the background: its views kept warm, showing it is instant"
-	markCold       = "Connected, in the background: its views released, showing it lists them again"
-	markLapsed     = "Connected, its login lapsed: Cogpit did not renew it while the cluster was not shown; showing it or Log in again renews it"
-	markFailed     = "Connection failed: its last connect failed"
-	markBackground = ", in the background"
+	markWarm         = "Connected, in the background: its views kept warm, showing it is instant"
+	markCold         = "Connected, in the background: its views released, showing it lists them again"
+	markLapsed       = "Connected, its login lapsed: Cogpit did not renew it while the cluster was not shown; showing it or Log in again renews it"
+	markFailed       = "Connection failed: its last connect failed"
+	markReconnecting = "Reconnecting: a new connection from the kubeconfig file, the old one shown until it stands"
+	markBackground   = ", in the background"
 )
 
 // markOf is a cluster's mark in ui: the shown cluster's connection (a failed connect too), a
@@ -70,8 +71,19 @@ func markOf(ui engine.UIState, ctx string, problem bool) clusterMark {
 	case problem:
 		conn = engine.Connection{State: engine.ConnectError}
 	}
+	reconnect := conn.Reconnecting && conn.State.Live()
+	if reconnect { // a new connection from the kubeconfig file (D-81): its dots blink as at a connect
+		conn = engine.Connection{State: engine.Connecting}
+	}
 	m := clusterMark{conn: conn, color: connectionColor(conn)}
 	background := connected && !shown
+	if reconnect {
+		m.state = markReconnecting
+		if background {
+			m.state += markBackground
+		}
+		return m
+	}
 	switch {
 	case conn.State == engine.ConnectError || conn.State == engine.LoginExpired:
 		if !shown && !connected {
@@ -138,12 +150,20 @@ func connectItemLabel(ui engine.UIState, ctx string) string {
 func clusterStates(ui engine.UIState) map[string]engine.ConnectionState {
 	out := make(map[string]engine.ConnectionState, len(ui.Connections)+1)
 	for _, c := range ui.Connections {
-		out[c.Context] = c.Connection.State
+		out[c.Context] = blinkState(c.Connection)
 	}
 	if ui.Context != "" {
-		out[ui.Context] = ui.Connection.State
+		out[ui.Context] = blinkState(ui.Connection)
 	}
 	return out
+}
+
+// blinkState is a connection's state for the blink: a reconnect blinks as a connect does (D-81).
+func blinkState(c engine.Connection) engine.ConnectionState {
+	if c.Reconnecting && c.State.Live() {
+		return engine.Connecting
+	}
+	return c.State
 }
 
 // connectionsChanged reports whether the connected clusters or their states changed.
@@ -175,6 +195,10 @@ func (sh *shell) clustersChanged(st, old engine.UIState, first bool) {
 		sh.side.updateHeader()
 		sh.hot.stateChanged()
 		sh.view.checksChanged() // the selection bar's Delete follows a lapsed login too (tablecheck.go)
+	}
+	if first || shownChanged || connectionsChanged(st, old) {
+		sh.kc.followReconnect(sh.kc.connectLog) // the open Connection Updates' Reconnect (connectlog.go, D-81)
+		sh.view.cluster.followReconnect()       // the cluster Overview's (clusteroverview.go)
 	}
 	if !first && old.Connection.State == engine.Connecting && st.Connection.State != engine.Connecting {
 		sh.side.sec.load() // a connect ended: its contexts' failed connects (ContextInfo.ConnectProblem)

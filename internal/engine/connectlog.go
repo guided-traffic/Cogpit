@@ -198,6 +198,9 @@ func (c *ctxAttempts) latestLocked() *ConnectAttempt {
 // begin starts an attempt of kind for ctx with its first line and returns it, for stepTo and
 // finish; an attempt still running is ended as abandoned first.
 func (l *connectLogs) begin(ctx, kind, level, text string) *ConnectAttempt {
+	if l == nil { // a quiet writer (connWatch.logs)
+		return nil
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.beginLocked(ctx, kind, level, text)
@@ -205,7 +208,7 @@ func (l *connectLogs) begin(ctx, kind, level, text string) *ConnectAttempt {
 
 // stepTo appends a step's line to attempt a, unless a newer attempt abandoned it.
 func (l *connectLogs) stepTo(a *ConnectAttempt, level, step, text string, took time.Duration) {
-	if a == nil {
+	if l == nil || a == nil {
 		return
 	}
 	l.mu.Lock()
@@ -260,6 +263,9 @@ func (l *connectLogs) add(ctx, level, text string) { l.step(ctx, level, "", text
 
 // step appends a step's line to ctx's latest attempt.
 func (l *connectLogs) step(ctx, level, step, text string, took time.Duration) {
+	if l == nil {
+		return
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	c := l.ctxLocked(ctx)
@@ -275,6 +281,9 @@ func (l *connectLogs) step(ctx, level, step, text string, took time.Duration) {
 // end appends text to ctx's attempt that runs and ends it with outcome; without one running, text
 // is appended to the latest attempt (or begins one of kind).
 func (l *connectLogs) end(ctx, kind, outcome, level, text string) {
+	if l == nil {
+		return
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	c := l.ctxLocked(ctx)
@@ -290,6 +299,9 @@ func (l *connectLogs) end(ctx, kind, outcome, level, text string) {
 
 // stepRunning appends a step's line to ctx's attempt that runs; without one, nothing.
 func (l *connectLogs) stepRunning(ctx, level, step, text string) {
+	if l == nil {
+		return
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if a := l.byCtx[ctx].openLocked(); a != nil {

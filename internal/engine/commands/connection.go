@@ -11,8 +11,9 @@ import (
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
-// The commands of an interrupted connection (D-58): Reconnect now and Log in again of the
-// connection banner, and a shell tab's Reconnect.
+// The commands of a cluster's connection: Reconnect, a new connection from the kubeconfig file as
+// it is now with the tabs kept (D-81); Log in again of the connection banner (D-58); and a shell
+// tab's Reconnect.
 
 // ConnectionResult is cluster.reconnect's and cluster.login's result: the connection as the UI
 // state holds it.
@@ -33,37 +34,30 @@ func connectionResult(s *engine.Session, contextID string) ConnectionResult {
 // subresourceExec is the pods subresource a shell opens.
 const subresourceExec = "exec"
 
-// errConnNotInterrupted and errLoginNotExpired are the commands' Enabled reasons.
-var (
-	errConnNotInterrupted = errors.New("the connection is not interrupted")
-	errLoginNotExpired    = errors.New("the login has not expired")
-)
+// errLoginNotExpired is cluster.login's Enabled reason.
+var errLoginNotExpired = errors.New("the login has not expired")
 
 func registerConnection(g *registrar) {
 	add(g, engine.Spec[engine.OnCluster]{
-		ID: "cluster.reconnect", Label: "Reconnect Now", MenuPath: "Cluster/Reconnect Now", Danger: engine.DangerUI,
-		Description: "Tries at once to reach a connected cluster (context, else the shown one) while its connection is " +
-			"interrupted (ui_state's connection.state, or its entry of connections, is interrupted: the computer slept, the " +
-			"network or a VPN went away) and starts the backoff of the attempts again (1, 2, 4, 8, 16, then every 30 " +
-			"seconds). Cogpit reconnects by itself; this only does not wait. Sends no credentials and runs no login program. " +
-			"Returns the connection.",
-		Enabled: func(s *engine.Session, p engine.OnCluster) error {
-			u := s.UIState()
-			st := u.Connection.State
-			if p.Context != "" && p.Context != u.Context {
-				c, ok := u.ConnectionOf(p.Context)
-				if !ok {
-					return &engine.NotConnectedError{Context: p.Context}
-				}
-				st = c.Connection.State
-			}
-			if st != engine.Interrupted {
-				return errConnNotInterrupted
-			}
-			return nil
+		ID: "cluster.reconnect", Label: "Reconnect", MenuPath: "Cluster/Reconnect", Danger: engine.DangerUI,
+		Description: "Ends a connected cluster's connection (context, else the shown one; connected, interrupted or with its " +
+			"login expired) and connects it anew from its kubeconfig file as it is now: a client certificate or token renewed " +
+			"in the file is used, and a credential plugin's expired token is renewed by the plugin, as at any connect (a plugin " +
+			"or a connection without the certificate check that the user has not allowed is refused with the reason). The " +
+			"cluster's tabs, view, filter, selection, drawer and dock stay; the views read the new connection's cache once it " +
+			"listed. The old connection ends only once the new one stands, so a reconnect that fails leaves the cluster as it " +
+			"was (the error says why; cluster.connectLog has the attempt). Logs tabs open their streams again on the new " +
+			"connection, port forwards listen on the same local ports again, and shells, attach and node shells end, their tabs " +
+			"offering dock.reconnect. Refused while a job or a Helm action runs on the cluster (it would stop it). Only reads " +
+			"from the cluster. An agent or the CLI may not reconnect a cluster whose login expired while its context logs in " +
+			"through a credential plugin (connection.credentialPlugin): that runs the login program, which may open a " +
+			"browser, and logging in again is the user's in the window. Returns the connection.",
+		Enabled: func(s *engine.Session, p engine.OnCluster) error { return s.ReconnectBlocked(p.Context) },
+		Refuse: func(ctx context.Context, s *engine.Session, p engine.OnCluster) error {
+			return s.ReconnectRefused(engine.OriginOf(ctx), p.Context)
 		},
-		Run: func(_ context.Context, s *engine.Session, p engine.OnCluster) (any, error) {
-			if err := s.ReconnectContext(p.Context); err != nil {
+		Run: func(ctx context.Context, s *engine.Session, p engine.OnCluster) (any, error) {
+			if err := s.Reconnect(ctx, p.Context); err != nil {
 				return nil, err
 			}
 			return connectionResult(s, p.Context), nil
@@ -76,9 +70,11 @@ func registerConnection(g *registrar) {
 		Description: "Renews a connected cluster's login (context, else the shown one) after it expired (ui_state's " +
 			"connection.state, or its entry of connections, is loginExpired) or lapsed while the cluster was not shown " +
 			"(its entry's loginLapsed: its setting renewLoginInBackground is off): the context's credential plugin runs once, " +
-			"and may open a browser for the user to log in. The cache, the tabs and the views stay. A plugin whose program " +
-			"changed since the user allowed it is not run: then the context is connected anew, which asks the user first. " +
-			"Returns the connection." + guiOnly,
+			"and may open a browser for the user to log in; the cache, the tabs and the views stay. A context without a " +
+			"credential plugin (a client certificate or a token in the kubeconfig: connection.credentialPlugin unset), or one " +
+			"whose login in the kubeconfig file changed since the connect, is reconnected instead, as cluster.reconnect does: " +
+			"a new connection from the file as it is now, the tabs kept. A plugin whose program changed since the user allowed " +
+			"it is not run: then the context is connected anew, which asks the user first. Returns the connection." + guiOnly,
 		Enabled: func(s *engine.Session, p engine.OnCluster) error {
 			u := s.UIState()
 			c, lapsed := u.Connection, false
@@ -103,7 +99,7 @@ func registerConnection(g *registrar) {
 			if err := requireGUI(ctx); err != nil {
 				return nil, err
 			}
-			if err := s.LoginContext(p.Context); err != nil {
+			if err := s.LogInAgain(ctx, p.Context); err != nil {
 				return nil, err
 			}
 			return connectionResult(s, p.Context), nil
@@ -161,7 +157,7 @@ func registerConnection(g *registrar) {
 				if i < 0 || !reconnectable(u.Dock[i]) {
 					return
 				}
-				u.Dock[i].Interrupted = time.Time{}
+				u.Dock[i].Interrupted, u.Dock[i].Reconnected = time.Time{}, false
 				u.Dock[i].Session++ // the window opens the new session in the tab
 				u.ActiveDock = p.ID
 				tab, found = u.Dock[i], true

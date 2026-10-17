@@ -54,6 +54,7 @@ type loginNotes struct {
 	steps      *connectSteps // the connect's attempt, while connecting
 	lw         *cluster.LoginWatch
 	connecting atomic.Bool
+	reconnect  bool // a reconnect's connect (reconnect.go): the connection it replaces shows its waits
 
 	mu     sync.Mutex
 	logged time.Time // the Since of the run whose begin the log has
@@ -104,9 +105,17 @@ func (n *loginNotes) changed() {
 		if u.Context == n.contextID && u.Connection.State == Connecting {
 			u.Connection.WaitingForLogin, u.Connection.Reason = wait, waitingReason(wait)
 		}
+		if n.reconnect && n.connecting.Load() && u.Context == n.contextID && u.Connection.Reconnecting {
+			u.Connection.WaitingForLogin = wait // the connection the reconnect replaces says what it waits for
+		}
 		for i := range u.Connections {
-			if c := &u.Connections[i]; c.Context == n.contextID && c.Connection.State == Connecting {
+			c := &u.Connections[i]
+			switch {
+			case c.Context != n.contextID:
+			case c.Connection.State == Connecting:
 				c.Connection.WaitingForLogin, c.Connection.Reason = wait, waitingReason(wait)
+			case n.reconnect && n.connecting.Load() && c.Connection.Reconnecting:
+				c.Connection.WaitingForLogin = wait
 			}
 		}
 	})

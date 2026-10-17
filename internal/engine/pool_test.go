@@ -281,8 +281,8 @@ func TestABackgroundInterruptionBlocksItsWritesOnly(t *testing.T) {
 	if note := s.StaleNote(); note != "" {
 		t.Errorf("the shown cluster's reads are noted: %q", note)
 	}
-	if err := s.ReconnectContext("alpha"); err != nil {
-		t.Errorf("Reconnect now of alpha: %v", err)
+	if err := s.TryNow("alpha"); err != nil {
+		t.Errorf("TryNow of alpha: %v", err)
 	}
 	pc.clusters["alpha"].prober.set(func(f *fakeProber) { f.down = false })
 	waitUntil(t, "alpha back", func() bool {

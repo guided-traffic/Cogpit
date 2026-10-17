@@ -148,7 +148,7 @@ func (s *Session) ConnectBackground(ctx context.Context, name string) error {
 	st.armColdLocked(e) // no view of it is open: cold once nothing of it is warm
 	st.mu.Unlock()
 
-	conn := Connection{State: Connected, Demo: b.Demo, TLSUnchecked: tlsUnchecked(b)}
+	conn := Connection{State: Connected, Demo: b.Demo, TLSUnchecked: tlsUnchecked(b), CredentialPlugin: b.CredentialPlugin}
 	s.UpdateUI(func(u *UIState) {
 		u.Connections = slices.DeleteFunc(u.Connections, func(c ConnectedCluster) bool { return c.Context == b.Context && c.restoring })
 		c := ConnectedCluster{Context: b.Context, Connection: conn, gen: gen}

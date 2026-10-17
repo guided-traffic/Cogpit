@@ -55,13 +55,14 @@ type logStreamKey struct {
 	ref                      model.ObjectRef
 	workload, container, pod string
 	previous                 bool
+	session                  int // DockTab.Session: each reconnect of the tab's cluster (D-81)
 }
 
 // streamKeyOf: a pod's tab's stream is its container's; a controlling resource's merged stream
 // follows the tab's selection itself while it follows, and opens again for it with Previous, whose
 // stream ends after the previous instances. Timestamps come with every stream.
 func streamKeyOf(t engine.DockTab) logStreamKey {
-	k := logStreamKey{previous: t.Logs.Previous}
+	k := logStreamKey{previous: t.Logs.Previous, session: t.Session} // a reconnect of the cluster opens it again (D-81)
 	if t.Ref != nil {
 		k.ref = *t.Ref
 	}

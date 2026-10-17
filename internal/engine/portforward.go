@@ -253,6 +253,13 @@ func (r *forwardRun) firstOutcome(ctx context.Context, timeout time.Duration) er
 // startRun stops the forward's current run, if any, binds the listener and starts the new run.
 // The caller holds opMu.
 func (s *Session) startRun(b *Backend, fw PortForwarder, prof *model.KindProfile, ref model.ObjectRef, spec ForwardSpec) (*forwardRun, error) {
+	return s.startRunWith(b, fw, prof, ref, spec, nil)
+}
+
+// startRunWith is startRun with the forward's UID and creation time given (a forward carried to a
+// new connection, reconnect.go); nil reads them as startRun does. The caller holds opMu.
+func (s *Session) startRunWith(b *Backend, fw PortForwarder, prof *model.KindProfile, ref model.ObjectRef, spec ForwardSpec,
+	given *forwardMetaInfo) (*forwardRun, error) {
 	fs := &b.forwards
 	key := ref.Key()
 	old := fs.take(key)
@@ -260,7 +267,12 @@ func (s *Session) startRun(b *Backend, fw PortForwarder, prof *model.KindProfile
 		old.cancel()
 		old.wait()
 	}
-	meta := s.forwardMeta(b, prof, ref, old)
+	var meta forwardMetaInfo
+	if given != nil {
+		meta = *given
+	} else {
+		meta = s.forwardMeta(b, prof, ref, old)
+	}
 	r := &forwardRun{
 		s: s, b: b, fw: fw, prof: prof, ref: ref, spec: spec, uid: meta.uid, created: meta.created,
 		wake: make(chan struct{}, 1), first: make(chan error, 1), done: make(chan struct{}),

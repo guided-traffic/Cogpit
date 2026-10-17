@@ -212,7 +212,7 @@ var wantCommands = map[string]engine.Danger{
 	"workload.restartMany": engine.DangerDestructive,
 	// An Argo CD Application's and a Flux Kustomization's logs in one tab (A81) (TestArgoCDLogs, TestFluxLogs).
 	"argocd.logs": engine.DangerRead, "flux.logs": engine.DangerRead,
-	// An interrupted connection (D-58): Reconnect now, Log in again (GUI only), a shell tab's
+	// A connection (D-58, D-81): Reconnect, Log in again (GUI only), a shell tab's
 	// Reconnect, which opens a new shell (TestConnectionCommands).
 	"cluster.reconnect": engine.DangerUI, "cluster.login": engine.DangerUI, "dock.reconnect": engine.DangerMutating,
 	// A background job stopped, its tab kept (G4): UI state, as dock.close stops one (TestDeleteManyAsAJob).

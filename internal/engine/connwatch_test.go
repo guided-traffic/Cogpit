@@ -196,7 +196,7 @@ func TestTwoFailedHeartbeatsInterruptTheConnection(t *testing.T) {
 }
 
 // TestReconnectBacksOffAndComesBack is S5: the attempts follow 1, 2, 4, 8, ... at most 30 s (here
-// in twentieths), Reconnect now tries at once and starts again, and once the cluster answers the
+// in twentieths), TryNow tries at once and starts again, and once the cluster answers the
 // connection is Connected again, the gate open, the writes enabled.
 func TestReconnectBacksOffAndComesBack(t *testing.T) {
 	s, p := watchedSession(t, fastWatch)
@@ -215,12 +215,12 @@ func TestReconnectBacksOffAndComesBack(t *testing.T) {
 		t.Errorf("no next attempt or reason: %+v", c)
 	}
 	n := len(p.get().reaches)
-	if err := s.Reconnect(); err != nil {
+	if err := s.TryNow(""); err != nil {
 		t.Fatal(err)
 	}
 	waitUntil(t, "an attempt at once", func() bool { return len(p.get().reaches) > n })
 	if d := time.Since(p.get().reaches[n]); d > time.Second {
-		t.Errorf("Reconnect now waited %v", d)
+		t.Errorf("TryNow waited %v", d)
 	}
 	p.set(func(f *fakeProber) { f.down = false })
 	waitState(t, s, Connected)
@@ -323,8 +323,8 @@ func TestALastingUnauthorizedExpiresTheLogin(t *testing.T) {
 	if b := p.get().beats; b != beats {
 		t.Fatalf("%d heartbeats while the login expired", b-beats)
 	}
-	if err := s.Reconnect(); err == nil {
-		t.Error("Reconnect now while the login expired")
+	if err := s.TryNow(""); err == nil {
+		t.Error("TryNow while the login expired")
 	}
 	p.set(func(f *fakeProber) { f.reject = false })
 	if err := s.Login(); err != nil {

@@ -30,7 +30,9 @@ import (
 // (EventConnectLog, coalesced), and the dialog reads cluster.connectLog again (the engine's memory
 // and the context's file; nothing is asked of the cluster). Copy puts every attempt shown on the
 // clipboard as plain text, for a bug report. A line's time is its time of day in the user's zone
-// and format, an attempt's its date and time (D-31).
+// and format, an attempt's its date and time (D-31). Reconnect (cluster.reconnect, D-81) connects a
+// connected cluster anew from its kubeconfig file, where its log says why it needs it; it is
+// greyed while the context is not connected or reconnects.
 
 // connectLogLimit is how many attempts the dialog shows, newest first.
 const connectLogLimit = 50
@@ -74,15 +76,16 @@ func (v connectLogView) attempts() []connectLogAttempt {
 
 // connectLogDialog is the open "Connection Updates" dialog.
 type connectLogDialog struct {
-	ctx     string
-	d       *dialog.CustomDialog
-	close   *widget.Button
-	copy    *widget.Button
-	rows    *fyne.Container
-	scroll  *container.Scroll
-	view    connectLogView
-	reading bool // a read of the log is under way
-	stale   bool // the log changed while it was read: read again
+	ctx       string
+	d         *dialog.CustomDialog
+	close     *widget.Button
+	copy      *widget.Button
+	reconnect *widget.Button
+	rows      *fyne.Container
+	scroll    *container.Scroll
+	view      connectLogView
+	reading   bool // a read of the log is under way
+	stale     bool // the log changed while it was read: read again
 }
 
 // showConnectLog reads the log of contextID and shows it. It is safe for any context: connected or
@@ -123,7 +126,8 @@ func (k *kubeconfigUI) openConnectLog(contextID string, v connectLogView) {
 		k.sh.copyText(connectLogText(cl.ctx, cl.view, k.sh.timeFormat()), false)
 		k.sh.toast("info", "Copied the connection log of "+kubeconfig.DisplayText(cl.ctx, maxShownArg))
 	})
-	cl.d.SetButtons([]fyne.CanvasObject{cl.copy, cl.close})
+	cl.reconnect = widget.NewButtonWithIcon(reconnectLabel, reconnectIcon(), func() { k.sh.reconnect(cl.ctx) })
+	cl.d.SetButtons([]fyne.CanvasObject{cl.reconnect, cl.copy, cl.close})
 	cl.d.SetOnClosed(func() {
 		if k.connectLog == cl {
 			k.connectLog = nil
@@ -159,9 +163,30 @@ func (k *kubeconfigUI) connectLogChanged(contextID string) {
 	})
 }
 
+// followReconnect enables the dialog's Reconnect for a connected context that does not reconnect
+// now. Main goroutine.
+func (k *kubeconfigUI) followReconnect(cl *connectLogDialog) {
+	if cl == nil || cl.reconnect == nil {
+		return
+	}
+	ui := k.sh.ui
+	switch {
+	case !reconnectable(ui, cl.ctx):
+		cl.reconnect.SetText(reconnectLabel)
+		cl.reconnect.Disable()
+	case reconnecting(ui, cl.ctx):
+		cl.reconnect.SetText(reconnectingText)
+		cl.reconnect.Disable()
+	default:
+		cl.reconnect.SetText(reconnectLabel)
+		cl.reconnect.Enable()
+	}
+}
+
 // fillConnectLog shows v in the dialog, keeping the scroll position.
 func (k *kubeconfigUI) fillConnectLog(cl *connectLogDialog, v connectLogView) {
 	cl.view = v
+	k.followReconnect(cl)
 	th := k.sh.app.Settings().Theme()
 	width := th.Size(sizePickerWidth) - 8*th.Size(theme.SizeNamePadding)
 	tf := k.sh.timeFormat()
