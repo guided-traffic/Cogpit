@@ -2,6 +2,7 @@ package metrics_test
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"testing"
 	"time"
@@ -111,6 +112,22 @@ func TestHubOverTheCountingTransport(t *testing.T) {
 		return true
 	}
 	eventually(t, "the counter and the server to agree", agree)
+	// A poll sent before the release may still wait in client-go's client-side rate limiter and be
+	// counted after it (CI's race job, 2026-10-17: "Waited before sending request" 1.2 s, then one
+	// more list): wait until the polls already under way have landed, a quiet 150 ms.
+	metricsKeys := func() map[string]int64 {
+		snap := conn.Counter().Snapshot()
+		out := map[string]int64{}
+		for _, key := range keys {
+			out[key] = snap.ByVerbResource[key]
+		}
+		return out
+	}
+	eventually(t, "the polls under way to land", func() bool {
+		a := metricsKeys()
+		time.Sleep(150 * time.Millisecond)
+		return maps.Equal(a, metricsKeys())
+	})
 	snap := conn.Counter().Snapshot()
 	if snap.ByVerb["watch"] != 0 || snap.ByVerb["watchlist"] != 0 {
 		t.Errorf("metrics were watched: %v", snap.ByVerb)

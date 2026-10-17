@@ -297,9 +297,11 @@ func TestHotbarTileDragCancels(t *testing.T) {
 	}
 
 	// A move that fails: the tiles go back to the bar's order, and the reason shows.
+	f.mu.Lock() // the shell's own dispatches read the handlers meanwhile (CI's race job, 2026-10-17)
 	f.handlers["hotbar.moveCluster"] = func(context.Context, engine.Invocation) (any, error) {
 		return nil, errors.New("the hotbar's file cannot be written")
 	}
+	f.mu.Unlock()
 	settle(w)
 	dragTile(t, h, 0, centreOf(h, 3), false)
 	q.until(t, "the failed move", func() bool { return len(f.callsOf("hotbar.moveCluster")) == 1 && !h.drag.pending })
