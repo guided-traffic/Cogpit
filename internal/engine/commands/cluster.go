@@ -52,7 +52,11 @@ func registerCluster(g *registrar) {
 			"files share gives two contexts, and carries source, " +
 			"kubeContext, file and exec (approved, required or changed: whether their credential plugin may run, or, with " +
 			"execKind insecure, whether a context whose cluster skips the certificate check may connect; the user " +
-			"allows it in Cogpit's window), and insecure for such a context. Reads only the kubeconfig files; no credential is returned.",
+			"allows it in Cogpit's window), and insecure for such a context. clientCert is the validity of the client certificate " +
+			"a context's user logs in with (client-certificate-data or a client-certificate file; none for a credential plugin): " +
+			"notBefore, notAfter and state at the time of the listing (valid; expiring within 14 days or the last fifth of its " +
+			"lifetime; expired; notYetValid); it never blocks a connect. Reads only the kubeconfig files and those certificates; " +
+			"no credential is returned.",
 		Run: func(_ context.Context, s *engine.Session, _ struct{}) (any, error) {
 			list, err := s.Contexts()
 			if err != nil && len(list) == 0 {

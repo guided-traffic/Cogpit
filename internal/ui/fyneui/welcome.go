@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/url"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 
@@ -328,6 +329,9 @@ func (w *welcomePage) render() {
 			if c.ConnectProblem {
 				sig.WriteString("/!")
 			}
+			if text, color := certPill(c.ClientCert, w.sh.now()); text != "" { // the clock moves it (D-75)
+				sig.WriteString("/" + text + "/" + string(color))
+			}
 		}
 	}
 	if !w.loaded {
@@ -372,6 +376,14 @@ func (w *welcomePage) row(c engine.ContextInfo) *clusterRow {
 	connect := func() { w.connect(name) }
 	r := newClusterRow(c, title, sub, connect, connect, func() { sh.kc.showConnectLog(name) })
 	r.badge.setIdentity(sh.identity(name))
+	if text, color := certPill(c.ClientCert, sh.now()); text != "" { // D-75, clientcert.go
+		objs := r.badges.Objects
+		if r.warn != nil { // before the failed connect's icon, which stays last
+			r.badges.Objects = slices.Insert(objs, len(objs)-1, fyne.CanvasObject(newPill(text, color, true)))
+		} else {
+			r.badges.Add(newPill(text, color, true))
+		}
+	}
 	if c := sh.ui.Connection; (sh.ui.Context == name && (c.State.Live() || c.State == engine.Connecting)) || clusterConnected(sh.ui, name) {
 		d := newConnDot(sh) // its mark, never a word (F13, D-69): connecting, connected, warm, cold, reconnecting, login expired
 		d.setMark(name, sh.mark(name, false))

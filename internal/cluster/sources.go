@@ -71,6 +71,7 @@ func InspectFile(path string) (*InspectedFile, error) {
 		return nil, fmt.Errorf("kubeconfig file %s: %w", abs, kubeconfig.SafeError(err))
 	}
 	out := &InspectedFile{Path: abs, Contexts: kubeconfig.FromConfig(cfg), Exec: map[string]*kubeconfig.ExecPlugin{}}
+	fillClientCerts(out.Contexts, abs) // a client-certificate file's dates (clientcert.go, D-75)
 	for _, c := range out.Contexts {
 		if p := BindPluginFiles(kubeconfig.ExecPluginOf(cfg, c.Name)); p != nil {
 			out.Exec[c.Name] = p

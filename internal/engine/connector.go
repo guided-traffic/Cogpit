@@ -112,7 +112,7 @@ func (c *ClusterConnector) Contexts() ([]ContextInfo, error) {
 		}
 		out = append(out, ContextInfo{
 			Name: k.Name, Cluster: k.Cluster, User: k.User, Namespace: k.Namespace,
-			Server: k.Server, Current: k.Current, Insecure: k.Insecure,
+			Server: k.Server, Current: k.Current, Insecure: k.Insecure, ClientCert: k.ClientCert,
 		})
 	}
 	out, err = c.withSourceContexts(out, err)

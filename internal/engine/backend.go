@@ -8,6 +8,7 @@ import (
 
 	"github.com/guided-traffic/cogpit/internal/cache"
 	"github.com/guided-traffic/cogpit/internal/cluster"
+	"github.com/guided-traffic/cogpit/internal/kubeconfig"
 	"github.com/guided-traffic/cogpit/internal/metrics"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
@@ -202,6 +203,13 @@ type ContextInfo struct {
 	// connect (Exec), and connecting writes a warning into the connect log and marks the
 	// connection (Connection.TLSUnchecked; tlswarning.go).
 	Insecure bool `json:"insecure,omitempty"`
+	// ClientCert is the validity of the client certificate the context's user logs in with
+	// (client-certificate-data, or a client-certificate file; D-75): notBefore, notAfter and the
+	// state at the time of the listing (valid, expiring within 14 days or a fifth of its lifetime,
+	// expired, notYetValid). Only the dates: never the certificate, never the key. Nil for a user
+	// without one, one that runs a credential plugin, a certificate that cannot be read, and a
+	// file in a place macOS protects until a connect read it. It never blocks a connect.
+	ClientCert *kubeconfig.CertValidity `json:"clientCert,omitempty"`
 }
 
 // Connector lists the contexts a user can connect to and connects one.

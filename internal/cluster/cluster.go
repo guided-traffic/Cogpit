@@ -213,6 +213,7 @@ func ListContexts(paths []string) ([]kubeconfig.Context, error) {
 	if out == nil {
 		out = []kubeconfig.Context{}
 	}
+	fillClientCerts(out, describePaths(usable)) // a client-certificate file's dates (clientcert.go, D-75)
 	return out, errors.Join(problems...)
 }
 
@@ -375,6 +376,9 @@ func Connect(ctx context.Context, opts Options) (_ *Conn, err error) {
 	if err != nil {
 		return nil, &ConnectError{Context: name, Problem: "cannot build the client: " + kubeconfig.SafeError(err).Error(), Err: err}
 	}
+	// client-go read the client certificate file just now: its dates for the cluster list, which
+	// does not read a file in a place macOS protects (clientcert.go, D-75). The key is not read.
+	noteClientCertFile(cfg.CertFile)
 	// The gate in front of client-go's credential plugin: a request it holds never runs the plugin.
 	httpClient.Transport = health.gate.outer(httpClient.Transport)
 	// One HTTP client for both clientsets: one connection pool (one HTTP/2 connection) per

@@ -12,7 +12,7 @@ one check between Cogpit and these places; everywhere else the user's file permi
 | Item | What Cogpit does with it | How it is chosen | Access kept for later runs |
 |---|---|---|---|
 | Kubeconfig sources: files and sync folders | Read at start, a sync folder's files again every 2 s, a file when a cluster connects; never written ([trust boundaries](trust-boundaries.md), [credentials](credentials.md)) | `~/.kube` from the start (removable); `--kubeconfig` or `$KUBECONFIG` for the run; the rest in Sync Files and Folders, on macOS the system's open panel ([`filepicker_choosers.go`](../../internal/ui/fyneui/filepicker_choosers.go)) | A picked file or folder: a read-only security-scoped bookmark, kept while it is a source; none for `~/.kube` (not protected) and the run's files (in a protected folder macOS asks once) |
-| Files a kubeconfig names: client certificates, token files, a credential plugin's program | Read when the cluster connects; a plugin's program hashed for its approval and run on connect (H-1, D-17) | By the kubeconfig, never in a panel | None: in a protected folder macOS asks Cogpit once |
+| Files a kubeconfig names: client certificates, token files, a credential plugin's program | Read when the cluster connects; a plugin's program hashed for its approval and run on connect (H-1, D-17). Since 2026-10-17 a `client-certificate` file also whenever the contexts are listed, for its two dates ([D-75](../developer/decisions.md#d-75-a-client-certificates-validity-in-the-cluster-lists)): not when it lies in a protected place, or a link on the way leads into one (then read right after client-go read it to connect, and remembered for the run), and never its key file ([`cluster/clientcert.go`](../../internal/cluster/clientcert.go), `TestProtectedClientCertificateIsReadAtConnect`, `TestListingNeverOpensTheKey`) | By the kubeconfig, never in a panel | None: in a protected folder macOS asks Cogpit once |
 | A chat connection's CA file | Read for the connection's test and its turns ([trust boundaries › H-104](trust-boundaries.md#h-104-a-connections-ca-file-replaces-the-systems-roots-checked-by-gos-verifier)) | Preferences › Agent › Choose…, the system's open panel (or typed) | A picked file: a read-only bookmark |
 | A cluster's icon | Read once (at most 1 MiB), checked and copied into `<user config dir>/Cogpit/cluster-icons/`; the window draws the copy ([trust boundaries](trust-boundaries.md#boundaries-and-required-checks)) | Upload Icon…, the system's open panel | None: the copy is Cogpit's own |
 | A cluster's terminal working directory | A local shell is started there; the shell and what the user runs in it reach whatever the user does | Cluster Settings › Terminal, the system's folder panel (or typed) | A picked folder: a read-write bookmark |
@@ -93,6 +93,33 @@ without asking, and a prompt a program raises names Cogpit and Cogpit's reason, 
 A credential plugin is run only after the user approved it (H-1), and a terminal runs what the user
 types, as Terminal.app's shells do under Terminal's grants; what is not checked is that a program
 uses only the folder the user meant. Documented, not verified on a real Mac.
+
+### H-119: A client certificate file is read while the contexts are listed
+
+Since 2026-10-17 ([D-75](../developer/decisions.md#d-75-a-client-certificates-validity-in-the-cluster-lists))
+Cogpit opens a context's `client-certificate` file whenever it lists the contexts (at start, when
+a kubeconfig changes, when the section shows), before the user connects, to show how long the
+certificate is valid. It keeps the leaf certificate's two dates and nothing else; the key file is
+never opened. What remains, per case:
+
+- **A protected place the list does not know.** Cogpit skips a file in the Desktop, Documents and
+  Downloads folders, iCloud Drive, `~/Library/CloudStorage`, `~/Library/Containers`,
+  `~/Library/Group Containers` and `/Volumes`, and one a link leads into them, checking each
+  component before it looks at it. A place macOS protects that is not in that list (a network
+  share mounted elsewhere than `/Volumes`, a folder a later macOS adds) is read at listing and can
+  raise a prompt there that names Cogpit before the user chose to connect. Dormant unless a
+  kubeconfig names a certificate in such a place; the list is Cogpit's reading of Apple's
+  documentation, not verified on a real Mac, nor is whether looking at a path's metadata inside a
+  protected folder prompts at all (the walk avoids it either way).
+- **A file that does not answer.** A certificate on a network mount that hangs holds the listing
+  (off the window's goroutine; the section says "Reading the kubeconfigs…") as a kubeconfig on
+  such a mount would. Dormant unless a kubeconfig names one.
+- **Any file the user can read.** A kubeconfig dropped into a sync folder can name any file as its
+  `client-certificate` ([trust boundaries › H-24](trust-boundaries.md#h-24-a-dropped-kubeconfig-can-send-a-local-file-as-its-token)):
+  Cogpit opens it at listing (regular files of at most 256 KiB only, never a FIFO or a device) and
+  parses it as PEM; nothing of it is kept but a CERTIFICATE block's two dates, and a file that is no
+  certificate gives a debug log line naming its path and a fixed problem, never its content. Live
+  for every listed context whose user names a certificate file.
 
 Also outside this page: the files a kubeconfig names in a protected folder (a certificate, a token
 file) are not picked in a panel and ask once; iCloud Drive asks whatever the user picked; macOS's

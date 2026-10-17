@@ -18,8 +18,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api/latest"
 )
 
-// Context is one kubeconfig context as the navigator's section lists it. It carries names only, never
-// a credential.
+// Context is one kubeconfig context as the navigator's section lists it. It carries names and its
+// client certificate's two dates only, never a credential.
 type Context struct {
 	Name      string `json:"name"`
 	Cluster   string `json:"cluster"`
@@ -30,6 +30,17 @@ type Context struct {
 	// Insecure is the cluster's insecure-skip-tls-verify: the server's certificate is not checked,
 	// so the credential goes to whoever answers at Server.
 	Insecure bool `json:"insecure,omitempty"`
+	// ClientCert is the validity of the client certificate the context's user logs in with (D-75):
+	// from client-certificate-data here, from a client-certificate file in package cluster. Nil
+	// for a user without one, one that runs a credential plugin, and a certificate that cannot be
+	// read.
+	ClientCert *CertValidity `json:"clientCert,omitempty"`
+	// ClientCertFile is the user's client-certificate file as the kubeconfig names it (absolute once
+	// package cluster resolved the file's paths), for package cluster to read; ClientCertProblem
+	// says, in a fixed text, why client-certificate-data could not be read. Neither leaves Cogpit's
+	// process: the cluster layer logs the problem once, at debug level.
+	ClientCertFile    string `json:"-"`
+	ClientCertProblem string `json:"-"`
 }
 
 // ErrNotImplemented marks a Phase 0 stub.
@@ -75,7 +86,8 @@ func Parse(data []byte) (cfg *clientcmdapi.Config, err error) {
 }
 
 // FromConfig returns the contexts of a decoded (possibly merged) kubeconfig, sorted by name. The
-// server comes from the context's cluster entry, with any user information in the URL removed.
+// server comes from the context's cluster entry, with any user information in the URL removed; the
+// client certificate's validity from the user entry (clientCertOf).
 func FromConfig(cfg *clientcmdapi.Config) []Context {
 	if cfg == nil {
 		return nil
@@ -88,6 +100,7 @@ func FromConfig(cfg *clientcmdapi.Config) []Context {
 			if cl := cfg.Clusters[kc.Cluster]; cl != nil {
 				c.Server, c.Insecure = StripUserInfo(cl.Server), cl.InsecureSkipTLSVerify
 			}
+			clientCertOf(&c, cfg.AuthInfos[kc.AuthInfo])
 		}
 		out = append(out, c)
 	}

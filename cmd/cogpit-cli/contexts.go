@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/guided-traffic/cogpit/internal/engine"
 	"github.com/guided-traffic/cogpit/internal/kubeconfig"
@@ -15,8 +16,11 @@ LOGIN says whether a context logs in through a credential plugin or a token file
 folder, and whether the user allowed it in Cogpit's window: approved, required or changed.
 CERTIFICATE says "not checked" for a context whose cluster sets insecure-skip-tls-verify: whoever
 answers at its server's address gets its credential; Cogpit connects to it only once the user
-allowed that in Cogpit's window, and the column says whether ("not checked, required"). Listing
-reads the kubeconfig files only; it runs no plugin and prints no credential.`
+allowed that in Cogpit's window, and the column says whether ("not checked, required").
+CLIENT CERT says how long the client certificate a context's user logs in with is valid
+("expires in 23 days", "expired 3 days ago"); it never keeps the app from connecting. Listing
+reads the kubeconfig files and those certificates only; it runs no plugin and prints no
+credential.`
 
 func runContexts(ctx context.Context, args []string, e *env) int {
 	fs := newFlags("contexts", "[flags]", contextsAbout)
@@ -52,14 +56,15 @@ func runContexts(ctx context.Context, args []string, e *env) int {
 		return exitOK
 	}
 	rows := make([][]string, 0, len(list))
+	now := time.Now()
 	for _, c := range list {
 		server := c.Server
 		if c.Demo {
 			server = "(synthetic demo cluster)"
 		}
-		rows = append(rows, []string{c.Name, c.Namespace, server, login(c), certificate(c)})
+		rows = append(rows, []string{c.Name, c.Namespace, server, login(c), certificate(c), clientCert(c, now)})
 	}
-	if err := writeTable(e.stdout, []string{"CONTEXT", "NAMESPACE", "SERVER", "LOGIN", "CERTIFICATE"}, rows); err != nil {
+	if err := writeTable(e.stdout, []string{"CONTEXT", "NAMESPACE", "SERVER", "LOGIN", "CERTIFICATE", "CLIENT CERT"}, rows); err != nil {
 		return fail(e, err)
 	}
 	return exitOK
@@ -86,8 +91,8 @@ func login(c engine.ContextInfo) string {
 // certificate (insecure-skip-tls-verify), as the app's welcome page marks it ("certificate not checked",
 // H-37), followed for a kubeconfig source's context by whether the user allowed connecting to it so
 // ("not checked, required"; A28: approved, required or changed, the context's approval, a plugin's
-// included); empty otherwise. The last column, so that the columns before keep their places
-// (Cogpit's default, 2026-10-13, not the owner's decision).
+// included); empty otherwise. After the columns it found in place, so that they keep their places
+// (Cogpit's default, 2026-10-13, not the owner's decision); CLIENT CERT came after it (2026-10-17).
 func certificate(c engine.ContextInfo) string {
 	switch {
 	case !c.Insecure:
@@ -96,4 +101,14 @@ func certificate(c engine.ContextInfo) string {
 		return "not checked, " + c.Exec
 	}
 	return "not checked"
+}
+
+// clientCert says how long a context's client certificate is valid (D-75): "expires in 23 days",
+// "expired 3 days ago", "not valid yet"; empty for a context without one. The last column, after
+// the server's CERTIFICATE (Cogpit's default, 2026-10-17).
+func clientCert(c engine.ContextInfo, now time.Time) string {
+	if c.ClientCert == nil {
+		return ""
+	}
+	return c.ClientCert.Describe(now)
 }

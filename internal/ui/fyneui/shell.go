@@ -321,7 +321,8 @@ func (sh *shell) stop() {
 	sh.titlebar.stop()
 }
 
-// tick re-renders age cells every ageRefresh, so "5m" becomes "6m" without an engine event.
+// tick re-renders age cells every ageRefresh, so "5m" becomes "6m" without an engine event, and
+// the client certificates' time left in the cluster lists (D-75, clientcert.go).
 func (sh *shell) tick() {
 	t := time.NewTicker(ageRefresh)
 	defer t.Stop()
@@ -330,7 +331,10 @@ func (sh *shell) tick() {
 		case <-sh.stopTickers:
 			return
 		case <-t.C:
-			sh.do(sh.view.refreshAges)
+			sh.do(func() {
+				sh.view.refreshAges()
+				sh.certsTick()
+			})
 		}
 	}
 }

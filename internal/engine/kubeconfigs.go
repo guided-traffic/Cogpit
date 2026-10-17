@@ -636,6 +636,7 @@ func (k *KubeconfigSources) Contexts() ([]ContextInfo, error) {
 			info := ContextInfo{
 				Name: SourceContextID(c.Name, f.Label), Cluster: c.Cluster, User: c.User, Namespace: c.Namespace,
 				Server: c.Server, Source: f.Label, KubeContext: c.Name, File: f.Path, Insecure: c.Insecure,
+				ClientCert: c.ClientCert,
 			}
 			if p := f.Exec[c.Name]; p != nil {
 				info.Exec, info.ExecKind = approvalState(approvals, p), p.Kind()

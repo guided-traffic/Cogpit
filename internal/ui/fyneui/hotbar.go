@@ -520,7 +520,8 @@ func (t *hotbarTile) mark() clusterMark {
 	return t.h.sh.mark(t.tile.Context, t.h.sh.connectProblem(t.tile.Context))
 }
 
-// tipText is the tooltip: the full context id, its state and its key.
+// tipText is the tooltip: the full context id, its state and its key, and the client
+// certificate's dates for a context that has one (D-75).
 func (t *hotbarTile) tipText() string {
 	m := t.mark()
 	state := m.state
@@ -530,7 +531,13 @@ func (t *hotbarTile) tipText() string {
 	if t.tile.Missing {
 		state = "No kubeconfig source offers this context any more"
 	}
-	return t.tile.Context + "\n" + state + " · F" + strconv.Itoa(t.slot)
+	tip := t.tile.Context + "\n" + state + " · F" + strconv.Itoa(t.slot)
+	if sh := t.h.sh; sh != nil && !t.tile.Missing {
+		if line := sh.certTip(sh.clientCert(t.tile.Context)); line != "" {
+			tip += "\n" + line
+		}
+	}
+	return tip
 }
 
 // Tapped implements fyne.Tappable: open the cluster.

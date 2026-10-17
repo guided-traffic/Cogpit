@@ -764,3 +764,7 @@ What remains, per case:
 - **Other files.** A user's `client-certificate` and `client-key` and the cluster's
   `certificate-authority` are bound by path only: the key is never sent, a certificate only in the
   TLS handshake. A CA file inside the folder is bound by content ([H-1](#h-1-kubeconfig-files-added-by-sync-folders)).
+  Since 2026-10-17 Cogpit itself opens a `client-certificate` file whenever it lists the contexts,
+  before any connect, without asking, and keeps only a certificate's two dates ([D-75](../developer/decisions.md#d-75-a-client-certificates-validity-in-the-cluster-lists);
+  what that leaves: [file access › H-119](file-access.md#h-119-a-client-certificate-file-is-read-while-the-contexts-are-listed)).
+  The key file is still read by client-go alone, at connect.

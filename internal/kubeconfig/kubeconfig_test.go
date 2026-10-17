@@ -58,7 +58,9 @@ func TestContexts(t *testing.T) {
 			want: []Context{
 				{Name: "a-context", Cluster: "cluster-a", User: "user-a", Namespace: "team-a", Server: "https://a.example:6443"},
 				{Name: "dangling", Cluster: "missing", User: "user-a"},
-				{Name: "kind-b", Cluster: "cluster-b", User: "user-b", Server: "https://b.example:6443", Current: true},
+				// "foo" is no certificate: no date, and a fixed text for the cluster layer's log (D-75).
+				{Name: "kind-b", Cluster: "cluster-b", User: "user-b", Server: "https://b.example:6443", Current: true,
+					ClientCertProblem: "client-certificate-data: no PEM CERTIFICATE block"},
 			},
 		},
 		{

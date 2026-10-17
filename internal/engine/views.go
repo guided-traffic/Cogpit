@@ -230,7 +230,19 @@ func (s *Session) Contexts() ([]ContextInfo, error) {
 		return nil, pErr
 	}
 	s.markConnectProblems(out)
+	s.markClientCerts(out)
 	return out, err
+}
+
+// markClientCerts sets each client certificate's state at this moment (D-75): a copy of the
+// validity the kubeconfig sources described, so that a list kept elsewhere is not changed.
+func (s *Session) markClientCerts(list []ContextInfo) {
+	now := s.opts.Now()
+	for i := range list {
+		if v := list[i].ClientCert; v != nil {
+			list[i].ClientCert = v.At(now)
+		}
+	}
 }
 
 // Connect connects a context through the connector and opens the default view: Pods if the

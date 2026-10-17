@@ -19,8 +19,8 @@ import (
 // The welcome page's cluster rows (welcome.go): the cluster's badge, its title with pills for what
 // the user should know before connecting (the kubeconfig's current context, the demo, the source,
 // a login program or an unchecked connection waiting for the user's approval, a certificate the
-// kubeconfig does not check), a subtitle, and a warning icon after a failed connect that opens the
-// connect's log. The context picker had the same rows until it went (D-57, 2026-10-15); the
+// kubeconfig does not check, the client certificate's time left: D-75, welcome.go), a subtitle,
+// and a warning icon after a failed connect that opens the connect's log. The context picker had the same rows until it went (D-57, 2026-10-15); the
 // navigator's section lists every cluster in rows of its own (navigator_sections.go).
 
 // demoLabel is how the welcome page and the section's tooltip name the synthetic demo cluster.

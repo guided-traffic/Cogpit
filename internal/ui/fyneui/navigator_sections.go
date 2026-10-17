@@ -50,6 +50,8 @@ import (
 //     approval, and a certificate the kubeconfig does not check, with the server the credential
 //     goes to; a row whose last connect failed has Show Connection Updates… in its menu, the log
 //     the picker's warning icon opened (G2);
+//   - under the name of a context whose user logs in with a client certificate, its time left or
+//     since when it expired (D-75, the owner's F22 of 2026-10-17; clientcert.go);
 //   - a click on a row or its ›, → or ↵ drills into the cluster (ui.setNavigatorScope): a cluster
 //     not connected is connected through the engine, its login program shown for approval first;
 //     ↑↓, Home and End move, ← goes to the cluster's heading (or the root), Escape clears the
@@ -309,6 +311,20 @@ func (n *navSections) shownAbove(id string) string {
 		return navSourcePrefix + sourceGroup(c)
 	}
 	return navSectionRoot
+}
+
+// refreshCerts shows the client certificates' lines as the clock moved on (shell.certsTick): only
+// the rows whose line changed are laid out again.
+func (n *navSections) refreshCerts() {
+	changed := false
+	for _, r := range n.rows {
+		if r.info.ClientCert != nil && r.setCert() {
+			changed = true
+		}
+	}
+	if changed {
+		n.list.Refresh()
+	}
 }
 
 // isShown reports whether a keyboard id is a row the section shows.
@@ -755,7 +771,8 @@ func (r *navSectionRootRow) CreateRenderer() fyne.WidgetRenderer {
 
 // navContextRow is one cluster of the section: its badge, display name, connection dot and ›,
 // and a warning icon before the dot for a context whose kubeconfig does not check the server's
-// certificate (the picker's pill until D-57; the tooltip says why).
+// certificate (the picker's pill until D-57; the tooltip says why). Under the name, for a context
+// whose user logs in with a client certificate, how long it is valid (D-75, clientcert.go).
 type navContextRow struct {
 	widget.BaseWidget
 	n        *navSections
@@ -763,6 +780,7 @@ type navContextRow struct {
 	info     engine.ContextInfo
 	badge    *clusterBadge
 	title    *textLine
+	cert     *textLine // the client certificate's time left or "expired" (D-75); hidden without one
 	insecure *widget.Icon
 	dot      *connDot
 	next     *navIconButton
@@ -782,15 +800,36 @@ func newNavContextRow(n *navSections, id string) *navContextRow {
 		bg: canvas.NewRectangle(color.Transparent), ring: canvas.NewRectangle(color.Transparent)}
 	r.title = newTextLine("", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{})
 	r.title.truncate = true
+	r.cert = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
+	r.cert.truncate = true
+	r.cert.Hide()
 	r.next = newNavIconButton(n.s.sh, iconChevronRight, "", func() { n.tapped(id) })
 	r.insecure = widget.NewIcon(themedIcon(theme.WarningIcon(), colorStatusWarning))
 	r.insecure.Hide()
 	r.body = inset(theme.SizeNamePadding, theme.SizeNamePadding, container.NewBorder(nil, nil,
 		container.NewHBox(container.NewCenter(r.badge), newSpace(theme.SizeNamePadding)),
 		container.NewHBox(container.NewCenter(r.insecure), container.NewCenter(r.dot), container.NewCenter(r.next)),
-		container.NewVBox(layout.NewSpacer(), r.title, layout.NewSpacer())))
+		container.NewVBox(layout.NewSpacer(), r.title, r.cert, layout.NewSpacer())))
 	r.ExtendBaseWidget(r)
 	return r
+}
+
+// setCert shows the client certificate's line as of now (D-75): its time left or since when it
+// expired, in its state's colour; hidden for a context without one. It reports whether the line
+// changed.
+func (r *navContextRow) setCert() bool {
+	text, color := certLine(r.info.ClientCert, r.n.s.sh.now())
+	if text == r.cert.text && color == r.cert.color && (text != "") == r.cert.Visible() {
+		return false
+	}
+	r.cert.SetText(text)
+	r.cert.SetColor(color)
+	if text == "" {
+		r.cert.Hide()
+	} else {
+		r.cert.Show()
+	}
+	return true
 }
 
 // set shows a context as listed now.
@@ -805,6 +844,7 @@ func (r *navContextRow) set(c engine.ContextInfo) {
 		r.title.Refresh()
 	}
 	r.dot.setMark(c.Name, n.dotMark(c))
+	r.setCert()
 	if c.Insecure != r.insecure.Visible() {
 		if c.Insecure {
 			r.insecure.Show()
@@ -822,7 +862,7 @@ const connectLogItem = "Show Connection Updates…"
 // tipText is the row's tooltip: the context's full name (the row shows the short one, D-68) and the
 // kubeconfig source it comes from, then a line for each thing to know before connecting (D-57): why
 // the last connect failed, a login waiting for the user's approval, a certificate the kubeconfig
-// does not check.
+// does not check, and the client certificate's dates (D-75).
 func (r *navContextRow) tipText() string {
 	c, ui := r.info, r.n.s.sh.ui
 	lines := []string{kubeconfig.DisplayText(engine.ContextLabel(c.Name), maxShownPath)}
@@ -843,6 +883,9 @@ func (r *navContextRow) tipText() string {
 	}
 	if c.Insecure {
 		lines = append(lines, insecureNote(c))
+	}
+	if tip := r.n.s.sh.certTip(c.ClientCert); tip != "" {
+		lines = append(lines, tip)
 	}
 	return strings.Join(lines, "\n")
 }
