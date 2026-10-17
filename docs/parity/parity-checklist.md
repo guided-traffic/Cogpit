@@ -349,7 +349,7 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | A link to the owner at the status bar's left end, opening hans-fischer.com in the browser on a click, a GUI link and not a command (D-23) | done | [Everyday use](beyond-lens.md#everyday-use) |
 | The window's layout from the top bar, as VS Code's title bar has it: three toggles at its right end that show and hide the navigator (⌘B),… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | Restore the last session at start, a preference that is off by default: on, the tabs of the last run come back and the clusters connected a… | done | [Everyday use](beyond-lens.md#everyday-use) |
-| How long a context's client certificate is valid, where the user chooses a cluster: the time left or "expired" and since when, for a contex… | done | [Everyday use](beyond-lens.md#everyday-use) |
+| How long a context's client certificate is valid, where the user chooses a cluster: the time left or "expired" (just that, the owner, 2026-… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | Drag a hotbar tile out of the window and drop it to open that cluster in another Cogpit window (owner, 2026-10-14 evening) | missing | [Everyday use](beyond-lens.md#everyday-use) |
 | cogpit-cli contexts lists the contexts Cogpit offers, from the app's kubeconfig sources and with its credential plugin approvals, as a tabl… | done | [Command line](beyond-lens.md#command-line) |
 | cogpit-cli get <kind> [name] reads objects from a headless engine's cache, as the views show them, read-only, Secret values never printed | partial | [Command line](beyond-lens.md#command-line) |

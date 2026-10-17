@@ -2271,7 +2271,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   context's, are read (`TestClusterNamespacesField`, `TestNamespaceFilterOffersAccessibleNamespaces`).
 - **Built 2026-10-17 (the owner's F22, [D-75](../developer/decisions.md#d-75-a-client-certificates-validity-in-the-cluster-lists)):**
   the cluster lists say how long a context's client certificate is valid: the navigator's section a
-  second line under the name ("cert expires in 23 days", "cert expired 3 days ago"; muted, the
+  second line under the name ("cert expires in 23 days", "expired" alone (the owner, 2026-10-17); muted, the
   warning colour within 14 days or the last fifth of its lifetime, the error colour once expired),
   the welcome page a pill, the row's and the hotbar tile's tooltips the date; `cluster.contexts`'
   `clientCert` and `cogpit-cli contexts`' CLIENT CERT. Only the leaf's two dates, never the key; a

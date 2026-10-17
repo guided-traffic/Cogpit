@@ -98,7 +98,7 @@ func TestClusterListsShowTheClientCertificate(t *testing.T) {
 	}{
 		certValid:   {"cert expires in 65 days", "client certificate expires in 65 days", colorMuted},
 		certNear:    {"cert expires in 5 days", "client certificate expires in 5 days", colorStatusWarning},
-		certExpired: {"cert expired 3 days ago", "client certificate expired 3 days ago", colorStatusError},
+		certExpired: {"expired", "expired", colorStatusError}, // just "expired" (the owner, 2026-10-17)
 	}
 
 	t.Run("the navigator's section", func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestClusterListsShowTheClientCertificate(t *testing.T) {
 			}
 		}
 		exp := certValidities[certExpired].NotAfter
-		line := "Client certificate expired 3 days ago (valid until " + tf(sh, exp) + ")"
+		line := "Client certificate expired (valid until " + tf(sh, exp) + ")"
 		if tip := n.rows[certExpired].tipText(); !strings.HasSuffix(tip, "\n"+line) {
 			t.Errorf("the expired row's tooltip %q, want it to end in %q", tip, line)
 		}
@@ -143,7 +143,7 @@ func TestClusterListsShowTheClientCertificate(t *testing.T) {
 		w := welcomeShown(t, sh, q)
 		q.until(t, "every row", func() bool { return len(w.rows) == len(f.contexts) })
 		for id, wnt := range want {
-			p := pillOf(welcomeRowOf(t, sh, id[:strings.Index(id, " [")]), "client certificate")
+			p := pillOf(welcomeRowOf(t, sh, id[:strings.Index(id, " [")]), wnt.pill) // an expired one's reads "expired" alone
 			if p == nil || p.text != wnt.pill || p.fg != wnt.color {
 				t.Errorf("%s: pill %+v, want %q in %s", id, p, wnt.pill, wnt.color)
 			}
@@ -171,12 +171,12 @@ func TestClientCertificateLinesFollowTheClock(t *testing.T) {
 	if r := n.rows[certValid]; r.cert.text != "cert expires in 61 days" {
 		t.Errorf("the valid line %q", r.cert.text)
 	}
-	if r := n.rows[certExpired]; r.cert.text != "cert expired 6 days ago" {
+	if r := n.rows[certExpired]; r.cert.text != "expired" {
 		t.Errorf("the expired line %q", r.cert.text)
 	}
 	sh.now = func() time.Time { return certValidities[certNear].NotAfter.Add(time.Hour) }
 	sh.certsTick()
-	if r := n.rows[certNear]; r.cert.text != "cert expired 1 h ago" || r.cert.color != colorStatusError {
+	if r := n.rows[certNear]; r.cert.text != "expired" || r.cert.color != colorStatusError {
 		t.Errorf("after its end: %q in %s", r.cert.text, r.cert.color)
 	}
 	if got := len(f.callsOf("cluster.contexts")); got != reads {
