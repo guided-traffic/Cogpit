@@ -22,7 +22,7 @@ update key in the environment `sparkle` ([the appcast](#the-appcast)). The owner
 2026-10-15 ([setting up Sparkle](#setting-up-sparkle)) and the releases carry it since v0.11.0;
 v0.13.0 to v0.16.0 passed notarization (v0.9.0 to v0.12.0 did not; v0.13.0's files came with a
 re-run after the 330-minute wait), and since 2026-10-16 ~06:20
-UTC Pages serves the signed feed with 0.16.0 and 0.15.0, approved by the owner; v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC) and v0.21.0 (23:39 UTC) followed in the night and v0.22.0 on 2026-10-17 (08:14 UTC), their appcasts waiting for the owner's approval. The first
+UTC Pages serves the signed feed with 0.16.0 and 0.15.0, approved by the owner; v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC) and v0.21.0 (23:39 UTC) followed in the night and v0.22.0 (08:14 UTC) and v0.22.1 (09:32 UTC) on 2026-10-17, their appcasts waiting for the owner's approval. The first
 installed copy updated itself through it on 2026-10-16: the owner's, from 0.15.0 to 0.16.0
 ([the appcast](#the-appcast)).
 Platform targets and how they compare with Lens Desktop:

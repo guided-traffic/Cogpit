@@ -95,7 +95,7 @@ windows (item 10).
    the notarize job of 163664f2 waits, and a re-run of its failed jobs found it accepted and
    attached the disk image (2026-10-15 23:52 UTC). **v0.14.0 and v0.15.0 passed on 2026-10-16** (53 and 7
    minutes) and carry their disk images, v0.16.0 too. **Since 2026-10-16 ~06:20 UTC Pages serves
-   the signed feed with 0.16.0 and 0.15.0** (the owner approved both; v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC) and v0.21.0 (23:39 UTC) followed in the night and v0.22.0 on 2026-10-17 (08:14 UTC), their appcasts waiting for the owner's approval). **The first real update
+   the signed feed with 0.16.0 and 0.15.0** (the owner approved both; v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC) and v0.21.0 (23:39 UTC) followed in the night and v0.22.0 (08:14 UTC) and v0.22.1 (09:32 UTC) on 2026-10-17, their appcasts waiting for the owner's approval). **The first real update
    went through the same morning:** the owner's MacBook from 0.15.0 to 0.16.0 (after removing
    Sparkle's last check time, the launch check showed the Update button; its click and Sparkle's
    install did the rest: a person's observation). Why Apple held the earlier ones is

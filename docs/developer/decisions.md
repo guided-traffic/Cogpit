@@ -7159,7 +7159,7 @@ Verbindungsaufbau soll dadurch nicht blockiert werden, auch wenn er fehlschlagen
 
 **Built 2026-10-17** (the lead's brief, built by its agent G): for a context whose user logs in with
 a client certificate (`client-certificate-data`, or a `client-certificate` file), Cogpit reads the
-certificate's NotBefore and NotAfter and shows the time left, or "expired" and since when, where
+certificate's NotBefore and NotAfter and shows the time left, or "expired" (since 2026-10-17 without since when, the owner), where
 the user chooses a cluster. Lens's cluster list shows no certificate: this is Cogpit's own
 ([beyond Lens › Everyday use](../parity/beyond-lens.md#everyday-use)).
 

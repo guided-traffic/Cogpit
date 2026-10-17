@@ -2379,7 +2379,7 @@ D-1 is decided for Fyne ([results](../developer/spike-fyne.md#results)).
   Checked locally with a throwaway key; the releases carry the owner's key since v0.11.0; v0.14.0 and
   v0.15.0 passed notarization on 2026-10-16 and carry their disk images (v0.13.0 too: Apple kept
   it "In Progress" beyond the 330-minute wait, and a re-run attached it at 2026-10-15 23:52 UTC), and since that morning Pages serves the signed feed with
-  0.16.0 and 0.15.0 (approved by the owner; v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC) and v0.21.0 (23:39 UTC) followed in the night and v0.22.0 on 2026-10-17 (08:14 UTC), their appcasts waiting for the owner's approval). The same morning the first installed copy updated
+  0.16.0 and 0.15.0 (approved by the owner; v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC) and v0.21.0 (23:39 UTC) followed in the night and v0.22.0 (08:14 UTC) and v0.22.1 (09:32 UTC) on 2026-10-17, their appcasts waiting for the owner's approval). The same morning the first installed copy updated
   through it: the owner's MacBook from 0.15.0 to 0.16.0, the launch check's Update button clicked
   and Sparkle's install (a person's observation, not a test), so the signed manifest is done for
   macOS; the one-click update stays partial for Windows and Linux. Not observed: a scheduled check

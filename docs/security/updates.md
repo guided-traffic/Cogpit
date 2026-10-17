@@ -8,7 +8,7 @@ and the release pipeline signs and publishes its appcast
 key on 2026-10-15 and every release since v0.11.0 is built with it; v0.14.0 to v0.16.0 passed
 notarization on 2026-10-16, and since ~06:20 UTC that day Pages serves the signed feed with 0.16.0
 and 0.15.0 (the owner approved the appcasts; checked: the feed's signature and the 0.16.0 disk
-image's EdDSA signature against the public key); v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC) and v0.21.0 (23:39 UTC) followed in the night and v0.22.0 on 2026-10-17 (08:14 UTC), their appcasts waiting for the owner's approval. The first installed copy updated on 2026-10-16:
+image's EdDSA signature against the public key); v0.17.0 to v0.19.0 followed the same day with their disk images, each appcast approved in release order, so by the evening the feed holds 0.19.0, 0.18.0, 0.17.0, 0.16.0 and 0.15.0; v0.20.0 (2026-10-16 19:21 UTC) and v0.21.0 (23:39 UTC) followed in the night and v0.22.0 (08:14 UTC) and v0.22.1 (09:32 UTC) on 2026-10-17, their appcasts waiting for the owner's approval. The first installed copy updated on 2026-10-16:
 the owner's, from 0.15.0 to 0.16.0, through the signed feed and Sparkle's install (a person's
 observation; [setting up Sparkle](../developer/releasing.md#setting-up-sparkle)). `cogpit-cli` has no
 updater of its own: since 2026-10-14 it is part of the app bundle

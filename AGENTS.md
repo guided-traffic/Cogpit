@@ -26,7 +26,7 @@ terminal with a verified kubectl download, pod shells,
 `cogpit-cli` with an MCP stdio bridge, Flux CD and Argo CD sections, a node shell, a built-in agent chat
 on OpenAI-compatible endpoints (local models first), CI on every push, releases
 with a signed, notarized disk image in the window the owner chose and Sparkle 2 updates through a
-signed feed, checked at every start (the first installed copy updated on 2026-10-16; v0.22.0 the
+signed feed, checked at every start (the first installed copy updated on 2026-10-16; v0.22.1 the
 newest, released 2026-10-17), and MCP control of all of it (M9 done: an external agent's triage and change
 workflows over MCP on kind); it doubled
 as the Fyne spike ([results](docs/developer/spike-fyne.md#results)).
