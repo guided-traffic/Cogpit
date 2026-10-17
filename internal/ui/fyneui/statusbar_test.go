@@ -168,7 +168,7 @@ func TestSnapshotsOnlyInDiagnostics(t *testing.T) {
 		{"connected", diagnosticsFake, true, []string{"kind-dev", "API 41 req · list 6 · watch 7", "6 informers"}, "318 table snapshots"},
 		{"demo", func(t *testing.T) *fakeEngine { return connectedFake(t, 20) }, true,
 			[]string{"demo", "API 1,284 req · list 12 · watch 9", "6 informers", "demo 10,870 objects · 1,000 events/s"}, "5,321 table snapshots"},
-		{"no cluster", noCluster, false, []string{"no cluster", "API 0 req · list 0 · watch 0", "0 informers"}, "No cluster connected · 42 table snapshots built"},
+		{"no cluster", noCluster, false, []string{"Not connected", "API 0 req · list 0 · watch 0", "0 informers"}, "Not connected · 42 table snapshots built"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := tc.fake(t)

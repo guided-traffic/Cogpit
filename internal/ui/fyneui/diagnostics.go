@@ -214,7 +214,7 @@ func discoveryText(r engine.DiagnosticsReport) string {
 // noneText is what an empty column says: that no cluster is connected, or text.
 func noneText(r engine.DiagnosticsReport, text string) string {
 	if !r.Connected {
-		return "No cluster connected."
+		return notConnected + "."
 	}
 	return text
 }
@@ -222,7 +222,7 @@ func noneText(r engine.DiagnosticsReport, text string) string {
 // diagnosticsSummary is the tab's first line.
 func diagnosticsSummary(r engine.DiagnosticsReport) string {
 	if !r.Connected {
-		return fmt.Sprintf("No cluster connected · %s table snapshots built", formatCount(int64(r.Snapshots)))
+		return fmt.Sprintf("%s · %s table snapshots built", notConnected, formatCount(int64(r.Snapshots)))
 	}
 	parts := []string{r.Context}
 	if r.Demo {

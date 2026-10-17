@@ -217,7 +217,7 @@ func newSidebar(sh *shell) *sidebar {
 	s := &sidebar{sh: sh, children: map[string][]string{}, titles: map[string]string{}, parents: map[string]string{},
 		open: map[string]bool{}}
 	s.badge = newClusterBadge()
-	s.name = newTextLine("Not connected", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
+	s.name = newTextLine(notConnected, theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	s.subtitle = newTextLine("", colorMuted, theme.SizeNameCaptionText, fyne.TextStyle{})
 	// The sidebar's width is the user's (panelwidths.go): a long context name is cut, not widened.
 	s.name.truncate, s.subtitle.truncate = true, true
@@ -313,7 +313,7 @@ func (s *sidebar) updateHeader() {
 	s.rootRow.showCluster(ui.Context != "")
 	if ui.Context == "" {
 		s.badge.set("–", true)
-		s.name.SetText("Not connected")
+		s.name.SetText(notConnected)
 		s.setSubtitle("", colorMuted, "", nil)
 		return
 	}

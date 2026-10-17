@@ -20,6 +20,14 @@ import (
 	logoart "github.com/guided-traffic/cogpit/internal/ui/logo"
 )
 
+// notConnected is what the window says where no cluster is connected: the top bar and the status
+// bar in place of a cluster's name, the navigator's head, the View menu, an empty view and the
+// Diagnostics, in the same words and case everywhere (the owner's walk, 2026-10-17, WF2: "No
+// Cluster" above and "no cluster" below; "eher not connected"). The engine's reasons for a
+// disabled command keep "no cluster connected": a reason in a sentence ("… — no cluster connected"),
+// which agents read too (the lead's decision).
+const notConnected = "Not connected"
+
 // connectionText describes a connection state in a word or two: the dots' tooltips (conndot.go)
 // and the navigator's; the bars show the dot alone (F13).
 func connectionText(c engine.Connection) string {
@@ -35,7 +43,7 @@ func connectionText(c engine.Connection) string {
 	case engine.LoginExpired:
 		return "Login expired"
 	}
-	return "Not connected"
+	return notConnected
 }
 
 // topBar is the window's top bar: the Cogpit wordmark and the build's version (F12), the history
@@ -109,7 +117,7 @@ func (t *topBar) update() {
 	ui := t.sh.ui
 	t.dot.setMark(ui.Context, t.sh.mark(ui.Context, false)) // the shown cluster's mark (clustermarks.go)
 	_, file := splitContextID(ui.Context)
-	name, tip := "No cluster", ""
+	name, tip := notConnected, "" // the same words in both bars and the navigator (the owner's walk, WF2)
 	if ui.Context != "" {
 		name = t.sh.identity(ui.Context).name // the one short name (D-68)
 		tip = fullNameTip(name, ui.Context)
@@ -388,7 +396,7 @@ func (l *statusLayout) show(on bool) {
 func (s *statusBar) update() {
 	ui, d := s.sh.ui, s.sh.diag
 	s.dot.setMark(ui.Context, s.sh.mark(ui.Context, false)) // the shown cluster's mark (clustermarks.go)
-	name, tip := "no cluster", ""
+	name, tip := notConnected, ""
 	if ui.Context != "" {
 		name, tip = s.sh.identity(ui.Context).name, ui.Context // the short name; the full context id, its file included
 	}

@@ -1001,7 +1001,7 @@ func (sh *shell) mainMenu() *fyne.MainMenu {
 		}))
 	}
 	if len(items) == 0 {
-		none := fyne.NewMenuItem("No cluster connected", nil)
+		none := fyne.NewMenuItem(notConnected, nil)
 		none.Disabled = true
 		items = append(items, none)
 	}
