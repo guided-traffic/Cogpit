@@ -22,10 +22,10 @@ import (
 // italic (that italic means preview is inferred), hovering a tab shows its full title; a single
 // click in the navigator opens a preview tab, a double click or ⇧↵ a fixed tab. Cogpit's defaults
 // (inferred, not the owner's decision, 2026-10-13):
-//   - a tab's icon is the cluster's initials badge in its icon colour (cluster settings, the accent
-//     by default), drawn as the navigator's root and the hotbar's tiles draw it (an uploaded image
-//     shows there, not yet on a tab), muted while its
-//     cluster is not connected (D-69 stage 2: a tab of another connected cluster is not muted);
+//   - a tab's icon is the cluster's icon as the navigator and the hotbar's tiles show it (cluster
+//     settings, clusteridentity.go): its uploaded image, else its initials badge in its icon colour,
+//     the accent by default (the owner's F25, 2026-10-17); muted while its cluster is not connected,
+//     an image faded (D-69 stage 2: a tab of another connected cluster is not muted);
 //   - the bar takes the dock's tab colours; the active tab is raised and underlined in the accent
 //     colour, as the dock's active tab is;
 //   - a title wider than the dock's widest tab title is cut with an ellipsis; tabs that do not fit
@@ -278,7 +278,7 @@ type viewTab struct {
 	tab     engine.ViewTab
 	active  bool
 	live    bool            // its cluster is connected, shown or not (D-69)
-	id      clusterIdentity // its cluster's initials and icon colour (cluster settings)
+	id      clusterIdentity // its cluster's initials, icon colour and uploaded image (cluster settings)
 	hovered bool
 	close   *widget.Button
 }
@@ -302,7 +302,7 @@ func newViewTab(b *tabBar) *viewTab {
 // set changes what the tab shows.
 func (t *viewTab) set(tab engine.ViewTab, active, live bool, id clusterIdentity) {
 	if tab.ID == t.tab.ID && tab.Title == t.tab.Title && tab.Preview == t.tab.Preview && tab.Context == t.tab.Context &&
-		active == t.active && live == t.live && id.initials == t.id.initials && id.ink == t.id.ink {
+		active == t.active && live == t.live && id.initials == t.id.initials && id.ink == t.id.ink && id.image == t.id.image {
 		t.tab = tab
 		return
 	}
@@ -346,7 +346,8 @@ func (t *viewTab) MouseOut() {
 func (t *viewTab) CreateRenderer() fyne.WidgetRenderer {
 	r := &viewTabRenderer{t: t, bg: canvas.NewRectangle(color.Transparent), under: canvas.NewRectangle(color.Transparent),
 		badge: canvas.NewRectangle(color.Transparent), initials: canvas.NewText("", color.Transparent),
-		title: canvas.NewText("", color.Transparent)}
+		title: canvas.NewText("", color.Transparent),
+		img:   &canvas.Image{FillMode: canvas.ImageFillContain, ScaleMode: canvas.ImageScaleSmooth}}
 	r.initials.TextStyle = fyne.TextStyle{Bold: true}
 	r.Refresh()
 	return r
@@ -356,7 +357,12 @@ type viewTabRenderer struct {
 	t                *viewTab
 	bg, under, badge *canvas.Rectangle
 	initials, title  *canvas.Text
+	img              *canvas.Image // the cluster's uploaded icon in the badge's place (clusteridentity.go)
 }
+
+// notLiveFade is how much a tab fades its cluster's image while the cluster is not connected, as
+// its initials take the muted colour.
+const notLiveFade = 0.55
 
 // dims are the inner padding, the badge's side, the widest title and the title's style.
 func (r *viewTabRenderer) dims() (pad, side, maxText float32, style fyne.TextStyle) {
@@ -388,6 +394,8 @@ func (r *viewTabRenderer) Layout(size fyne.Size) {
 	r.under.Resize(fyne.NewSize(size.Width, line))
 	r.badge.Move(fyne.NewPos(pad, (size.Height-side)/2))
 	r.badge.Resize(fyne.NewSize(side, side))
+	r.img.Move(r.badge.Position())
+	r.img.Resize(r.badge.Size())
 	is := r.initials.MinSize()
 	r.initials.Move(fyne.NewPos(pad+(side-is.Width)/2, (size.Height-is.Height)/2))
 	r.initials.Resize(is)
@@ -421,6 +429,21 @@ func (r *viewTabRenderer) Refresh() {
 	}
 	r.initials.Color = ink
 	r.initials.TextSize = th.Size(theme.SizeNameCaptionText)
+	if t.id.image != nil { // the uploaded icon in place of the initials (F25), faded while not connected
+		r.img.Resource = t.id.image
+		r.img.Translucency = 0
+		if !t.live {
+			r.img.Translucency = notLiveFade
+		}
+		r.img.Show()
+		r.badge.Hide()
+		r.initials.Hide()
+	} else {
+		r.img.Resource = nil
+		r.img.Hide()
+		r.badge.Show()
+		r.initials.Show()
+	}
 	r.title.TextStyle = fyne.TextStyle{Italic: t.tab.Preview}
 	r.title.TextSize = th.Size(theme.SizeNameText)
 	switch {
@@ -438,13 +461,13 @@ func (r *viewTabRenderer) Refresh() {
 		r.under.FillColor = color.Transparent
 	}
 	r.Layout(t.Size())
-	for _, o := range []fyne.CanvasObject{r.bg, r.under, r.badge, r.initials, r.title} {
+	for _, o := range []fyne.CanvasObject{r.bg, r.under, r.badge, r.initials, r.img, r.title} {
 		o.Refresh()
 	}
 }
 
 func (r *viewTabRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.bg, r.under, r.badge, r.initials, r.title, r.t.close}
+	return []fyne.CanvasObject{r.bg, r.under, r.badge, r.initials, r.img, r.title, r.t.close}
 }
 
 func (r *viewTabRenderer) Destroy() {}

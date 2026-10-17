@@ -19,7 +19,7 @@ import (
 // parameters (engine.Spec.GUIOnly). A command that drops the mark fails here, and one that gains it
 // is checked by TestGUIOnlyCommandsRefuseOtherOrigins without being listed.
 var wantGUIOnly = []string{
-	"cluster.remove", "cluster.settings.setAgentWrites", "cluster.settings.uploadIcon", "dock.allowAgentRead",
+	"cluster.remove", "cluster.settings.setAgentWrites", "cluster.settings.setAccentColor", "cluster.settings.uploadIcon", "dock.allowAgentRead",
 	"kubeconfig.addFile", "kubeconfig.addFolder", "kubeconfig.approveExec", "kubeconfig.remove",
 	"kubectl.download", engine.SecretCreateCommand, engine.RevealCommand, "configMap.keepEdits",
 	engine.SecretReviewDataCommand, engine.SecretSaveDataCommand,

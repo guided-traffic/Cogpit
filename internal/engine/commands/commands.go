@@ -71,6 +71,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerClusterSettings(g)
 	registerIntegrations(g) // the question of a new cluster's integrations (D-76)
 	registerAllowance(g)
+	registerAccentColor(g) // a cluster's accent colour, the user's alone (D-80)
 	registerAudit(g)
 	registerDiagnostics(g)
 	registerTabs(g)

@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 120 | 117 | 9 | 108 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 65 | 62 | 52 | 10 | 3 |
+| Beyond Lens (not in feature breadth) | 66 | 63 | 52 | 11 | 3 |
 
 Not counted: 8 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -350,6 +350,7 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | The window's layout from the top bar, as VS Code's title bar has it: three toggles at its right end that show and hide the navigator (⌘B),… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | Restore the last session at start, a preference that is off by default: on, the tabs of the last run come back and the clusters connected a… | done | [Everyday use](beyond-lens.md#everyday-use) |
 | How long a context's client certificate is valid, where the user chooses a cluster: the time left or "expired" (just that, the owner, 2026-… | done | [Everyday use](beyond-lens.md#everyday-use) |
+| Every cluster has an accent colour beside its icon that the user configures, to mark parts of the window later so that the user sees at a g… | partial | [Everyday use](beyond-lens.md#everyday-use) |
 | Drag a hotbar tile out of the window and drop it to open that cluster in another Cogpit window (owner, 2026-10-14 evening) | missing | [Everyday use](beyond-lens.md#everyday-use) |
 | Cluster Settings › Integrations: each integration of the cluster switched on or off, and at once whether Cogpit found it automatically (and… | partial | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | A cluster without integration settings asks at its first connect which integrations to enable, with the same found or manual status per int… | partial | [Cluster integrations](beyond-lens.md#cluster-integrations) |

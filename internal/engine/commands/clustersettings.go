@@ -15,7 +15,8 @@ import (
 // Every command changes only Cogpit's own cluster settings file (and its icons folder), never a
 // cluster or a kubeconfig, so they are UI commands that agents run freely (D-2), except the icon
 // upload, which reads a file on this computer and is the user's own action in the window
-// (engine.ErrIconGUIOnly). The Prometheus a cluster's metrics come from stays cluster.setPrometheus.
+// (engine.ErrIconGUIOnly), and the accent colour, the user's own mark of the cluster (accentcolor.go,
+// D-80). The Prometheus a cluster's metrics come from stays cluster.setPrometheus.
 // Its integrations (D-76) agents switch on and off as the user does: a switch only changes what
 // Cogpit reads with the user's identity, never a write (the lead's decision, 2026-10-17); where an
 // integration is read from when it is not found by name (cluster.setPrometheus) stays the user's
@@ -86,7 +87,8 @@ func registerClusterSettings(g *registrar) {
 	add(g, engine.Spec[clusterSettingsParams]{
 		ID: "cluster.settings.get", Label: "Show Cluster Settings", Danger: engine.DangerRead,
 		Description: "Returns a context's settings in Cogpit, as its Settings page shows them: the name it shows (the display " +
-			"name set, else the context's name), its icon colour or uploaded image's format, the kubeconfig file it comes " +
+			"name set, else the context's name), its icon colour or uploaded image's format, its accent colour (accentColor: the " +
+			"user's mark of which cluster it is, a production one in red, say; only the user sets it), the kubeconfig file it comes " +
 			"from, its terminals' working directory and kubectl namespace (empty: $HOME and the filter's or the " +
 			"context's namespace), the metrics the window hides (hiddenMetrics; empty: all visible), the metrics source (metricsSource: " +
 			"auto, prometheus, metrics-server or none) and, while connected, the providers answering (metricsInUse), the integrations " +

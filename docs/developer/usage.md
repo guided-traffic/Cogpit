@@ -404,6 +404,29 @@ Cogpit's window, can turn it on; agents and the CLI may only turn it off. Two co
 program runs with the same command, arguments and environment share one login in client-go: it is
 held only while both are held.
 
+### Cluster Settings › General: the accent colour
+
+Since 2026-10-17 ([D-80](decisions.md#d-80-a-clusters-accent-colour), the owner's F26). Beside its
+icon every cluster can carry an **accent colour** you pick, your mark of which cluster it is (red for
+production, say), meant to mark parts of the window so that you see at a glance where you act. **The
+window does not use it anywhere yet:** where it shows is still open, so today you see it only in
+its own row. The row "Accent colour" sits below the icon: None (the crossed square, the default),
+the eight colours of the icon, a colour of your own from the palette button. A click applies it.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `accentColor` in `cluster-settings.json`, per context | none # default | one of `cyan`, `blue`, `violet`, `magenta`, `red`, `orange`, `yellow`, `green`, or `#rrggbb` (e.g. `"#d33682"` # example); absent: none. Set with the row, or `cluster.settings.setAccentColor {context?, color}` from the window (empty `color`: none) |
+
+Security note: only you set or clear it, in Cogpit's window. `cluster.settings.setAccentColor` is
+GUI-only: agents (over MCP and the built-in one) and `cogpit-cli` are refused, also where you allowed
+agents' writes, so no agent can make a production cluster look like a development one. Agents read
+it (`accentColor` in `ui_state` and `cluster_settings_get`). The cluster's name and icon colour stay
+agents' to change ([H-125](../security/agents-and-mcp.md#h-125-until-the-accent-colour-shows-a-clusters-name-and-icon-colour-are-agents-to-change)).
+
+The same page has copy icons (since 2026-10-17, F27): the one by **Cluster name** copies what the
+field shows (your display name, else the context's name in its kubeconfig), the one by
+**Kubeconfig** the file's whole path; a context merged from the default files has none there.
+
 ### Cluster Settings › Integrations, and the question at a new cluster's first connect
 
 Since 2026-10-17 ([D-76](decisions.md#d-76-integrations-per-cluster-and-the-question-at-a-new-clusters-first-connect), the owner's words). An integration is a tool

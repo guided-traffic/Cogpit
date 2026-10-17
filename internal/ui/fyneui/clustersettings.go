@@ -1,7 +1,6 @@
 package fyneui
 
 import (
-	"fmt"
 	"image/color"
 	"net/url"
 	"os"
@@ -36,7 +35,9 @@ import (
 // Cogpit installs nothing for its own features and reads what the cluster runs (D-61, owner
 // 2026-10-16); its Cost page is not built and not listed. Cogpit's own: the row of
 // colour swatches under the icon, which picks a colour in one click (the menu's Pick Icon Color
-// does the same).
+// does the same); since 2026-10-17 the cluster's accent colour below the icon (D-80,
+// clustersettings_accent.go) and copy icons by the name and the kubeconfig's path (F27,
+// clustersettings_copy.go).
 
 // clusterSectionLabels are the page's section titles, Lens's (captured).
 var clusterSectionLabels = map[string]string{engine.SectionGeneral: "General", engine.SectionProxy: proxySectionLabel,
@@ -175,11 +176,17 @@ func (p *settingsPage) clusterGeneralSection() fyne.CanvasObject {
 		}
 	}
 	p.controls["openFolder"] = open
-	kc := container.NewBorder(nil, nil, nil, open, container.NewStack(pathBg, inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, path)))
-	login, syncLogin := p.clusterLoginSetting() // clustersettings_login.go
+	// The copy icons of the name and the path (F27, clustersettings_copy.go).
+	nameCopy := p.settingCopyIcon("nameCopy", "Copy the cluster name", func() string { return p.shownClusterName(name) })
+	pathCopy := p.settingCopyIcon("kubeconfigCopy", "Copy the kubeconfig's path", func() string { return p.clusterView().Kubeconfig })
+	kc := container.NewBorder(nil, nil, nil, container.NewHBox(container.NewCenter(pathCopy), open),
+		container.NewStack(pathBg, inset(theme.SizeNameInnerPadding, theme.SizeNamePadding, path)))
+	accent, syncAccent := p.accentColorSetting() // clustersettings_accent.go
+	login, syncLogin := p.clusterLoginSetting()  // clustersettings_login.go
 
 	p.sync = func() {
 		syncLogin()
+		syncAccent()
 		v := p.clusterView()
 		name.SetPlaceHolder(v.ContextName)
 		set := ""
@@ -215,11 +222,20 @@ func (p *settingsPage) clusterGeneralSection() fyne.CanvasObject {
 			path.SetText("Merged from the default kubeconfig files ($KUBECONFIG, else ~/.kube/config).")
 			open.Disable()
 		}
+		if v.Kubeconfig != "" { // a sentence in the box is no path to copy
+			pathCopy.Show()
+		} else {
+			pathCopy.Hide()
+		}
 		path.Refresh()
 	}
+	nameSetting := p.setting("name", "Cluster name", "Shown in the hotbar, the navigator and the welcome page; the kubeconfig is not changed.",
+		container.NewBorder(nil, nil, nil, container.NewCenter(nameCopy), name))
+	p.controls["name"] = name // the field itself, not the row with its copy icon
 	return container.NewVBox(
-		p.setting("name", "Cluster name", "Shown in the hotbar, the navigator and the welcome page; the kubeconfig is not changed.", name),
+		nameSetting,
 		p.setting("icon", "Icon", "Upload an image (.png, .jpeg, .svg) or pick a colour; Cogpit keeps a copy in its own folder.", icon),
+		accent,
 		p.setting("kubeconfig", "Kubeconfig", "The file this context comes from.", kc),
 		login,
 	)
@@ -255,16 +271,10 @@ func (p *settingsPage) iconMenu(pos fyne.Position) {
 	widget.NewPopUpMenu(p.iconMenuModel, p.sh.win.Canvas()).ShowAtPosition(pos)
 }
 
-// pickCustomColor opens the colour picker for a cluster colour picked freely (A93); the window
-// draws it in a shade of its hue legible on each theme (identitycolor.go).
+// pickCustomColor opens the colour picker for an icon colour picked freely (A93; pickColor,
+// clustersettings_accent.go).
 func (p *settingsPage) pickCustomColor() {
-	d := dialog.NewColorPicker("Cluster colour", "Any colour: Cogpit draws it in a shade of its hue that stays legible on the light and the dark theme.",
-		func(c color.Color) {
-			r, g, b, _ := c.RGBA()
-			p.setCluster("iconColor", fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8))
-		}, p.sh.win)
-	d.Advanced = true
-	d.Show()
+	p.pickColor(iconPickerTitle, func(hex string) { p.setCluster("iconColor", hex) })
 }
 
 func (p *settingsPage) clusterTerminalSection() fyne.CanvasObject {

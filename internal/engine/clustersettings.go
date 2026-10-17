@@ -17,7 +17,8 @@ import (
 
 // Cluster settings (G13, docs/parity/ui-parity.md › Cluster settings): what the user sets for one
 // context in Cogpit, as Lens's cluster settings page holds it: the cluster's display name and
-// identity (an icon colour from the theme's accent palette, or an uploaded image), and the working
+// identity (an icon colour from the theme's accent palette, or an uploaded image, and since D-80 an
+// accent colour that marks it, the user's alone: accentcolor.go), and the working
 // directory and default namespace of that cluster's terminals. They are kept per context id in
 // ClusterSettingsFile under Cogpit's configuration directory, the images in ClusterIconsDir beside
 // it, never in a kubeconfig and never in the cluster (D-2: no implicit kubeconfig writes). They
@@ -72,6 +73,11 @@ type ClusterSettings struct {
 	// Icon is the uploaded image's file in ClusterIconsDir ("<sha256>.png" or "<sha256>.svg"),
 	// which takes the colour's place; empty: none.
 	Icon string `json:"icon,omitempty"`
+	// AccentColor is the cluster's accent colour (D-80, accentcolor.go): one of IconColors or
+	// "#rrggbb"; empty: none. The user's mark of which cluster this is (a production one in red),
+	// for parts of the window to show later; only the user sets or clears it, in Cogpit's window
+	// (ErrAccentColorGUIOnly).
+	AccentColor string `json:"accentColor,omitempty"`
 	// TerminalDir is the working directory of the cluster's local terminals: an absolute path,
 	// or one starting with $HOME or ~; empty: the home directory.
 	TerminalDir string `json:"terminalDir,omitempty"`
@@ -128,7 +134,7 @@ func (c ClusterSettings) IsZero() bool { return c.Equal(ClusterSettings{}) }
 // Equal reports whether two settings are the same; an empty list of accessible namespaces equals
 // none.
 func (c ClusterSettings) Equal(o ClusterSettings) bool {
-	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.TerminalDir == o.TerminalDir &&
+	return c.Name == o.Name && c.IconColor == o.IconColor && c.Icon == o.Icon && c.AccentColor == o.AccentColor && c.TerminalDir == o.TerminalDir &&
 		c.TerminalNamespace == o.TerminalNamespace && c.HiddenMetrics == o.HiddenMetrics && c.Proxy == o.Proxy && c.MetricsSource == o.MetricsSource &&
 		equalIntegrations(c.IntegrationsOff, o.IntegrationsOff) &&
 		slices.Equal(c.AccessibleNamespaces, o.AccessibleNamespaces) && c.AgentWrites == o.AgentWrites &&
@@ -146,6 +152,9 @@ func (c ClusterSettings) Check() error {
 	}
 	if c.Icon != "" && !validIconFile(c.Icon) {
 		return fmt.Errorf("icon %q is not an image Cogpit keeps", c.Icon)
+	}
+	if c.AccentColor != "" && !validIconColor(c.AccentColor) {
+		return fmt.Errorf("accent colour %q: one of %s, or #rrggbb", c.AccentColor, strings.Join(IconColors, ", "))
 	}
 	if err := checkTerminalDir(c.TerminalDir); err != nil {
 		return err
@@ -190,6 +199,9 @@ func (c *ClusterSettings) normalize() {
 	}
 	if c.Icon != "" && !validIconFile(c.Icon) {
 		c.Icon = ""
+	}
+	if c.AccentColor != "" && !validIconColor(c.AccentColor) {
+		c.AccentColor = ""
 	}
 	if checkTerminalDir(c.TerminalDir) != nil {
 		c.TerminalDir = ""
@@ -490,6 +502,9 @@ type ClusterSettingsView struct {
 	IconColor string `json:"iconColor,omitempty"`
 	// IconImage is the uploaded image's format, "png" or "svg"; empty without one.
 	IconImage string `json:"iconImage,omitempty"`
+	// AccentColor is the cluster's accent colour (one of IconColors, or #rrggbb), the user's mark of
+	// which cluster this is (D-80); empty: none. Only the user sets it, in Cogpit's window.
+	AccentColor string `json:"accentColor,omitempty"`
 	// Kubeconfig is the kubeconfig file the context comes from; empty for the demo cluster.
 	Kubeconfig string `json:"kubeconfig,omitempty"`
 	// TerminalDir is the terminals' working directory as set; empty means $HOME.
@@ -549,7 +564,7 @@ func (s *Session) ClusterSettingsView(context string) (ClusterSettingsView, erro
 		return ClusterSettingsView{}, err
 	}
 	v := ClusterSettingsView{Context: context, Name: ClusterName(context, cs), ContextName: ContextLabel(context),
-		NameSet: cs.Name != "", IconColor: cs.IconColor, TerminalDir: cs.TerminalDir,
+		NameSet: cs.Name != "", IconColor: cs.IconColor, AccentColor: cs.AccentColor, TerminalDir: cs.TerminalDir,
 		TerminalNamespace: cs.TerminalNamespace, HiddenMetrics: MetricNames(cs.HiddenMetrics),
 		Proxy: RedactProxyURL(cs.Proxy), AccessibleNamespaces: append([]string{}, cs.AccessibleNamespaces...),
 		AgentWrites: cs.AgentWrites, Kept: s.opts.ClusterSettings.Path() != "", RenewLoginInBackground: !cs.HoldBackgroundLogin,

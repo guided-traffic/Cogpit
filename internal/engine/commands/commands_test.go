@@ -176,6 +176,8 @@ var wantCommands = map[string]engine.Danger{
 	"view.rows": engine.DangerRead,
 	// The allowance of agent writes (D-2): GUI-only, Cogpit's own settings (TestAgentWritesAllowance).
 	"cluster.settings.setAgentWrites": engine.DangerUI,
+	// A cluster's accent colour (D-80): GUI-only, Cogpit's own settings (TestAccentColorIsTheUsers).
+	"cluster.settings.setAccentColor": engine.DangerUI,
 	// The audit log in the window and for agents (TestAuditListNewestFirstAndBounded).
 	"audit.list": engine.DangerRead, "audit.open": engine.DangerUI,
 	// The Diagnostics view (D-13): Cogpit's own counters, no request (TestDiagnosticsReport).
