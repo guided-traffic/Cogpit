@@ -256,7 +256,8 @@ func (f *statusFilter) set(states []string) {
 // groups, search, search toggles, status filter or sort.
 func tableStateChanged(st, old engine.UIState) bool {
 	return !slices.Equal(st.Namespaces, old.Namespaces) || !slices.Equal(st.Groups, old.Groups) ||
-		st.Filter != old.Filter || st.FilterOptions != old.FilterOptions || st.Sort != old.Sort || !slices.Equal(st.States, old.States)
+		st.Filter != old.Filter || st.FilterOptions != old.FilterOptions || st.Sort != old.Sort || !slices.Equal(st.States, old.States) ||
+		!slices.Equal(st.AlertBoard.Folded, old.AlertBoard.Folded) || !slices.Equal(st.AlertBoard.Expanded, old.AlertBoard.Expanded) // the alert board's folding (alertboard.go)
 }
 
 // statusFilterParams are ui.setStatusFilter's.

@@ -188,6 +188,11 @@ var wantCommands = map[string]engine.Danger{
 	"flux.reset": engine.DangerMutating, "flux.resetMany": engine.DangerMutating,
 	// The Flux dashboard (D-34), read from the cache (TestFluxDashboardCommand).
 	"flux.dashboard": engine.DangerRead,
+	// The Alertmanager integration (D-77): its alerts and board read from the last poll, the board's
+	// page and folding UI state, its address an agent may only ask for (TestAlertCommands).
+	"alerts.list": engine.DangerRead, "alerts.board": engine.DangerRead, "alerts.refresh": engine.DangerRead,
+	"alerts.open": engine.DangerUI, "alerts.fold": engine.DangerUI,
+	"cluster.alertmanager": engine.DangerRead, "cluster.setAlertmanager": engine.DangerUI,
 	// Argo CD (G23, D-36): Sync is destructive with prune (Escalate) (TestArgoSyncWritesTheOperation).
 	"argocd.application.sync": engine.DangerMutating, "argocd.application.syncMany": engine.DangerMutating,
 	"argocd.application.refresh": engine.DangerMutating, "argocd.application.refreshMany": engine.DangerMutating,

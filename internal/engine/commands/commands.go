@@ -55,6 +55,7 @@ func RegisterAll(r *engine.Registry) error {
 	registerStatusFilter(g)
 	registerOverview(g)
 	registerClusterOverview(g)
+	registerAlerts(g) // the Alertmanager integration: the alerts pill and the alert board (D-77)
 	registerKubeconfigs(g)
 	registerMetrics(g)
 	registerMetricsRange(g)

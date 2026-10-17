@@ -51,6 +51,9 @@ const (
 	// one was switched on or off; integrations.go); Event.View holds the context. Re-read them with
 	// cluster.settings.get or Session.IntegrationStatuses.
 	EventIntegrations EventType = "integrations"
+	// EventAlerts: what a cluster's Alertmanager answered changed (its alerts, or whether it
+	// answers; alerts.go, D-77); Event.View holds the context. Re-read the board with alerts.board.
+	EventAlerts EventType = "alerts"
 )
 
 // Toast levels (Event.Level).

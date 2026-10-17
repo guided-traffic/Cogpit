@@ -394,6 +394,14 @@ func (sh *shell) onEvent(ev engine.Event) {
 	case engine.EventIntegrations: // what Cogpit knows of a cluster's integrations (clustersettings_integrations.go, D-76)
 		ctx := ev.View
 		sh.do(func() { sh.integrationsChanged(ctx) })
+	case engine.EventAlerts: // the shown cluster's Alertmanager answered something new (alertboard.go, D-77)
+		contextID := ev.View
+		sh.do(func() {
+			if sh.ui.Context == contextID {
+				sh.view.alerts.request()
+			}
+			sh.settings.alertmanagerChanged() // its address's line (clustersettings_alertmanager.go)
+		})
 	case engine.EventDiagnostics:
 		sh.requestDiagnostics()
 	case engine.EventKinds:

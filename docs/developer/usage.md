@@ -66,6 +66,7 @@ unless it is marked *(planned)*; how far each one goes is measured row by row in
 - 🐙 Argo CD: its section in the navigator (Applications, Application Sets, Projects, and the repositories and clusters without their credentials), a dashboard of the Applications' health and sync state, Sync (with prune) and Refresh (normal or hard) through the Kubernetes API, on a selection too and within the project's sync windows, an Application's logs in one tab, and Argo CD's own UI through a port forward.
 - 🧪 Your images' vulnerability ratings from the Trivy Operator your cluster runs (since 2026-10-17): a pod's drawer rates each of its images, "Critical · 39" in red down to "Clean" in green, with the counts per severity, the containers that run it, when it was scanned and a link to the report; an image without a report says "Not scanned", a pod none of whose images has one shows nothing. With the cluster's Trivy integration switched off (D-76's switch per cluster, on by default), nothing of it is read or shown. Cogpit installs no scanner. *(planned)* the worst rating of every pod in the Pods list.
 - 📈 CPU and memory from the cluster's metrics-server and its Prometheus: columns in the Pods and Nodes lists, charts with requests and limits in the pod and node drawers, and the cluster Overview: CPU, Memory and Pods of the master or worker nodes over a time range, with the Issues (pods, nodes and workloads in trouble, warning events) below. A node's history, its network and its filesystem come from node-exporter where it runs. Cogpit installs nothing into your cluster for this: it finds the Prometheus and the exporters the cluster runs (your own charts, kube-prometheus-stack, the `prometheus` chart under any release name, and since 2026-10-16 night Thanos's Querier and VictoriaMetrics, single-node or the cluster's vmselect, by their usual service names) and reads them; where it finds no provider, the charts say so. A cluster that runs a Prometheus and a Thanos or VictoriaMetrics reads the Prometheus; name the other in Cluster Settings › Metrics › Prometheus service address (vmselect with the path prefix `/select/<tenant>/prometheus`).
+- 🚨 The cluster's alerts from its Alertmanager (since 2026-10-17): a pill in the title bar, red from a critical alert, orange from a warning, yellow from an info alert, with the number of every active alert; a click opens the alert board, the alerts grouped by severity and alert name, each with its summary, since when it fires, its runbook and the object it is about one click away. Found by its service's name, or set in the cluster's Settings; read only.
 - 🛡️ Never surprises a cluster: destructive actions confirm, nothing is installed or written implicitly.
 - 😴 Sleep and lost connections: when the Mac wakes, the network or a VPN changes, or the cluster stops answering, Cogpit notices within seconds, blinks the cluster's dot and shows a banner, keeps your views and tabs as they were, disables changes, and reconnects by itself; a login that expired asks you once ([below](#when-the-connection-breaks)).
 - 🤖 Fully controllable over MCP, the UI included: an agent sees what you see and navigates for you.
@@ -699,6 +700,35 @@ SystemPolicyDownloadsFolder io.guided-traffic.cogpit` # example asks again.
 On Windows and Linux (M11) the choosers are Fyne's dialogs, and Sync Files and Folders is
 Cogpit's own browser for files and folders together, one at a time.
 
+### Alerts: the pill and the alert board
+
+The cluster's Alertmanager, when the Alertmanager integration is on for it (the default), is read
+by Cogpit ([D-77](decisions.md#d-77-alertmanager-the-alerts-pill-and-the-alert-board)); Cogpit
+installs none.
+
+- **Where it comes from.** Cogpit looks among the cluster's services for one named as
+  kube-prometheus-stack, kube-prometheus, the Prometheus Operator or the alertmanager chart name
+  their Alertmanager (`monitoring/kube-prometheus-alertmanager` # example), and asks it once every
+  30 seconds, through the API server, for the alerts that fire and are neither silenced nor
+  inhibited; only while the cluster is the one shown. Your user needs `get services/proxy` on that
+  service. When it runs under another name, set **Alertmanager service address**
+  (`namespace/service:port`), **Use HTTPS** and **Alertmanager path prefix** in the cluster's
+  Settings › Metrics (until the Integrations section takes them); empty finds it by name again. The
+  line under the address says which one is in use.
+- **The pill,** left of the bell: red while an alert is critical, orange while one is a warning
+  (also `major` and any other or missing severity), yellow while one is info, the bell's colour
+  without alerts; its number is every alert, `99+` beyond 99, and the tooltip counts them by
+  severity. Alerts of severity `none` and the meta alerts Watchdog and InfoInhibitor are left out. A
+  dash means nothing answered yet: still looking, none found, not allowed or not answering (the
+  tooltip says which). When the Alertmanager stops answering, the pill keeps its last count for 5
+  minutes and its tooltip says since when. The pill is not there while the integration is off for
+  the cluster shown.
+- **The board,** a click on the pill or Alerts in the command palette (⌘⇧P): a fold per severity, worst first, in each a
+  card per alert name with its count; per alert its summary (a click shows the description), how
+  long it has fired and a Runbook link, and under it the namespace (a click narrows the board to
+  it) and the object it is about (a click opens it). The search and the namespace filter work as
+  in the lists. Nothing on the board changes Alertmanager: silences stay in Alertmanager's own UI.
+
 ### Commands and MCP tools
 
 Every command is an MCP tool. The table of all of them, with each one's danger and parameters,
@@ -756,7 +786,7 @@ Names Cogpit generates or expects. Paths are macOS paths; `<user config dir>` is
 | A terminal's own directory | `<temp dir>/cogpit-terminal-<random>/`, owner-only, removed on close, only when Cogpit puts a `kubectl` first: `bin/kubectl` (a link), `zsh/.zshenv` (zsh only), `bash/rc` (bash only, since 2026-10-14) | |
 | Node shell pod | `kube-system/cogpit-node-shell-<8 random characters>`, labels `app.kubernetes.io/name=cogpit-node-shell` and `app.kubernetes.io/managed-by=cogpit`, annotation `cogpit.io/node-shell-id=<random id>` (its journal entry's), deleted when the shell closes, else at the next connect to its context after a crash, else ended by its deadline, Cluster Settings › Node Shell › Maximum duration (2 hours unless the user sets 5 minutes to 24 hours; [why](../security/privilege-footprint.md#node-shell)) | `kube-system/cogpit-node-shell-k3v9q2mx` # example |
 | Node shell dock tab | id `nodeShell-<n>`, title `Node shell: <node>` | `Node shell: worker-1` # example |
-| Prometheus settings | `<user config dir>/Cogpit/metrics.json`, owner-only (0600): per context the Prometheus you named (namespace, service, port, path prefix) and, since 2026-10-16, how it is asked when not the defaults (`format`: `prometheus-operator` or `cadvisor`; `keepEmptyContainers`; `https`); never the kubeconfig | `{"prometheus":{},"query":{"kind-dev":{"https":true}}}` # example |
+| Prometheus and Alertmanager settings | `<user config dir>/Cogpit/metrics.json`, owner-only (0600): per context the Prometheus you named (namespace, service, port, path prefix) and, since 2026-10-16, how it is asked when not the defaults (`format`: `prometheus-operator` or `cadvisor`; `keepEmptyContainers`; `https`); since 2026-10-17 the Alertmanager you named (`alertmanager`: namespace, service, port, path prefix, `https`, D-77); never the kubeconfig | `{"prometheus":{},"query":{"kind-dev":{"https":true}},"alertmanager":{"kind-dev":{"namespace":"monitoring","service":"alertmanager-operated","port":"web"}}}` # example |
 | Demo context | `demo` (the synthetic cluster), development builds only; in a release `demo` is a kubeconfig context name like any other ([D-67](decisions.md#d-67-the-demo-cluster-stays-out-of-releases)) | |
 | Release build tag | `nodemo` (the Makefile's `DIST_TAGS`; `make dist-app` checks both binaries recorded it, `go version -m <binary>` shows `-tags=nodemo`) | |
 | Local kind cluster | cluster `cogpit`, context `kind-cogpit`, kubeconfig `.cache/kind/kubeconfig` | |
@@ -805,6 +835,7 @@ Identifiers the documentation uses:
 | `make kind-up`, `make kind-seed`, `make kind-down` | the local kind cluster and its seed |
 | `make kind-prometheus`, `make kind-prometheus-down` | a real Prometheus in the kind cluster (`monitoring/prometheus-server`, the `prometheus` chart) for the drawer's charts ([hack/kind](../../hack/kind/README.md#prometheus)) |
 | `make kind-kps`, `make kind-kps-down` | a minimal kube-prometheus-stack in the kind cluster (namespace `cogpit-kps`) |
+| `make kind-alertmanager`, `make kind-alertmanager-down` | one Alertmanager in the kind cluster (namespace `cogpit-alerts`, its Service `cogpit-alertmanager`, port `http`) for `TestKindAlertmanager`, which posts its own alerts and resolves them ([hack/kind](../../hack/kind/README.md#alertmanager)) |
 | `make kind-vm`, `make kind-vm-down` | VictoriaMetrics single-node and a small cluster in the kind cluster (namespace `cogpit-vm`), fed from the kind Prometheus ([hack/kind](../../hack/kind/README.md#victoriametrics)) |
 | `make kind-trivy`, `make kind-trivy-down` | Trivy Operator in the kind cluster (namespace `cogpit-trivy`), scanning only the test workloads in `cogpit-trivy-a` and `cogpit-trivy-b`, for `TestKindTrivy` ([hack/kind](../../hack/kind/README.md#trivy-operator)) |
 | `make sigstore-root` | refresh the sigstore trusted root `internal/kubectl` embeds ([D-50](decisions.md#d-50-kubectls-signature-check)) |

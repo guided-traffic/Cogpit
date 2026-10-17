@@ -57,6 +57,7 @@ type tableView struct {
 	cluster                    *clusterPanel
 	flux                       *fluxPanel      // the Flux dashboard's tiles (fluxdashboard.go)
 	argo                       *argoPanel      // the Argo CD Dashboard's strip, cards and activity (argocd_dashboard.go)
+	alerts                     *alertBoard     // the alert board, over the table while its page is open (alertboard.go, D-77)
 	pageTop                    *fyne.Container // the open page's part
 	eventsTitle                *textLine
 	eventsHeading, eventsTools *fyne.Container
@@ -178,6 +179,7 @@ func newTableView(sh *shell) *tableView {
 	tv.cluster = newClusterPanel(sh)
 	tv.flux = newFluxPanel(sh)
 	tv.argo = newArgoPanel(sh)
+	tv.alerts = newAlertBoard(sh)
 	tv.pageTop = container.NewStack(tv.overview.root)
 	tv.eventsTitle = newTextLine("Events", theme.ColorNameForeground, theme.SizeNameText, fyne.TextStyle{Bold: true})
 	tv.eventsHeading, tv.eventsTools = container.NewHBox(), container.NewHBox()
@@ -188,7 +190,7 @@ func newTableView(sh *shell) *tableView {
 	tv.pageBox.Hide()
 	frame := box(&stretchLayout{tv: tv}, tv.table)
 	tv.create = newCreateButton(sh)
-	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.order.layer, tv.copyIcon.layer, tv.placeholder, tv.create.floating())
+	body := container.NewStack(newSurface(theme.ColorNameBackground), frame, tv.order.layer, tv.copyIcon.layer, tv.placeholder, tv.create.floating(), tv.alerts.root)
 	tv.root = container.NewBorder(
 		container.NewVBox(header, tv.pageBox, inset(theme.SizeNameInnerPadding, "", tv.errLine), inset(theme.SizeNameInnerPadding, "", tv.scopeLine)),
 		nil, nil, nil, body)
@@ -200,8 +202,10 @@ func newTableView(sh *shell) *tableView {
 // selection bar: the bar takes their place (tablecheck.go).
 func (tv *tableView) showHeadingCount() {
 	show := tv.snap != nil && (tv.check.bar == nil || !tv.check.bar.root.Visible())
-	if show != tv.csvButton.Visible() {
-		if show {
+	csv := show && !tv.alerts.shown // the alert board's count has no table to download (alertboard.go)
+	show = show || tv.alerts.shown
+	if csv != tv.csvButton.Visible() {
+		if csv {
 			tv.csvButton.Show()
 		} else {
 			tv.csvButton.Hide()
@@ -221,7 +225,16 @@ func (tv *tableView) showHeadingCount() {
 // follows (the Workloads Overview's tiles, the cluster Overview's charts), then the table's own
 // header (Events, Issues) with its count, download button and search.
 func (tv *tableView) setPageLayout(view string) {
-	page := engine.IsPage(view)
+	// The alert board's header is a view's: its title and count, the namespace filter and the
+	// search; its body replaces the table (alertboard.go, D-77).
+	board := view == engine.AlertBoard
+	tv.alerts.setShown(board)
+	if board { // its groups are the severities: no status filter
+		tv.states.box.Hide()
+	} else {
+		tv.states.box.Show()
+	}
+	page := engine.IsPage(view) && !board
 	if page && view != tv.pageView {
 		tv.pageView = view
 		top, title := tv.overview.root, "Events"
@@ -286,6 +299,8 @@ func (tv *tableView) requestPage() {
 		tv.flux.request()
 	case view == engine.ArgoCDDashboard:
 		tv.argo.request()
+	case view == engine.AlertBoard:
+		tv.alerts.request()
 	case engine.IsPage(view):
 		tv.overview.request()
 	}
@@ -303,6 +318,9 @@ func (tv *tableView) rowNoun() string {
 	if tv.sh.ui.View == engine.ArgoCDDashboard {
 		return argoRowNoun(tv.sh) // argocd.go
 	}
+	if tv.sh.ui.View == engine.AlertBoard {
+		return "alerts"
+	}
 	if engine.IsPage(tv.sh.ui.View) {
 		return kindEvents // the kind key reads as the noun
 	}
@@ -319,7 +337,7 @@ func (tv *tableView) updateTitle() {
 	}
 	tv.title.SetText(title)
 	if tv.snap == nil {
-		tv.count.SetText("")
+		tv.count.SetText(tv.alerts.countText()) // "" unless the alert board shows (alertboard.go)
 		tv.syncing.SetText("")
 		tv.showHeadingCount()
 		return
@@ -453,6 +471,7 @@ func (tv *tableView) setSnapshot(snap *engine.TableSnapshot) {
 // refreshAges re-renders the visible cells so that age columns advance and absolute times follow
 // the Preferences' time zone.
 func (tv *tableView) refreshAges() {
+	tv.alerts.refreshAges() // the alert board's since texts (alertboard.go)
 	if tv.snap == nil {
 		return
 	}
@@ -463,6 +482,7 @@ func (tv *tableView) refreshAges() {
 // stateChanged follows namespace, filter, status filter and sort changes made anywhere (the user,
 // an agent).
 func (tv *tableView) stateChanged() {
+	tv.alerts.request() // the board's search, namespaces or folding changed (while it shows)
 	tv.syncSearch()
 	tv.toggles.sync()
 	tv.updateNamespaceButton()

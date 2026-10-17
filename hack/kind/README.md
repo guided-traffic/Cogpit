@@ -12,6 +12,7 @@ so Cogpit and kubectl never reach another cluster by accident.
 | [`prometheus-values.yaml`](prometheus-values.yaml) | the values `make kind-prometheus` installs the `prometheus` chart with; see [Prometheus](#prometheus) |
 | [`victoriametrics/`](victoriametrics/) | the manifests `make kind-vm` applies: VictoriaMetrics single-node and a small cluster in the namespace `cogpit-vm`; see [VictoriaMetrics](#victoriametrics) |
 | [`trivy-operator-values.yaml`](trivy-operator-values.yaml), [`trivy/`](trivy/) | the values `make kind-trivy` installs Trivy Operator with and the workloads it scans, in the namespaces `cogpit-trivy`, `cogpit-trivy-a` and `cogpit-trivy-b`; see [Trivy Operator](#trivy-operator) |
+| [`alertmanager/`](alertmanager/) | the manifests `make kind-alertmanager` applies: one Alertmanager in the namespace `cogpit-alerts`; see [Alertmanager](#alertmanager) |
 | [`drain-cluster.yaml`](drain-cluster.yaml) | the second, multi-node cluster `cogpit-drain` (one control plane, two workers) for the tests that cordon and drain a node; see [The drain cluster](#the-drain-cluster) |
 
 ## Use
@@ -147,6 +148,21 @@ Trivy Operator's own table of the reports:
 
 ```sh
 KUBECONFIG=.cache/kind/kubeconfig kubectl --context kind-cogpit get vulnerabilityreports -A -o wide
+```
+
+## Alertmanager
+
+`make kind-alertmanager` adds one Alertmanager for the check of D-77, `TestKindAlertmanager`:
+`quay.io/prometheus/alertmanager:v0.28.1`, its Service `cogpit-alerts/cogpit-alertmanager` (port
+`http` 9093, named as the alertmanager chart names its own, so Cogpit finds it by name), every alert
+routed to a receiver that sends nothing ([`alertmanager/`](alertmanager/), plain manifests). Nothing
+fires alerts into it: the test posts its own through the API server's service proxy (as the
+cluster's admin; Cogpit itself only reads) and resolves them at its end.
+
+```sh
+make kind-alertmanager        # apply the manifests and wait for the rollout
+make test-kind                # TestKindAlertmanager runs instead of skipping
+make kind-alertmanager-down   # delete the namespace cogpit-alerts
 ```
 
 ## The synthetic cluster

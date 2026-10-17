@@ -55,7 +55,7 @@ type topBar struct {
 	notes       *notificationsUI  // the bell and its panel (notifications.go)
 	left        *fyne.Container
 	right       *fyne.Container // the Update button, the alerts, the bell, a divider, the layout toggles
-	alerts      *alertsButton   // the alerts pill left of the bell (alerts.go), prepared without a source
+	alerts      *alertsButton   // the alerts pill left of the bell (alerts.go): the shown cluster's Alertmanager (D-77)
 	version     *buildLabel     // the build's version right of the wordmark (buildlabel.go, F12)
 	edge        *surface        // the line under the bar, directly under it (shell.go, F11)
 	titleHeight float32         // the title bar's height the bar covers, in Fyne units; 0 without

@@ -385,6 +385,19 @@ kind-trivy-down: ## Uninstall Trivy Operator, its CRDs and the namespaces cogpit
 		$(KUBECTL) delete --ignore-not-found $$crd; done
 	$(KUBECTL) delete namespace cogpit-trivy --ignore-not-found
 
+# Alertmanager for one check (TestKindAlertmanager, D-77): one Alertmanager in the namespace
+# cogpit-alerts, its Service named as the alertmanager chart names its own, so that Cogpit finds it
+# (hack/kind/alertmanager). The test posts its own alerts and resolves them at its end.
+.PHONY: kind-alertmanager kind-alertmanager-down
+
+kind-alertmanager: ## Install an Alertmanager into the kind cluster (namespace cogpit-alerts)
+	@test -s $(KIND_KUBECONFIG) || { echo "no kubeconfig at $(KIND_KUBECONFIG): run make kind-up first"; exit 1; }
+	$(KUBECTL) apply -f hack/kind/alertmanager/
+	$(KUBECTL) -n cogpit-alerts rollout status deployment --timeout 5m
+
+kind-alertmanager-down: ## Delete the kind cluster's Alertmanager and its namespace
+	$(KUBECTL) delete namespace cogpit-alerts --ignore-not-found
+
 # The drain cluster: one control plane and two workers, for the tests that cordon and drain a
 # node, which must never run against the shared single-node cluster above.
 KIND_DRAIN_CLUSTER    ?= cogpit-drain

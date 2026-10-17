@@ -8,7 +8,7 @@ this page.
 1. **A local MVP is built** (2026-10-11) and grew in the runs since: every view and action of
    Lens's list at least in part, the custom resource views from the cache, Helm, Flux CD and
    Argo CD, logs, terminals and shells, CI and releases, and MCP control through
-   [204 commands](commands.md) (2026-10-17); it doubled as the [Fyne spike](spike-fyne.md#results). What exists and
+   [211 commands](commands.md) (2026-10-17); it doubled as the [Fyne spike](spike-fyne.md#results). What exists and
    where it differs from the plan: [architecture › Current state](architecture.md#current-state-2026-10-16).
 2. **Go and Fyne.** The engine is Go on client-go, the kubectl libraries and the Helm SDK. The UI
    is Fyne: the [spike](spike-fyne.md) passed and D-1 is decided; re-checks on Windows and Linux
@@ -85,6 +85,7 @@ cogpit/
 | `internal/locale` | L1 | The computer's date and time format: macOS's region through CoreFoundation, else the environment's locale ([D-31](decisions.md#d-31-every-timestamp-in-the-local-time-zone-and-format)) |
 | `internal/helm` | L2 | Helm on the SDK, in-process: the releases from the cached Secrets and ConfigMaps, chart repositories from Helm's `repositories.yaml`, install, upgrade, rollback and uninstall, crash-safe through the engine's journal ([architecture §8](architecture.md#8-helm-internalhelm)) |
 | `internal/metrics` | L2 | Metrics providers (the Metrics Server and Prometheus through the API server's service proxy, together), the hub that polls while subscribed, its TTL cache and series ([architecture §9](architecture.md#9-metrics-internalmetrics)) |
+| `internal/alerting` | L2 | The cluster's Alertmanager: found among the cached Services by name or at the address set, its active alerts polled through the API server's service proxy while the engine makes the poller active, bounded and classified by severity ([architecture §9 › Alertmanager](architecture.md#alertmanager-internalalerting-d-77), [D-77](decisions.md#d-77-alertmanager-the-alerts-pill-and-the-alert-board)) |
 | `internal/demo` | L2 | The synthetic demo cluster behind a `cache.Source`, and its synthetic Metrics Server (a `metrics.Provider`: demo and metrics are both L2, so the import is allowed); development builds only: its one importer, `engine/connector_demo.go`, is left out by the release's tag `nodemo` ([D-67](decisions.md#d-67-the-demo-cluster-stays-out-of-releases)) |
 | `internal/engine`, `internal/engine/commands` | L3 | Session, command registry, UI state, snapshots, drawer, streams, confirmation, audit log; the commands one file per area |
 | `internal/mcp` | L4 | MCP server over the registry |

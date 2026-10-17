@@ -43,8 +43,8 @@ linters:
         - name: redefines-builtin-id
     # Layering (docs/developer/architecture.md §3). A package imports only lower layers; only
     # internal/ui/... imports Fyne; model and kubeconfig do no I/O; only cluster, cache, terminal,
-    # helm and metrics talk to the API server (kubectl talks to the release host and sigstore's log only).
-    #   L5 cmd/*  ·  L4 ui/fyneui, mcp, agent, update, app  ·  L3 engine  ·  L2 helm, metrics, demo
+    # helm, metrics and alerting talk to the API server (kubectl talks to the release host and sigstore's log only).
+    #   L5 cmd/*  ·  L4 ui/fyneui, mcp, agent, update, app  ·  L3 engine  ·  L2 helm, metrics, alerting, demo
     #   L1 cluster, cache, terminal, kubectl, locale  ·  L0 model, kubeconfig, buildinfo
     depguard:
       rules:
@@ -267,6 +267,7 @@ linters:
             - "**/internal/demo/**"
             - "**/internal/helm/**"
             - "**/internal/metrics/**"
+            - "**/internal/alerting/**" # Alertmanager through the service proxy (D-77)
           deny:
             - pkg: "github.com/guided-traffic/cogpit/internal/engine"
               desc: "L2 imports only L0 and L1"

@@ -1,0 +1,62 @@
+# Alertmanager in the kind cluster for one check (TestKindAlertmanager, D-77): a single
+# Alertmanager with a configuration that routes everything to a receiver that sends nothing, in the
+# namespace cogpit-alerts. Its Service is named as the alertmanager chart names its own
+# (<release>-alertmanager, port http), so that Cogpit finds it by name; nothing fires alerts into
+# it: the test posts its own through the API server's service proxy and resolves them at its end.
+# Plain manifests, the image pinned; make kind-alertmanager applies them, make
+# kind-alertmanager-down deletes the namespace. Cogpit itself installs nothing (D-61): this is a
+# test setup.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cogpit-alerts
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager
+  namespace: cogpit-alerts
+data:
+  alertmanager.yml: |
+    route:
+      receiver: "null"
+      group_by: [alertname]
+    receivers:
+      - name: "null"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cogpit-alertmanager
+  namespace: cogpit-alerts
+  labels: {app: cogpit-alertmanager}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: cogpit-alertmanager}
+  template:
+    metadata:
+      labels: {app: cogpit-alertmanager}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, fsGroup: 65534}
+      containers:
+        - name: alertmanager
+          image: quay.io/prometheus/alertmanager:v0.28.1
+          args: ["--config.file=/config/alertmanager.yml", "--storage.path=/alertmanager", "--cluster.listen-address="]
+          ports: [{name: http, containerPort: 9093}]
+          readinessProbe: {httpGet: {path: /-/ready, port: http}}
+          resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {memory: 128Mi}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: storage, mountPath: /alertmanager}, {name: config, mountPath: /config}]
+      volumes:
+        - {name: storage, emptyDir: {}}
+        - {name: config, configMap: {name: alertmanager}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cogpit-alertmanager
+  namespace: cogpit-alerts
+spec:
+  selector: {app: cogpit-alertmanager}
+  ports: [{name: http, port: 9093, targetPort: http}]

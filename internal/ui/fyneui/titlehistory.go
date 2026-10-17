@@ -124,4 +124,5 @@ func (h *titleHistory) showMenu(pos fyne.Position) {
 func (t *topBar) stateChanged() {
 	t.history.update()
 	t.notes.stateChanged()
+	t.alerts.update() // the shown cluster's alerts (alerts.go, D-77)
 }

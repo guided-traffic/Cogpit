@@ -17,7 +17,7 @@ of the checklist that holds its evidence. The status is the row's first word the
 | Interface rows, free plan | 120 | 117 | 9 | 108 | 3 |
 | Interface rows, paid plans | 14 | 10 | 0 | 10 | 4 |
 | Platform rows (packages, authentication, versions, tools, display) | 38 | 18 | 0 | 18 | 20 |
-| Beyond Lens (not in feature breadth) | 61 | 58 | 48 | 10 | 3 |
+| Beyond Lens (not in feature breadth) | 63 | 60 | 50 | 10 | 3 |
 
 Not counted: 8 interface rows that are not a target, 5 platform rows that are paid or have nothing to build.
 
@@ -356,5 +356,7 @@ Not counted: 8 interface rows that are not a target, 5 platform rows that are pa
 | Every integration on by default, the default for new clusters the user's to change (the owner, 2026-10-17, I3) | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | A pod's drawer rates each of its images from Trivy Operator's reports, when one has a report: the worst severity found and how many of it,… | done | [Cluster integrations](beyond-lens.md#cluster-integrations) |
 | Every pod in the Pods list shows the worst image rating of its containers; nothing while the integration is off (the owner, 2026-10-17, I6,… | missing | [Cluster integrations](beyond-lens.md#cluster-integrations) |
+| The title bar's alerts pill shows the shown cluster's active alerts while the Alertmanager integration is on: red from a critical alert, or… | done | [Alerts](beyond-lens.md#alerts) |
+| An alert board like karma's, tidier: the alerts grouped by severity and alertname with their counts, each with its summary, its description… | done | [Alerts](beyond-lens.md#alerts) |
 | cogpit-cli contexts lists the contexts Cogpit offers, from the app's kubeconfig sources and with its credential plugin approvals, as a tabl… | done | [Command line](beyond-lens.md#command-line) |
 | cogpit-cli get <kind> [name] reads objects from a headless engine's cache, as the views show them, read-only, Secret values never printed | partial | [Command line](beyond-lens.md#command-line) |

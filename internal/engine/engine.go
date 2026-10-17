@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/guided-traffic/cogpit/internal/alerting"
 	"github.com/guided-traffic/cogpit/internal/model"
 )
 
@@ -164,6 +165,9 @@ type Options struct {
 	// ConnWatch tunes the connection watch (connwatch.go, D-58); the zero value is the owner's
 	// values (a heartbeat every 15 s, reconnect attempts after 1 to 30 s). Tests shorten them.
 	ConnWatch ConnWatchOptions
+	// Alerts tunes the polls of each cluster's Alertmanager (alerts.go, D-77); the zero value is
+	// alerting's defaults (every 30 seconds while the cluster is shown). Tests shorten them.
+	Alerts alerting.Options
 }
 
 // Session is the engine for one desktop app or headless process. It is safe for concurrent use.
@@ -200,6 +204,7 @@ type Session struct {
 
 	drawerEdits drawerEditStore // a Config Map's values edited in the drawer, not saved: drafts_drawer.go
 	users       userBook        // who Cogpit is logged in as, per context: whoami.go
+	alerts      alertBook       // what each cluster's Alertmanager answered last: alerts.go
 }
 
 // New returns a Session with an empty registry. Register commands (package commands) before use.
@@ -492,6 +497,7 @@ func (s *Session) UpdateUI(fn func(*UIState)) UIState {
 	s.ui.SyncDock(old) // a new or activated tab opens the dock, none closes it (layout.go)
 	// Who Cogpit is logged in as (whoami.go).
 	s.ui.syncUser(old, &s.users, s.opts.Now())
+	s.ui.syncAlerts(&s.alerts) // the shown cluster's alerts, the title bar's pill (alerts.go, D-77)
 	s.ui.Revision = old.Revision + 1
 	now := s.ui.Clone()
 	s.mu.Unlock()

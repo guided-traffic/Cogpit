@@ -65,6 +65,7 @@ internal/app                  L4 the wiring both binaries share: Cogpit's direct
 internal/engine               L3 Session, command registry, UI state, jobs, events, confirmation, audit log
 internal/engine/commands      L3 the commands, one file per area
 internal/helm metrics demo    L2 Helm SDK; metrics from the Metrics Server and Prometheus; the synthetic demo cluster (development builds only: releases build with -tags nodemo, D-67)
+internal/alerting             L2 the cluster's Alertmanager: found by name, its active alerts polled while shown (D-77)
 internal/cluster cache        L1 connections and auth; shared informers (the cache)
 internal/terminal             L1 terminal sessions: a local shell on a PTY, pod and node shells, attach
 internal/kubectl              L1 kubectl for terminals: client version, skew, verified download (release host and sigstore's log only)
@@ -77,7 +78,7 @@ internal/testkit              fixtures, a fake API server and clients, a fake LL
 
 **Layering is enforced** by golangci-lint's `depguard` in `make lint`: a package imports only
 lower layers, only `internal/ui/...` imports Fyne, `model` and `kubeconfig` do no I/O, and only
-`cluster`, `cache`, `terminal`, `helm` and `metrics` talk to the API server.
+`cluster`, `cache`, `terminal`, `helm`, `metrics` and `alerting` talk to the API server.
 
 ## 3. Golden rules
 

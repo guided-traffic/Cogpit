@@ -12,6 +12,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation"
 
+	"github.com/guided-traffic/cogpit/internal/alerting"
 	"github.com/guided-traffic/cogpit/internal/metrics"
 )
 
@@ -37,17 +38,21 @@ type MetricsSettings struct {
 	path  string
 	by    map[string]metrics.Override
 	query map[string]metrics.QuerySettings
+	am    map[string]alerting.Address // each context's Alertmanager address (alerts_settings.go, D-77)
 }
 
 type metricsSettingsFile struct {
 	Prometheus map[string]metrics.Override      `json:"prometheus"`
 	Query      map[string]metrics.QuerySettings `json:"query,omitempty"`
+	// Alertmanager is each context's Alertmanager address (D-77, alerts_settings.go).
+	Alertmanager map[string]alerting.Address `json:"alertmanager,omitempty"`
 }
 
 // NewMetricsSettings reads the overrides kept in dir (MetricsSettingsFile). A file that cannot be
 // read is left alone and starts empty; err says why.
 func NewMetricsSettings(dir string) (*MetricsSettings, error) {
-	m := &MetricsSettings{path: filepath.Join(dir, MetricsSettingsFile), by: map[string]metrics.Override{}, query: map[string]metrics.QuerySettings{}}
+	m := &MetricsSettings{path: filepath.Join(dir, MetricsSettingsFile), by: map[string]metrics.Override{}, query: map[string]metrics.QuerySettings{},
+		am: map[string]alerting.Address{}}
 	var f metricsSettingsFile
 	if err := readPrivateJSON(m.path, maxMetricsSettingsSize, &f); err != nil {
 		return m, err
@@ -55,6 +60,11 @@ func NewMetricsSettings(dir string) (*MetricsSettings, error) {
 	for ctx, o := range f.Prometheus {
 		if CheckPrometheusOverride(o) == nil {
 			m.by[ctx] = o
+		}
+	}
+	for ctx, a := range f.Alertmanager {
+		if CheckAlertmanagerAddress(a) == nil {
+			m.am[ctx] = a
 		}
 	}
 	for ctx, q := range f.Query {
@@ -117,7 +127,7 @@ func (m *MetricsSettings) Set(context string, o *metrics.Override, q metrics.Que
 	} else {
 		nextQ[context] = q
 	}
-	data, err := json.MarshalIndent(metricsSettingsFile{Prometheus: next, Query: nextQ}, "", "  ")
+	data, err := json.MarshalIndent(metricsSettingsFile{Prometheus: next, Query: nextQ, Alertmanager: m.am}, "", "  ")
 	if err != nil {
 		return err
 	}

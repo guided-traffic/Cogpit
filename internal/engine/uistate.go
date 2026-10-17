@@ -139,6 +139,15 @@ type UIState struct {
 	// Notifications sums up the notification log, the toasts the user was shown (notifications.go):
 	// how many, how many unread, the most severe unread level; notifications.list reads them.
 	Notifications NotificationSummary `json:"notifications,omitzero"`
+	// Alerts is what the shown cluster's Alertmanager answered, the title bar's pill (alerts.go,
+	// D-77): its state and the active alerts counted by severity; nil while the Alertmanager
+	// integration is off for the shown cluster, while none is shown and live, and for the demo
+	// cluster. The engine derives it after every change; alerts.list and alerts.board read the
+	// alerts themselves.
+	Alerts *AlertsSummary `json:"alerts,omitempty"`
+	// AlertBoard is the alert board's folding (alerts.fold): the severity groups and alert cards
+	// folded, the alerts whose description is unfolded.
+	AlertBoard AlertBoardState `json:"alertBoard,omitzero"`
 	// Tabs are the tab bar's tabs in their order, each a view of one cluster with its own state
 	// (tabs.go); ActiveTab is the shown one's id, empty when none is shown. View, Namespaces,
 	// Groups, Filter, FilterOptions, States, Sort, Selected and Drawer above are the active tab's.
@@ -376,6 +385,11 @@ func (u UIState) Clone() UIState {
 	}
 	out.ClusterSettings = maps.Clone(u.ClusterSettings)
 	out.User = u.User.clone()
+	if u.Alerts != nil {
+		a := *u.Alerts
+		out.Alerts = &a
+	}
+	out.AlertBoard = u.AlertBoard.clone()
 	if u.Settings != nil {
 		p := *u.Settings
 		out.Settings = &p

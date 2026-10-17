@@ -90,6 +90,8 @@ type Backend struct {
 	scrub secretScrub
 	// trivy reads Trivy Operator's reports while the Trivy integration is on (trivy.go, D-78).
 	trivy trivyReads
+	// alerts polls the cluster's Alertmanager while the integration is on (alerts.go, D-77).
+	alerts alertSource
 }
 
 // Actions are the cluster writes of the MVP's action commands. *cluster.Conn implements them.
@@ -130,6 +132,8 @@ func (b *Backend) close(log *slog.Logger) {
 	}
 	b.forwards.stopAll()
 	b.trivy.stop() // its handle on the reports (trivy.go)
+	// The Alertmanager's polls (alerts.go), before the connection closes.
+	b.alerts.stop()
 	b.apps.close() // before the cluster's cache: it releases its handles on the workloads
 	b.local.close()
 	if b.Metrics != nil {

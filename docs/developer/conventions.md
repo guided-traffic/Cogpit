@@ -44,7 +44,7 @@ documentation.
 ## Cache first
 
 - Views, commands and MCP tools read from the cache ([architecture §5](architecture.md#5-cache)).
-  Only `cluster`, `cache`, `terminal`, `helm` and `metrics` talk to the API server.
+  Only `cluster`, `cache`, `terminal`, `helm`, `metrics` and `alerting` talk to the API server.
 - Acquire a cache handle for what you show, release it when you stop showing it. Never start your
   own informer or watch.
 - Never poll a resource that can be watched. Polled data (metrics, chart indexes) is polled only
