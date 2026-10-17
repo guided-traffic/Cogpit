@@ -27,9 +27,11 @@ func TestConnectLifecycle(t *testing.T) {
 	if u.Context != "test" || u.Connection.State != Connected || u.View != "pods" || u.Sort != DefaultSort {
 		t.Fatalf("after connect: %+v", u)
 	}
+	// The states the connection went through, in order: other UI state events while connected (the
+	// integrations of a new connection, the Alertmanager's first answer among them) repeat a state.
 	var states []ConnectionState
 	for _, ev := range rec.all() {
-		if ev.Type == EventUIState {
+		if ev.Type == EventUIState && (len(states) == 0 || states[len(states)-1] != ev.UIState.Connection.State) {
 			states = append(states, ev.UIState.Connection.State)
 		}
 	}
